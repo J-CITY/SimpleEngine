@@ -116,5 +116,8 @@
     <ClInclude Include="engine\core.h">
       <Filter>Исходные файлы\engine</Filter>
     </ClInclude>
+    <ClInclude Include="engine\window.h">
+      <Filter>Исходные файлы\engine</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

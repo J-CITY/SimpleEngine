@@ -193,6 +193,7 @@
     <ClInclude Include="engine\scene.h" />
     <ClInclude Include="engine\shader.h" />
     <ClInclude Include="engine\stream.h" />
+    <ClInclude Include="engine\window.h" />
     <ClInclude Include="math.h" />
     <ClInclude Include="SomeLogger.h" />
   </ItemGroup>

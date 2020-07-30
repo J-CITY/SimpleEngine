@@ -70,3 +70,7 @@ CGCourse/CGCourse/Debug/CGCourse.tlog/link.read.1.tlog
 CGCourse/CGCourse/Debug/CGCourse.obj
 CGCourse/CGCourse/Debug/CGCourse.tlog/CGCourse.lastbuildstate
 CGCourse/CGCourse/Debug/CGCourse.log
+CGCourse/CGCourse/CGCourse.vcxproj
+*.ipch
+CGCourse/CGCourse/CGCourse.vcxproj
+CGCourse/CGCourse/CGCourse.vcxproj.filters
