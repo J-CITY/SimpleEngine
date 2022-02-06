@@ -1,0 +1,6 @@
+C:/Projects/SimpleEngine/CGCourse/CGCourse/3rd/Assimp/samples/SimpleOpenGL/out/build/x64-Debug/CMakeFiles/assimp_simpleogl.dir
+C:/Projects/SimpleEngine/CGCourse/CGCourse/3rd/Assimp/samples/SimpleOpenGL/out/build/x64-Debug/CMakeFiles/install/local.dir
+C:/Projects/SimpleEngine/CGCourse/CGCourse/3rd/Assimp/samples/SimpleOpenGL/out/build/x64-Debug/CMakeFiles/install.dir
+C:/Projects/SimpleEngine/CGCourse/CGCourse/3rd/Assimp/samples/SimpleOpenGL/out/build/x64-Debug/CMakeFiles/edit_cache.dir
+C:/Projects/SimpleEngine/CGCourse/CGCourse/3rd/Assimp/samples/SimpleOpenGL/out/build/x64-Debug/CMakeFiles/rebuild_cache.dir
+C:/Projects/SimpleEngine/CGCourse/CGCourse/3rd/Assimp/samples/SimpleOpenGL/out/build/x64-Debug/CMakeFiles/list_install_components.dir
