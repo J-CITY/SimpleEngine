@@ -1,511 +1,1019 @@
-﻿#include <iostream>
-
-//glew
-//#define GLEW_STATIC
-#include <GL/glew.h>
-
-//sfml
-#include <SFML/Window.hpp>
-#include <SFML/Graphics.hpp>
-#include <SFML/System.hpp>
-
-#include "math.h"
+﻿
+#include "CameraRT.h"
+//#include "DiffuseLightRT.h"
+#include "ObjectRT.h"
+#include "RenderRT.h"
+#include "engine/ecs/components/ambientSphereLight.h"
+#include "engine/ecs/components/directionalLight.h"
+#include "engine/ecs/components/directionalLight.h"
+#include "engine/ecs/components/cameraComponent.h"
+#include "engine/core/app.h"
+#include "engine/ecs/components/inputComponent.h"
+#include "engine/ecs/components/pointLight.h"
+#include "engine/resourceManager/resource/bone.h"
+#include "game/World.h"
 using namespace std;
-
-
-#include <stdio.h>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <algorithm>
-#include <sstream>
-
-//imgui
-#include "3rd/imgui/imgui.h"
-#include "3rd/imgui/imgui-SFML.h"
-
-GLuint LoadShaders(const char* vertex_file_path, const char* fragment_file_path) {
-
-	// Create the shaders
-	GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-	GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-
-	// Read the Vertex Shader code from the file
-	std::string VertexShaderCode;
-	std::ifstream VertexShaderStream(vertex_file_path, std::ios::in);
-	if (VertexShaderStream.is_open()) {
-		std::stringstream sstr;
-		sstr << VertexShaderStream.rdbuf();
-		VertexShaderCode = sstr.str();
-		VertexShaderStream.close();
-	}
-	else {
-		printf("Impossible to open %s. Are you in the right directory ? Don't forget to read the FAQ !\n", vertex_file_path);
-		getchar();
-		return 0;
-	}
-
-	// Read the Fragment Shader code from the file
-	std::string FragmentShaderCode;
-	std::ifstream FragmentShaderStream(fragment_file_path, std::ios::in);
-	if (FragmentShaderStream.is_open()) {
-		std::stringstream sstr;
-		sstr << FragmentShaderStream.rdbuf();
-		FragmentShaderCode = sstr.str();
-		FragmentShaderStream.close();
-	}
-
-	GLint Result = GL_FALSE;
-	int InfoLogLength;
-
-
-	// Compile Vertex Shader
-	printf("Compiling shader : %s\n", vertex_file_path);
-	char const* VertexSourcePointer = VertexShaderCode.c_str();
-	glShaderSource(VertexShaderID, 1, &VertexSourcePointer, NULL);
-	glCompileShader(VertexShaderID);
-
-	// Check Vertex Shader
-	glGetShaderiv(VertexShaderID, GL_COMPILE_STATUS, &Result);
-	glGetShaderiv(VertexShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
-	if (InfoLogLength > 0) {
-		std::vector<char> VertexShaderErrorMessage(InfoLogLength + 1);
-		glGetShaderInfoLog(VertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
-		printf("%s\n", &VertexShaderErrorMessage[0]);
-	}
-
-
-
-	// Compile Fragment Shader
-	printf("Compiling shader : %s\n", fragment_file_path);
-	char const* FragmentSourcePointer = FragmentShaderCode.c_str();
-	glShaderSource(FragmentShaderID, 1, &FragmentSourcePointer, NULL);
-	glCompileShader(FragmentShaderID);
-
-	// Check Fragment Shader
-	glGetShaderiv(FragmentShaderID, GL_COMPILE_STATUS, &Result);
-	glGetShaderiv(FragmentShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
-	if (InfoLogLength > 0) {
-		std::vector<char> FragmentShaderErrorMessage(InfoLogLength + 1);
-		glGetShaderInfoLog(FragmentShaderID, InfoLogLength, NULL, &FragmentShaderErrorMessage[0]);
-		printf("%s\n", &FragmentShaderErrorMessage[0]);
-	}
-
-
-
-	// Link the program
-	printf("Linking program\n");
-	GLuint ProgramID = glCreateProgram();
-	glAttachShader(ProgramID, VertexShaderID);
-	glAttachShader(ProgramID, FragmentShaderID);
-	glLinkProgram(ProgramID);
-
-	// Check the program
-	glGetProgramiv(ProgramID, GL_LINK_STATUS, &Result);
-	glGetProgramiv(ProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
-	if (InfoLogLength > 0) {
-		std::vector<char> ProgramErrorMessage(InfoLogLength + 1);
-		glGetProgramInfoLog(ProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
-		printf("%s\n", &ProgramErrorMessage[0]);
-	}
-
-
-	glDetachShader(ProgramID, VertexShaderID);
-	glDetachShader(ProgramID, FragmentShaderID);
-
-	glDeleteShader(VertexShaderID);
-	glDeleteShader(FragmentShaderID);
-
-	return ProgramID;
+extern "C" {
+	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 }
+Game::World* world = nullptr;
 
-/*
-int main() {
-	sf::ContextSettings settings;
-	settings.depthBits = 24;
-	settings.stencilBits = 8;
-	settings.majorVersion = 4;
-	settings.minorVersion = 3;
-	settings.attributeFlags = sf::ContextSettings::Core;
+std::shared_ptr<KUMA::RESOURCES::Animation> danceAnimation;
+std::shared_ptr<KUMA::RESOURCES::Animator> animator;
 
-	sf::RenderWindow window(sf::VideoMode(800, 600, 32), "First Window", sf::Style::Titlebar|sf::Style::Close);
-	//window.setFramerateLimit(60);
-	window.setActive();
+namespace Game {
+	Game::ChunkDataTypePtr _GetChunkDataForMeshing(int cx, int cz) {
+		if (world && world->ChunkExistsInMap(cx, cz)) {
+			Game::Chunk* chunk = world->RetrieveChunkFromMap(cx, cz);
+			return &chunk->p_ChunkContents;
+		}
 
-
-	glewExperimental = GL_TRUE;
-	if (GLEW_OK != glewInit()) {
-		cout << "Error:: glew not init =(" << endl;
-		return -1;
+		return nullptr;
 	}
 
-	ImGui::SFML::Init(window);
-	//window.resetGLStates();
-	//window.pushGLStates();
+	Game::ChunkLightDataTypePtr _GetChunkLightDataForMeshing(int cx, int cz) {
+		if (world && world->ChunkExistsInMap(cx, cz)) {
+			Game::Chunk* chunk = world->RetrieveChunkFromMap(cx, cz);
+			return &chunk->p_ChunkLightInformation;
+		}
 
-	
-	
-	GLuint VertexArrayID;
-	glGenVertexArrays(1, &VertexArrayID);
-	//glBindVertexArray(VertexArrayID);
+		return nullptr;
+	}
 
-	GLuint programID = LoadShaders("shader.vs", "shader.fs");
-	
-	static const GLfloat g_vertex_buffer_data[] = {
-		-1.0f, -1.0f, 0.0f,
-		 1.0f, -1.0f, 0.0f,
-		 0.0f,  1.0f, 0.0f,
-	};
-	
-	GLuint vertexbuffer;
-	glGenBuffers(1, &vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
-	
+	Game::Block* GetWorldBlock(const KUMA::MATHGL::Vector3& block_pos) {
+		std::pair<Game::Block*, Game::Chunk*> block = world->GetBlockFromPosition(block_pos);
+		return block.first;
+	}
+}
+int main() {
+	KUMA::CORE_SYSTEM::App app;
 
-	sf::Color bgColor;
-	float color[3] = { 0.f, 0.f, 0.f };
-	sf::Clock deltaClock;
-	//bool show_test_window = true;
-	bool show_another_window = true;
-	ImVec4 clear_color = ImColor(114, 144, 154);
+	auto scene = app.getCore().sceneManager.getCurrentScene();
+	
+	{
+		auto rpos = []() {
+			auto LO = -100.0f;
+			auto HI = 100.0f;
+			return  LO + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (HI - LO)));
+		};
+		auto rc = []() {
+			auto LO = 0.3f;
+			auto HI = 1.0f;
+			return  255.0f * (LO + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (HI - LO))));
+		};
+		for (int i = 0; i < 1; i++) {
+			auto& obj = scene->createObject("PointLight");
+			auto light = obj.addComponent<KUMA::ECS::PointLight>();
+			light->setIntensity(0.90f);
+			light->setQuadratic(0.90f);
+			light->setColor({255.0f, 200.0f, 255.0f});
+			light->Radius = 25.0f;
+			//obj.transform->setLocalPosition({rpos(), rpos(), rpos()});
+			obj.transform->setLocalPosition({0, 5, 0});
+			obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+			obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+		}
+	}
 
-	bool isGo = true;
-	while (isGo) {
-		sf::Event windowEvent;
-		while (window.pollEvent(windowEvent)) {
-			ImGui::SFML::ProcessEvent(windowEvent);
-			switch (windowEvent.type)
+	{
+
+		
+		for (auto i = 0; i < 1; i++) {
+			auto& obj = scene->createObject("DirLight");
+			auto light = obj.addComponent<KUMA::ECS::DirectionalLight>();
+			//light->shadowRes = 2048;
+			light->orthoBoxSize = 100;
+			//light->zNear = 1.0f;
+			//light->zFar = 700.0f;
+			//light->strength = 1.0f;
+			light->distance = 100;
+
+			light->setIntensity(0.95f);
+			light->setColor({1.0f, 1.0f, 1.0f});
+			obj.transform->setLocalPosition({-20.0f, 40.0f, 10.0f});
+			obj.transform->setLocalRotation({0.81379771, -0.17101006, 0.29619816, 0.46984628});
+			obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+
+			obj.addScript("ControllerDirLight");
+		}
+	}
+
+	{
+		auto& obj = scene->createObject("Point2Light");
+		auto light = obj.addComponent<KUMA::ECS::PointLight>();
+		//light->shadowRes = 2048;
+		//light->zNear = 1.0f;
+		//light->zFar = 2000.0f;
+		//light->strength = 1.0f;
+		//light->aspect = 1.0f;
+
+		light->setIntensity(1.0f);
+		light->setQuadratic(1.0f);
+		light->setLinear(1.0f);
+		light->setColor({1.0f, 1.0f, 1.0f});
+		obj.transform->setLocalPosition({0.0f, 14.0f, -45.0f});
+		obj.transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
+		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+	}
+	{
+		auto& obj = scene->createObject("AmbLight");
+
+		nlohmann::json j;
+		obj.transform->onSerialize(j);
+		obj.transform->onDeserialize(j);
+		auto s = j.dump(2);
+		
+		auto light = obj.addComponent<KUMA::ECS::AmbientSphereLight>();
+		light->setIntensity(1.0f);
+		light->setColor({1.0f, 0.7f, 0.8f});
+		light->setRadius(1.0f);
+		obj.transform->setLocalPosition({0.0f, 0.0f, 0.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+	}
+	{
+		auto& obj = scene->createObject("Camera");
+		auto cam = obj.addComponent<KUMA::ECS::CameraComponent>();
+		cam->setFov(45.0f);
+		cam->setSize(5.0f);
+		cam->setNear(0.1f);
+		cam->setFar(1000.0f);
+		cam->setFrustumGeometryCulling(false);
+		cam->setFrustumLightCulling(false);
+		cam->setProjectionMode(KUMA::RENDER::Camera::ProjectionMode::PERSPECTIVE);
+		obj.transform->setLocalPosition({0.f, 140.0f, 0.0f});
+		obj.transform->setLocalRotation({0.0f, 0.98480773f, -0.17364819f, 0.0f});
+		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+
+		obj.addScript("Controller");
+
+		/*auto inp = obj.addComponent<KUMA::ECS::InputComponent>([&app](float dt) {
+			auto& core = app.getCore();
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_S)) {
+				auto pos = core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->getLocalPosition();
+				pos.z += 1.0f;
+				core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->setLocalPosition(pos);
+			}
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_W)) {
+				auto pos = core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->getLocalPosition();
+				pos.z -= 1.0f;
+				core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->setLocalPosition(pos);
+			}
+
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_A)) {
+				auto pos = core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->getLocalPosition();
+				pos.x -= 1.0f;
+				core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->setLocalPosition(pos);
+			}
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_D)) {
+				auto pos = core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->getLocalPosition();
+				pos.x += 1.0f;
+				core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->setLocalPosition(pos);
+			}
+
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_Q)) {
+				auto pos = core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->getLocalPosition();
+				pos.y -= 1.0f;
+				core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->setLocalPosition(pos);
+			}
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_E)) {
+				auto pos = core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->getLocalPosition();
+				pos.y += 1.0f;
+				core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->setLocalPosition(pos);
+			}
+
+				static bool isFirst = true;
+			static std::pair<int, int> prev;
+
+			auto mpos = core.inputManager->getMousePosition();
+			if (isFirst) {
+				prev = mpos;
+				isFirst = false;
+			}
+			static KUMA::MATHGL::Vector2 offset(0.0f, 0.0f);
+			static KUMA::MATHGL::Vector2 look(0.0f, 0.0f);
+
+			offset.x = mpos.first - prev.first;
+			offset.y = mpos.second - prev.second;
+
+			prev = mpos;
+
+			offset = offset * 0.5f;
+
+			look = look + offset;
+
+			if (look.y > 89.0f) look.y = 89;
+			if (look.y < -89.0f) look.y = -89;
+
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_Z)) {
+				core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->setLocalRotation(
+					KUMA::MATHGL::Quaternion(KUMA::MATHGL::Vector3(look.y, -look.x, 0)));
+			}
+			auto pos = core.sceneManager.getCurrentScene()->findActorByName("Camera")->transform->getLocalPosition();
+
+		});*/
+		
+		world = new Game::World(42, KUMA::MATHGL::Vector2(800, 600), "test", Game::Generation_Normal, &obj);
+		app.renderer.world = world;
+	}
+	/*{
+		auto& obj = scene->createObject("A");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+
+		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INSTANCES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::JOIN_IDENTICAL_VERTICES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::DEBONE;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INVALID_DATA;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::IMPROVE_CACHE_LOCALITY;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::PRE_TRANSFORM_VERTICES;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\guard\\boblampclean.md5mesh", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\stone\\Stonefbx.fbx", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\astroBoy_walk_Maya.dae", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Drone.fbx", flags);
+
+		danceAnimation = std::make_shared<KUMA::RESOURCES::Animation>("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", m.get());
+		animator = std::make_shared<KUMA::RESOURCES::Animator>(danceAnimation.get());
+		KUMA::RENDER::BaseRender::animator = animator;
+		obj.addComponent<KUMA::ECS::InputComponent>([](float dt) {
+			if (animator)
+			animator->UpdateAnimation(dt);
+		});
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({0.0f, 0.0f, 0.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+		
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+		
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\Vampire_diffuse.png");
+		data["u_DiffuseMap"] = tex1;
+		
+		data["u_EnableNormalMapping"] = 1;
+		data["u_HeightScale"] = 0;
+		
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\Vampire_normal.png");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		mat->fillWithMaterial(_m);
+		
+		
+	}*/
+
+	/*{
+		for (int i = 0; i < 0; i++) {
+			auto& obj = scene->createObject("AA"+std::to_string(i));
+
+			auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+			KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+			flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+			flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+
+			//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INSTANCES;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::JOIN_IDENTICAL_VERTICES;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::DEBONE;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INVALID_DATA;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::IMPROVE_CACHE_LOCALITY;
+			flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::PRE_TRANSFORM_VERTICES;
+
+			//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\guard\\boblampclean.md5mesh", flags);
+			//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", flags);
+			//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\Models\\Cube.fbx", flags);
+			auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+			//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\stone\\Stonefbx.fbx", flags);
+			//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\astroBoy_walk_Maya.dae", flags);
+			//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Drone.fbx", flags);
+
+			//danceAnimation = std::make_shared<KUMA::RESOURCES::Animation>("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", m.get());
+			//animator = std::make_shared<KUMA::RESOURCES::Animator>(danceAnimation.get());
+			//KUMA::RENDER::BaseRender::animator = animator;
+			//obj.addComponent<KUMA::ECS::InputComponent>([](float dt) {
+			//	if (animator)
+			//		animator->UpdateAnimation(dt);
+			//});
+			model->setModel(m);
+			model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+			auto bs = KUMA::RENDER::BoundingSphere();
+			bs.position = {0.0f, 0.0f, 0.0f};
+			bs.radius = 1.0f;
+			model->setCustomBoundingSphere(bs);
+
+			auto rpos = []() {
+				auto LO = -100.0f;
+				auto HI = 100.0f;
+				return  LO + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (HI - LO)));
+			};
+			
+			obj.transform->setLocalPosition({rpos(), rpos(), rpos()});
+			obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+			//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+			obj.transform->setLocalScale({0.020f, 0.020f, 0.020f});
+
+			//auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+			auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+			auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+			//_m->setShader(s);
+			_m->setBlendable(false);
+			_m->setBackfaceCulling(true);
+			_m->setFrontfaceCulling(false);
+			_m->setDepthTest(true);
+			_m->setDepthWriting(true);
+			_m->setColorWriting(true);
+			_m->setGPUInstances(1);
+			auto& data = _m->getUniformsData();
+			//data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+			//auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\cottage_diffuse.png");
+			//data["u_DiffuseMap"] = tex1;
+			//data["u_EnableNormalMapping"] = 1;
+			//data["u_HeightScale"] = 0;
+			//auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\cottage_normal.png");
+			//data["u_NormalMap"] = tex2;
+			//data["u_Shininess"] = 100;
+			//data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+			//data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+			//data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+			//mat->fillWithMaterial(_m);
+
+			auto tex1 =  KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+			//uint8_t buffer [] = {0, 200, 0};
+			//tex1->Load(buffer, 1, 1, 3, false, KUMA::RESOURCES::TextureFormat::RGB);
+			data["AlbedoMap"] = tex1;
+			//_m->albedoMap = tex1;
+			
+			auto texM = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_metalic.png");
+			data["MetallicMap"] = texM;
+
+			auto texE = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_metalic.png");
+			data["EmissiveMap"] = texE;
+			auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_ao.jpg");
+			data["AmbientOcclusionMap"] = tex2;
+			data["BaseColor"] = KUMA::MATHGL::Vector3(1.0f, 1.0f, 1.0f);
+			data["Displacement"] = 0.025f;
+			data["Emission"] = 0.0f;
+			auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_height.jpg");
+			data["HeightMap"] = tex3;
+			//data["Height_map"] = 20;
+			data["id"] = 1;
+			data["MetallicFactor"] = 0.0f;
+			data["UVMultipliers"] = KUMA::MATHGL::Vector2(1.0f, 1.0f);
+			//data["metallic_map"] : 18446744073709551615,
+			data["Name"] = "DefaultMaterial";
+			auto texN = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+			data["NormalMap"] = texN;
+			data["RoughnessRactor"] = 0.75f;
+			auto tex4 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_roughness.jpg");
+			data["RoughnessMap"] = tex4;
+			data["Transparency"] = 1.0f;
+			data["RoughnessFactor"] = 0.75f;
+			mat->fillWithMaterial(_m);
+		}
+
+		for (int i = 0; i < 2; i++) {
+			auto& obj = scene->createObject("AA" + std::to_string(i));
+
+			auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+			KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+			//flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+			auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+
+			model->setModel(m);
+			model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+			auto bs = KUMA::RENDER::BoundingSphere();
+			bs.position = {0.0f, 0.0f, 0.0f};
+			bs.radius = 1.0f;
+			model->setCustomBoundingSphere(bs);
+
+			auto rpos = []() {
+				auto LO = -100.0f;
+				auto HI = 100.0f;
+				return  LO + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (HI - LO)));
+			};
+
+			if (i == 0) {
+				obj.transform->setLocalPosition({0.0f, 0.0f, 0.0f});
+				obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+				obj.transform->setLocalScale({100.70f, 0.01f, 100.70f});
+			}
+			else
 			{
-			case sf::Event::Closed:
-				isGo = false;
-				break;
-			default:
-				break;
+				obj.transform->setLocalPosition({0.0f, 5.0f, 0.0f});
+				obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+				obj.transform->setLocalScale({10.0f, 10.0f, 10.0f});
 			}
+			auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+			auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+			_m->setBlendable(false);
+			_m->setBackfaceCulling(true);
+			_m->setFrontfaceCulling(false);
+			_m->setDepthTest(true);
+			_m->setDepthWriting(true);
+			_m->setColorWriting(true);
+			_m->setGPUInstances(1);
+			auto& data = _m->getUniformsData();
+			
+			auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+			data["AlbedoMap"] = tex1;
+			
+			auto texM = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_metalic.png");
+			data["MetallicMap"] = texM;
+
+			auto texE = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_metalic.png");
+			data["EmissiveMap"] = texE;
+			auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_ao.jpg");
+			data["AmbientOcclusionMap"] = tex2;
+			data["BaseColor"] = KUMA::MATHGL::Vector3(1.0f, 1.0f, 1.0f);
+			data["Displacement"] = 0.025f;
+			data["Emission"] = 0.0f;
+			auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_height.jpg");
+			data["HeightMap"] = tex3;
+			//data["Height_map"] = 20;
+			data["id"] = 1;
+			data["MetallicFactor"] = 0.0f;
+			data["UVMultipliers"] = KUMA::MATHGL::Vector2(1.0f, 1.0f);
+			//data["metallic_map"] : 18446744073709551615,
+			data["Name"] = "DefaultMaterial";
+			auto texN = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+			data["NormalMap"] = texN;
+			data["RoughnessRactor"] = 0.75f;
+			auto tex4 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_roughness.jpg");
+			data["RoughnessMap"] = tex4;
+			data["Transparency"] = 1.0f;
+			data["RoughnessFactor"] = 0.75f;
+			mat->fillWithMaterial(_m);
 		}
-		
+	}*/
+	{
+		auto& obj = scene->createObject("AAA");
 
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
 
-		ImGui::SFML::Update(window, deltaClock.restart());
+		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INSTANCES;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::JOIN_IDENTICAL_VERTICES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::DEBONE;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INVALID_DATA;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::IMPROVE_CACHE_LOCALITY;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::PRE_TRANSFORM_VERTICES;
 
-		ImGui::Begin("Sample window"); // создаём окно
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\guard\\boblampclean.md5mesh", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\stone\\Stonefbx.fbx", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\astroBoy_walk_Maya.dae", flags);
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Drone.fbx", flags);
 
-		// Инструмент выбора цвета
-		if (ImGui::ColorEdit3("Background color", color)) {
-			// код вызывается при изменении значения, поэтому всё
-			// обновляется автоматически
-			bgColor.r = static_cast<sf::Uint8>(color[0] * 255.f);
-			bgColor.g = static_cast<sf::Uint8>(color[1] * 255.f);
-			bgColor.b = static_cast<sf::Uint8>(color[2] * 255.f);
-		}
+		danceAnimation = std::make_shared<KUMA::RESOURCES::Animation>("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", m.get());
+		animator = std::make_shared<KUMA::RESOURCES::Animator>(danceAnimation.get());
+		KUMA::RENDER::BaseRender::animator = animator;
+		obj.addComponent<KUMA::ECS::InputComponent>([](float dt) {
+			if (animator)
+				animator->UpdateAnimation(dt);
+		});
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({0.0f, 0.0f, -40.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({10.20f, 10.20f, 10.20f});
 
-		char s[100] = "ImGui + SFML = <3";
-		ImGui::InputText("Window title", s, 255);
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
 
-		if (ImGui::Button("Update window title")) {
-			// этот код выполняется, когда юзер жмёт на кнопку
-			// здесь можно было бы написать 
-			// if(ImGui::InputText(...))
-			window.setTitle("!!!!!!");
-		}
-		ImGui::End(); // end window
-		
-		//..............................................
-		//window.clear();
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
 
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		
-		//ImGui::SFML::Render(window);
-		//window.pushGLStates();
-		
-		// Use our shader
-		glUseProgram(programID);
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
 
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\Vampire_diffuse.png");
+		data["u_DiffuseMap"] = tex1;
 
-		glBindVertexArray(VertexArrayID);
+		data["u_EnableNormalMapping"] = true;
+		data["u_HeightScale"] = 0.0f;
 
-		// 1rst attribute buffer : vertices
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-		glVertexAttribPointer(
-			0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-			3,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			0,                  // stride
-			(void*)0            // array buffer offset
-		);
-
-
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\Vampire_normal.png");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = true;
+		mat->fillWithMaterial(_m);
+	}
 	
-		// Draw the triangle !
-		glDrawArrays(GL_TRIANGLES, 0, 3); // 3 indices starting at 0 -> 1 triangle
-		glBindVertexArray(0);
 
-		glDisableVertexAttribArray(0);
+	{
+		auto& obj = scene->createObject("Plane");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({0.0f, -5.0f, 10.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({300.0f, 1.0f, 300.0f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = true;
+		data["u_HeightScale"] = 0.0f;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
+
+	{
+		auto& obj = scene->createObject("Box1");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({0.0f, 15.0f, 0.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({10.5f, 10.5f, 10.5f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = true;
+		data["u_HeightScale"] = 0.0f;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
+
+	{
+		auto& obj = scene->createObject("Box2");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({20.0f, 0.0f, 10.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({10.5f, 10.5f, 10.5f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = true;
+		data["u_HeightScale"] = 0.0f;
+
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
+	{
+		auto& obj = scene->createObject("Box3");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({-10.0f, 0.0f, 20.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({5.25f, 5.25f, 5.25f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = true;
+		data["u_HeightScale"] = 0.0f;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
+
+
+	{
+		auto& obj = scene->createObject("Center");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({0.0f, 0.0f, 0.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({1.25f, 1.25f, 1.25f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = 1;
+		data["u_HeightScale"] = 0;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
+	/*{
+		auto& obj = scene->createObject("Start");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({-20.0f, 40.0f, 10.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({1.25f, 1.25f, 1.25f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = 1;
+		data["u_HeightScale"] = 0;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = false;
+		mat->fillWithMaterial(_m);
+	}*/
+	
+	{
+		auto& obj = scene->createObject("Smoke");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INSTANCES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::LIMIT_BONE_WEIGHTS;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::JOIN_IDENTICAL_VERTICES;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::DEBONE;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INVALID_DATA;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::IMPROVE_CACHE_LOCALITY;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		//flags |= KUMA::RESOURCES::ModelParserFlags::PRE_TRANSFORM_VERTICES;
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Sphere.fbx", flags);
 		
-		glUseProgram(0);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({-128.0f, 30.0f, 0.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj.transform->setLocalScale({1.01f, 1.01f, 1.01f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Smoke.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(true);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(false);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(100);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{0.7f, 0.7f, 0.7f, 0.5f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\smoke-17.png");
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_CosinAmplitude"] = KUMA::MATHGL::Vector3{0.5f, 1.0f, 0.9f};
+		data["u_CosinFrequency"] = KUMA::MATHGL::Vector3{3.5f, 1.0f, 0.5f};
+
+		data["u_MaxHeight"] = 10;
+		data["u_Spacing"] = KUMA::MATHGL::Vector3{0.3f, 0.0f, 0.5f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{1.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_Velocity"] = KUMA::MATHGL::Vector3{0.0f, 0.5f, 0.0f};
+		data["useBone"] = false;
+		data["castShadow"] = false;
+
+
+		mat->fillWithMaterial(_m);
+	}
+
+	{
+		auto& obj = scene->createObject("Water");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Sphere.fbx", flags);
+
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({-100.0f, 1.0f, 10.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj.transform->setLocalScale({30.0f, 30.0f, 30.0f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\shaders\\Fluid.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(true);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Amplitude"] = 0.1f;
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{0.1f, 0.6f, 1.0f, 0.9f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("Water_001_COLOR.jpg");
+		data["u_DiffuseMap"] = tex1;
+		//auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("Water_001_SPEC.jpg");
+		//data["u_SpecularMap"] = tex3;
+		//auto tex4 = KUMA::RESOURCES::TextureLoader().createResource("Water_001_DISP.png");
+		//data["u_HeightMap"] = tex4;
+		data["u_Disparity"] = 30;
+		data["u_EnableNormalMapping"] = true;
+		data["u_Frequency"] = 20.0f;
+		data["u_HeightScale"] = 0.0f;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\Water_001_NORM.jpg");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{3.0f, 3.0f};
 		
-
-		window.pushGLStates();
-		ImGui::SFML::Render(window);
-		window.popGLStates();
+		data["useBone"] = false;
+		data["castShadow"] = false;
 
 
-		window.display();
+		mat->fillWithMaterial(_m);
 	}
 
-	glDeleteBuffers(1, &vertexbuffer);
-	glDeleteVertexArrays(1, &VertexArrayID);
-	glDeleteProgram(programID);
-
-	ImGui::SFML::Shutdown();
-
-	window.close();
-	return 0;
-}
-*/
-
-
-int main() {
-	sf::ContextSettings settings;
-	settings.depthBits = 24;
-	settings.stencilBits = 8;
-	settings.majorVersion = 4;
-	settings.minorVersion = 3;
-	settings.attributeFlags = sf::ContextSettings::Core;
-
-	sf::RenderWindow window(sf::VideoMode(800, 600, 32), "First Window", sf::Style::Titlebar | sf::Style::Close);
-	//window.setFramerateLimit(60);
-	window.setActive();
-
-
-	glewExperimental = GL_TRUE;
-	if (GLEW_OK != glewInit()) {
-		cout << "Error:: glew not init =(" << endl;
-		return -1;
-	}
-
-	ImGui::SFML::Init(window);
-	//window.resetGLStates();
-	//window.pushGLStates();
-
-
-
-	GLuint VertexArrayID;
-	glGenVertexArrays(1, &VertexArrayID);
-	//glBindVertexArray(VertexArrayID);
-
-	GLuint programID = LoadShaders("shader.vs", "shader.fs");
-
-
-
-	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
-
-	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-	auto Projection = Mathgl::perspective(Mathgl::radians(45.0f), 4.0f / 3.0f, 0.1f, 100.0f);
-	// Camera matrix
-	auto View = Mathgl::lookAt(
-		Mathgl::Matrix<float>::Vec3(4, 3, -3), // Camera is at (4,3,-3), in World Space
-		Mathgl::Matrix<float>::Vec3(0, 0, 0), // and looks at the origin
-		Mathgl::Matrix<float>::Vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
-	);
-	// Model matrix : an identity matrix (model will be at the origin)
-	auto Model = Mathgl::Matrix<float>::Mat4(1.0f);
-	// Our ModelViewProjection : multiplication of our 3 matrices
-	auto MVP = Projection * View * Model; // Remember, matrix multiplication is the other way around
-
-	static const GLfloat g_vertex_buffer_data [] = {
-		-1.0f,-1.0f,-1.0f,
-		-1.0f,-1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		 1.0f, 1.0f,-1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f, 1.0f,
-		-1.0f,-1.0f,-1.0f,
-		 1.0f,-1.0f,-1.0f,
-		 1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f,-1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f, 1.0f,
-		-1.0f,-1.0f, 1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f, 1.0f, 1.0f,
-		-1.0f,-1.0f, 1.0f,
-		 1.0f,-1.0f, 1.0f,
-		 1.0f, 1.0f, 1.0f,
-		 1.0f,-1.0f,-1.0f,
-		 1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f,-1.0f,
-		 1.0f, 1.0f, 1.0f,
-		 1.0f,-1.0f, 1.0f,
-		 1.0f, 1.0f, 1.0f,
-		 1.0f, 1.0f,-1.0f,
-		-1.0f, 1.0f,-1.0f,
-		 1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f,-1.0f,
-		-1.0f, 1.0f, 1.0f,
-		 1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		 1.0f,-1.0f, 1.0f
-	};
-
-	// One color for each vertex. They were generated randomly.
-	static const GLfloat g_color_buffer_data [] = {
-		0.583f,  0.771f,  0.014f,
-		0.609f,  0.115f,  0.436f,
-		0.327f,  0.483f,  0.844f,
-		0.822f,  0.569f,  0.201f,
-		0.435f,  0.602f,  0.223f,
-		0.310f,  0.747f,  0.185f,
-		0.597f,  0.770f,  0.761f,
-		0.559f,  0.436f,  0.730f,
-		0.359f,  0.583f,  0.152f,
-		0.483f,  0.596f,  0.789f,
-		0.559f,  0.861f,  0.639f,
-		0.195f,  0.548f,  0.859f,
-		0.014f,  0.184f,  0.576f,
-		0.771f,  0.328f,  0.970f,
-		0.406f,  0.615f,  0.116f,
-		0.676f,  0.977f,  0.133f,
-		0.971f,  0.572f,  0.833f,
-		0.140f,  0.616f,  0.489f,
-		0.997f,  0.513f,  0.064f,
-		0.945f,  0.719f,  0.592f,
-		0.543f,  0.021f,  0.978f,
-		0.279f,  0.317f,  0.505f,
-		0.167f,  0.620f,  0.077f,
-		0.347f,  0.857f,  0.137f,
-		0.055f,  0.953f,  0.042f,
-		0.714f,  0.505f,  0.345f,
-		0.783f,  0.290f,  0.734f,
-		0.722f,  0.645f,  0.174f,
-		0.302f,  0.455f,  0.848f,
-		0.225f,  0.587f,  0.040f,
-		0.517f,  0.713f,  0.338f,
-		0.053f,  0.959f,  0.120f,
-		0.393f,  0.621f,  0.362f,
-		0.673f,  0.211f,  0.457f,
-		0.820f,  0.883f,  0.371f,
-		0.982f,  0.099f,  0.879f
-	};
-
-	GLuint vertexbuffer;
-	glGenBuffers(1, &vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
-
-	GLuint colorbuffer;
-	glGenBuffers(1, &colorbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_data), g_color_buffer_data, GL_STATIC_DRAW);
-
-	sf::Color bgColor;
-	float color[3] = {0.f, 0.f, 0.f};
-	sf::Clock deltaClock;
-	//bool show_test_window = true;
-	bool show_another_window = true;
-	ImVec4 clear_color = ImColor(114, 144, 154);
-
-	bool isGo = true;
-	while (isGo) {
-		sf::Event windowEvent;
-		while (window.pollEvent(windowEvent)) {
-			ImGui::SFML::ProcessEvent(windowEvent);
-			switch (windowEvent.type) {
-			case sf::Event::Closed:
-				isGo = false;
-				break;
-			default:
-				break;
-			}
-		}
-
-
-
-		ImGui::SFML::Update(window, deltaClock.restart());
-
-		ImGui::Begin("Sample window"); // создаём окно
-
-		// Инструмент выбора цвета
-		if (ImGui::ColorEdit3("Background color", color)) {
-			// код вызывается при изменении значения, поэтому всё
-			// обновляется автоматически
-			bgColor.r = static_cast<sf::Uint8>(color[0] * 255.f);
-			bgColor.g = static_cast<sf::Uint8>(color[1] * 255.f);
-			bgColor.b = static_cast<sf::Uint8>(color[2] * 255.f);
-		}
-
-		char s[100] = "ImGui + SFML = <3";
-		ImGui::InputText("Window title", s, 255);
-
-		if (ImGui::Button("Update window title")) {
-			// этот код выполняется, когда юзер жмёт на кнопку
-			// здесь можно было бы написать 
-			// if(ImGui::InputText(...))
-			window.setTitle("!!!!!!");
-		}
-		ImGui::End(); // end window
-
-		//..............................................
-		//window.clear();
-
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		//ImGui::SFML::Render(window);
-		//window.pushGLStates();
-
-		// Use our shader
-		glUseProgram(programID);
-
-
-		glBindVertexArray(VertexArrayID);
-
-		// 1rst attribute buffer : vertices
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-		glVertexAttribPointer(
-			0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-			3,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			0,                  // stride
-			(void*)0            // array buffer offset
-		);
-
-
-
-		// Draw the triangle !
-		glDrawArrays(GL_TRIANGLES, 0, 12*3); // 3 indices starting at 0 -> 1 triangle
-		glBindVertexArray(0);
-
-		glDisableVertexAttribArray(0);
-
-		glUseProgram(0);
-
-
-		window.pushGLStates();
-		ImGui::SFML::Render(window);
-		window.popGLStates();
-
-
-		window.display();
-	}
-
-	glDeleteBuffers(1, &vertexbuffer);
-	glDeleteVertexArrays(1, &VertexArrayID);
-	glDeleteProgram(programID);
-
-	ImGui::SFML::Shutdown();
-
-	window.close();
-	return 0;
+	app.run();
 }

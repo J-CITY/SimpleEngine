@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
@@ -26,19 +18,6 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -57,12 +36,6 @@
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -70,36 +43,15 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LinkIncremental>false</LinkIncremental>
+    <LibraryPath>C:\Projects\SimpleEngine\CGCourse\Build\lua\Debug;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua</IncludePath>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-graphics.lib;sfml-system.lib;sfml-window.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PrecompiledHeader>
@@ -107,37 +59,19 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>false</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\libs\glm;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\include;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\include;F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <EnableModules>false</EnableModules>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-graphics.lib;sfml-system.lib;sfml-window.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-graphics.lib;sfml-system.lib;sfml-window.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\lib;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-main-d.lib;sfml-graphics-d.lib;sfml-system-d.lib;sfml-window-d.lib;Lua.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -150,8 +84,10 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ConformanceMode>false</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd;F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <EnableModules>false</EnableModules>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -159,7 +95,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-graphics.lib;sfml-system.lib;sfml-window.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-graphics.lib;sfml-system.lib;sfml-window.lib;Lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -168,12 +104,87 @@
     <ClCompile Include="3rd\imgui\imgui_demo.cpp" />
     <ClCompile Include="3rd\imgui\imgui_draw.cpp" />
     <ClCompile Include="3rd\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="3rd\stb\stb_vorbis.c" />
+    <ClCompile Include="CameraRT.cpp" />
     <ClCompile Include="CGCourse.cpp" />
-    <ClCompile Include="engine\components\transformComponent.cpp" />
+    <ClCompile Include="DiffuseLightRT.cpp" />
     <ClCompile Include="engine\config.cpp" />
-    <ClCompile Include="engine\object.cpp" />
-    <ClCompile Include="engine\scene.cpp" />
-    <ClCompile Include="engine\shader.cpp" />
+    <ClCompile Include="engine\core\app.cpp" />
+    <ClCompile Include="engine\core\core.cpp" />
+    <ClCompile Include="engine\ecs\ComponentManager.cpp" />
+    <ClCompile Include="engine\ecs\components\ambientLight.cpp" />
+    <ClCompile Include="engine\ecs\components\ambientSphereLight.cpp" />
+    <ClCompile Include="engine\ecs\components\cameraComponent.cpp" />
+    <ClCompile Include="engine\ecs\components\component.cpp" />
+    <ClCompile Include="engine\ecs\components\directionalLight.cpp" />
+    <ClCompile Include="engine\ecs\components\inputComponent.cpp" />
+    <ClCompile Include="engine\ecs\components\lightComponent.cpp" />
+    <ClCompile Include="engine\ecs\components\materialRenderer.cpp" />
+    <ClCompile Include="engine\ecs\components\modelRenderer.cpp" />
+    <ClCompile Include="engine\ecs\components\pointLight.cpp" />
+    <ClCompile Include="engine\ecs\components\script.cpp" />
+    <ClCompile Include="engine\ecs\components\spotLight.cpp" />
+    <ClCompile Include="engine\ecs\components\transform.cpp" />
+    <ClCompile Include="engine\ecs\object.cpp" />
+    <ClCompile Include="engine\glManager\glManager.cpp" />
+    <ClCompile Include="engine\gui\components\spriteComponent.cpp" />
+    <ClCompile Include="engine\gui\guiObject.cpp" />
+    <ClCompile Include="engine\inputManager\inputManager.cpp" />
+    <ClCompile Include="engine\render\buffers\depthBuffer.cpp" />
+    <ClCompile Include="engine\render\buffers\ShaderStorageBuffer.cpp" />
+    <ClCompile Include="engine\render\buffers\uniformBuffer.cpp" />
+    <ClCompile Include="engine\render\Camera.cpp" />
+    <ClCompile Include="engine\render\Frustum.cpp" />
+    <ClCompile Include="engine\render\gameRenderer.cpp" />
+    <ClCompile Include="engine\render\light.cpp" />
+    <ClCompile Include="engine\render\Material.cpp" />
+    <ClCompile Include="engine\render\Model.cpp" />
+    <ClCompile Include="engine\render\render.cpp" />
+    <ClCompile Include="engine\resourceManager\modelManager.cpp" />
+    <ClCompile Include="engine\resourceManager\parser\assimpParser.cpp" />
+    <ClCompile Include="engine\resourceManager\resource\bone.cpp" />
+    <ClCompile Include="engine\resourceManager\resource\mesh.cpp" />
+    <ClCompile Include="engine\resourceManager\resource\shader.cpp" />
+    <ClCompile Include="engine\resourceManager\resource\texture.cpp" />
+    <ClCompile Include="engine\resourceManager\ServiceManager.cpp" />
+    <ClCompile Include="engine\resourceManager\shaderManager.cpp" />
+    <ClCompile Include="engine\resourceManager\textureManager.cpp" />
+    <ClCompile Include="engine\scene\scene.cpp" />
+    <ClCompile Include="engine\scene\sceneManager.cpp" />
+    <ClCompile Include="engine\scripting\LuaActorBinder.cpp" />
+    <ClCompile Include="engine\scripting\LuaBinder.cpp" />
+    <ClCompile Include="engine\scripting\LuaComponentBinder.cpp" />
+    <ClCompile Include="engine\scripting\LuaGlobalsBinder.cpp" />
+    <ClCompile Include="engine\scripting\LuaMathsBinder.cpp" />
+    <ClCompile Include="engine\scripting\ScriptInterpreter.cpp" />
+    <ClCompile Include="engine\tasks\safeQueue.cpp" />
+    <ClCompile Include="engine\tasks\task.cpp" />
+    <ClCompile Include="engine\tasks\taskSystem.cpp" />
+    <ClCompile Include="engine\utils\math\matrix3.cpp" />
+    <ClCompile Include="engine\utils\math\matrix4.cpp" />
+    <ClCompile Include="engine\utils\math\quaternion.cpp" />
+    <ClCompile Include="engine\utils\math\vector2.cpp" />
+    <ClCompile Include="engine\utils\math\vector3.cpp" />
+    <ClCompile Include="engine\utils\math\vector4.cpp" />
+    <ClCompile Include="engine\utils\time\time.cpp" />
+    <ClCompile Include="engine\window\window.cpp" />
+    <ClCompile Include="game\Block.cpp" />
+    <ClCompile Include="game\BlockDatabase.cpp" />
+    <ClCompile Include="game\Chunk.cpp" />
+    <ClCompile Include="game\ChunkMesh.cpp" />
+    <ClCompile Include="game\FrustumAABB.cpp" />
+    <ClCompile Include="game\Lighting.cpp" />
+    <ClCompile Include="game\ModelGame.cpp" />
+    <ClCompile Include="game\Noise\FastNoise.cpp" />
+    <ClCompile Include="game\Renderer.cpp" />
+    <ClCompile Include="game\TextureAtlas.cpp" />
+    <ClCompile Include="game\World.cpp" />
+    <ClCompile Include="game\WorldGenerator.cpp" />
+    <ClCompile Include="MathRT.cpp" />
+    <ClCompile Include="ObjectRT.cpp" />
+    <ClCompile Include="RenderRT.cpp" />
+    <ClCompile Include="SceneRT.cpp" />
+    <ClCompile Include="TextureRT.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rd\imgui\imconfig.h" />
@@ -184,18 +195,124 @@
     <ClInclude Include="3rd\imgui\imstb_rectpack.h" />
     <ClInclude Include="3rd\imgui\imstb_textedit.h" />
     <ClInclude Include="3rd\imgui\imstb_truetype.h" />
-    <ClInclude Include="engine\asset.h" />
-    <ClInclude Include="engine\components\component.h" />
-    <ClInclude Include="engine\components\transformComponent.h" />
+    <ClInclude Include="3rd\json.hpp" />
+    <ClInclude Include="3rd\SomeLogger.h" />
+    <ClInclude Include="3rd\stb\stb.h" />
+    <ClInclude Include="3rd\stb\stb_connected_components.h" />
+    <ClInclude Include="3rd\stb\stb_c_lexer.h" />
+    <ClInclude Include="3rd\stb\stb_divide.h" />
+    <ClInclude Include="3rd\stb\stb_dxt.h" />
+    <ClInclude Include="3rd\stb\stb_easy_font.h" />
+    <ClInclude Include="3rd\stb\stb_herringbone_wang_tile.h" />
+    <ClInclude Include="3rd\stb\stb_image.h" />
+    <ClInclude Include="3rd\stb\stb_image_resize.h" />
+    <ClInclude Include="3rd\stb\stb_image_write.h" />
+    <ClInclude Include="3rd\stb\stb_leakcheck.h" />
+    <ClInclude Include="3rd\stb\stb_perlin.h" />
+    <ClInclude Include="3rd\stb\stb_rect_pack.h" />
+    <ClInclude Include="3rd\stb\stb_sprintf.h" />
+    <ClInclude Include="3rd\stb\stb_textedit.h" />
+    <ClInclude Include="3rd\stb\stb_tilemap_editor.h" />
+    <ClInclude Include="3rd\stb\stb_truetype.h" />
+    <ClInclude Include="3rd\stb\stb_voxel_render.h" />
+    <ClInclude Include="3rd\stb\stretchy_buffer.h" />
+    <ClInclude Include="CameraRT.h" />
+    <ClInclude Include="DiffuseLightRT.h" />
     <ClInclude Include="engine\config.h" />
-    <ClInclude Include="engine\core.h" />
-    <ClInclude Include="engine\object.h" />
-    <ClInclude Include="engine\scene.h" />
-    <ClInclude Include="engine\shader.h" />
-    <ClInclude Include="engine\stream.h" />
-    <ClInclude Include="engine\window.h" />
-    <ClInclude Include="math.h" />
-    <ClInclude Include="SomeLogger.h" />
+    <ClInclude Include="engine\core\app.h" />
+    <ClInclude Include="engine\core\core.h" />
+    <ClInclude Include="engine\ecs\ComponentManager.h" />
+    <ClInclude Include="engine\ecs\components\ambientLight.h" />
+    <ClInclude Include="engine\ecs\components\ambientSphereLight.h" />
+    <ClInclude Include="engine\ecs\components\cameraComponent.h" />
+    <ClInclude Include="engine\ecs\components\component.h" />
+    <ClInclude Include="engine\ecs\components\directionalLight.h" />
+    <ClInclude Include="engine\ecs\components\inputComponent.h" />
+    <ClInclude Include="engine\ecs\components\lightComponent.h" />
+    <ClInclude Include="engine\ecs\components\logicComponent.h" />
+    <ClInclude Include="engine\ecs\components\materialRenderer.h" />
+    <ClInclude Include="engine\ecs\components\modelRenderer.h" />
+    <ClInclude Include="engine\ecs\components\pointLight.h" />
+    <ClInclude Include="engine\ecs\components\script.h" />
+    <ClInclude Include="engine\ecs\components\spotLight.h" />
+    <ClInclude Include="engine\ecs\components\transform.h" />
+    <ClInclude Include="engine\ecs\object.h" />
+    <ClInclude Include="engine\glManager\glManager.h" />
+    <ClInclude Include="engine\gui\components\spriteComponent.h" />
+    <ClInclude Include="engine\gui\guiObject.h" />
+    <ClInclude Include="engine\inputManager\inputManager.h" />
+    <ClInclude Include="engine\render\buffers\depthBuffer.h" />
+    <ClInclude Include="engine\render\buffers\indexBuffer.h" />
+    <ClInclude Include="engine\render\buffers\ShaderStorageBuffer.h" />
+    <ClInclude Include="engine\render\buffers\uniformBuffer.h" />
+    <ClInclude Include="engine\render\buffers\uniformTypes.h" />
+    <ClInclude Include="engine\render\buffers\vertexArray.h" />
+    <ClInclude Include="engine\render\buffers\vertexBuffer.h" />
+    <ClInclude Include="engine\render\Camera.h" />
+    <ClInclude Include="engine\render\Frustum.h" />
+    <ClInclude Include="engine\render\gameRenderer.h" />
+    <ClInclude Include="engine\render\light.h" />
+    <ClInclude Include="engine\render\Material.h" />
+    <ClInclude Include="engine\render\Model.h" />
+    <ClInclude Include="engine\render\objects\BoundingSphere.h" />
+    <ClInclude Include="engine\render\primitiveRender.h" />
+    <ClInclude Include="engine\render\render.h" />
+    <ClInclude Include="engine\resourceManager\materialManager.h" />
+    <ClInclude Include="engine\resourceManager\modelManager.h" />
+    <ClInclude Include="engine\resourceManager\parser\assimpParser.h" />
+    <ClInclude Include="engine\resourceManager\resourceManager.h" />
+    <ClInclude Include="engine\resourceManager\resource\bone.h" />
+    <ClInclude Include="engine\resourceManager\resource\mesh.h" />
+    <ClInclude Include="engine\resourceManager\resource\shader.h" />
+    <ClInclude Include="engine\resourceManager\resource\texture.h" />
+    <ClInclude Include="engine\resourceManager\serializerInterface.h" />
+    <ClInclude Include="engine\resourceManager\ServiceManager.h" />
+    <ClInclude Include="engine\resourceManager\shaderManager.h" />
+    <ClInclude Include="engine\resourceManager\textureManager.h" />
+    <ClInclude Include="engine\scene\scene.h" />
+    <ClInclude Include="engine\scene\sceneManager.h" />
+    <ClInclude Include="engine\scripting\LuaActorBinder.h" />
+    <ClInclude Include="engine\scripting\LuaBinder.h" />
+    <ClInclude Include="engine\scripting\LuaComponentBinder.h" />
+    <ClInclude Include="engine\scripting\LuaGlobalsBinder.h" />
+    <ClInclude Include="engine\scripting\LuaMathsBinder.h" />
+    <ClInclude Include="engine\scripting\ScriptInterpreter.h" />
+    <ClInclude Include="engine\tasks\safeQueue.h" />
+    <ClInclude Include="engine\tasks\task.h" />
+    <ClInclude Include="engine\tasks\taskSystem.h" />
+    <ClInclude Include="engine\utils\debug\logger.h" />
+    <ClInclude Include="engine\utils\event.h" />
+    <ClInclude Include="engine\utils\idObject.h" />
+    <ClInclude Include="engine\utils\math\matrix3.h" />
+    <ClInclude Include="engine\utils\math\matrix4.h" />
+    <ClInclude Include="engine\utils\math\quaternion.h" />
+    <ClInclude Include="engine\utils\math\vector2.h" />
+    <ClInclude Include="engine\utils\math\vector3.h" />
+    <ClInclude Include="engine\utils\math\vector4.h" />
+    <ClInclude Include="engine\utils\pointers\objPtr.h" />
+    <ClInclude Include="engine\utils\time\time.h" />
+    <ClInclude Include="engine\utils\vertex.h" />
+    <ClInclude Include="engine\window\window.h" />
+    <ClInclude Include="game\Biome.h" />
+    <ClInclude Include="game\Block.h" />
+    <ClInclude Include="game\BlockDatabase.h" />
+    <ClInclude Include="game\Chunk.h" />
+    <ClInclude Include="game\ChunkMesh.h" />
+    <ClInclude Include="game\FrustumAABB.h" />
+    <ClInclude Include="game\Lighting.h" />
+    <ClInclude Include="game\ModelGame.h" />
+    <ClInclude Include="game\Noise\FastNoise.h" />
+    <ClInclude Include="game\Renderer.h" />
+    <ClInclude Include="game\TextureAtlas.h" />
+    <ClInclude Include="game\Vertex.h" />
+    <ClInclude Include="game\World.h" />
+    <ClInclude Include="game\WorldGenerator.h" />
+    <ClInclude Include="game\WorldGeneratorType.h" />
+    <ClInclude Include="MathRT.h" />
+    <ClInclude Include="ObjectRT.h" />
+    <ClInclude Include="RenderRT.h" />
+    <ClInclude Include="SceneRT.h" />
+    <ClInclude Include="TextureRT.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

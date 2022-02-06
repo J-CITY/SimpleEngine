@@ -74,3 +74,8 @@ CGCourse/CGCourse/CGCourse.vcxproj
 *.ipch
 CGCourse/CGCourse/CGCourse.vcxproj
 CGCourse/CGCourse/CGCourse.vcxproj.filters
+CGCourse/CGCourse/3rd/Assimp/bin/x64/assimp-vc140-mt.dll
+CGCourse/CGCourse/Build/*
+CGCourse/CGCourse/Debug/*
+CGCourse/CGCourse/x64/*
+CGCourse/CGCourse/Intermediate/*

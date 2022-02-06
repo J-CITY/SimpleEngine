@@ -5,22 +5,92 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Файлы заголовков">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="Файлы ресурсов">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="Исходные файлы\engine">
       <UniqueIdentifier>{801a80c9-9cea-40d6-a822-dfdc8b06b527}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Исходные файлы\imgui">
+    <Filter Include="Исходные файлы\engine\utils">
+      <UniqueIdentifier>{3d7426ee-05af-4036-b3c7-ea4112998b2f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\utils\math">
+      <UniqueIdentifier>{138367cc-6f15-4afc-8387-a4fbbbea1cb4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\render">
+      <UniqueIdentifier>{70de11fd-d567-40fb-b7ca-ef36379e8597}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\render\buffers">
+      <UniqueIdentifier>{18053c29-75be-44d7-be5f-43ac65861256}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\utils\debug">
+      <UniqueIdentifier>{218c3de0-f697-445a-ab66-c51292f5e427}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\resourceManager">
+      <UniqueIdentifier>{eea9f31f-20d0-4cae-830f-8e001ebca5d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\resourceManager\resource">
+      <UniqueIdentifier>{43f31ba4-8315-48aa-b6c0-65e52a0a17c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\ecs">
+      <UniqueIdentifier>{2c5b0863-4a99-48ea-887f-45456091e823}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\utils\time">
+      <UniqueIdentifier>{f6e8c2e7-b118-41df-a9b7-12a81ee24ecc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\window">
+      <UniqueIdentifier>{2543fa25-2af0-4209-a38a-be2267e9f209}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\inputManager">
+      <UniqueIdentifier>{8915b4c6-76cc-40d5-966b-1f3e55544c0b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\glManager">
+      <UniqueIdentifier>{182f9f60-aa78-485f-b702-9051a4d4d004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\utils\pointers">
+      <UniqueIdentifier>{eecb3e57-362e-4b02-b8d6-8f53bd421947}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\core">
+      <UniqueIdentifier>{471cdd79-a755-49b2-b008-7a6ea48b548f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\3rd">
+      <UniqueIdentifier>{fffd79ee-6f02-44e8-bd5d-883c10413a20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\3rd\stb">
+      <UniqueIdentifier>{fa4a027b-a1e9-4028-8038-b0a92086b18e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\3rd\imgui">
       <UniqueIdentifier>{8bc46991-9e46-4076-9808-f1326d726a4d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Исходные файлы\engine\components">
+    <Filter Include="Исходные файлы\engine\tasks">
+      <UniqueIdentifier>{043023f5-2081-49a0-9285-39e9d5c783ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\render\objects">
+      <UniqueIdentifier>{86b8313b-ece8-417c-9a4f-b6c76e3d7ccc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\resourceManager\parser">
+      <UniqueIdentifier>{7531ab30-831a-4873-8835-f626a59434f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\gui">
+      <UniqueIdentifier>{4aaf9d5a-5821-4a37-9067-0958cbc22c96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\scripting">
+      <UniqueIdentifier>{4e29770a-469e-4b26-8158-3e4fc79fecd6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\game">
+      <UniqueIdentifier>{23222044-ee28-4c95-bd13-ee1072efe72f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\game\Noise">
+      <UniqueIdentifier>{6551c8fb-1873-4b40-87c7-8daada31b67d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\ecs\components">
       <UniqueIdentifier>{d7736d38-54a6-4f00-8ef5-55b12c7b83b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\rt">
+      <UniqueIdentifier>{c297e71a-e76c-4dfb-93a7-7a1d98fa185b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\resourceManager\scene">
+      <UniqueIdentifier>{8ce79286-164f-4e8b-bba1-b89eefebf8e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\gui\components">
+      <UniqueIdentifier>{23df24ab-2b9f-45ff-ae16-42c25f34da29}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -28,96 +98,639 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="3rd\imgui\imgui.cpp">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClCompile>
     <ClCompile Include="3rd\imgui\imgui_demo.cpp">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClCompile>
     <ClCompile Include="3rd\imgui\imgui_draw.cpp">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClCompile>
     <ClCompile Include="3rd\imgui\imgui_widgets.cpp">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClCompile>
     <ClCompile Include="3rd\imgui\imgui-SFML.cpp">
-      <Filter>Исходные файлы\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="engine\shader.cpp">
-      <Filter>Исходные файлы\engine</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClCompile>
     <ClCompile Include="engine\config.cpp">
       <Filter>Исходные файлы\engine</Filter>
     </ClCompile>
-    <ClCompile Include="engine\object.cpp">
-      <Filter>Исходные файлы\engine</Filter>
+    <ClCompile Include="3rd\stb\stb_vorbis.c">
+      <Filter>Исходные файлы\3rd\stb</Filter>
     </ClCompile>
-    <ClCompile Include="engine\scene.cpp">
-      <Filter>Исходные файлы\engine</Filter>
+    <ClCompile Include="engine\render\render.cpp">
+      <Filter>Исходные файлы\engine\render</Filter>
     </ClCompile>
-    <ClCompile Include="engine\components\transformComponent.cpp">
-      <Filter>Исходные файлы\engine\components</Filter>
+    <ClCompile Include="engine\resourceManager\resource\shader.cpp">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\resource\texture.cpp">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scene\scene.cpp">
+      <Filter>Исходные файлы\engine\resourceManager\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\ComponentManager.cpp">
+      <Filter>Исходные файлы\engine\ecs</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\object.cpp">
+      <Filter>Исходные файлы\engine\ecs</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\time\time.cpp">
+      <Filter>Исходные файлы\engine\utils\time</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scene\sceneManager.cpp">
+      <Filter>Исходные файлы\engine\resourceManager\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\window\window.cpp">
+      <Filter>Исходные файлы\engine\window</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\inputManager\inputManager.cpp">
+      <Filter>Исходные файлы\engine\inputManager</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\glManager\glManager.cpp">
+      <Filter>Исходные файлы\engine\glManager</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\core\app.cpp">
+      <Filter>Исходные файлы\engine\core</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\core\core.cpp">
+      <Filter>Исходные файлы\engine\core</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\gameRenderer.cpp">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\tasks\task.cpp">
+      <Filter>Исходные файлы\engine\tasks</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\tasks\taskSystem.cpp">
+      <Filter>Исходные файлы\engine\tasks</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\tasks\safeQueue.cpp">
+      <Filter>Исходные файлы\engine\tasks</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\light.cpp">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\Camera.cpp">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\Frustum.cpp">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\Model.cpp">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\Material.cpp">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\buffers\uniformBuffer.cpp">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\buffers\ShaderStorageBuffer.cpp">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\ServiceManager.cpp">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\parser\assimpParser.cpp">
+      <Filter>Исходные файлы\engine\resourceManager\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\textureManager.cpp">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\resource\mesh.cpp">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\modelManager.cpp">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\shaderManager.cpp">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraRT.cpp">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClCompile>
+    <ClCompile Include="MathRT.cpp">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClCompile>
+    <ClCompile Include="DiffuseLightRT.cpp">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClCompile>
+    <ClCompile Include="ObjectRT.cpp">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderRT.cpp">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneRT.cpp">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureRT.cpp">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scripting\LuaActorBinder.cpp">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scripting\LuaBinder.cpp">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scripting\LuaComponentBinder.cpp">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scripting\LuaGlobalsBinder.cpp">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scripting\LuaMathsBinder.cpp">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\scripting\ScriptInterpreter.cpp">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="game\Block.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\BlockDatabase.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\Chunk.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\ChunkMesh.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\TextureAtlas.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\World.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\WorldGenerator.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\Lighting.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\Renderer.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\FrustumAABB.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\Noise\FastNoise.cpp">
+      <Filter>Исходные файлы\game\Noise</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\ambientLight.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\ambientSphereLight.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\cameraComponent.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\component.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\directionalLight.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\lightComponent.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\materialRenderer.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\modelRenderer.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\pointLight.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\script.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\spotLight.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\transform.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\inputComponent.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\math\matrix3.cpp">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\math\quaternion.cpp">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\math\vector3.cpp">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\math\vector4.cpp">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\math\vector2.cpp">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\math\matrix4.cpp">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="game\ModelGame.cpp">
+      <Filter>Исходные файлы\game</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\gui\components\spriteComponent.cpp">
+      <Filter>Исходные файлы\engine\gui\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\gui\guiObject.cpp">
+      <Filter>Исходные файлы\engine\gui</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resourceManager\resource\bone.cpp">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\render\buffers\depthBuffer.cpp">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rd\imgui\imconfig.h">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imgui.h">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imgui_internal.h">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imgui-SFML.h">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imgui-SFML_export.h">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imstb_rectpack.h">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imstb_textedit.h">
-      <Filter>Исходные файлы\imgui</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imstb_truetype.h">
-      <Filter>Исходные файлы\imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="math.h">
-      <Filter>Исходные файлы\engine</Filter>
-    </ClInclude>
-    <ClInclude Include="engine\shader.h">
-      <Filter>Исходные файлы\engine</Filter>
-    </ClInclude>
-    <ClInclude Include="SomeLogger.h">
-      <Filter>Исходные файлы</Filter>
-    </ClInclude>
-    <ClInclude Include="engine\asset.h">
-      <Filter>Исходные файлы\engine</Filter>
-    </ClInclude>
-    <ClInclude Include="engine\stream.h">
-      <Filter>Исходные файлы\engine</Filter>
+      <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="engine\config.h">
       <Filter>Исходные файлы\engine</Filter>
     </ClInclude>
-    <ClInclude Include="engine\object.h">
-      <Filter>Исходные файлы\engine</Filter>
+    <ClInclude Include="engine\utils\vertex.h">
+      <Filter>Исходные файлы\engine\utils</Filter>
     </ClInclude>
-    <ClInclude Include="engine\scene.h">
-      <Filter>Исходные файлы\engine</Filter>
+    <ClInclude Include="3rd\stb\stb.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
     </ClInclude>
-    <ClInclude Include="engine\components\component.h">
-      <Filter>Исходные файлы\engine\components</Filter>
+    <ClInclude Include="3rd\stb\stb_c_lexer.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
     </ClInclude>
-    <ClInclude Include="engine\components\transformComponent.h">
-      <Filter>Исходные файлы\engine\components</Filter>
+    <ClInclude Include="3rd\stb\stb_connected_components.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
     </ClInclude>
-    <ClInclude Include="engine\core.h">
-      <Filter>Исходные файлы\engine</Filter>
+    <ClInclude Include="3rd\stb\stb_divide.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
     </ClInclude>
-    <ClInclude Include="engine\window.h">
-      <Filter>Исходные файлы\engine</Filter>
+    <ClInclude Include="3rd\stb\stb_dxt.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_easy_font.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_herringbone_wang_tile.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_image.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_image_resize.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_image_write.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_leakcheck.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_perlin.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_rect_pack.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_sprintf.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_textedit.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_tilemap_editor.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_truetype.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stb_voxel_render.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\stb\stretchy_buffer.h">
+      <Filter>Исходные файлы\3rd\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\buffers\uniformBuffer.h">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\buffers\vertexArray.h">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\buffers\vertexBuffer.h">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\debug\logger.h">
+      <Filter>Исходные файлы\engine\utils\debug</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\render.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\primitiveRender.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\resourceManager.h">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\materialManager.h">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\modelManager.h">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\shaderManager.h">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\resource\mesh.h">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\resource\shader.h">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\resource\texture.h">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scene\scene.h">
+      <Filter>Исходные файлы\engine\resourceManager\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\ComponentManager.h">
+      <Filter>Исходные файлы\engine\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\object.h">
+      <Filter>Исходные файлы\engine\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\time\time.h">
+      <Filter>Исходные файлы\engine\utils\time</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\idObject.h">
+      <Filter>Исходные файлы\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scene\sceneManager.h">
+      <Filter>Исходные файлы\engine\resourceManager\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\window\window.h">
+      <Filter>Исходные файлы\engine\window</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\inputManager\inputManager.h">
+      <Filter>Исходные файлы\engine\inputManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\glManager\glManager.h">
+      <Filter>Исходные файлы\engine\glManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\pointers\objPtr.h">
+      <Filter>Исходные файлы\engine\utils\pointers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\event.h">
+      <Filter>Исходные файлы\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\core\app.h">
+      <Filter>Исходные файлы\engine\core</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\core\core.h">
+      <Filter>Исходные файлы\engine\core</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\gameRenderer.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\tasks\task.h">
+      <Filter>Исходные файлы\engine\tasks</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\tasks\taskSystem.h">
+      <Filter>Исходные файлы\engine\tasks</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\tasks\safeQueue.h">
+      <Filter>Исходные файлы\engine\tasks</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\light.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\Camera.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\Frustum.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\Model.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\objects\BoundingSphere.h">
+      <Filter>Исходные файлы\engine\render\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\Material.h">
+      <Filter>Исходные файлы\engine\render</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\buffers\uniformTypes.h">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\buffers\ShaderStorageBuffer.h">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\ServiceManager.h">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\parser\assimpParser.h">
+      <Filter>Исходные файлы\engine\resourceManager\parser</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\buffers\indexBuffer.h">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\SomeLogger.h">
+      <Filter>Исходные файлы\3rd</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\gui\guiObject.h">
+      <Filter>Исходные файлы\engine\gui</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraRT.h">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClInclude>
+    <ClInclude Include="DiffuseLightRT.h">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClInclude>
+    <ClInclude Include="MathRT.h">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectRT.h">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderRT.h">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneRT.h">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureRT.h">
+      <Filter>Исходные файлы\rt</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scripting\LuaActorBinder.h">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scripting\LuaBinder.h">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scripting\LuaComponentBinder.h">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scripting\LuaGlobalsBinder.h">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scripting\LuaMathsBinder.h">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\scripting\ScriptInterpreter.h">
+      <Filter>Исходные файлы\engine\scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="game\Block.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\BlockDatabase.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\Chunk.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\ChunkMesh.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\TextureAtlas.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\Vertex.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\Biome.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\World.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\WorldGenerator.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\WorldGeneratorType.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\Lighting.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\Renderer.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\FrustumAABB.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\Noise\FastNoise.h">
+      <Filter>Исходные файлы\game\Noise</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\ambientLight.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\ambientSphereLight.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\cameraComponent.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\component.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\directionalLight.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\lightComponent.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\materialRenderer.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\modelRenderer.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\pointLight.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\script.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\spotLight.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\transform.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\inputComponent.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\json.hpp">
+      <Filter>Исходные файлы\3rd</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\serializerInterface.h">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\matrix3.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\matrix4.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\quaternion.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\vector2.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\vector3.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\vector4.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\textureManager.h">
+      <Filter>Исходные файлы\engine\resourceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\logicComponent.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="game\ModelGame.h">
+      <Filter>Исходные файлы\game</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\gui\components\spriteComponent.h">
+      <Filter>Исходные файлы\engine\gui\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resourceManager\resource\bone.h">
+      <Filter>Исходные файлы\engine\resourceManager\resource</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\render\buffers\depthBuffer.h">
+      <Filter>Исходные файлы\engine\render\buffers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

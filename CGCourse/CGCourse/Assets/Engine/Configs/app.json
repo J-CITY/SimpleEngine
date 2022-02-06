@@ -1,0 +1,11 @@
+{
+    "window": {
+        "depthBits": 24,
+	    "stencilBits": 8,
+	    "antialiasingLevel": 4,
+	    "majorVersion": 4,
+	    "minorVersion": 3,
+        "isFillscreen": false,
+        "appName": "The Game"
+    }
+}

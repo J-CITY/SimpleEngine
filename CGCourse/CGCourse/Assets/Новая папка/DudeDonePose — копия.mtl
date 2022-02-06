@@ -1,0 +1,48 @@
+# Blender MTL File: 'DonePose.blend'
+# Material Count: 4
+
+newmtl Material
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.500000 0.500000 0.500000
+Ni 1.000000
+d 0.660000
+illum 2
+
+newmtl None.001
+Ns 196.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.430913 0.430913 0.430913
+Ks 0.303025 0.303025 0.303025
+Ni 1.000000
+d 1.000000
+illum 2
+map_Bump D:\\CGchallenge\\New folder\\parts\\OutDwarf\\DoneWeps_NM2.png
+map_Kd D:\\CGchallenge\\New folder\\parts\\OutDwarf\\DoneWeps.png
+map_Ks D:\\CGchallenge\\New folder\\parts\\OutDwarf\\DoneWeps_Spec.png
+map_Ns D:\\CGchallenge\\New folder\\parts\\OutDwarf\\DoneWeps_Spec.png
+
+newmtl ___default___
+Ns 125.490196
+Ka 0.000000 0.000000 0.000000
+Kd 0.607976 0.607976 0.607976
+Ks 0.019953 0.019953 0.019953
+Ni 1.000000
+d 1.000000
+illum 2
+map_Bump D:\\CGchallenge\\New folder\\parts\\All1NM2.png
+map_Kd D:\\CGchallenge\\New folder\\parts\\OutDwarf\\Done3.png
+map_Ks D:\\CGchallenge\\New folder\\parts\\DONE_Spec.png
+map_Ns D:\\CGchallenge\\New folder\\parts\\DONE_Spec.png
+
+newmtl ___default___.001
+Ns 121.568627
+Ka 0.000000 0.000000 0.000000
+Kd 0.479974 0.479974 0.479974
+Ks 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd D:\CGchallenge\New folder\parts\OutDwarf\Done3.png
+map_Bump D:\\CGchallenge\\New folder\\parts\\All1NM2.png
