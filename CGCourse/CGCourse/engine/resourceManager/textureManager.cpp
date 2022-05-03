@@ -1,9 +1,24 @@
 #include "textureManager.h"
 #include "resource/texture.h"
+#define STB_IMAGE_IMPLEMENTATION
 #include "../../3rd/stb/stb_image.h"
 
 using namespace KUMA;
 using namespace KUMA::RESOURCES;
+
+void RESOURCES::stbiSetFlipVerticallyOnLoad(bool b) {
+	stbi_set_flip_vertically_on_load(b);
+}
+
+float* RESOURCES::stbiLoadf(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels)
+{
+	return stbi_loadf(filename, x, y, channels_in_file, desired_channels);
+}
+
+void RESOURCES::stbiImageFree(float* data)
+{
+	stbi_image_free(data);
+}
 
 std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, ETextureFilteringMode firstFilter, ETextureFilteringMode secondFilter, bool generateMipmap) {
 	GLuint textureID;

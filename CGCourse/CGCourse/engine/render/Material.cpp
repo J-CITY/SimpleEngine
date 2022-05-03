@@ -31,6 +31,78 @@ void Material::fillUniform() {
 	}
 }
 
+void Material::bind(std::shared_ptr<RESOURCES::Shader> _shader, std::shared_ptr<RESOURCES::Texture> emptyTexture, bool useTextures) {
+
+	_shader->bind();
+
+		int textureSlot = 0;
+
+		for (auto& [name, value] : uniformsData) {
+			auto uniformData = _shader->getUniformInfo(name);
+
+			if (uniformData) {
+				switch (uniformData->type) {
+				case UniformType::UNIFORM_BOOL:
+				{
+					if (std::holds_alternative<bool>(value)) {
+						_shader->setUniformInt(name, std::get<bool>(value));
+						break;
+					}
+				}
+				case UniformType::UNIFORM_INT:
+				{
+					if (std::holds_alternative<int>(value)) {
+						_shader->setUniformInt(name, std::get<int>(value));
+						break;
+					}
+				}
+				case UniformType::UNIFORM_FLOAT:
+				{
+					if (std::holds_alternative<float>(value)) {
+						_shader->setUniformFloat(name, std::get<float>(value));
+						break;
+					}
+				}
+				case UniformType::UNIFORM_FLOAT_VEC2:
+				{
+					if (std::holds_alternative<MATHGL::Vector2>(value)) {
+						_shader->setUniformVec2(name, std::get<MATHGL::Vector2>(value));
+						break;
+					}
+				}
+				case UniformType::UNIFORM_FLOAT_VEC3:
+				{
+					if (std::holds_alternative<MATHGL::Vector3>(value)) {
+						_shader->setUniformVec3(name, std::get<MATHGL::Vector3>(value));
+						break;
+					}
+				}
+				case UniformType::UNIFORM_FLOAT_VEC4:
+				{
+					if (std::holds_alternative<MATHGL::Vector4>(value)) {
+						_shader->setUniformVec4(name, std::get<MATHGL::Vector4>(value));
+						break;
+					}
+				}
+				case UniformType::UNIFORM_SAMPLER_2D:
+				{
+					if (useTextures && std::holds_alternative<std::shared_ptr<RESOURCES::Texture>>(value)) {
+						if (auto tex = std::get<std::shared_ptr<RESOURCES::Texture>>(value); tex) {
+							tex->bind(textureSlot);
+							_shader->setUniformInt(uniformData->name, textureSlot++);
+						}
+						else if (emptyTexture) {
+							emptyTexture->bind(textureSlot);
+							_shader->setUniformInt(uniformData->name, textureSlot++);
+						}
+					}
+				}
+				}
+			}
+		}
+	
+}
+
 void Material::bind(std::shared_ptr<RESOURCES::Texture> emptyTexture, bool useTextures) {
 	if (hasShader()) {
 		shader->bind();

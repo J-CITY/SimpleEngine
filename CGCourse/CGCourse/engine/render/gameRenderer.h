@@ -42,22 +42,38 @@ namespace KUMA::RENDER {
 		void updateEngineUBO(ECS::CameraComponent& mainCamera);
 		void updateLights(SCENE_SYSTEM::Scene& scene);
 		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
-
-		void prepareShadowMap();
+		
 		//move later to component
 		Game::World* world;
 		
-	private:
+	public:
 		void renderSkybox();
 		
 		CORE_SYSTEM::Core& context;
 		Material emptyMaterial;
+	};
 
-		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shadersMap;
-		FrameBuffer depthMapFBO;
+	struct DirLightData {
+		uint32_t id;
+		MATHGL::Matrix4 projMap;
+	};
+	struct SpotLightData {
+		uint32_t id;
+		MATHGL::Matrix4 projMap;
+	};
+	struct PointLightData {
 
 	};
-	
+
+	struct RenderPipeline {
+		FrameBuffer depthMapFBO;
+
+		std::vector<DirLightData> dirLightsData;
+		std::vector<SpotLightData> spotLightsData;
+		std::vector<PointLightData> pointLightsData;
+
+	};
+
 	//TODO: move to new file
 	class Renderer : public BaseRender {
 
@@ -70,7 +86,10 @@ namespace KUMA::RENDER {
 			MATHGL::Matrix4 userMatrix;
 		};
 
-		std::vector<int> dirShadowsMapIDs;
+		RenderPipeline pipeline;
+		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shadersMap;
+
+
 
 		using OpaqueDrawables = std::multimap<float, Drawable, std::less<float>>;
 		using TransparentDrawables = std::multimap<float, Drawable, std::greater<float>>;
@@ -106,6 +125,7 @@ namespace KUMA::RENDER {
 		void drawModelWithSingleMaterial(Model& model, Material& material, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
 		void drawModelWithMaterials(Model& model, std::vector<Material*> materials, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
 
+		void drawGBuffer(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
 		void drawDirShadowMap(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
 		void drawMesh(RESOURCES::Mesh& mesh, Material& material, MATHGL::Matrix4 const* modelMatrix, bool useTexutres=true);
 		void registerModelMatrixSender(std::function<void(MATHGL::Matrix4)> modelMatrixSender);
@@ -119,7 +139,12 @@ namespace KUMA::RENDER {
 		void useColorMask(bool r, bool g, bool b, bool a) {
 			glColorMask(r, g, b, a);
 		}
-	private:
+
+
+		void prepareDirLightShadowMap();
+		void prepareSpotLightShadowMap();
+		void preparePointLightShadowMap();
+	public:
 
 		enum class PipelineRenderShaderType {
 			POINT_SHADOW,

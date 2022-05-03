@@ -99,6 +99,10 @@ namespace KUMA {
 				BoundId = slot;
 			}
 
+			void bindWithoutAttach() const {
+				glBindTexture(GL_TEXTURE_2D, id);
+			}
+
 
 			void unbind() const {
 				glBindTexture(GL_TEXTURE_2D, 0);

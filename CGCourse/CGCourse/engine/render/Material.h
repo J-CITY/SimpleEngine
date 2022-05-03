@@ -14,6 +14,7 @@ namespace KUMA {
 		public:
 			void setShader(std::shared_ptr<RESOURCES::Shader> _shader);
 			void fillUniform();
+			void bind(std::shared_ptr<RESOURCES::Shader> _shader, std::shared_ptr<RESOURCES::Texture> emptyTexture, bool useTextures);
 			void bind(std::shared_ptr<RESOURCES::Texture> _texture, bool useTextures);
 			void unbind();
 

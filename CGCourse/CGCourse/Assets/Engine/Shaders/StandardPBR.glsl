@@ -73,9 +73,22 @@ in VS_OUT
 } fs_in;
 
 /* Light information sent by the engine */
+struct LightOGL {
+	float pos[3];
+	float forward[3];
+	float color[3];
+	int type;
+	float cutoff;
+	float outerCutoff;
+	float constant;
+	float linear;
+	float quadratic;
+	float intensity;
+};
+
 layout(std430, binding = 0) buffer LightSSBO
 {
-    mat4 ssbo_Lights[];
+    LightOGL ssbo_Lights[];
 };
 
 out vec4 FRAGMENT_COLOR;
@@ -134,16 +147,6 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }  
 
-vec3 UnPack(float p_Target)
-{
-    return vec3
-    (
-        float((uint(p_Target) >> 24) & 0xff)    * 0.003921568627451,
-        float((uint(p_Target) >> 16) & 0xff)    * 0.003921568627451,
-        float((uint(p_Target) >> 8) & 0xff)     * 0.003921568627451
-    );
-}
-
 bool PointInAABB(vec3 p_Point, vec3 p_AabbCenter, vec3 p_AabbHalfSize)
 {
     return
@@ -154,12 +157,16 @@ bool PointInAABB(vec3 p_Point, vec3 p_AabbCenter, vec3 p_AabbHalfSize)
     );
 }
 
+vec3 toVec3(float inv[3]) {
+    return vec3(inv[0], inv[1], inv[2]);
+}
+
 float LuminosityFromAttenuation(mat4 p_Light)
 {
-    const vec3  lightPosition   = p_Light[0].rgb;
-    const float constant        = p_Light[0][3];
-    const float linear          = p_Light[1][3];
-    const float quadratic       = p_Light[2][3];
+    const vec3  lightPosition   = toVec3(p_Light.pos);
+    const float constant        = p_Light.constant;
+    const float linear          = p_Light.linear;
+    const float quadratic       = p_Light.quadratic;
 
     const float distanceToLight = length(lightPosition - fs_in.FragPos);
     const float attenuation     = (constant + linear * distanceToLight + quadratic * (distanceToLight * distanceToLight));
@@ -168,20 +175,20 @@ float LuminosityFromAttenuation(mat4 p_Light)
 
 vec3 CalcAmbientBoxLight(mat4 p_Light)
 {
-    const vec3  lightPosition   = p_Light[0].rgb;
-    const vec3  lightColor      = UnPack(p_Light[2][0]);
-    const float intensity       = p_Light[3][3];
-    const vec3  size            = vec3(p_Light[0][3], p_Light[1][3], p_Light[2][3]);
+    const vec3  lightPosition   = toVec3(p_Light.pos);
+    const vec3  lightColor      = toVec3(p_Light.color);
+    const float intensity       = p_Light.intensity;
+    const vec3  size            = vec3(p_Light.constant, p_Light.linear, p_Light.quadratic);
 
     return PointInAABB(fs_in.FragPos, lightPosition, size) ? lightColor * intensity : vec3(0.0);
 }
 
 vec3 CalcAmbientSphereLight(mat4 p_Light)
 {
-    const vec3  lightPosition   = p_Light[0].rgb;
-    const vec3  lightColor      = UnPack(p_Light[2][0]);
-    const float intensity       = p_Light[3][3];
-    const float radius          = p_Light[0][3];
+    const vec3  lightPosition   = toVec3(p_Light.pos);
+    const vec3  lightColor      = toVec3(p_Light.color);
+    const float intensity       = p_Light.intensity;
+    const float radius          = p_Light.constant;
 
     return distance(lightPosition, fs_in.FragPos) <= radius ? lightColor * intensity : vec3(0.0);
 }
@@ -220,38 +227,34 @@ void main()
 
     for (int i = 0; i < ssbo_Lights.length(); ++i) 
     {
-        if (int(ssbo_Lights[i][3][0]) == 3)
-        {
+        if (ssbo_Lights[i].type == 3) {
             ambientSum += CalcAmbientBoxLight(ssbo_Lights[i]);
         }
-        else if (int(ssbo_Lights[i][3][0]) == 4)
-        {
+        else if (ssbo_Lights[i].type == 4) {
             ambientSum += CalcAmbientSphereLight(ssbo_Lights[i]);
         }
-        else
-        {
+        else {
             // calculate per-light radiance
-            vec3 L = int(ssbo_Lights[i][3][0]) == 1 ? -ssbo_Lights[i][1].rgb : normalize(ssbo_Lights[i][0].rgb - fs_in.FragPos);
+            vec3 L = ssbo_Lights[i].constant == 1 ? -toVec3(ssbo_Lights.forward) : normalize(toVec3(ssbo_Lights[i]pos) - fs_in.FragPos);
             vec3 H = normalize(V + L);
-            float distance    = length(ssbo_Lights[i][0].rgb - fs_in.FragPos);
+            float distance    = length(toVec3(ssbo_Lights[i].pos)- fs_in.FragPos);
             float lightCoeff = 0.0;
 
-            switch(int(ssbo_Lights[i][3][0]))
-            {
+            switch(ssbo_Lights[i].type) {
                 case 0:
-                    lightCoeff = LuminosityFromAttenuation(ssbo_Lights[i]) * ssbo_Lights[i][3][3];
+                    lightCoeff = LuminosityFromAttenuation(ssbo_Lights[i]) * ssbo_Lights[i].intensity;
                     break;
 
                 case 1:
-                    lightCoeff = ssbo_Lights[i][3][3];
+                    lightCoeff = ssbo_Lights[i].intensity;
                     break;
 
                 case 2:
-                    const vec3  lightForward    = ssbo_Lights[i][1].rgb;
-                    const float cutOff          = cos(radians(ssbo_Lights[i][3][1]));
-                    const float outerCutOff     = cos(radians(ssbo_Lights[i][3][1] + ssbo_Lights[i][3][2]));
+                    const vec3  lightForward    = toVec3(ssbo_Lights[i]forward);
+                    const float cutOff          = cos(radians(ssbo_Lights[i].cutoff));
+                    const float outerCutOff     = cos(radians(ssbo_Lights[i].cutoff + ssbo_Lights[i].outerCutoff));
 
-                    const vec3  lightDirection  = normalize(ssbo_Lights[i][0].rgb - fs_in.FragPos);
+                    const vec3  lightDirection  = normalize(toVec3(ssbo_Lights[i].pos) - fs_in.FragPos);
                     const float luminosity      = LuminosityFromAttenuation(ssbo_Lights[i]);
 
                     /* Calculate the spot intensity */
@@ -259,11 +262,11 @@ void main()
                     const float epsilon         = cutOff - outerCutOff;
                     const float spotIntensity   = clamp((theta - outerCutOff) / epsilon, 0.0, 1.0);
 
-                    lightCoeff = luminosity * spotIntensity * ssbo_Lights[i][3][3];
+                    lightCoeff = luminosity * spotIntensity * ssbo_Lights[i].intensity;
                     break;
             }
 
-            vec3 radiance = UnPack(ssbo_Lights[i][2][0]) * lightCoeff;        
+            vec3 radiance = toVec3(ssbo_Lights[i].color) * lightCoeff;        
             
             // cook-torrance brdf
             float NDF = DistributionGGX(N, H, roughness);        
