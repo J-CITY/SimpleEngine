@@ -4,6 +4,7 @@
 #include <string>
 #include <GL/glew.h>
 #include <fstream>
+#include <functional>
 #include "resourceManager.h"
 #include "../utils/debug/logger.h"
 #include "resource/shader.h"
@@ -81,20 +82,55 @@ namespace KUMA {
 		private:
 			static std::array<std::string, 3> ParseShader(const std::string& filePath) {
 				std::ifstream stream(filePath);
-
+				if (!stream) {
+					LOG_ERROR("Can not open file " + filePath);
+					return {"", "", ""};
+				}
 				enum class ShaderType { NONE = -1, VERTEX = 0, FRAGMENT = 1, GEOMETRY };
 
 				std::string line;
-
 				std::stringstream ss[3];
-
 				ShaderType type = ShaderType::NONE;
+
+				std::function<void(std::stringstream& ss, std::string&, const std::string&)> makeIncludePath;
+				std::function<void(std::stringstream&, std::string&)> readInclude;
+				readInclude = [&makeIncludePath](std::stringstream& ss, const std::string& filePath) {
+					std::ifstream stream(filePath);
+					if (!stream) {
+						LOG_ERROR("Can not open file " + filePath);
+						return;
+					}
+					std::string line;
+					while (std::getline(stream, line)) {
+						if (line.find("#include") != std::string::npos) {
+							makeIncludePath(ss, line, filePath);
+						}
+						else {
+							ss << line << '\n';
+						}
+					}
+				};
+				makeIncludePath = [&readInclude](std::stringstream& ss, std::string& line, const std::string& filePath) {
+					std::size_t pos = line.find("\"");
+					auto includePath = line.substr(pos+1);
+					if (includePath.empty()) {
+						LOG_ERROR("Shader: include path is empty");
+						return;
+					}
+					includePath = includePath.substr(0, includePath.size() - 1);
+					includePath = std::filesystem::path(filePath).parent_path().string() +
+						(includePath[0] == '/' || includePath[0] == '\\' ? "" : "/") + includePath;
+					readInclude(ss, includePath);
+				};
 
 				while (std::getline(stream, line)) {
 					if (line.find("#shader") != std::string::npos) {
 						if (line.find("vertex") != std::string::npos)			type = ShaderType::VERTEX;
 						else if (line.find("fragment") != std::string::npos)	type = ShaderType::FRAGMENT;
 						else if (line.find("geometry") != std::string::npos)	type = ShaderType::GEOMETRY;
+					}
+					else if (line.find("#include") != std::string::npos) {
+						makeIncludePath(ss[static_cast<int>(type)], line, filePath);
 					}
 					else if (type != ShaderType::NONE) {
 						ss[static_cast<int>(type)] << line << '\n';
@@ -170,7 +206,9 @@ namespace KUMA {
 					std::string errorLog(maxLength, ' ');
 					glGetShaderInfoLog(id, maxLength, &maxLength, errorLog.data());
 
-					std::string shaderTypeString = p_type == GL_VERTEX_SHADER ? "VERTEX SHADER" : "FRAGMENT SHADER";
+					std::string shaderTypeString = "VERTEX SHADER";
+					if (p_type == GL_FRAGMENT_SHADER) shaderTypeString = "FRAGMENT SHADER";
+					if (p_type == GL_GEOMETRY_SHADER) shaderTypeString = "GEOMETRY SHADER";
 					std::string errorHeader = "[" + shaderTypeString + "] \"";
 					LOG_ERROR(errorHeader + FILE_PATH + "\":\n" + errorLog);
 

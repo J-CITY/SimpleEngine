@@ -88,7 +88,8 @@ int main() {
 			//light->strength = 1.0f;
 			light->distance = 100;
 
-			light->setIntensity(0.95f);
+			light->setIntensity(1.0f);
+			
 			light->setColor({1.0f, 1.0f, 1.0f});
 			obj.transform->setLocalPosition({-20.0f, 40.0f, 10.0f});
 			obj.transform->setLocalRotation({0.81379771, -0.17101006, 0.29619816, 0.46984628});
@@ -112,6 +113,57 @@ int main() {
 		light->setLinear(1.0f);
 		light->setColor({1.0f, 1.0f, 1.0f});
 		obj.transform->setLocalPosition({0.0f, 14.0f, -45.0f});
+		obj.transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
+		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+	}
+	{
+		auto& obj = scene->createObject("Point3Light");
+		auto light = obj.addComponent<KUMA::ECS::PointLight>();
+		//light->shadowRes = 2048;
+		//light->zNear = 1.0f;
+		//light->zFar = 2000.0f;
+		//light->strength = 1.0f;
+		//light->aspect = 1.0f;
+
+		light->setIntensity(1.0f);
+		light->setQuadratic(1.0f);
+		light->setLinear(1.0f);
+		light->setColor({255.0f, 255.0f, 255.0f});
+		obj.transform->setLocalPosition({-20.0f, 40.0f, 10.0f});
+		obj.transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
+		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+	}
+	{
+		auto& obj = scene->createObject("Point3Light");
+		auto light = obj.addComponent<KUMA::ECS::PointLight>();
+		//light->shadowRes = 2048;
+		//light->zNear = 1.0f;
+		//light->zFar = 2000.0f;
+		//light->strength = 1.0f;
+		//light->aspect = 1.0f;
+
+		light->setIntensity(1.0f);
+		light->setQuadratic(1.0f);
+		light->setLinear(1.0f);
+		light->setColor({255.0f, 255.0f, 255.0f});
+		obj.transform->setLocalPosition({-20.0f, 35.0f, 15.0f});
+		obj.transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
+		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
+	}
+	{
+		auto& obj = scene->createObject("Point3Light");
+		auto light = obj.addComponent<KUMA::ECS::PointLight>();
+		//light->shadowRes = 2048;
+		//light->zNear = 1.0f;
+		//light->zFar = 2000.0f;
+		//light->strength = 1.0f;
+		//light->aspect = 1.0f;
+
+		light->setIntensity(1.0f);
+		light->setQuadratic(1.0f);
+		light->setLinear(1.0f);
+		light->setColor({255.0f, 255.0f, 255.0f});
+		obj.transform->setLocalPosition({-20.0f, 35.0f, 5.0f});
 		obj.transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
 		obj.transform->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
@@ -551,6 +603,9 @@ int main() {
 
 		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\Vampire_normal.png");
 		data["u_NormalMap"] = tex2;
+		auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\noiseTexture.png");
+		data["u_Noise"] = tex3;
+		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
 		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
@@ -588,6 +643,7 @@ int main() {
 		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
 		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
 
+		//s = app.renderer.context.renderer->shadersMap["deferredGBuffer"];
 		_m->setShader(s);
 		_m->setBlendable(false);
 		_m->setBackfaceCulling(true);
@@ -607,6 +663,9 @@ int main() {
 
 		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
 		data["u_NormalMap"] = tex2;
+		auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\noiseTexture.png");
+		data["u_Noise"] = tex3;
+		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
 		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
@@ -662,6 +721,9 @@ int main() {
 
 		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
 		data["u_NormalMap"] = tex2;
+		auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\noiseTexture.png");
+		data["u_Noise"] = tex3;
+		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
 		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
@@ -772,6 +834,9 @@ int main() {
 
 		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
 		data["u_NormalMap"] = tex2;
+		auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\noiseTexture.png");
+		data["u_Noise"] = tex3;
+		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
 		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
@@ -780,6 +845,61 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 
+
+	{
+		auto& obj = scene->createObject("BoxDirLight");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Sphere.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({-20.0f, 35.0f, 10.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj.transform->setLocalScale({1.25f, 1.25f, 1.25f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\Standard.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_metalic.jpg");
+		data["u_DiffuseMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = true;
+		data["u_HeightScale"] = 0.0f;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_metalic.jpg");
+		data["u_NormalMap"] = tex2;
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["useBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
 
 	{
 		auto& obj = scene->createObject("Center");
@@ -828,6 +948,9 @@ int main() {
 
 		auto tex2 = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
 		data["u_NormalMap"] = tex2;
+		auto tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\noiseTexture.png");
+		data["u_Noise"] = tex3;
+		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
 		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
@@ -1010,6 +1133,53 @@ int main() {
 		
 		data["useBone"] = false;
 		data["castShadow"] = false;
+
+
+		mat->fillWithMaterial(_m);
+	}
+
+	{
+		auto& obj = scene->createObject("Grass");
+
+		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Sphere.fbx", flags);
+
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj.transform->setLocalPosition({-300.0f, 1.0f, 10.0f});
+		obj.transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj.transform->setLocalScale({30.0f, 30.0f, 30.0f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\grass.glsl");
+
+		auto mat = obj.addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(false);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().createResource("Textures\\grassPack.png");
+		data["gSampler"] = tex1;
+		data["fAlphaTest"] = 0.25f;
+		data["fAlphaMultiplier"] = 1.5f;
+		data["vColor"] = KUMA::MATHGL::Vector4(1.0f);
+
 
 
 		mat->fillWithMaterial(_m);
