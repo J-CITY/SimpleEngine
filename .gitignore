@@ -79,3 +79,9 @@ CGCourse/CGCourse/Build/*
 CGCourse/CGCourse/Debug/*
 CGCourse/CGCourse/x64/*
 CGCourse/CGCourse/Intermediate/*
+*.obj
+*.db
+*.db-shm
+*.db-wal
+*.vcxproj
+*.filters
