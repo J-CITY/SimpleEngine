@@ -4,49 +4,52 @@
 #include <vector>
 
 #include "../ecs/object.h"
+#include "../render/drawable.h"
+
+namespace KUMA::RENDER {
+	enum class CullingOptions;
+	struct LightOGL;
+	struct Drawable;
+}
 
 namespace KUMA::SCENE_SYSTEM {
 	class  Scene: public RESOURCES::Serializable {
 	public:
-		class IdGenerator: public ObjectIdGenerator<ECS::Object> {
-		};
+		class IdGenerator: public ObjectIdGenerator<ECS::Object> {};
+
 		Scene() = default;
-		~Scene();
+		virtual ~Scene();
 
 		void init();
 		void go();
-		bool getIsExecute() const;
+		[[nodiscard]] bool getIsExecute() const;
 		
 		void update(float dt);
 		void fixedUpdate(float dt);
 		void lateUpdate(float dt);
 
-		ECS::Object& createObject();
-		ECS::Object& createObject(const std::string& p_name, const std::string& p_tag = "");
+		std::shared_ptr<ECS::Object> createObject();
+		std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");
 
-		bool destroyActor(ECS::Object& p_target);
+		bool destroyObject(std::shared_ptr<ECS::Object> p_target);
 
-		ECS::Object* findActorByName(const std::string& p_name);
-		ECS::Object* findActorByTag(const std::string& p_tag);
-		std::shared_ptr<ECS::Object> findActorByID(ObjectId<ECS::Object> p_id);
+		std::shared_ptr<ECS::Object> findObjectByName(const std::string& p_name);
+		std::shared_ptr<ECS::Object> findObjectByTag(const std::string& p_tag);
+		std::shared_ptr<ECS::Object> findObjectByID(ObjectId<ECS::Object> p_id);
 
-		std::vector<std::reference_wrapper<ECS::Object>> findActorsByName(const std::string& p_name);
-		std::vector<std::reference_wrapper<ECS::Object>> findActorsByTag(const std::string& p_tag);
+		std::vector<std::shared_ptr<ECS::Object>> findObjectsByName(const std::string& p_name);
+		std::vector<std::shared_ptr<ECS::Object>> findObjectsByTag(const std::string& p_tag);
 
-		
-		void onComponentAdded(std::shared_ptr<ECS::Component> p_compononent);
-		void onComponentRemoved(std::shared_ptr<ECS::Component> p_compononent);
-
-		std::vector<std::shared_ptr<ECS::Object>>& getObjects();
+		const std::vector<std::shared_ptr<ECS::Object>>& getObjects() const;
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			for (auto& oj : j["objects"]) {
 				auto obj = createObject();
-				obj.onDeserialize(oj);
+				obj->onDeserialize(oj);
 			}
 			for (auto& oj : j["objects"]) {
-				auto obj = findActorByID(ObjectId<ECS::Object>(oj["id"]));
-				auto parent = findActorByID(ObjectId<ECS::Object>(oj["parent"]));
+				auto obj = findObjectByID(ObjectId<ECS::Object>(oj["id"]));
+				auto parent = findObjectByID(ObjectId<ECS::Object>(oj["parent"]));
 				obj->setParent(parent);
 			}
 		}
@@ -64,11 +67,51 @@ namespace KUMA::SCENE_SYSTEM {
 			return *skyboxTexture;
 		}
 
+		std::vector<std::reference_wrapper<KUMA::RESOURCES::Mesh>> Scene::getMeshesInFrustum(
+			const RENDER::Model& model,
+			const RENDER::BoundingSphere& modelBoundingSphere,
+			const ECS::Transform& modelTransform,
+			const RENDER::Frustum& frustum,
+			RENDER::CullingOptions cullingOptions
+		);
+
+		std::tuple<KUMA::RENDER::OpaqueDrawables,
+			KUMA::RENDER::TransparentDrawables,
+			KUMA::RENDER::OpaqueDrawables,
+			KUMA::RENDER::TransparentDrawables>  findDrawables(const MATHGL::Vector3& p_cameraPosition,
+			const RENDER::Camera& p_camera,
+			const RENDER::Frustum* p_customFrustum,
+			std::shared_ptr<RENDER::Material> p_defaultMaterial
+		);
+
+		std::tuple<KUMA::RENDER::OpaqueDrawables,
+			KUMA::RENDER::TransparentDrawables,
+			KUMA::RENDER::OpaqueDrawables,
+			KUMA::RENDER::TransparentDrawables>  findAndSortFrustumCulledDrawables(
+			const MATHGL::Vector3& cameraPosition,
+			const RENDER::Frustum& frustum,
+			std::shared_ptr<RENDER::Material> defaultMaterial
+		);
+
+		std::tuple<KUMA::RENDER::OpaqueDrawables,
+			KUMA::RENDER::TransparentDrawables,
+			KUMA::RENDER::OpaqueDrawables,
+			KUMA::RENDER::TransparentDrawables>  findAndSortDrawables(
+			const MATHGL::Vector3& cameraPosition,
+			std::shared_ptr<RENDER::Material> defaultMaterial
+		);
+
+		std::shared_ptr<ECS::CameraComponent> findMainCamera();
+		std::vector<RENDER::LightOGL> findLightData();
+		std::vector<RENDER::LightOGL> findLightDataInFrustum(const RENDER::Frustum& frustum);
+
+
 	private:
 		IdGenerator idGenerator;
 		
 		bool isExecute = false;
 		std::vector<std::shared_ptr<ECS::Object>> objects;
+
 		std::unique_ptr<ECS::Object> skyboxObject;
 		std::unique_ptr<RESOURCES::CubeMap> skyboxTexture;
 	};

@@ -67,7 +67,6 @@ namespace KUMA::ECS {
 
 		//TODO: refactor to addComponent
 		std::shared_ptr<Script> addScript(const std::string& name);
-    	//TODO: удалять и из off контейнеров, тк объект может быть выключен
 		bool removeScript(std::shared_ptr<Script> script);
 		bool removeScript(const std::string& name);
 		std::shared_ptr<Script> getScript(const std::string& name);

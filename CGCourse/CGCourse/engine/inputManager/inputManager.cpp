@@ -8,6 +8,7 @@ InputManager::InputManager(KUMA::WINDOW_SYSTEM::Window& _window) : window(_windo
 	keyReleasedListener = window.keyReleasedEvent.add(std::bind(&InputManager::onKeyReleased, this, std::placeholders::_1));
 	mouseButtonPressedListener = window.mouseButtonPressedEvent.add(std::bind(&InputManager::onMouseButtonPressed, this, std::placeholders::_1));
 	mouseButtonReleasedListener = window.mouseButtonReleasedEvent.add(std::bind(&InputManager::onMouseButtonReleased, this, std::placeholders::_1));
+	gamepadListener = window.gamepadEvent.add(std::bind(&InputManager::onGamepad, this, std::placeholders::_1));
 }
 
 InputManager::~InputManager() {
@@ -15,6 +16,7 @@ InputManager::~InputManager() {
 	window.keyReleasedEvent.removeListener(keyReleasedListener);
 	window.mouseButtonPressedEvent.removeListener(mouseButtonPressedListener);
 	window.mouseButtonReleasedEvent.removeListener(mouseButtonReleasedListener);
+	window.gamepadEvent.removeListener(gamepadListener);
 }
 
 bool InputManager::isKeyPressed(EKey p_key) const {
@@ -59,3 +61,19 @@ void InputManager::onMouseButtonPressed(int p_button) {
 void InputManager::onMouseButtonReleased(int p_button) {
 	mouseButtonEvents[static_cast<EMouseButton>(p_button)] = EMouseButtonState::MOUSE_UP;
 }
+
+void InputManager::onGamepad(WINDOW_SYSTEM::Window::GamepadData gd) {
+	if (gd.id == 0) {
+		g0 = gd;
+		return;
+	}
+	g1 = gd;
+}
+
+KUMA::WINDOW_SYSTEM::Window::GamepadData InputManager::getGamepad(int id) {
+	if (id == 0) {
+		return g0;
+	}
+	return g1;
+}
+

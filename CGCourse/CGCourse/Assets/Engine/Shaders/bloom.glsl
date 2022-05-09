@@ -17,22 +17,15 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform sampler2D scene;
-uniform sampler2D bloomBlur;
-uniform bool bloom;
-uniform float exposure;
+uniform sampler2D u_Scene;
+uniform sampler2D u_BloomBlur;
+uniform bool u_UseBloom;
 
 void main() {
-    const float gamma = 2.2;
-    vec3 hdrColor = texture(scene, TexCoords).rgb;
-    vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
-    if(bloom)
-        hdrColor += bloomColor; // аддитивное смешение
-    
-	// Тональная компрессия
-    vec3 result = hdrColor;//vec3(1.0) - exp(-hdrColor * exposure);
-    
-	// Гамма-коррекция       
-    //result = pow(result, vec3(1.0 / gamma));
-    FragColor = vec4(result, 1.0);
+    vec3 color = texture(u_Scene, TexCoords).rgb;
+    vec3 bloomColor = texture(u_BloomBlur, TexCoords).rgb;
+    if(u_UseBloom) {
+        color += bloomColor;
+    }
+    FragColor = vec4(color, 1.0);
 }

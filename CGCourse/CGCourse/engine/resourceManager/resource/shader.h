@@ -128,6 +128,11 @@ namespace KUMA {
 					glGetActiveUniform(id, unif, static_cast<GLsizei>(nameData.size()), &actualLength, &arraySize, &type, &nameData[0]);
 					std::string name(static_cast<char*>(nameData.data()), actualLength);
 
+					//auto p =name.find("[");
+					//if (p != std::string::npos) {
+					//	name = name.substr(0, p);
+					//}
+
 					if (!isEngineUBOMember(name)) {
 						RENDER::ShaderUniform defaultValue;
 
@@ -158,10 +163,10 @@ namespace KUMA {
 
 
 				//bones
-				//getUniformLocation("useBone");
-				//setUniformInt("useBone", 0);
+				//getUniformLocation("u_UseBone");
+				//setUniformInt("u_UseBone", 0);
 				for (int i = 0; i < MAX_BONES; i ++) {
-					getUniformLocation("finalBonesMatrices["+ std::to_string(i) +"]");
+					getUniformLocation("u_FinalBonesMatrices["+ std::to_string(i) +"]");
 				}
 			}
 
@@ -175,9 +180,9 @@ namespace KUMA {
 
 				const int location = glGetUniformLocation(id, name.c_str());
 
-				if (location == -1)
-					LOG_WARNING("Uniform: '" + name + "' doesn't exist\n");
-
+				if (location == -1) {
+					//LOG_WARNING("Uniform: '" + name + "' doesn't exist\n");
+				}
 				uniformLocationCache[name] = location;
 
 				return location;

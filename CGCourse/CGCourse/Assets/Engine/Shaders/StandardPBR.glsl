@@ -161,7 +161,7 @@ vec3 toVec3(float inv[3]) {
     return vec3(inv[0], inv[1], inv[2]);
 }
 
-float LuminosityFromAttenuation(mat4 p_Light)
+float LuminosityFromAttenuation(LightOGL p_Light)
 {
     const vec3  lightPosition   = toVec3(p_Light.pos);
     const float constant        = p_Light.constant;
@@ -173,7 +173,7 @@ float LuminosityFromAttenuation(mat4 p_Light)
     return 1.0 / attenuation;
 }
 
-vec3 CalcAmbientBoxLight(mat4 p_Light)
+vec3 CalcAmbientBoxLight(LightOGL p_Light)
 {
     const vec3  lightPosition   = toVec3(p_Light.pos);
     const vec3  lightColor      = toVec3(p_Light.color);
@@ -183,7 +183,7 @@ vec3 CalcAmbientBoxLight(mat4 p_Light)
     return PointInAABB(fs_in.FragPos, lightPosition, size) ? lightColor * intensity : vec3(0.0);
 }
 
-vec3 CalcAmbientSphereLight(mat4 p_Light)
+vec3 CalcAmbientSphereLight(LightOGL p_Light)
 {
     const vec3  lightPosition   = toVec3(p_Light.pos);
     const vec3  lightColor      = toVec3(p_Light.color);
@@ -235,7 +235,7 @@ void main()
         }
         else {
             // calculate per-light radiance
-            vec3 L = ssbo_Lights[i].constant == 1 ? -toVec3(ssbo_Lights.forward) : normalize(toVec3(ssbo_Lights[i]pos) - fs_in.FragPos);
+            vec3 L = ssbo_Lights[i].constant == 1 ? -toVec3(ssbo_Lights[i].forward) : normalize(toVec3(ssbo_Lights[i].pos) - fs_in.FragPos);
             vec3 H = normalize(V + L);
             float distance    = length(toVec3(ssbo_Lights[i].pos)- fs_in.FragPos);
             float lightCoeff = 0.0;
@@ -250,7 +250,7 @@ void main()
                     break;
 
                 case 2:
-                    const vec3  lightForward    = toVec3(ssbo_Lights[i]forward);
+                    const vec3  lightForward    = toVec3(ssbo_Lights[i].forward);
                     const float cutOff          = cos(radians(ssbo_Lights[i].cutoff));
                     const float outerCutOff     = cos(radians(ssbo_Lights[i].cutoff + ssbo_Lights[i].outerCutoff));
 

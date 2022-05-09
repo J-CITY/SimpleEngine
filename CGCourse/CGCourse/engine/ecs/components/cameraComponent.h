@@ -1,19 +1,12 @@
 #pragma once
 
 #include "component.h"
-#include "../../../game/TextureAtlas.h"
 #include "../../render/Camera.h"
-#include "../../render/buffers/depthBuffer.h"
 
 namespace KUMA::ECS { class Object; }
 
-namespace MxEngine
-{
-	struct FrustrumCuller;
-	class FrameBuffer;
-}
 namespace KUMA::ECS {
-		class CameraComponent : public Component {
+	class CameraComponent : public Component {
 	public:
 		int blurAmount = 0;
 		float exposure = 1.0f;

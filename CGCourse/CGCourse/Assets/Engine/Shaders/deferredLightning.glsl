@@ -73,6 +73,9 @@ uniform sampler2D   u_SpecularMap;
 uniform sampler2D   u_HeightMap;
 uniform sampler2D   u_MaskMap;
 
+uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
+uniform sampler2D   brdfLUT;
 
 /* Global variables */
 vec3 g_Normal;
@@ -207,7 +210,7 @@ vec3 CalcAmbientSphereLight(LightOGL p_Light)
 {
     const vec3  lightPosition   = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
     const vec3  lightColor      = vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]);
-    const float intensity       = p_Light.intensity;// * g_AmbientOcclusion; //for ssao
+    const float intensity       = p_Light.intensity * g_AmbientOcclusion; //for ssao
     const float radius          = p_Light.constant;
 
     return distance(lightPosition, g_FragPos) <= radius ? g_DiffuseTexel.rgb * lightColor * intensity : vec3(0.0);
@@ -243,6 +246,26 @@ float ShadowCalculation(vec3 fragPos) {
     return shadow;
 }
 */
+vec3 getNormalFromMap() {
+    vec3 tangentNormal = texture(u_NormalMap, TexCoords).xyz * 2.0 - 1.0;
+
+    vec3 Q1  = dFdx(g_FragPos);
+    vec3 Q2  = dFdy(g_FragPos);
+    vec2 st1 = dFdx(TexCoords);
+    vec2 st2 = dFdy(TexCoords);
+
+    vec3 N   = normalize(g_Normal);
+    vec3 T  = normalize(Q1*st2.t - Q2*st1.t);
+    vec3 B  = -normalize(cross(N, T));
+    mat3 TBN = mat3(T, B, N);
+
+    return normalize(TBN * tangentNormal);
+}
+
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+}   
+
 void main()
 {
     vec3 FragPos = texture(u_PositionMap, TexCoords).rgb;
@@ -265,6 +288,29 @@ void main()
     g_Normal            = texture(u_NormalMap, TexCoords).rgb;
     g_AmbientOcclusion = texture(u_SSAO, TexCoords).r;
 
+    //ibl
+    vec3 N = getNormalFromMap();
+    vec3 V = normalize(ubo_ViewPos - g_FragPos);
+    vec3 R = reflect(-V, N); 
+    vec3 irradiance = texture(irradianceMap, N).rgb;
+    vec3 diffuse = irradiance * g_DiffuseTexel.xyz;
+    float roughness = 1.0; //take from tex pbr
+    float metallic = 1.0; //take from tex pbr
+    float ao = 1.0; //take from tex pbr
+    vec3 F0 = vec3(0.04); 
+    F0 = mix(F0, g_DiffuseTexel.xyz, metallic);
+    vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    vec3 kS = F;
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;	
+    // Производим выборки из префильтрованной карты LUT-текстуры BRDF и затем объединяем их вместе в соответствии с аппроксимацией разделенной суммы, чтобы получить зеркальную часть IBL
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;    
+    vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+    vec3 ambient = (kD * diffuse + specular) * ao;
+    //ibl end
+
     vec3 lightSum = vec3(0.0);
     for (int i = 0; i < ssbo_Lights.length(); ++i) {
         switch(ssbo_Lights[i].type) {
@@ -283,6 +329,10 @@ void main()
             case 4: lightSum += CalcAmbientSphereLight(ssbo_Lights[i]); break;
         }
     }
+
+    //ibl
+    lightSum += ambient;
+
 
     FRAGMENT_COLOR = vec4(lightSum, g_DiffuseTexel.a);
 

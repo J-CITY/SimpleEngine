@@ -18,17 +18,19 @@
 #include "../resourceManager/textureManager.h"
 #include "../utils/time/time.h"
 
+
+#include "../resourceManager/resource/bone.h"
+
 using namespace KUMA;
 using namespace KUMA::RENDER;
 
 //unsigned int depthMapFBO;
 //unsigned int depthMap;
-glm::vec3 lightPos = glm::vec3(0.0f, 15.0f, 15.0f);
-const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+
 
 GLuint depthBufferTexture;
 
@@ -39,9 +41,6 @@ unsigned int colorBuffers[2];
 bool hdr = true;
 float exposure = 1.0f;
 
-//defered render
-unsigned int gBuffer;
-unsigned int gPosition, gNormal, gAlbedoSpec;
 
 //ssao
 unsigned int ssaoFBO, ssaoBlurFBO;
@@ -62,9 +61,10 @@ std::shared_ptr<RESOURCES::Texture> tex3;
 
 void renderQuad();
 
-bool currentBuffer = 0;
-std::array<FrameBuffer, 2> swapBuffers;
-std::array<RESOURCES::Texture, 2> swapTextures;
+//ibl
+unsigned int irradianceMap;
+unsigned int prefilterMap;
+unsigned int brdfLUTTexture;
 
 // renderCube() рендерит 1x1 3D-ящик в NDC
 unsigned int cubeVAO = 0;
@@ -146,27 +146,30 @@ void renderCube() {
 	glBindVertexArray(0);
 }
 
-GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
-	context(_context) {
-	
-	emptyMaterial.setShader(context.shaderManager.createResource("Shaders\\Unlit.glsl"));
-	emptyMaterial.set("u_Diffuse", MATHGL::Vector3(1.f, 0.f, 1.f));
-	emptyMaterial.set<RESOURCES::Texture*>("u_DiffuseMap", nullptr);
+MATHGL::Vector2 Renderer::getShadowMapResolution() {
+	switch (pipeline.shadowLightData.resolution) {
+	case ShadowMapResolution::LOW: return MATHGL::Vector2(512, 512);
+	case ShadowMapResolution::MEDIUM: return MATHGL::Vector2(1024, 1024);
+	case ShadowMapResolution::HIGH: return MATHGL::Vector2(2048, 2048);
+	}
+}
 
-	context.renderer->registerModelMatrixSender([this](const MATHGL::Matrix4& p_modelMatrix) {
-		context.engineUBO->setSubData(MATHGL::Matrix4::Transpose(p_modelMatrix), 0);
-	});
+void Renderer::init() {
+	emptyMaterial = std::make_shared<RENDER::Material>();
+	emptyMaterial->setShader(context.shaderManager.createResource("Shaders\\Unlit.glsl"));
+	emptyMaterial->set("u_Diffuse", MATHGL::Vector3(1.f, 0.f, 1.f));
+	emptyMaterial->set<RESOURCES::Texture*>("u_DiffuseMap", nullptr);
 
-	context.renderer->registerUserMatrixSender([this](const MATHGL::Matrix4& p_userMatrix) {
-		context.engineUBO->setSubData(
-			p_userMatrix,
-			// UBO layout offset
-			sizeof(MATHGL::Matrix4) +
-			sizeof(MATHGL::Matrix4) +
-			sizeof(MATHGL::Matrix4) +
-			sizeof(MATHGL::Vector3) +
-			sizeof(float)
-		);
+	KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+	flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+	flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+	flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+	flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+	sphere = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Sphere.fbx", flags);
+
+
+	registerModelMatrixSender([this](const MATHGL::Matrix4& p_modelMatrix) {
+		engineUBO->setSubData(MATHGL::Matrix4::Transpose(p_modelMatrix), 0);
 	});
 
 	//GUI test (remove later)
@@ -201,38 +204,50 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 	//shadow direction light
 	// Настраиваем карту глубины FBO
 
-	context.renderer->shadersMap["simpleDepthShader"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\dirShadow.glsl");
-	context.renderer->shadersMap["pointShadowShader"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\pointShadow.glsl");
+	shadersMap["simpleDepthShader"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\dirShadow.glsl");
+	shadersMap["pointShadowShader"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\pointShadow.glsl");
 
-	context.renderer->shadersMap["deferredGBuffer"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\deferredGBuffer.glsl");
-	context.renderer->shadersMap["deferredLightning"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\deferredLightning.glsl");
+	shadersMap["deferredGBuffer"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\deferredGBuffer.glsl");
+	shadersMap["deferredLightning"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\deferredLightning.glsl");
 
-	context.renderer->shadersMap["ssao"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\ssao.glsl");
-	context.renderer->shadersMap["ssaoBlur"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\ssaoBlur.glsl");
+	shadersMap["ssao"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\ssao.glsl");
+	shadersMap["ssaoBlur"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\ssaoBlur.glsl");
 
 	//ibl
-	context.renderer->shadersMap["equirectangularToCubemapShader"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\equirectangular_to_cubemap.glsl");
-	context.renderer->shadersMap["irradianceShader"] =               KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\irradiance_convolution.glsl");
-	context.renderer->shadersMap["prefilterShader"] =                KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\prefilter.glsl");
-	context.renderer->shadersMap["brdfShader"] =                     KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\brdf.glsl");
+	shadersMap["equirectangularToCubemapShader"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\equirectangular_to_cubemap.glsl");
+	shadersMap["irradianceShader"] =               KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\irradiance_convolution.glsl");
+	shadersMap["prefilterShader"] =                KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\prefilter.glsl");
+	shadersMap["brdfShader"] =                     KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\brdf.glsl");
 
 	//blum
-	context.renderer->shadersMap["blur"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\blur.glsl");
-	context.renderer->shadersMap["bloom"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\bloom.glsl");
+	shadersMap["blur"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\blur.glsl");
+	shadersMap["bloom"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\bloom.glsl");
+	shadersMap["motionBlur"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\motionBlur.glsl");
+	shadersMap["fxaa"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\fxaa.glsl");
+	shadersMap["bright"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\bright.glsl");
+	shadersMap["godRaysTexture"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\godRaysTexture.glsl");
+	shadersMap["godRays"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\godRays.glsl");
 
-	
+	unsigned screenWidth, screenHeight;
+	std::tie(screenWidth, screenHeight) = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 	{//create swap buffers
 		int i = 0;
 		for (auto& buffer : swapBuffers) {
 			buffer.bind();
 			auto& texture = swapTextures[i];
 			texture.bindWithoutAttach();
-			texture.Load(nullptr, SCR_WIDTH, SCR_HEIGHT, 4, true, RESOURCES::TextureFormat::RGBA16F);
+			texture.Load(nullptr, screenWidth, screenHeight, 4, true, RESOURCES::TextureFormat::RGBA16F);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			buffer.AttachTexture(texture, Attachment::COLOR_ATTACHMENT0);
 			i++;
 		}
+
+		
+		textureForGodRays.bindWithoutAttach();
+		textureForGodRays.Load(nullptr, screenWidth, screenHeight, 4, true, RESOURCES::TextureFormat::RGBA16F);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	}
 
 	{//defered render
@@ -281,20 +296,30 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 			std::cout << "Framebuffer not complete!" << std::endl;
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		context.renderer->shadersMap["deferredLightning"]->bind();
-		context.renderer->shadersMap["deferredLightning"]->setUniformInt("u_PositionMap", 0);
-		context.renderer->shadersMap["deferredLightning"]->setUniformInt("u_NormalMap", 1);
-		context.renderer->shadersMap["deferredLightning"]->setUniformInt("u_DiffuseMap", 2);
-		context.renderer->shadersMap["deferredLightning"]->setUniformInt("u_SSAO", 3);
-		context.renderer->shadersMap["deferredLightning"]->unbind();
+		shadersMap["deferredLightning"]->bind();
+		shadersMap["deferredLightning"]->setUniformInt("u_PositionMap", 0);
+		shadersMap["deferredLightning"]->setUniformInt("u_NormalMap", 1);
+		shadersMap["deferredLightning"]->setUniformInt("u_DiffuseMap", 2);
+		shadersMap["deferredLightning"]->setUniformInt("u_SSAO", 3);
+		shadersMap["deferredLightning"]->unbind();
 	}
 
-	{//blum
-		
+	{//bloom
+		shadersMap["bloom"]->bind();
+		shadersMap["bloom"]->setUniformInt("u_Scene", 0);
+		shadersMap["bloom"]->setUniformInt("u_BloomBlur",  1);
+		shadersMap["bloom"]->bind();
+	}
+
+	{//godRays
+		shadersMap["godRays"]->bind();
+		shadersMap["godRays"]->setUniformInt("u_Scene", 0);
+		shadersMap["godRays"]->setUniformInt("u_BinaryScene", 1);
+		shadersMap["godRays"]->bind();
 	}
 
 
-	/* {//ssao
+	{//ssao
 		glGenFramebuffers(1, &ssaoFBO);  glGenFramebuffers(1, &ssaoBlurFBO);
 		glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
 		// Цветовой буфер SSAO 
@@ -352,17 +377,17 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-		context.renderer->shadersMap["ssao"]->bind();
-		context.renderer->shadersMap["ssao"]->setUniformInt("gPosition", 0);
-		context.renderer->shadersMap["ssao"]->setUniformInt("gNormal", 1);
-		context.renderer->shadersMap["ssao"]->setUniformInt("texNoise", 2);
-		context.renderer->shadersMap["ssaoBlur"]->bind();
-		context.renderer->shadersMap["ssaoBlur"]->setUniformInt("ssaoInput", 0);
-		context.renderer->shadersMap["ssaoBlur"]->unbind();
-		context.renderer->shadersMap["ssao"]->unbind();
+		shadersMap["ssao"]->bind();
+		shadersMap["ssao"]->setUniformInt("gPosition", 0);
+		shadersMap["ssao"]->setUniformInt("gNormal", 1);
+		shadersMap["ssao"]->setUniformInt("texNoise", 2);
+		shadersMap["ssaoBlur"]->bind();
+		shadersMap["ssaoBlur"]->setUniformInt("ssaoInput", 0);
+		shadersMap["ssaoBlur"]->unbind();
+		shadersMap["ssao"]->unbind();
 	}
-	*/
-	/*{//ibl
+	
+	{//ibl
 		// PBR: настройка фреймбуфера
 		unsigned int captureFBO;
 		unsigned int captureRBO;
@@ -376,7 +401,7 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 
 		RESOURCES::stbiSetFlipVerticallyOnLoad(true);
 		int width, height, nrComponents;
-		float* data = RESOURCES::stbiLoadf("../resources/textures/hdr/newport_loft.hdr", &width, &height, &nrComponents, 0);
+		float* data = RESOURCES::stbiLoadf("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\textures\\hdr\\newport_loft.hdr", &width, &height, &nrComponents, 0);
 		unsigned int hdrTexture;
 		if (data) {
 			glGenTextures(1, &hdrTexture);
@@ -417,16 +442,16 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		};
 
 		// PBR: конвертирование равнопромежуточной HDR-карты окружения в кубическую
-		context.renderer->shadersMap["equirectangularToCubemapShader"]->bind();
-		context.renderer->shadersMap["equirectangularToCubemapShader"]->setUniformInt("equirectangularMap", 0);
-		context.renderer->shadersMap["equirectangularToCubemapShader"]->setUniformMat4("projection", captureProjection);
+		shadersMap["equirectangularToCubemapShader"]->bind();
+		shadersMap["equirectangularToCubemapShader"]->setUniformInt("equirectangularMap", 0);
+		shadersMap["equirectangularToCubemapShader"]->setUniformMat4("projection", captureProjection);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, hdrTexture);
 
 		glViewport(0, 0, 512, 512); // не забудьте настроить видовой экран в соответствии с размерами захвата
 		glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
 		for (unsigned int i = 0; i < 6; ++i) {
-			context.renderer->shadersMap["equirectangularToCubemapShader"]->setUniformMat4("view", captureViews[i]);
+			shadersMap["equirectangularToCubemapShader"]->setUniformMat4("view", captureViews[i]);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envCubemap, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -439,7 +464,7 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 
 		// PBR: создаем кубическую карту облученности, и приводим размеры захвата FBO к размерам карты облученности
-		unsigned int irradianceMap;
+		
 		glGenTextures(1, &irradianceMap);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
 		for (unsigned int i = 0; i < 6; ++i) {
@@ -456,16 +481,16 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 32, 32);
 
 		// PBR: решаем диффузный интеграл, применяя операцию свертки для создания кубической карты облученности
-		context.renderer->shadersMap["irradianceShader"]->bind();
-		context.renderer->shadersMap["irradianceShader"]->setUniformInt("environmentMap", 0);
-		context.renderer->shadersMap["irradianceShader"]->setUniformMat4("projection", captureProjection);
+		shadersMap["irradianceShader"]->bind();
+		shadersMap["irradianceShader"]->setUniformInt("environmentMap", 0);
+		shadersMap["irradianceShader"]->setUniformMat4("projection", captureProjection);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
 
 		glViewport(0, 0, 32, 32); // не забудьте настроить видовой экран на размеры захвата
 		glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
 		for (unsigned int i = 0; i < 6; ++i) {
-			context.renderer->shadersMap["irradianceShader"]->setUniformMat4("view", captureViews[i]);
+			shadersMap["irradianceShader"]->setUniformMat4("view", captureViews[i]);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceMap, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -474,7 +499,7 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		// PBR: создаем префильтрованную кубическую карту, и приводим размеры захвата FBO к размерам префильтрованной карты
-		unsigned int prefilterMap;
+		
 		glGenTextures(1, &prefilterMap);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
 		for (unsigned int i = 0; i < 6; ++i) {
@@ -490,9 +515,9 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 
 		// PBR: применяем симуляцию квази Монте-Карло для освещения окружающей среды, чтобы создать префильтрованную (кубическую)карту
-		context.renderer->shadersMap["prefilterShader"]->bind();
-		context.renderer->shadersMap["prefilterShader"]->setUniformInt("environmentMap", 0);
-		context.renderer->shadersMap["prefilterShader"]->setUniformMat4("projection", captureProjection);
+		shadersMap["prefilterShader"]->bind();
+		shadersMap["prefilterShader"]->setUniformInt("environmentMap", 0);
+		shadersMap["prefilterShader"]->setUniformMat4("projection", captureProjection);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
 
@@ -507,9 +532,9 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 			glViewport(0, 0, mipWidth, mipHeight);
 
 			float roughness = (float)mip / (float)(maxMipLevels - 1);
-			context.renderer->shadersMap["prefilterShader"]->setUniformFloat("roughness", roughness);
+			shadersMap["prefilterShader"]->setUniformFloat("roughness", roughness);
 			for (unsigned int i = 0; i < 6; ++i) {
-				context.renderer->shadersMap["prefilterShader"]->setUniformMat4("view", captureViews[i]);
+				shadersMap["prefilterShader"]->setUniformMat4("view", captureViews[i]);
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, prefilterMap, mip);
 
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -519,7 +544,7 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		// PBR: генерируем 2D LUT-текстуру при помощи используемых уравнений BRDF
-		unsigned int brdfLUTTexture;
+		
 		glGenTextures(1, &brdfLUTTexture);
 
 		// Выделяем необходимое количество памяти для LUT-текстуры
@@ -539,7 +564,7 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfLUTTexture, 0);
 
 		glViewport(0, 0, 512, 512);
-		context.renderer->shadersMap["brdfShader"]->bind();
+		shadersMap["brdfShader"]->bind();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		renderQuad();
 
@@ -547,7 +572,7 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 
 
 		glViewport(0, 0, 800, 600);
-	}*/
+	}
 
 
 	{//motion blur
@@ -603,8 +628,9 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 		// Прикрепляем текстуру к фреймбуферу
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, colorBuffers[i], 0);
+		
 	}
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffers[0], 0);
 
 	// Создание буфера глубины (рендербуфер)
 	unsigned int rboDepth;
@@ -645,29 +671,42 @@ GameRenderer::GameRenderer(CORE_SYSTEM::Core& _context) :
 	
 
 	hdrShader->bind();
-	hdrShader->setUniformInt("hdrBuffer0", 0);
-	hdrShader->setUniformInt("hdrBuffer1", 1);
-	hdrShader->setUniformInt("hdrBuffer2", 2);
-	hdrShader->setUniformInt("hdrBuffer3", 3);
-	hdrShader->setUniformInt("bloomBlur",  4);
-	hdrShader->setUniformInt("u_Noise",  5);
-	hdrShader->setUniformInt("u_Depth",  6);
+	hdrShader->setUniformInt("u_Scene", 0);
+	//hdrShader->setUniformInt("hdrBuffer0", 0);
+	//hdrShader->setUniformInt("hdrBuffer1", 1);
+	//hdrShader->setUniformInt("hdrBuffer2", 2);
+	//hdrShader->setUniformInt("hdrBuffer3", 3);
+	//hdrShader->setUniformInt("bloomBlur",  4);
+	//hdrShader->setUniformInt("u_Noise",  5);
+	//hdrShader->setUniformInt("u_Depth",  6);
 	hdrShader->unbind();
 
 
-	context.renderer->shadersMap["blur"]->bind();
-	context.renderer->shadersMap["blur"]->setUniformInt("image", 0);
-	//context.renderer->shadersMap["bloom"]->bind();
-	//context.renderer->shadersMap["bloom"]->setUniformInt("scene", 0);
-	//context.renderer->shadersMap["bloom"]->setUniformInt("bloomBlur", 1);
+	shadersMap["blur"]->bind();
+	shadersMap["blur"]->setUniformInt("image", 0);
+
+	shadersMap["motionBlur"]->bind();
+	shadersMap["motionBlur"]->setUniformInt("u_SceneBuffer0", 0);
+	shadersMap["motionBlur"]->setUniformInt("u_SceneBuffer1", 1);
+	shadersMap["motionBlur"]->setUniformInt("u_SceneBuffer2", 2);
+	shadersMap["motionBlur"]->setUniformInt("u_SceneBuffer3", 3);
+
+	shadersMap["fxaa"]->bind();
+	shadersMap["fxaa"]->setUniformInt("u_Scene", 0);
+
+	shadersMap["bright"]->bind();
+	shadersMap["bright"]->setUniformInt("u_Scene", 0);
+	//shadersMap["bloom"]->bind();
+	//shadersMap["bloom"]->setUniformInt("scene", 0);
+	//shadersMap["bloom"]->setUniformInt("bloomBlur", 1);
 
 
 
 }
 
-void GameRenderer::renderSkybox() {
+void Renderer::renderSkybox() {
 	//SKYBOX
-	auto currentScene = context.sceneManager.getCurrentScene();
+	auto currentScene = context.sceneManager->getCurrentScene();
 	auto& skyboxObj = currentScene->getSkybox();
 
 	auto skyboxMat = skyboxObj.getComponent<ECS::MaterialRenderer>()->getMaterials()[0];
@@ -679,7 +718,7 @@ void GameRenderer::renderSkybox() {
 	glCullFace(GL_FRONT);
 	glDepthFunc(GL_LEQUAL);
 	
-	auto mainCameraComponent = context.renderer->findMainCamera(*currentScene);
+	auto mainCameraComponent = currentScene->findMainCamera();
 	auto& camera = mainCameraComponent->getCamera();
 	auto v = camera.getViewMatrix();
 	auto p = camera.getProjectionMatrix();
@@ -691,29 +730,29 @@ void GameRenderer::renderSkybox() {
 	auto m = MATHGL::Matrix4::Translation(pos) * MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(rot)) * MATHGL::Matrix4::Scaling(scl);
 
 	skyboxMat->getShader()->setUniformMat4("gWVP", p * v * m);
-	currentScene->getSkyboxTexture().bind(GL_TEXTURE0);
+	//currentScene->getSkyboxTexture().bind(GL_TEXTURE0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, currentScene->getSkyboxTexture().id);
 
 	auto mr = skyboxObj.getComponent<ECS::ModelRenderer>();
 	auto mm = mr->getModel()->getMeshes();
 	for (auto m : mm)
-		context.renderer->draw(*m, PrimitiveMode::TRIANGLES, 1);
+		draw(*m, PrimitiveMode::TRIANGLES, 1);
 
 	glCullFace(OldCullFaceMode);
 	glDepthFunc(OldDepthFuncMode);
 	skyboxMat->getShader()->unbind();
 }
 
-bool isShadowDir = false;
 
-void GameRenderer::renderScene() {
-	
-	if (auto currentScene = context.sceneManager.getCurrentScene()) {
+void Renderer::renderScene() {
+	if (auto currentScene = context.sceneManager->getCurrentScene()) {
 		//grass
-		auto grass = currentScene->findActorByName("Grass");
+		auto grass = currentScene->findObjectByName("Grass");
 		auto m = grass->getComponent<KUMA::ECS::MaterialRenderer>();
 		m->getMaterials()[0]->getUniformsData()["fTimePassed"] = KUMA::TIME::Timer::instance()->getTimeSinceStart();
 
-		if (auto mainCameraComponent = context.renderer->findMainCamera(*currentScene)) {
+		if (auto mainCameraComponent = currentScene->findMainCamera()) {
 			auto& camera = mainCameraComponent->getCamera();
 			if (mainCameraComponent->isFrustumLightCulling()) {
 				updateLightsInFrustum(*currentScene, mainCameraComponent->getCamera().getFrustum());
@@ -725,56 +764,54 @@ void GameRenderer::renderScene() {
 			auto [winWidth, winHeight] = context.window->getSize();
 			const auto& cameraPosition = mainCameraComponent->obj.transform->getWorldPosition();
 			const auto& cameraRotation = mainCameraComponent->obj.transform->getWorldRotation();
-			//auto& camera = mainCameraComponent->GetCamera();
-
 			camera.cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
 
 			updateEngineUBO(*mainCameraComponent);
 
-			context.renderer->clear(true, true, false);
-			context.renderer->FindDrawables(cameraPosition, camera, nullptr, &emptyMaterial);
+			BaseRender::clear(true, true, false);
+			std::tie(opaqueMeshesForward, transparentMeshesForward, opaqueMeshesDeferred, transparentMeshesDeferred) = 
+				currentScene->findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
 
-			context.renderer->prepareDirLightShadowMap();
-			//context.renderer->prepareSpotLightShadowMap();
-			//context.renderer->preparePointLightShadowMap();
+			prepareDirLightShadowMap();
+			//prepareSpotLightShadowMap();
+			//preparePointLightShadowMap();
 
 
 			glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			renderSkybox();
+			
 
 			//TODO: где-то тут прокинуть текстуры для IBL
 
-			uint8_t glState = context.renderer->fetchGLState();
-			context.renderer->applyStateMask(glState);
-
-			/* {//deferred
+			uint8_t glState = fetchGLState();
+			applyStateMask(glState);
+			//glEnable(GL_BLEND);
+			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			{//deferred
 				// 1. Геометрический проход: выполняем рендеринг геометрических/цветовых данных сцены в g-буфер
 				glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-				context.renderer->shadersMap["deferredGBuffer"]->bind();
+				shadersMap["deferredGBuffer"]->bind();
 				
-				for (const auto& [distance, p_toDraw] : context.renderer->opaqueMeshes) {
-					context.renderer->userMatrixSender(p_toDraw.userMatrix);
-					context.renderer->drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, context.renderer->shadersMap["deferredGBuffer"]);
+				for (const auto& [distance, p_toDraw] : opaqueMeshesDeferred) {
+					drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
 				}
-				for (const auto& [distance, p_toDraw] : context.renderer->transparentMeshes) {
-					context.renderer->userMatrixSender(p_toDraw.userMatrix);
-					context.renderer->drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, context.renderer->shadersMap["deferredGBuffer"]);
+				for (const auto& [distance, p_toDraw] : transparentMeshesDeferred) {
+					drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
 				}
 
-				context.renderer->shadersMap["deferredGBuffer"]->unbind();
+				shadersMap["deferredGBuffer"]->unbind();
 
 				{//ssao
 					// 2. Генерируем текстуру для SSAO
 					glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
 					glClear(GL_COLOR_BUFFER_BIT);
-					context.renderer->shadersMap["ssao"]->bind();
+					shadersMap["ssao"]->bind();
 
 					// Посылаем ядро + поворот 
 					for (unsigned int i = 0; i < 64; ++i)
-						context.renderer->shadersMap["ssao"]->setUniformVec3("samples[" + std::to_string(i) + "]", ssaoKernel[i]);
+						shadersMap["ssao"]->setUniformVec3("samples[" + std::to_string(i) + "]", ssaoKernel[i]);
 					//shaderSSAO.setMat4("projection", projection);
 					glActiveTexture(GL_TEXTURE0);
 					glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -789,122 +826,231 @@ void GameRenderer::renderScene() {
 					// 3. Размываем SSAO-текстуру, чтобы убрать шум
 					glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
 					glClear(GL_COLOR_BUFFER_BIT);
-					context.renderer->shadersMap["ssaoBlur"]->bind();
+					shadersMap["ssaoBlur"]->bind();
 					glActiveTexture(GL_TEXTURE0);
 					glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
 					renderQuad();
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				}
-
+				
 
 				glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
-
+				
 				// 2. Проход освещения: вычисление освещение, перебирая попиксельно экранный прямоугольник, используя содержимое g-буфера
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-				context.renderer->shadersMap["deferredLightning"]->bind();
+				shadersMap["deferredLightning"]->bind();
 				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, gPosition);
 				glActiveTexture(GL_TEXTURE1);
 				glBindTexture(GL_TEXTURE_2D, gNormal);
 				glActiveTexture(GL_TEXTURE2);
 				glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
-
-				// Рендерим прямоугольник
+				
+				{//ibl TODO: (send to forward shaders too)
+					shadersMap["deferredLightning"]->setUniformInt("irradianceMap", 7);
+					shadersMap["deferredLightning"]->setUniformInt("prefilterMap", 8);
+					shadersMap["deferredLightning"]->setUniformInt("brdfLUT", 9);
+					// Связываем предварительно вычисленные IBL-данные
+					glActiveTexture(GL_TEXTURE7);
+					glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
+					glActiveTexture(GL_TEXTURE8);
+					glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
+					glActiveTexture(GL_TEXTURE9);
+					glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+				}
+				
+				//// Рендерим прямоугольник
 				renderQuad();
-
-				context.renderer->shadersMap["deferredLightning"]->unbind();
-			}*/
+				shadersMap["deferredLightning"]->unbind();
+			}
 			// 2.5. Копируем содержимое буфера глубины (геометрический проход) в буфер глубины заданного по умолчанию фреймбуфера
-			//glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
-			//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, hdrFBO); // пишем в заданный по умолчанию фреймбуфер
-			//glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			//glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, hdrFBO); // пишем в заданный по умолчанию фреймбуфер
+			glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+			
+			renderSkybox();
 
+			renderScene(nullptr);
+			/* {//prepare textures for post processing
+				swapBuffers[0].bind();
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffers[1], 0);
+				shadersMap["bright"]->bind();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+				renderQuad();
+				shadersMap["bright"]->unbind();
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapTextures[0].id, 0);
+				swapBuffers[0].unbind();
 
-			context.renderer->renderScene(nullptr);
-			//context.renderer->applyStateMask(glState);
+				swapBuffers[0].bind();
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureForGodRays.id, 0);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				shadersMap["godRaysTexture"]->bind();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+				shadersMap["godRaysTexture"]->setUniformVec3("u_Color", MATHGL::Vector3(0.0f, 0.0f, 0.0f));
+				//renderScene(shadersMap["godRaysTexture"]);
+
+				for (const auto& [distance, drawable] : opaqueMeshesForward) {
+					drawDrawable(drawable, shadersMap["godRaysTexture"]);
+				}
+				for (const auto& [distance, drawable] : opaqueMeshesDeferred) {
+					drawDrawable(drawable, shadersMap["godRaysTexture"]);
+				}
+
+				shadersMap["godRaysTexture"]->setUniformVec3("u_Color", MATHGL::Vector3(1.0f, 1.0f, 1.0f));
+				for (auto& light : ECS::ComponentManager::getInstance()->getAllDirectionalLights()) {
+					Drawable d;
+					d.mesh = sphere->meshes[0];
+					d.material = emptyMaterial;
+					d.material->getUniformsData()["u_UseBone"] = false;
+					d.world = light->obj.transform->getTransform().getWorldMatrix();
+					drawDrawable(d, shadersMap["godRaysTexture"]);
+				}
+				shadersMap["godRaysTexture"]->unbind();
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapTextures[0].id, 0);
+				swapBuffers[0].unbind();
+			}*/
+			//applyStateMask(glState);
 
 			//glBindFramebuffer(GL_READ_FRAMEBUFFER, hdrFBO);
 			//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // пишем в заданный по умолчанию фреймбуфер
 			//glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			//copy depth buffer to texture
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthBufferTexture, 0);
-
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-
-			//glState = context.renderer->fetchGLState();
-			//context.renderer->applyStateMask(GL_DEPTH_TEST);
-
-			// 2. Размываем яркие фрагменты с помощью двухпроходного размытия по Гауссу
-			bool horizontal = true, first_iteration = true;
-			unsigned int amount = 10;
-			context.renderer->shadersMap["blur"]->bind();
-			for (unsigned int i = 0; i < amount; i++) {
-				glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
-				context.renderer->shadersMap["blur"]->setUniformInt("horizontal", horizontal);
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, first_iteration ? colorBuffers[1] : pingpongColorbuffers[!horizontal]);  // привязка текстуры другого фреймбуфера (или сцены, если это - первая итерация)
-				renderQuad();
-				horizontal = !horizontal;
-				if (first_iteration)
-					first_iteration = false;
-			}
-
-			//glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
-
-			// 3. Теперь рендерим цветовой буфер (типа с плавающей точкой) на 2D-прямоугольник и сужаем диапазон значений HDR-цветов к цветовому диапазону значений заданного по умолчанию фреймбуфера
-			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			//context.renderer->shadersMap["bloom"]->bind();
-			//glActiveTexture(GL_TEXTURE0);
-			//glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
-			//glActiveTexture(GL_TEXTURE1);
-			//glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
-			//context.renderer->shadersMap["bloom"]->setUniformInt("bloom", 1);
-			//context.renderer->shadersMap["bloom"]->setUniformFloat("exposure", exposure);
-			//renderQuad();
-
-
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			if (!motionBlurIsInit) {
-				motionBlurIsInit = true;
-				for (auto i = 0; i < motionBlurTextures.size(); i++) {
-					glCopyImageSubData(colorBuffers[0], GL_TEXTURE_2D, 0, 0, 0, 0,
-						motionBlurTextures[i], GL_TEXTURE_2D, 0, 0, 0, 0,
-						800, 600, 1);
+			
+			{//bloom
+				// 2. Размываем яркие фрагменты с помощью двухпроходного размытия по Гауссу
+				bool horizontal = true, firstIteration = true;
+				unsigned int amount = 10;
+				shadersMap["blur"]->bind();
+				for (unsigned int i = 0; i < amount; i++) {
+					glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+					shadersMap["blur"]->setUniformInt("horizontal", horizontal);
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, firstIteration ? colorBuffers[1] : pingpongColorbuffers[!horizontal]);  // привязка текстуры другого фреймбуфера (или сцены, если это - первая итерация)
+					renderQuad();
+					horizontal = !horizontal;
+					if (firstIteration) {
+						firstIteration = false;
+					}
 				}
+
+				swapBuffers[currentSwapBuffer].bind();
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				shadersMap["bloom"]->bind();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
+				shadersMap["bloom"]->setUniformInt("u_UseBloom", true);
+				renderQuad();
+				shadersMap["bloom"]->unbind();
+				swapBuffers[currentSwapBuffer].unbind();
+				currentSwapBuffer = !currentSwapBuffer;
 			}
-			else {
-				auto front = motionBlurTextures[0];
-				motionBlurTextures.erase(motionBlurTextures.begin());
-				motionBlurTextures.push_back(front);
-				glCopyImageSubData(colorBuffers[0], GL_TEXTURE_2D, 0, 0, 0, 0,
-					motionBlurTextures[motionBlurTextures.size()-1], GL_TEXTURE_2D, 0, 0, 0, 0,
-					800, 600, 1);
+
+			//{//god rays
+			//	auto dirLights = ECS::ComponentManager::getInstance()->getAllDirectionalLights();
+			//	if (dirLights.size() > 0) {
+			//		swapBuffers[currentSwapBuffer].bind();
+			//
+			//		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			//		shadersMap["godRays"]->bind();
+			//		glActiveTexture(GL_TEXTURE0);
+			//		glBindTexture(GL_TEXTURE_2D, swapTextures[!currentSwapBuffer].id);
+			//		glActiveTexture(GL_TEXTURE1);
+			//		glBindTexture(GL_TEXTURE_2D, textureForGodRays.id);
+			//		shadersMap["godRays"]->setUniformInt("u_UseGodRays", true);
+			//		shadersMap["godRays"]->setUniformVec3("u_SunPos", dirLights[0]->obj.transform->getLocalPosition());
+			//		renderQuad();
+			//		shadersMap["godRays"]->unbind();
+			//
+			//		swapBuffers[currentSwapBuffer].unbind();
+			//		currentSwapBuffer = !currentSwapBuffer;
+			//	}
+			//}
+
+			//{//motion blur
+			//	swapBuffers[currentSwapBuffer].bind();
+			//
+			//	//update textures
+			//	if (!motionBlurIsInit) {
+			//		motionBlurIsInit = true;
+			//		for (auto i = 0; i < motionBlurTextures.size(); i++) {
+			//			glCopyImageSubData(swapTextures[!currentSwapBuffer].id, GL_TEXTURE_2D, 0, 0, 0, 0,
+			//				motionBlurTextures[i], GL_TEXTURE_2D, 0, 0, 0, 0,
+			//				800, 600, 1);
+			//		}
+			//	}
+			//	else {
+			//		auto front = motionBlurTextures[0];
+			//		motionBlurTextures.erase(motionBlurTextures.begin());
+			//		motionBlurTextures.push_back(front);
+			//		glCopyImageSubData(swapTextures[!currentSwapBuffer].id, GL_TEXTURE_2D, 0, 0, 0, 0,
+			//			motionBlurTextures[motionBlurTextures.size() - 1], GL_TEXTURE_2D, 0, 0, 0, 0,
+			//			800, 600, 1);
+			//	}
+			//	shadersMap["motionBlur"]->bind();
+			//	glActiveTexture(GL_TEXTURE0);
+			//	glBindTexture(GL_TEXTURE_2D, motionBlurTextures[0]);
+			//	glActiveTexture(GL_TEXTURE1);
+			//	glBindTexture(GL_TEXTURE_2D, motionBlurTextures[1]);
+			//	glActiveTexture(GL_TEXTURE2);
+			//	glBindTexture(GL_TEXTURE_2D, motionBlurTextures[2]);
+			//	glActiveTexture(GL_TEXTURE3);
+			//	glBindTexture(GL_TEXTURE_2D, motionBlurTextures[3]);
+			//
+			//	shadersMap["motionBlur"]->setUniformInt("u_UseMotionBlur", true);
+			//	renderQuad();
+			//	shadersMap["motionBlur"]->unbind();
+			//
+			//	swapBuffers[currentSwapBuffer].unbind();
+			//	currentSwapBuffer = !currentSwapBuffer;
+			//}
+
+
+			{//fxaa
+				swapBuffers[currentSwapBuffer].bind();
+				
+				shadersMap["fxaa"]->bind();
+				swapTextures[!currentSwapBuffer].bind();
+
+				shadersMap["fxaa"]->setUniformInt("u_UseFXAA", true);
+				renderQuad();
+				shadersMap["fxaa"]->unbind();
+
+				swapBuffers[currentSwapBuffer].unbind();
+				currentSwapBuffer = !currentSwapBuffer;
 			}
+
+			
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			hdrShader->bind();
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, motionBlurTextures[0]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, motionBlurTextures[1]);
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, motionBlurTextures[2]);
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_2D, motionBlurTextures[3]);
-			glActiveTexture(GL_TEXTURE4);
-			glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
-			glActiveTexture(GL_TEXTURE5);
-			glBindTexture(GL_TEXTURE_2D, tex3->id);
-			glActiveTexture(GL_TEXTURE6);
-			glBindTexture(GL_TEXTURE_2D, depthBufferTexture);
-			hdrShader->setUniformInt("hdr", hdr);
-			hdrShader->setUniformFloat("exposure", exposure);
-			hdrShader->setUniformVec3("sunPos", {-20.0f, 40.0f, 10.0f});
+			//glActiveTexture(GL_TEXTURE0);
+			//glBindTexture(GL_TEXTURE_2D, motionBlurTextures[0]);
+			//glActiveTexture(GL_TEXTURE1);
+			//glBindTexture(GL_TEXTURE_2D, motionBlurTextures[1]);
+			//glActiveTexture(GL_TEXTURE2);
+			//glBindTexture(GL_TEXTURE_2D, motionBlurTextures[2]);
+			//glActiveTexture(GL_TEXTURE3);
+			//glBindTexture(GL_TEXTURE_2D, motionBlurTextures[3]);
+			//
+			//glActiveTexture(GL_TEXTURE5);
+			//glBindTexture(GL_TEXTURE_2D, tex3->id);
+			//glActiveTexture(GL_TEXTURE6);
+			//glBindTexture(GL_TEXTURE_2D, depthBufferTexture);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			swapTextures[!currentSwapBuffer].bind();
+			//textureForGodRays.bind();
+			hdrShader->setUniformInt("u_UseHDR", hdr);
+			hdrShader->setUniformFloat("u_Exposure", exposure);
+			hdrShader->setUniformFloat("u_Gamma", 2.2f);
+			//hdrShader->setUniformVec3("sunPos", {-20.0f, 40.0f, 10.0f});
 			renderQuad();
 			hdrShader->unbind();
 
-			context.renderer->applyStateMask(glState);
+			applyStateMask(glState);
 
 			//glEnable(GL_DEPTH_TEST);
 			//glDepthMask(GL_TRUE);
@@ -923,8 +1069,8 @@ void GameRenderer::renderScene() {
 			//context.window->getSFMLContext()->popGLStates();
 		}
 		else {
-			context.renderer->setClearColor(0.0f, 0.0f, 0.0f);
-			context.renderer->clear(true, true, false);
+			setClearColor(0.0f, 0.0f, 0.0f);
+			BaseRender::clear(true, true, false);
 		}
 	}
 }
@@ -958,33 +1104,48 @@ void renderQuad() {
 	glBindVertexArray(0);
 }
 
-void GameRenderer::updateEngineUBO(ECS::CameraComponent& p_mainCamera) {
+void Renderer::updateEngineUBO(ECS::CameraComponent& p_mainCamera) {
 	size_t offset = sizeof(MATHGL::Matrix4); // We skip the model matrix (Which is a special case, modified every draw calls)
 	auto& camera = p_mainCamera.getCamera();
 
-	context.engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getViewMatrix()), std::ref(offset));
-	context.engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getProjectionMatrix()), std::ref(offset));
-	context.engineUBO->setSubData(p_mainCamera.obj.transform->getWorldPosition(), std::ref(offset));
+	engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getViewMatrix()), std::ref(offset));
+	engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getProjectionMatrix()), std::ref(offset));
+	engineUBO->setSubData(p_mainCamera.obj.transform->getWorldPosition(), std::ref(offset));
 }
 
-void GameRenderer::updateLights(SCENE_SYSTEM::Scene& p_scene) {
-	auto lightMatrices = context.renderer->findLightMatrices(p_scene);
-	context.lightSSBO->SendBlocks<LightOGL>(lightMatrices.data(), lightMatrices.size() * sizeof(LightOGL));
+void Renderer::updateLights(SCENE_SYSTEM::Scene& scene) {
+	auto lightMatrices = scene.findLightData();
+	lightSSBO->SendBlocks<LightOGL>(lightMatrices.data(), lightMatrices.size() * sizeof(LightOGL));
 }
 
-void GameRenderer::updateLightsInFrustum(SCENE_SYSTEM::Scene& p_scene, const Frustum& p_frustum) {
-	auto lightMatrices = context.renderer->findLightMatricesInFrustum(p_scene, p_frustum);
-	context.lightSSBO->SendBlocks<LightOGL>(lightMatrices.data(), lightMatrices.size() * sizeof(LightOGL));
+void Renderer::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum) {
+	auto lightMatrices = scene.findLightDataInFrustum(frustum);
+	lightSSBO->SendBlocks<LightOGL>(lightMatrices.data(), lightMatrices.size() * sizeof(LightOGL));
 }
-/// 
-Renderer::Renderer(GL_SYSTEM::GlManager& _driver) :
-	BaseRender(_driver),
+Renderer::Renderer(GL_SYSTEM::GlManager& _driver, CORE_SYSTEM::Core& context) :
+	BaseRender(_driver), context(context),
 	emptyTexture(RESOURCES::TextureLoader::CreateColor(
 		(255 << 24) | (255 << 16) | (255 << 8) | 255,
 		RESOURCES::ETextureFilteringMode::NEAREST,
 		RESOURCES::ETextureFilteringMode::NEAREST,
 		false
 	)) {
+	engineUBO = std::make_unique<RENDER::UniformBuffer>(
+		sizeof(MATHGL::Matrix4) +
+		sizeof(MATHGL::Matrix4) +
+		sizeof(MATHGL::Matrix4) +
+		sizeof(MATHGL::Vector3) +
+		sizeof(float) +
+		sizeof(MATHGL::Matrix4),
+		0,
+		0,
+		RENDER::AccessSpecifier::STREAM_DRAW
+		);
+
+	lightSSBO = std::make_unique<RENDER::ShaderStorageBuffer>(RENDER::AccessSpecifier::STREAM_DRAW);
+	lightSSBO->bind(0);
+
+	init();
 
 	//multiSampledFBO.setupFrameBuffer(true);
 	//shaderAtlas[0] = new Shader("basicShader.vert", "basicShader.frag");
@@ -1006,53 +1167,34 @@ void Renderer::prepareDirLightShadowMap() {
 	pipeline.dirLightsData.clear();
 	for (auto& light : ECS::ComponentManager::getInstance()->getAllDirectionalLights()) {
 		pipeline.depthMapFBO.AttachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
-		//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO.id);
-		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, light->shadowMap->id, 0);
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 		pipeline.depthMapFBO.unbind();
 
-		lightPos = glm::vec3(light->obj.transform->getLocalPosition().x,
-			light->obj.transform->getLocalPosition().y,
-			light->obj.transform->getLocalPosition().z);
-
-		glm::mat4 lightProjection, lightView;
-		float near_plane = 1.0f, far_plane = 100.0f;
-		// lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane); // обратите внимание, что если вы используете матрицу перспективной проекции, то вам придется изменить положение света, так как текущего положения света недостаточно для отображения всей сцены
-		lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, near_plane, far_plane);
-		lightView = glm::lookAt(lightPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0, 1.0, 0.0));
+		
+		float nearPlane = 1.0f, farPlane = 100.0f;
+		auto lightProjection = MATHGL::Matrix4::CreateOrthographic(-50.0f, 50.0f, -50.0f, 50.0f, nearPlane, farPlane);
+		auto lightView = MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
 		auto lightSpaceMatrix = lightProjection * lightView;
 
-		MATHGL::Matrix4 m(
-			lightSpaceMatrix[0][0], lightSpaceMatrix[0][1], lightSpaceMatrix[0][2], lightSpaceMatrix[0][3],
-			lightSpaceMatrix[1][0], lightSpaceMatrix[1][1], lightSpaceMatrix[1][2], lightSpaceMatrix[1][3],
-			lightSpaceMatrix[2][0], lightSpaceMatrix[2][1], lightSpaceMatrix[2][2], lightSpaceMatrix[2][3],
-			lightSpaceMatrix[3][0], lightSpaceMatrix[3][1], lightSpaceMatrix[3][2], lightSpaceMatrix[3][3]
-		);
-
-
-		pipeline.dirLightsData.push_back(DirLightData{light->shadowMap->id, m.Transpose(m)});
-
-		// Рендеринг сцены глазами источника света
+		pipeline.dirLightsData.push_back(DirLightData{light->shadowMap->id, lightSpaceMatrix, light->obj.transform->getLocalPosition()});
+		
 		shadersMap["simpleDepthShader"]->bind();
-		shadersMap["simpleDepthShader"]->setUniformMat4("lightSpaceMatrix", m.Transpose(m));
-		//glUniformMatrix4fv(glGetUniformLocation(shadersMap["simpleDepthShader"]->id, "lightSpaceMatrix"), 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+		shadersMap["simpleDepthShader"]->setUniformMat4("u_LightSpaceMatrix", lightSpaceMatrix);
 
-		setViewPort(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		//glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		auto res = getShadowMapResolution();
+		setViewPort(0, 0, static_cast<unsigned>(res.x), static_cast<unsigned>(res.y));
+
 		pipeline.depthMapFBO.bind();
-		ClearDepth();
-		//glClear(GL_DEPTH_BUFFER_BIT);
-		isShadowDir = true;
-		renderScene(shadersMap["simpleDepthShader"]);
+		clearDepth();
+		renderDirShadowMap();
 		pipeline.depthMapFBO.unbind();
-		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		isShadowDir = false;
-
-		// Сброс настроек области просмотра
-		glViewport(0, 0, 800, 600);
+		
+		glViewport(0, 0, context.window->getSize().first, context.window->getSize().second);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//Support only one shadow map for dir light
+		break;
 	}
 }
 
@@ -1061,50 +1203,30 @@ void Renderer::prepareSpotLightShadowMap() {
 	pipeline.spotLightsData.clear();
 	for (auto& light : ECS::ComponentManager::getInstance()->getAllSpotLights()) {
 		pipeline.depthMapFBO.AttachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
-		//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO.id);
-		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, light->shadowMap->id, 0);
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 		pipeline.depthMapFBO.unbind();
+		
+		
+		float nearPlane = 1.0f, farPlane = 100.0f;
+		auto res = getShadowMapResolution();
+		auto lightProjection = MATHGL::Matrix4::CreatePerspective(TO_RADIANS(45.0f), res.x / res.y, nearPlane, farPlane);
+		auto lightView = MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
 
-		lightPos = glm::vec3(light->obj.transform->getLocalPosition().x,
-			light->obj.transform->getLocalPosition().y,
-			light->obj.transform->getLocalPosition().z);
-
-		glm::mat4 lightProjection, lightView;
-		float near_plane = 1.0f, far_plane = 100.0f;
-		lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane); // обратите внимание, что если вы используете матрицу перспективной проекции, то вам придется изменить положение света, так как текущего положения света недостаточно для отображения всей сцены
-		//lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, near_plane, far_plane);
-		lightView = glm::lookAt(lightPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0, 1.0, 0.0));
 		auto lightSpaceMatrix = lightProjection * lightView;
 
-		MATHGL::Matrix4 m(
-			lightSpaceMatrix[0][0], lightSpaceMatrix[0][1], lightSpaceMatrix[0][2], lightSpaceMatrix[0][3],
-			lightSpaceMatrix[1][0], lightSpaceMatrix[1][1], lightSpaceMatrix[1][2], lightSpaceMatrix[1][3],
-			lightSpaceMatrix[2][0], lightSpaceMatrix[2][1], lightSpaceMatrix[2][2], lightSpaceMatrix[2][3],
-			lightSpaceMatrix[3][0], lightSpaceMatrix[3][1], lightSpaceMatrix[3][2], lightSpaceMatrix[3][3]
-		);
-
-
-		pipeline.spotLightsData.push_back(SpotLightData{light->shadowMap->id, m});
+		pipeline.spotLightsData.push_back(SpotLightData{light->shadowMap->id, lightSpaceMatrix});
 
 		// Рендеринг сцены глазами источника света
 		shadersMap["simpleDepthShader"]->bind();
-		shadersMap["simpleDepthShader"]->setUniformMat4("lightSpaceMatrix", m.Transpose(m));
-		//glUniformMatrix4fv(glGetUniformLocation(shadersMap["simpleDepthShader"]->id, "lightSpaceMatrix"), 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+		shadersMap["simpleDepthShader"]->setUniformMat4("u_LightSpaceMatrix", lightSpaceMatrix);
 
-		setViewPort(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		//glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		setViewPort(0, 0, static_cast<unsigned>(res.x), static_cast<unsigned>(res.y));
 		pipeline.depthMapFBO.bind();
-		ClearDepth();
-		//glClear(GL_DEPTH_BUFFER_BIT);
-		isShadowDir = true;
+		clearDepth();
 		renderScene(shadersMap["simpleDepthShader"]);
 		pipeline.depthMapFBO.unbind();
-		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		isShadowDir = false;
-
+		
 		// Сброс настроек области просмотра
 		glViewport(0, 0, 800, 600);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1113,6 +1235,7 @@ void Renderer::prepareSpotLightShadowMap() {
 
 void Renderer::preparePointLightShadowMap() {
 	pipeline.pointLightsData.clear();
+	auto res = getShadowMapResolution();
 	for (auto& light : ECS::ComponentManager::getInstance()->getAllPointLights()) {
 		pipeline.depthMapFBO.AttachCubeMap(*light->DepthMap, Attachment::DEPTH_ATTACHMENT);
 		//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO.id);
@@ -1126,36 +1249,37 @@ void Renderer::preparePointLightShadowMap() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// 0. Создаем матрицы трансформации кубической карты глубины
-		float near_plane = 1.0f;
-		float far_plane = 25.0f;
-		glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, near_plane, far_plane);
-		std::vector<glm::mat4> shadowTransforms;
-		shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
-		shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
-		shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
+		float nearPlane = 1.0f;
+		float farPlane = 25.0f;
+		auto shadowProj = MATHGL::Matrix4::CreatePerspective(TO_RADIANS(90.0f), res.x / res.y, nearPlane, farPlane);
+		
+		std::vector<MATHGL::Matrix4> shadowTransforms;
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), light->obj.transform->getLocalPosition() + MATHGL::Vector3(1.0f, 0.0f, 0.0f),  MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), light->obj.transform->getLocalPosition() + MATHGL::Vector3(-1.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), light->obj.transform->getLocalPosition() + MATHGL::Vector3(0.0f, 1.0f, 0.0f),  MATHGL::Vector3(0.0f, 0.0f, 1.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), light->obj.transform->getLocalPosition() + MATHGL::Vector3(0.0f, -1.0f, 0.0f), MATHGL::Vector3(0.0f, 0.0f, -1.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), light->obj.transform->getLocalPosition() + MATHGL::Vector3(0.0f, 0.0f, 1.0f),  MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getLocalPosition(), light->obj.transform->getLocalPosition() + MATHGL::Vector3(0.0f, 0.0f, -1.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
 
 		// 1. Рендерим сцену в кубическую карту глубины
-		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		glViewport(0, 0, static_cast<unsigned>(res.x), static_cast<unsigned>(res.y));
 		pipeline.depthMapFBO.bind();
 		glClear(GL_DEPTH_BUFFER_BIT);
 		shadersMap["pointShadowShader"]->bind();
 		for (unsigned int i = 0; i < 6; ++i) {
-			MATHGL::Matrix4 m(
-				shadowTransforms[i][0][0], shadowTransforms[i][0][1], shadowTransforms[i][0][2], shadowTransforms[i][0][3],
-				shadowTransforms[i][1][0], shadowTransforms[i][1][1], shadowTransforms[i][1][2], shadowTransforms[i][1][3],
-				shadowTransforms[i][2][0], shadowTransforms[i][2][1], shadowTransforms[i][2][2], shadowTransforms[i][2][3],
-				shadowTransforms[i][3][0], shadowTransforms[i][3][1], shadowTransforms[i][3][2], shadowTransforms[i][3][3]
-			);
-			shadersMap["pointShadowShader"]->setUniformMat4("shadowMatrices[" + std::to_string(i) + "]", m.Transpose(m));
+			shadersMap["pointShadowShader"]->setUniformMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
 		}
-		shadersMap["pointShadowShader"]->setUniformFloat("far_plane", far_plane);
-		shadersMap["pointShadowShader"]->setUniformVec3("lightPos", MATHGL::Vector3(lightPos.x, lightPos.y, lightPos.z));
-		isShadowDir = true;
-		renderScene(shadersMap["pointShadowShader"]);
-		isShadowDir = false;
+		shadersMap["pointShadowShader"]->setUniformFloat("far_plane", farPlane);
+		shadersMap["pointShadowShader"]->setUniformVec3("lightPos", light->obj.transform->getLocalPosition());
+
+		//renderScene(shadersMap["pointShadowShader"]);
+		for (const auto& [distance, drawable] : opaqueMeshesForward) {
+			drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shadersMap["pointShadowShader"]);
+		}
+		for (const auto& [distance, drawable] : opaqueMeshesDeferred) {
+			drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shadersMap["pointShadowShader"]);
+		}
+		pipeline.pointLightsData.push_back(PointLightData{light->DepthMap->id});
 		pipeline.depthMapFBO.unbind();
 
 		// Сброс настроек области просмотра
@@ -1164,256 +1288,48 @@ void Renderer::preparePointLightShadowMap() {
 	}
 }
 
-std::shared_ptr<ECS::CameraComponent> Renderer::findMainCamera(const SCENE_SYSTEM::Scene& p_scene) {
-	for (auto& camera : ECS::ComponentManager::getInstance()->cameraComponents)
-		if (camera.second->obj.getIsActive())
-			return camera.second;
 
-	return nullptr;
-}
-
-std::vector<LightOGL> Renderer::findLightMatrices(const SCENE_SYSTEM::Scene& p_scene)
-{
-	std::vector<LightOGL> result;
-
-	const auto facs = ECS::ComponentManager::getInstance();
-
-	for (auto light : facs->lightComponents) {
-		if (light.second->obj.getIsActive()) {
-			auto ldata = light.second->getData().generateOGLStruct();
-			result.push_back(ldata);
-		}
-	}
-
-	return result;
-}
-
-std::vector<LightOGL> Renderer::findLightMatricesInFrustum(const SCENE_SYSTEM::Scene& p_scene, const Frustum& p_frustum) {
-	std::vector<LightOGL> result;
-
-	const auto& facs = ECS::ComponentManager::getInstance();
-
-	for (auto& light : facs->lightComponents) {
-		if (light.second->obj.getIsActive()) {
-			const auto& lightData = light.second->getData();
-			const auto& position = lightData.getTransform().getWorldPosition();
-			auto effectRange = lightData.getEffectRange();
-
-			// We always consider lights that have an +inf range (Not necessary to test if they are in frustum)
-			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
-				auto ldata = lightData.generateOGLStruct();
-				result.push_back(ldata);
-			}
-		}
-	}
-
-	return result;
-}
-
-void Renderer::Clear() const {
+void Renderer::clear() const {
 	glClear(clearMask);
 }
 
-void Renderer::ClearDepth() const {
+void Renderer::clearDepth() const {
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::FindDrawables(
-	const MATHGL::Vector3& p_cameraPosition,
-	const Camera& p_camera,
-	const Frustum* p_customFrustum,
-	Material* p_defaultMaterial
-) {
-	opaqueMeshes.clear();
-	transparentMeshes.clear();
-
-	if (p_camera.isFrustumGeometryCulling()) {
-		const auto& frustum = p_customFrustum ? *p_customFrustum : p_camera.getFrustum();
-		std::tie(opaqueMeshes, transparentMeshes) = findAndSortFrustumCulledDrawables(p_cameraPosition, frustum, p_defaultMaterial);
-	}
-	else {
-		std::tie(opaqueMeshes, transparentMeshes) = findAndSortDrawables(p_cameraPosition, p_defaultMaterial);
-	}
-}
 
 void Renderer::renderScene(std::shared_ptr<RESOURCES::Shader> shader) {
-	for (const auto& [distance, drawable] : opaqueMeshes) {
-		if (isShadowDir)
+	for (const auto& [distance, drawable] : opaqueMeshesForward) {
+		if (shader)
 			drawDrawable(drawable, shader);
 		else
 			drawDrawable(drawable);
 	}
-	for (const auto& [distance, drawable] : transparentMeshes) {
-		if (isShadowDir)
+	for (const auto& [distance, drawable] : transparentMeshesForward) {
+		if (shader)
 			drawDrawable(drawable, shader);
 		else
 			drawDrawable(drawable);
 	}
 }
 
-void findAndSortDrawables(
-	Renderer::OpaqueDrawables& p_opaques,
-	Renderer::TransparentDrawables& p_transparents,
-	const KUMA::MATHGL::Vector3& p_cameraPosition,
-	std::shared_ptr<RENDER::Material> p_defaultMaterial
-)
-{
-	for (auto& modelRenderer : ECS::ComponentManager::getInstance()->modelComponents) {
-		if (modelRenderer.second->obj.getIsActive()) {
-			if (auto model = modelRenderer.second->getModel()) {
-				float distanceToActor = KUMA::MATHGL::Vector3::Distance(modelRenderer.second->obj.transform->getWorldPosition(), p_cameraPosition);
 
-				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
-					const auto& transform = modelRenderer.second->obj.transform->getTransform();
-
-					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
-
-					for (auto mesh : model->getMeshes()) {
-						std::shared_ptr<RENDER::Material> material;
-
-						if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
-							material = materials.at(mesh->getMaterialIndex());
-							if (!material || !material->getShader())
-								material = p_defaultMaterial;
-						}
-
-						if (material) {
-							Renderer::Drawable element = {
-								transform.getWorldMatrix(),
-								mesh, material.get(), materialRenderer->getUserMatrix() };
-
-							if (material->isBlendable())
-								p_transparents.emplace(distanceToActor, element);
-							else
-								p_opaques.emplace(distanceToActor, element);
-						}
-					}
-				}
-			}
-		}
+void Renderer::renderDirShadowMap() {
+	for (const auto& [distance, drawable] : opaqueMeshesForward) {
+		drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shadersMap["simpleDepthShader"]);
+	}
+	for (const auto& [distance, drawable] : opaqueMeshesDeferred) {
+		drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shadersMap["simpleDepthShader"]);
 	}
 }
 
-std::pair<Renderer::OpaqueDrawables, Renderer::TransparentDrawables> Renderer::findAndSortFrustumCulledDrawables
-(
-	const MATHGL::Vector3& p_cameraPosition,
-	const Frustum& p_frustum,
-	Material* p_defaultMaterial
-) {
-	
-	Renderer::OpaqueDrawables opaqueDrawables;
-	Renderer::TransparentDrawables transparentDrawables;
 
-	for (auto& modelRenderer : ECS::ComponentManager::getInstance()->modelComponents) {
-		auto& owner = modelRenderer.second->obj;
-
-		if (owner.getIsActive()) {
-			if (auto model = modelRenderer.second->getModel()) {
-				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
-					auto& transform = owner.transform->getTransform();
-
-					CullingOptions cullingOptions = CullingOptions::NONE;
-
-					if (modelRenderer.second->getFrustumBehaviour() != ECS::ModelRenderer::EFrustumBehaviour::DISABLED) {
-						cullingOptions |= CullingOptions::FRUSTUM_PER_MODEL;
-					}
-
-					if (modelRenderer.second->getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_MESHES) {
-						cullingOptions |= CullingOptions::FRUSTUM_PER_MESH;
-					}
-
-					const auto& modelBoundingSphere = modelRenderer.second->getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer.second->getCustomBoundingSphere() : model->getBoundingSphere();
-
-					std::vector<std::reference_wrapper<RESOURCES::Mesh>> meshes;
-					{
-						meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, p_frustum, cullingOptions);
-					}
-
-					if (!meshes.empty()) {
-						float distanceToActor = MATHGL::Vector3::Distance(transform.getWorldPosition(), p_cameraPosition);
-						const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
-
-						for (const auto& mesh : meshes)
-						{
-							Material* material = nullptr;
-
-							if (mesh.get().getMaterialIndex() < MAX_MATERIAL_COUNT)
-							{
-								material = materials.at(mesh.get().getMaterialIndex()).get();
-								if (!material || !material->getShader())
-									material = p_defaultMaterial;
-							}
-
-							if (material) {
-								Renderer::Drawable element = { transform.getWorldMatrix(), &mesh.get(), material, materialRenderer->getUserMatrix() };
-
-								if (material->isBlendable())
-									transparentDrawables.emplace(distanceToActor, element);
-								else
-									opaqueDrawables.emplace(distanceToActor, element);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return { opaqueDrawables, transparentDrawables };
-}
-
-std::pair<Renderer::OpaqueDrawables, Renderer::TransparentDrawables> Renderer::findAndSortDrawables
-(
-	const MATHGL::Vector3& p_cameraPosition,
-	Material* p_defaultMaterial
-)
-{
-	OpaqueDrawables opaqueDrawables;
-	TransparentDrawables transparentDrawables;
-
-	for (auto& modelRenderer : ECS::ComponentManager::getInstance()->modelComponents) {
-		if (modelRenderer.second->obj.getIsActive() && modelRenderer.second->obj.getName() != "Skybox") {
-			if (auto model = modelRenderer.second->getModel()) {
-				float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.second->obj.transform->getWorldPosition(), p_cameraPosition);
-
-				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
-					const auto& transform = modelRenderer.second->obj.transform->getTransform();
-
-					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
-
-					for (auto mesh : model->getMeshes()) {
-						Material* material = nullptr;
-
-						if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
-							material = materials.at(mesh->getMaterialIndex()).get();
-							if (!material || !material->getShader())
-								material = p_defaultMaterial;
-						}
-
-						if (material) {
-							Renderer::Drawable element = { transform.getWorldMatrix(), mesh, material, materialRenderer->getUserMatrix() };
-
-							if (material->isBlendable())
-								transparentDrawables.emplace(distanceToActor, element);
-							else
-								opaqueDrawables.emplace(distanceToActor, element);
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return { opaqueDrawables, transparentDrawables };
-}
 
 void Renderer::drawDrawable(const Drawable& p_toDraw) {
-	userMatrixSender(p_toDraw.userMatrix);
 	drawMesh(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world);
 }
 
 void Renderer::drawDrawable(const Drawable& p_toDraw, std::shared_ptr<RESOURCES::Shader> shader) {
-	userMatrixSender(p_toDraw.userMatrix);
 	drawDirShadowMap(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shader);
 }
 
@@ -1442,12 +1358,6 @@ void Renderer::drawModelWithMaterials(Model& p_model, std::vector<Material*> p_m
 
 void Renderer::drawMesh(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, bool useTextures) {
 	if (p_material.hasShader() && p_material.getGPUInstances() > 0) {
-		if (isShadowDir) {
-			if (p_material.getUniformsData().count("castShadow") && !std::get<bool>(p_material.getUniformsData()["useBone"])) {
-				return;
-			}
-		}
-
 		if (p_modelMatrix)
 			modelMatrixSender(*p_modelMatrix);
 
@@ -1456,47 +1366,77 @@ void Renderer::drawMesh(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::M
 
 		{
 			p_material.bind(emptyTexture, useTextures);
-			p_material.getShader()->setUniformVec3("lightPos", MATHGL::Vector3(lightPos.x, lightPos.y, lightPos.z));
-			p_material.getShader()->setUniformMat4("lightSpaceMatrix", pipeline.dirLightsData[0].projMap);
+			p_material.getShader()->setUniformVec3("lightPos", pipeline.dirLightsData[0].pos);
+			p_material.getShader()->setUniformMat4("u_LightSpaceMatrix", pipeline.dirLightsData[0].projMap);
 			p_material.getShader()->setUniformInt("shadowMap", 5);
 			glActiveTexture(GL_TEXTURE5);
 			glBindTexture(GL_TEXTURE_2D, pipeline.dirLightsData[0].id);
+
+			//point lights
+			//auto i = 6u;
+			//int cnt = 0;
+			//for (auto& data : pipeline.pointLightsData) {
+			//	if (cnt == 4) {
+			//		break;
+			//	}
+			//	p_material.getShader()->setUniformInt("shadowMap", i);
+			//	glActiveTexture(GL_TEXTURE0 + i);
+			//	glBindTexture(GL_TEXTURE_CUBE_MAP, data.id);
+			//}
+		}
+		if (animator) {
+			auto transforms = animator->GetFinalBoneMatrices();
+			for (int i = 0; i < transforms.size(); ++i) {
+				MATHGL::Matrix4 m = MATHGL::Matrix4(
+					transforms[i][0][0], transforms[i][0][1], transforms[i][0][2], transforms[i][0][3],
+					transforms[i][1][0], transforms[i][1][1], transforms[i][1][2], transforms[i][1][3],
+					transforms[i][2][0], transforms[i][2][1], transforms[i][2][2], transforms[i][2][3],
+					transforms[i][3][0], transforms[i][3][1], transforms[i][3][2], transforms[i][3][3]
+				);
+				//material.getShader()->setUniformMat4("finalBonesMatrices[" + std::to_string(i) + "]", MATHGL::Matrix4::Transpose(m));
+				glUniformMatrix4fv(glGetUniformLocation(p_material.getShader()->id, std::string("u_FinalBonesMatrices[" + std::to_string(i) + "]").c_str()), 1, GL_FALSE, &transforms[i][0][0]);
+			}
 		}
 		draw(p_mesh, p_material, PrimitiveMode::TRIANGLES, p_material.getGPUInstances());
-		if (!isShadowDir)
-			p_material.unbind();
+		p_material.unbind();
 	}
 }
 
 void Renderer::drawDirShadowMap(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader) {
-	if (p_material.hasShader() && p_material.getGPUInstances() > 0) {
-		if (isShadowDir) {
-			if (p_material.getUniformsData().count("castShadow") && !std::get<bool>(p_material.getUniformsData()["useBone"])) {
-				return;
-			}
+	if (p_material.getGPUInstances() > 0) {
+		if (p_material.getUniformsData().count("castShadow") && !std::get<bool>(p_material.getUniformsData()["castShadow"])) {
+			return;
 		}
-
-		if (p_modelMatrix)
+		if (p_modelMatrix) {
 			modelMatrixSender(*p_modelMatrix);
-
+		}
 		uint8_t stateMask = p_material.generateStateMask();
 		applyStateMask(stateMask);
 
-		if (p_material.getUniformsData().count("useBone")) {
-			shader->setUniformInt("useBone", std::get<bool>(p_material.getUniformsData()["useBone"]));
+		if (p_material.getUniformsData().count("u_UseBone")) {
+			shader->setUniformInt("u_UseBone", std::get<bool>(p_material.getUniformsData()["u_UseBone"]));
 		}
-		shader->setUniformMat4("model", *p_modelMatrix);
-
+		if (animator) {
+			auto transforms = animator->GetFinalBoneMatrices();
+			for (int i = 0; i < transforms.size(); ++i) {
+				MATHGL::Matrix4 m = MATHGL::Matrix4(
+					transforms[i][0][0], transforms[i][0][1], transforms[i][0][2], transforms[i][0][3],
+					transforms[i][1][0], transforms[i][1][1], transforms[i][1][2], transforms[i][1][3],
+					transforms[i][2][0], transforms[i][2][1], transforms[i][2][2], transforms[i][2][3],
+					transforms[i][3][0], transforms[i][3][1], transforms[i][3][2], transforms[i][3][3]
+				);
+				//material.getShader()->setUniformMat4("finalBonesMatrices[" + std::to_string(i) + "]", MATHGL::Matrix4::Transpose(m));
+				glUniformMatrix4fv(glGetUniformLocation(shader ? shader->id : p_material.getShader()->id, std::string("u_FinalBonesMatrices[" + std::to_string(i) + "]").c_str()), 1, GL_FALSE, &transforms[i][0][0]);
+			}
+		}
 		draw(p_mesh, p_material, PrimitiveMode::TRIANGLES, p_material.getGPUInstances());
-		if (!isShadowDir)
-			p_material.unbind();
 	}
 }
 
 void Renderer::drawGBuffer(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader) {
 	//if (p_material.hasShader() && p_material.getGPUInstances() > 0) {
 		
-	//if (p_material.getUniformsData().count("castShadow") && !std::get<bool>(p_material.getUniformsData()["useBone"])) {
+	//if (p_material.getUniformsData().count("castShadow") && !std::get<bool>(p_material.getUniformsData()["u_UseBone"])) {
 	//	return;
 	//}
 	if (p_modelMatrix) {
@@ -1509,11 +1449,22 @@ void Renderer::drawGBuffer(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL
 	//p_material.setShader(shader);
 	p_material.bind(shader, emptyTexture, useTextures);
 
-	if (p_material.getUniformsData().count("useBone")) {
-		shader->setUniformInt("useBone", std::get<bool>(p_material.getUniformsData()["useBone"]));
+	if (p_material.getUniformsData().count("u_UseBone")) {
+		shader->setUniformInt("u_UseBone", std::get<bool>(p_material.getUniformsData()["u_UseBone"]));
 	}
-	shader->setUniformMat4("model", *p_modelMatrix);
-
+	if (animator) {
+		auto transforms = animator->GetFinalBoneMatrices();
+		for (int i = 0; i < transforms.size(); ++i) {
+			MATHGL::Matrix4 m = MATHGL::Matrix4(
+				transforms[i][0][0], transforms[i][0][1], transforms[i][0][2], transforms[i][0][3],
+				transforms[i][1][0], transforms[i][1][1], transforms[i][1][2], transforms[i][1][3],
+				transforms[i][2][0], transforms[i][2][1], transforms[i][2][2], transforms[i][2][3],
+				transforms[i][3][0], transforms[i][3][1], transforms[i][3][2], transforms[i][3][3]
+			);
+			//material.getShader()->setUniformMat4("finalBonesMatrices[" + std::to_string(i) + "]", MATHGL::Matrix4::Transpose(m));
+			glUniformMatrix4fv(glGetUniformLocation(shader ? shader->id : p_material.getShader()->id, std::string("u_FinalBonesMatrices[" + std::to_string(i) + "]").c_str()), 1, GL_FALSE, &transforms[i][0][0]);
+		}
+	}
 	draw(p_mesh, p_material, PrimitiveMode::TRIANGLES, p_material.getGPUInstances());
 
 	//p_material.setShader(nullptr);
@@ -1526,6 +1477,3 @@ void Renderer::registerModelMatrixSender(std::function<void(MATHGL::Matrix4)> p_
 	modelMatrixSender = p_modelMatrixSender;
 }
 
-void Renderer::registerUserMatrixSender(std::function<void(MATHGL::Matrix4)> p_userMatrixSender) {
-	userMatrixSender = p_userMatrixSender;
-}

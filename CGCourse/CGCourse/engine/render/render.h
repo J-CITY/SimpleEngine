@@ -201,13 +201,6 @@ namespace KUMA {
 			void draw(RESOURCES::Mesh & mesh, Material& material, PrimitiveMode primitiveMode = PrimitiveMode::TRIANGLES, uint32_t instances = 1);
 			void draw(RESOURCES::Mesh & mesh, PrimitiveMode primitiveMode = PrimitiveMode::TRIANGLES, uint32_t instances = 1);
 			
-			std::vector<std::reference_wrapper<RESOURCES::Mesh>> getMeshesInFrustum(
-				const Model & model,
-				const BoundingSphere & modelBoundingSphere,
-				const ECS::Transform & modelTransform,
-				const Frustum & frustum,
-				CullingOptions cullingOptions
-			);
 			uint8_t fetchGLState();
 			void applyStateMask(uint8_t mask);
 			void setState(uint8_t state);

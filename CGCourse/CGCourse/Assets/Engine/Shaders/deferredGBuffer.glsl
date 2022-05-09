@@ -11,9 +11,9 @@ layout (location = 6) in vec4 weights;
 
 const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
-uniform mat4 finalBonesMatrices[MAX_BONES];
-uniform bool useBone;
-uniform mat4 lightSpaceMatrix;
+uniform mat4 u_FinalBonesMatrices[MAX_BONES];
+uniform bool u_UseBone;
+uniform mat4 u_LightSpaceMatrix;
 
 /* Global information sent by the engine */
 
@@ -43,7 +43,7 @@ out VS_OUT
 
 void main() {
     vec4 totalPosition = vec4(0.0f);
-    if (useBone) {
+    if (u_UseBone) {
         for(int i = 0; i < MAX_BONE_INFLUENCE; i++) {
             if(int(boneIds[i]) == -1) 
                 continue;
@@ -51,7 +51,7 @@ void main() {
                 totalPosition = vec4(geo_Pos,1.0f);
                 break;
             }
-            vec4 localPosition = (finalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
+            vec4 localPosition = (u_FinalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
             totalPosition += localPosition * weights[i];
         }
     }
@@ -63,7 +63,7 @@ void main() {
 
     mat3 TBNi = transpose(vs_out.TBN);
 
-    if (useBone) {
+    if (u_UseBone) {
         vs_out.FragPos          = vec3(ubo_Model * totalPosition);
         vs_out.EyeSpacePosition =  (ubo_View * ubo_Model) * totalPosition;
     }
@@ -75,7 +75,7 @@ void main() {
     vs_out.TexCoords        = geo_TexCoords;
     vs_out.TangentViewPos   = TBNi * ubo_ViewPos;
     vs_out.TangentFragPos   = TBNi * vs_out.FragPos;
-    vs_out.FragPosLightSpace = lightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
+    vs_out.FragPosLightSpace = u_LightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
     
     gl_Position = ubo_Projection * (ubo_View * vec4(vs_out.FragPos, 1.0));
 }

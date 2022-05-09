@@ -27,6 +27,23 @@ namespace KUMA {
 			Quaternion(const Matrix4& rotationMatrix);
 			Quaternion(const Vector3& euler);
 
+			void normalise() {
+				*this = Normalize(*this);
+			}
+			void addScaledVector(const Vector3& vector, float scale) {
+				Quaternion q(
+					vector.x * scale,
+					vector.y * scale,
+					vector.z * scale,
+					0
+				);
+				q *= *this;
+				w += q.w * 0.5f;
+				x += q.x * 0.5f;
+				y += q.y * 0.5f;
+				z += q.z * 0.5f;
+			}
+
 			static Quaternion LookAt(const Vector3& forward, const Vector3& up);
 			static Matrix4 ToMatrix4(const Quaternion& target);
 			static Matrix3 ToMatrix3(const Quaternion& target);

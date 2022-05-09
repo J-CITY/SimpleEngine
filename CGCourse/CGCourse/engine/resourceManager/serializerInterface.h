@@ -48,6 +48,8 @@ namespace KUMA {
 		
 		class Serializable {
 		public:
+			Serializable() = default;
+			virtual ~Serializable() = default;
 			virtual void onSerialize(nlohmann::json& j) = 0;
 			virtual void onDeserialize(nlohmann::json& j) = 0;
 		};

@@ -18,20 +18,13 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform sampler2D hdrBuffer0;
-uniform sampler2D hdrBuffer1;
-uniform sampler2D hdrBuffer2;
-uniform sampler2D hdrBuffer3;
-
-uniform sampler2D bloomBlur;
-uniform sampler2D   u_Noise;
-uniform sampler2D   u_Depth;
-
-uniform bool hdr;
-uniform float exposure;
+uniform sampler2D u_Scene;
+uniform bool u_UseHDR;
+uniform float u_Exposure;
+uniform float u_Gamma;
 
 //god rays
-uniform vec3 sunPos;
+//uniform vec3 sunPos;
 
 layout (std140) uniform EngineUBO
 {
@@ -42,70 +35,20 @@ layout (std140) uniform EngineUBO
     float   ubo_Time;
 };
 
-#include "./lib/fxaa.glsl"
+//#include "./lib/fxaa.glsl"
 
-const float decay = 0.96815;
-const float density  = 0.926;
-const float weight  = 0.587;
-struct FogParameters {
-	vec3 color;
-	float linearStart;
-	float linearEnd;
-	float density;
-	
-	int equation;
-	bool isEnabled;
-};
-FogParameters fogParams;
-float getFogFactor(FogParameters params, float fogCoordinate) {
-	float result = 0.0;
-	if(params.equation == 0) {
-		float fogLength = params.linearEnd - params.linearStart;
-		result = (params.linearEnd - fogCoordinate) / fogLength;
-	}
-	else if(params.equation == 1) {
-		result = exp(-params.density * fogCoordinate);
-	}
-	else if(params.equation == 2) {
-		result = exp(-pow(params.density * fogCoordinate, 2.0));
-	}
-	result = 1.0 - clamp(result, 0.0, 1.0);
-	return result;
-}
-float near = 0.1; 
-float far  = 10.0; 
-float LinearizeDepth(float depth) 
-{
-    float z = depth * 2.0 - 1.0; // обратно к NDC 
-    return (2.0 * near * far) / (far + near - z * (far - near));	
-}
+//const float decay = 0.96815;
+//const float density  = 0.926;
+//const float weight  = 0.587;
+//
+//float near = 0.1; 
+//float far  = 10.0; 
+//float LinearizeDepth(float depth) 
+//{
+//    float z = depth * 2.0 - 1.0; // обратно к NDC 
+//    return (2.0 * near * far) / (far + near - z * (far - near));	
+//}
 void main() {
- fogParams.color = vec3(0.2);
-    fogParams.density = 0.01;
-    fogParams.equation = 2;
-    fogParams.isEnabled = true;
-	fogParams.linearStart=0.0;
-	fogParams.linearEnd=0.0;
-
-    vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
-
-    const float gamma = 2.2;
-    vec3 hdrColor0 = texture(hdrBuffer0, TexCoords).rgb;
-    vec3 hdrColor1 = texture(hdrBuffer1, TexCoords).rgb;
-    vec3 hdrColor2 = texture(hdrBuffer2, TexCoords).rgb;
-    vec3 hdrColor3 = texture(hdrBuffer3, TexCoords).rgb;
-
-    //motion blur
-    vec3 hdrColor = vec3(0.0);
-    //hdrColor += hdrColor3 * 0.4;
-    //hdrColor += hdrColor2 * 0.3;
-    //hdrColor += hdrColor1 * 0.2;
-    //hdrColor += hdrColor0 * 0.1;
-    hdrColor = hdrColor3;
-
-    //bloom
-    //hdrColor += bloomColor;
-
     /*
     //god rays
     int NUM_SAMPLES = 80;
@@ -142,20 +85,19 @@ void main() {
     hdrColor = Color.rgb * 0.3f + hdrColor;
     */
 
-    hdrColor = fxaa(hdrBuffer3, TexCoords).rgb;
-
-    if(hdr) {
-        // vec3 result = hdrColor / (hdrColor + vec3(1.0));
+    vec3 color = texture(u_Scene, TexCoords).rgb;
+    if(u_UseHDR) {
+        //vec3 result = color / (color + vec3(1.0));
 		
         // Экспозиция
-        vec3 result = vec3(1.0) - exp(-hdrColor * exposure);
+        vec3 result = vec3(1.0) - exp(-color * u_Exposure);
 		
-        // Заодно проведем гамма-коррекцию      
-        result = pow(result, vec3(1.0 / gamma));
+        // Заодно проведем гамма-коррекцию
+        result = pow(result, vec3(1.0 / u_Gamma));
         FragColor = vec4(result, 1.0);
     }
     else {
-        vec3 result = pow(hdrColor, vec3(1.0 / gamma));
+        vec3 result = pow(color, vec3(1.0 / u_Gamma));
         FragColor = vec4(result, 1.0);
     }
 }

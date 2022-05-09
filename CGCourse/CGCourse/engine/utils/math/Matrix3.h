@@ -56,6 +56,108 @@ namespace KUMA {
 				*this = in;
 			}
 
+			Vector3 transform(const Vector3& vector) const {
+				return (*this) * vector;
+			}
+
+			void setInertiaTensorCoeffs(float ix, float iy, float iz,
+				float ixy = 0, float ixz = 0, float iyz = 0) {
+				data[0] = ix;
+				data[1] = data[3] = -ixy;
+				data[2] = data[6] = -ixz;
+				data[4] = iy;
+				data[5] = data[7] = -iyz;
+				data[8] = iz;
+			}
+
+			/**
+			 * Sets the value of the matrix as an inertia tensor of
+			 * a rectangular block aligned with the body's coordinate
+			 * system with the given axis half-sizes and mass.
+			 */
+			void setBlockInertiaTensor(const Vector3& halfSizes, float mass) {
+				Vector3 squares = halfSizes.componentProduct(halfSizes);
+				setInertiaTensorCoeffs(0.3f * mass * (squares.y + squares.z),
+					0.3f * mass * (squares.x + squares.z),
+					0.3f * mass * (squares.x + squares.y));
+			}
+
+			void setInverse(const Matrix3& m) {
+				float t4 = m.data[0] * m.data[4];
+				float t6 = m.data[0] * m.data[5];
+				float t8 = m.data[1] * m.data[3];
+				float t10 = m.data[2] * m.data[3];
+				float t12 = m.data[1] * m.data[6];
+				float t14 = m.data[2] * m.data[6];
+
+				// Calculate the determinant
+				float t16 = (t4 * m.data[8] - t6 * m.data[7] - t8 * m.data[8] +
+					t10 * m.data[7] + t12 * m.data[5] - t14 * m.data[4]);
+
+				// Make sure the determinant is non-zero.
+				if (t16 == 0.0f) {
+					return;
+				}
+				float t17 = 1 / t16;
+
+				data[0] = (m.data[4] * m.data[8] - m.data[5] * m.data[7]) * t17;
+				data[1] = -(m.data[1] * m.data[8] - m.data[2] * m.data[7]) * t17;
+				data[2] = (m.data[1] * m.data[5] - m.data[2] * m.data[4]) * t17;
+				data[3] = -(m.data[3] * m.data[8] - m.data[5] * m.data[6]) * t17;
+				data[4] = (m.data[0] * m.data[8] - t14) * t17;
+				data[5] = -(t6 - t10) * t17;
+				data[6] = (m.data[3] * m.data[7] - m.data[4] * m.data[6]) * t17;
+				data[7] = -(m.data[0] * m.data[7] - t12) * t17;
+				data[8] = (t4 - t8) * t17;
+			}
+			void setComponents(const Vector3& compOne, const Vector3& compTwo,
+				const Vector3& compThree) {
+				data[0] = compOne.x;
+				data[1] = compTwo.x;
+				data[2] = compThree.x;
+				data[3] = compOne.y;
+				data[4] = compTwo.y;
+				data[5] = compThree.y;
+				data[6] = compOne.z;
+				data[7] = compTwo.z;
+				data[8] = compThree.z;
+
+			}
+
+			Vector3 transformTranspose(const Vector3& vector) const {
+				return Vector3(
+					vector.x * data[0] + vector.y * data[3] + vector.z * data[6],
+					vector.x * data[1] + vector.y * data[4] + vector.z * data[7],
+					vector.x * data[2] + vector.y * data[5] + vector.z * data[8]
+				);
+			}
+
+			void setSkewSymmetric(const Vector3 vector) {
+				data[0] = data[4] = data[8] = 0;
+				data[1] = -vector.z;
+				data[2] = vector.y;
+				data[3] = vector.z;
+				data[5] = -vector.x;
+				data[6] = -vector.y;
+				data[7] = vector.x;
+			}
+
+			Matrix3 transpose() const {
+				return Transpose(*this);
+			}
+
+			Matrix3 inverse() const {
+				return Inverse(*this);
+			}
+
+			static Matrix3 linearInterpolate(const Matrix3& a, const Matrix3& b, float prop) {
+				Matrix3 result;
+				for (unsigned i = 0; i < 9; i++) {
+					result.data[i] = a.data[i] * (1 - prop) + b.data[i] * prop;
+				}
+				return result;
+			}
+
 			Matrix3& operator=(const Matrix3& other);
 			bool operator==(const Matrix3& other);
 			Matrix3 operator+(const Matrix3& other) const;

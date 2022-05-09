@@ -21,16 +21,16 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 
 	auto CreateActorOverload = sol::overload
 	(
-		sol::resolve<Object&(void)>(&Scene::createObject),
-		sol::resolve<Object&(const std::string&, const std::string&)>(&Scene::createObject)
+		sol::resolve<std::shared_ptr<Object>(void)>(&Scene::createObject),
+		sol::resolve<std::shared_ptr<Object>(const std::string&, const std::string&)>(&Scene::createObject)
 	);
 
 	p_luaState.new_usertype<Scene>("Scene",
 		/* Methods */
-		"FindActorByName", &Scene::findActorByName,
-		"FindActorByTag", &Scene::findActorByTag,
-		"FindActorsByName", &Scene::findActorsByTag,
-		"FindActorsByTag", &Scene::findActorsByTag,
+		"FindActorByName", &Scene::findObjectByName,
+		"FindActorByTag", &Scene::findObjectByTag,
+		"FindActorsByName", &Scene::findObjectsByTag,
+		"FindActorsByTag", &Scene::findObjectsByTag,
 		"CreateActor", CreateActorOverload
 		);
 

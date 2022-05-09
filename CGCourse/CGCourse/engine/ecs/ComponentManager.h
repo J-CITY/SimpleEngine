@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 //#include "object.h"
+#include "components/audioComponent.h"
 #include "components/cameraComponent.h"
 #include "components/directionalLight.h"
 #include "components/lightComponent.h"
@@ -45,6 +46,14 @@ namespace KUMA::ECS {
 			lightComponents[id] = component;
 		}
 		template <>
+		void addComponent<DirectionalLight>(ObjectId<Object> id, std::shared_ptr<DirectionalLight> component) {
+			lightComponents[id] = component;
+		}
+		template <>
+		void addComponent<SpotLight>(ObjectId<Object> id, std::shared_ptr<SpotLight> component) {
+			lightComponents[id] = component;
+		}
+		template <>
 		void addComponent<LightComponent>(ObjectId<Object> id, std::shared_ptr<LightComponent> component) {
 			lightComponents[id] = component;
 		}
@@ -62,6 +71,10 @@ namespace KUMA::ECS {
 				scriptComponents[id] = std::unordered_map<std::string, std::shared_ptr<Script>>();
 			}
 			scriptComponents[id][component->getName()] = component;
+		}
+		template <>
+		void addComponent<AudioComponent>(ObjectId<Object> id, std::shared_ptr<AudioComponent> component) {
+			audioComponents[id] = component;
 		}
 		
 
@@ -91,6 +104,10 @@ namespace KUMA::ECS {
 		template <>
 		void removeComponents<Script>(ObjectId<Object> id) {
 			scriptComponents.erase(id);
+		}
+		template <>
+		void removeComponents<AudioComponent>(ObjectId<Object> id) {
+			audioComponents.erase(id);
 		}
 
 		void enable(ObjectId<Object> id) {
@@ -147,6 +164,33 @@ namespace KUMA::ECS {
 			}
 		}
 
+		void removeAllObjectComponents(ObjectId<Object> id) {
+			if (transformComponents.count(id)) {
+				transformComponents.erase(id);
+				transformComponentsOff.erase(id);
+			}
+			if (cameraComponents.count(id)) {
+				cameraComponents.erase(id);
+				cameraComponentsOff.erase(id);
+			}
+			if (lightComponents.count(id)) {
+				lightComponents.erase(id);
+				lightComponentsOff.erase(id);
+			}
+			if (modelComponents.count(id)) {
+				modelComponents.erase(id);
+				modelComponentsOff.erase(id);
+			}
+			if (materialComponents.count(id)) {
+				materialComponents.erase(id);
+				materialComponentsOff.erase(id);
+			}
+			if (scriptComponents.count(id)) {
+				scriptComponents.erase(id);
+				scriptComponentsOff.erase(id);
+			}
+		}
+
 		std::vector<std::shared_ptr<DirectionalLight>> getAllDirectionalLights() {
 			std::vector<std::shared_ptr<DirectionalLight>> res;
 			for (auto& light : lightComponents) {
@@ -176,6 +220,7 @@ namespace KUMA::ECS {
 		}
 
 		std::map<ObjectId<Object>, std::shared_ptr<TransformComponent>> transformComponents;
+		std::map<ObjectId<Object>, std::shared_ptr<AudioComponent>> audioComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<CameraComponent>> cameraComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<LightComponent>> lightComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<ModelRenderer>> modelComponents;
@@ -183,6 +228,7 @@ namespace KUMA::ECS {
 		std::map<ObjectId<Object>, std::unordered_map<std::string, std::shared_ptr<Script>>> scriptComponents;
 
 		std::map<ObjectId<Object>, std::shared_ptr<TransformComponent>> transformComponentsOff;
+		std::map<ObjectId<Object>, std::shared_ptr<AudioComponent>> audioComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<CameraComponent>> cameraComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<LightComponent>> lightComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<ModelRenderer>> modelComponentsOff;

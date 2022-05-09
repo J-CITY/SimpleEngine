@@ -1,11 +1,12 @@
 #include "app.h"
 #include "../utils/time/time.h"
+#include "../physics/PhysicWorld.h"
 
 using namespace SE;
 using namespace KUMA::CORE_SYSTEM;
 
-App::App(): renderer(core) {
-	core.sceneManager.getCurrentScene()->go();
+App::App() {
+	core.sceneManager->getCurrentScene()->go();
 }
 
 App::~App() {
@@ -32,19 +33,24 @@ void App::preUpdate() {
 void App::update(float dt) {
 	delta += dt;
 
-	core.engineUBO->setSubData(delta, 3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
+	core.renderer->engineUBO->setSubData(delta, 3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
 
-	if (auto currentScene = core.sceneManager.getCurrentScene()) {
+	if (auto currentScene = core.sceneManager->getCurrentScene()) {
 		currentScene->fixedUpdate(dt);
 		currentScene->update(dt);
 		currentScene->lateUpdate(dt);
-		renderer.renderScene();
+		core.renderer->renderScene();
 
 		//core.renderer->setClearColor(1.0f, 0.0f, 0.0f);
 		//core.renderer->clear(true, true, false);
 	}
 
-	core.sceneManager.update();
+	core.physicsManger->startFrame();
+	float duration = TIME::Timer::instance()->getDeltaTime();
+	if (duration <= 0.0f) return;
+	core.physicsManger->runPhysics(duration);
+
+	core.sceneManager->update();
 }
 
 void App::postUpdate() {

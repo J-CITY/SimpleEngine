@@ -11,9 +11,9 @@ layout (location = 6) in vec4 weights;
 
 const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
-uniform mat4 finalBonesMatrices[MAX_BONES];
-uniform bool useBone;
-uniform mat4 lightSpaceMatrix;
+uniform mat4 u_FinalBonesMatrices[MAX_BONES];
+uniform bool u_UseBone;
+uniform mat4 u_LightSpaceMatrix;
 
 //fog
 uniform vec4 fogScaleBias;
@@ -49,7 +49,7 @@ int ub=1;
 
 void main() {
     vec4 totalPosition = vec4(0.0f);
-    if (useBone) {
+    if (u_UseBone) {
         for(int i = 0; i < MAX_BONE_INFLUENCE; i++) {
             if(int(boneIds[i]) == -1) 
                 continue;
@@ -57,7 +57,7 @@ void main() {
                 totalPosition = vec4(geo_Pos,1.0f);
                 break;
             }
-            vec4 localPosition = (finalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
+            vec4 localPosition = (u_FinalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
             totalPosition += localPosition * weights[i];
         }
     }
@@ -69,7 +69,7 @@ void main() {
 
     mat3 TBNi = transpose(vs_out.TBN);
 
-    if (useBone) {
+    if (u_UseBone) {
         vs_out.FragPos          = vec3(ubo_Model * totalPosition);
         
         vs_out.EyeSpacePosition =  (ubo_View * ubo_Model) * totalPosition;
@@ -83,7 +83,7 @@ void main() {
     vs_out.TexCoords        = geo_TexCoords;
     vs_out.TangentViewPos   = TBNi * ubo_ViewPos;
     vs_out.TangentFragPos   = TBNi * vs_out.FragPos;
-    vs_out.FragPosLightSpace = lightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
+    vs_out.FragPosLightSpace = u_LightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
     
 
     //fog
@@ -158,14 +158,18 @@ uniform sampler2D   u_SpecularMap;
 uniform sampler2D   u_NormalMap;
 uniform sampler2D   u_HeightMap;
 uniform sampler2D   u_MaskMap;
-uniform sampler2D   u_Noise;
 
 
 uniform vec4 fogScaleBias;
 //uniform float fogStart;
 
 uniform sampler2D shadowMap;
+//uniform sampler2D spotShadowMap;
+//uniform samplerCube pointShadowMap[4];
 uniform vec3 lightPos;
+
+
+uniform mat4 u_LightSpaceMatrix;
 
 /* Global variables */
 vec3 g_Normal;
@@ -191,7 +195,6 @@ struct FogParameters {
 FogParameters fogParams;
 
 out vec4 FRAGMENT_COLOR;
-
 
 float getFogFactor(FogParameters params, float fogCoordinate) {
 	float result = 0.0;
@@ -347,6 +350,55 @@ float DirShadowCalculation(vec4 fragPosLightSpace)
         
     return shadow;
 }
+float near = 0.1; 
+float far  = 100.0;
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // обратно к NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));	
+}
+/*float SpotShadowCalculation(vec4 fragPosLightSpace)
+{
+    // Выполняем деление перспективы
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	
+    // Трансформируем в диапазон [0,1]
+    projCoords = projCoords * 0.5 + 0.5;
+	
+    // Получаем наиболее близкое значение глубины исходя из перспективы глазами источника света (используя в диапазон [0,1] fragPosLight в качестве координат)
+    float closestDepth = texture(spotShadowMap, projCoords.xy).r; 
+	closestDepth = LinearizeDepth(closestDepth) / far; 
+    // Получаем глубину текущего фрагмента исходя из перспективы глазами источника света
+    float currentDepth = projCoords.z;
+	
+    // Вычисляем смещение (на основе разрешения карты глубины и наклона)
+    vec3 normal = normalize(fs_in.Normal);
+    vec3 lightDir = normalize(lightPos - fs_in.FragPos);
+    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+	
+    // Проверка нахождения текущего фрагмента в тени
+    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+	
+    // PCF
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(spotShadowMap, 0);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(spotShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            pcfDepth = LinearizeDepth(pcfDepth) / far; 
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+        }    
+    }
+    shadow /= 9.0;
+    
+    // Оставляем значение тени на уровне 0.0 за границей дальней плоскости пирамиды видимости глазами источника света
+    if(projCoords.z > 1.0)
+        shadow = 0.0;
+        
+    return shadow;
+}
 
 vec3 gridSamplingDisk[20] = vec3[] (
    vec3(1, 1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1, 1,  1), 
@@ -355,8 +407,8 @@ vec3 gridSamplingDisk[20] = vec3[] (
    vec3(1, 0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1, 0, -1),
    vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
 );
-/*
-float ShadowCalculation(vec3 fragPos) {
+int pointShadowMapId = 0;
+float PointShadowCalculation(vec3 fragPos) {
     // Получаем вектор между положением фрагмента и положением источника света
     vec3 fragToLight = fragPos - lightPos;
     // Теперь получим текущую линейную глубину как длину между фрагментом и положением источника света
@@ -365,26 +417,70 @@ float ShadowCalculation(vec3 fragPos) {
     float shadow = 0.0;
     float bias = 0.15;
     int samples = 20;
-    float viewDistance = length(viewPos - fragPos);
-    float diskRadius = (1.0 + (viewDistance / far_plane)) / 25.0;
-    for(int i = 0; i < samples; ++i)
-    {
-        float closestDepth = texture(depthMap, fragToLight + gridSamplingDisk[i] * diskRadius).r;
-        closestDepth *= far_plane; 
+    float viewDistance = length(ubo_ViewPos - fragPos);
+    float diskRadius = (1.0 + (viewDistance / far)) / 25.0;
+    for(int i = 0; i < samples; ++i) {
+        float closestDepth = texture(pointShadowMap[pointShadowMapId], fragToLight + gridSamplingDisk[i] * diskRadius).r;
+        closestDepth *= far; 
         if(currentDepth - bias > closestDepth)
             shadow += 1.0;
     }
     shadow /= float(samples);
     return shadow;
+}*/
+#define PI 3.1415926535897932384626433832795
+const mat4 shadowBiasMatrix = mat4( 
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0 );
+const mat4 volumetricDither = mat4(
+  0.0, 0.5, 0.125, 0.625,
+  0.75, 0.22, 0.875, 0.375,
+  0.1875, 0.6875, 0.0625, 0.5625,
+  0.9375, 0.4375, 0.8125, 0.3125 );
+
+float Shadow(const mat4 shadowMapViewProjectionMatrix, const vec3 position, const sampler2D shadowMap, const float shadowBias) {
+  vec4 shadowCoord = shadowBiasMatrix * shadowMapViewProjectionMatrix * vec4(position, 1.0);
+  shadowCoord /= shadowCoord.w;
+  
+  if (texture(shadowMap, shadowCoord.xy).r < shadowCoord.z - shadowBias)
+  {
+    return 0.0;
+  }
+  
+  return 1.0;
 }
-*/
-float near = 0.1; 
-float far  = 100.0; 
-float LinearizeDepth(float depth) 
-{
-    float z = depth * 2.0 - 1.0; // обратно к NDC 
-    return (2.0 * near * far) / (far + near - z * (far - near));	
+vec3 Volumetric(const vec3 position, const vec3 eyePosition, const mat4 shadowMapViewProjectionMatrix, const sampler2D shadowMap, const vec3 lightDirection, const vec3 lightColor, const float lightIntensity, const float shadowBias) {
+  const int VOLUMETRIC_STEPS = 10;
+  const float VOLUMETRIC_SCATTERING = 0.2;
+  const float VOLUMETRIC_INTENSITY = 5.0;
+  const vec3 rayVector = position - eyePosition;
+  const float rayLength = length(rayVector);
+  const vec3 rayDirection = rayVector / rayLength;
+  const float stepLength = rayLength / VOLUMETRIC_STEPS;
+  const vec3 step = rayDirection * stepLength;
+  const ivec2 screenUV = ivec2(gl_FragCoord.xy);
+  const float ditherValue = volumetricDither[screenUV.x % 4][screenUV.y % 4];
+  
+  vec3 currentPosition = eyePosition + step * ditherValue;
+  float volumetric = 0.0;
+  
+  for (int i = 0; i < VOLUMETRIC_STEPS; ++i)
+  {
+    if (Shadow(shadowMapViewProjectionMatrix, currentPosition, shadowMap, shadowBias) > 0.5)
+    {
+      float scattering = 1.0 - VOLUMETRIC_SCATTERING * VOLUMETRIC_SCATTERING;
+      scattering /= 4.0 * PI * pow(1.0 + VOLUMETRIC_SCATTERING * VOLUMETRIC_SCATTERING - (2.0 * VOLUMETRIC_SCATTERING) * dot(rayDirection, lightDirection), 1.5);
+      volumetric += scattering;
+    }
+    
+    currentPosition += step;
+  }
+  
+  return (volumetric / VOLUMETRIC_STEPS) * lightIntensity * VOLUMETRIC_INTENSITY * lightColor;
 }
+
 void main()
 {
     fogParams.color = vec3(0.2);
@@ -409,48 +505,56 @@ void main()
     g_ViewDir           = normalize(ubo_ViewPos - fs_in.FragPos);
     g_DiffuseTexel      = texture(u_DiffuseMap,  g_TexCoords) * u_Diffuse;
     g_SpecularTexel     = texture(u_SpecularMap, g_TexCoords) * vec4(u_Specular, 1.0);
-    if (u_EnableNormalMapping)
-    {
+    if (u_EnableNormalMapping) {
         g_Normal = texture(u_NormalMap, g_TexCoords).rgb;
         g_Normal = normalize(g_Normal * 2.0 - 1.0);
         g_Normal = normalize(fs_in.TBN * g_Normal);
     }
-    else
-    {
+    else {
         g_Normal = normalize(fs_in.Normal);
     }
+
     vec3 lightSum = vec3(0.0);
-    for (int i = 0; i < ssbo_Lights.length(); ++i)
-    {
-        switch(ssbo_Lights[i].type)
-        {
+    for (int i = 0; i < ssbo_Lights.length(); ++i) {
+        switch(ssbo_Lights[i].type) {
             case 0: {
+                //float shadow = 1.0f;
+                //if (pointShadowMapId < 4) {
+                    //shadow = PointShadowCalculation(fs_in.FragPosLightSpace.xyz);
+                //}
                 lightSum += CalcPointLight(ssbo_Lights[i]);
+                //pointShadowMapId++;
                 break;
             }
             case 1: {
                 float shadow = DirShadowCalculation(fs_in.FragPosLightSpace);
                 lightSum += CalcDirectionalLight(ssbo_Lights[i], shadow);
-                
                 break;
             }
-            case 2: lightSum += CalcSpotLight(ssbo_Lights[i]);          break;
+            case 2: {
+                //float shadow = SpotShadowCalculation(fs_in.FragPosLightSpace);
+                lightSum += CalcSpotLight(ssbo_Lights[i]);
+                break;
+            }
             case 3: lightSum += CalcAmbientBoxLight(ssbo_Lights[i]);    break;
             case 4: lightSum += CalcAmbientSphereLight(ssbo_Lights[i]); break;
         }
     }
 
-    FRAGMENT_COLOR = vec4(lightSum, g_DiffuseTexel.a);
+    vec3 vol = Volumetric(fs_in.FragPos, ubo_ViewPos, u_LightSpaceMatrix, shadowMap, vec3(0), vec3(255), 0.05f, 0.0f);
+
+
+    FRAGMENT_COLOR = vec4(lightSum * vol, g_DiffuseTexel.a);
 
     if(fogParams.isEnabled) {
       //volumetric
 
-	  vec2 _fogCoord = vec2(0,0);
-      _fogCoord.x = g_TexCoords.x * 0.015625 + ubo_Time / 10.0 * 0.015625;
-      _fogCoord.y = g_TexCoords.y;
-
-
-      vec4 f = texture(u_Noise, vec2(_fogCoord.x, _fogCoord.y));
+	  //vec2 _fogCoord = vec2(0,0);
+      //_fogCoord.x = g_TexCoords.x * 0.015625 + ubo_Time / 10.0 * 0.015625;
+      //_fogCoord.y = g_TexCoords.y;
+      //
+      //
+      //vec4 f = texture(u_Noise, vec2(_fogCoord.x, _fogCoord.y));
       float fogCoordinate = abs(fs_in.EyeSpacePosition.z / fs_in.EyeSpacePosition.w);
       //FRAGMENT_COLOR = mix(FRAGMENT_COLOR, vec4(fogParams.color, 1.0)*f, getFogFactor(fogParams, fogCoordinate));
       

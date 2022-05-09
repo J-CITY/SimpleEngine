@@ -9,6 +9,7 @@
 #include "../utils/event.h"
 #include "../utils/pointers/objPtr.h"
 
+#include "../utils/gamepad/GamepadMgr.h"
 #include "../resourceManager/serializerInterface.h"
 
 namespace KUMA::WINDOW_SYSTEM {
@@ -21,13 +22,27 @@ namespace KUMA::WINDOW_SYSTEM {
 		int minorVersion = 3;
 		std::string appName;
 	};
+
 	
+
 	class Window : public KUMA::RESOURCES::Serializable {
 	public:
+		struct GamepadData {
+			int id = 0;
+			std::list<Gamepad::GAMEPAD_BUTTON> pressedButtons;
+			float leftSticX = 0.0f;
+			float leftSticY = 0.0f;
+			float rightSticX = 0.0f;
+			float rightSticY = 0.0f;
+			float leftTrigger = 0.0f;
+			float rightTrigger = 0.0f;
+		};
+
 		EVENT::Event<int> keyPressedEvent;
 		EVENT::Event<int> keyReleasedEvent;
 		EVENT::Event<int> mouseButtonPressedEvent;
 		EVENT::Event<int> mouseButtonReleasedEvent;
+		EVENT::Event<GamepadData> gamepadEvent;
 
 		std::pair<int, int> getMousePos() {
 			auto p = sf::Mouse::getPosition(*window);
@@ -74,8 +89,7 @@ namespace KUMA::WINDOW_SYSTEM {
 		virtual void onDeserialize(nlohmann::json& j) override;
 	private:
 		void create();
-
-	private:
+		
 		WindowSettings windowSettings;
 		std::unique_ptr<sf::RenderWindow> window;
 		std::string winId = "";		
