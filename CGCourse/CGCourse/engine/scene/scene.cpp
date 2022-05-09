@@ -8,6 +8,15 @@
 #include "../resourceManager/modelManager.h"
 #include "../resourceManager/shaderManager.h"
 #include "../resourceManager/parser/assimpParser.h"
+#include "../render/render.h"
+
+namespace KUMA
+{
+	namespace RENDER
+	{
+		enum class CullingOptions;
+	}
+}
 
 using namespace KUMA::SCENE_SYSTEM;
 
@@ -53,9 +62,6 @@ void Scene::go() {
 	isExecute = true;
 
 	for (auto& o : objects) {
-		//o->setActive(true);
-	}
-	for (auto& o : objects) {
 		if (o->getIsActive()) {
 			o->onEnable();
 		}
@@ -89,28 +95,26 @@ void Scene::lateUpdate(float dt) {
 	}
 }
 
-KUMA::ECS::Object& Scene::createObject() {
+std::shared_ptr<KUMA::ECS::Object> Scene::createObject() {
 	return createObject("New Actor");
 }
 
-KUMA::ECS::Object& Scene::createObject(const std::string& name, const std::string& tag) {
+std::shared_ptr<KUMA::ECS::Object> Scene::createObject(const std::string& name, const std::string& tag) {
 	objects.push_back(std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag));
-	auto& instance = *objects.back();
-	instance.componentAddedEvent.add(std::bind(&Scene::onComponentAdded, this, std::placeholders::_1));
-	instance.componentRemovedEvent.add(std::bind(&Scene::onComponentRemoved, this, std::placeholders::_1));
+	auto& instance = objects.back();
 	if (isExecute) {
-		instance.setActive(true);
-		if (instance.getIsActive()) {
-			instance.onEnable();
-			instance.onStart();
+		instance->setActive(true);
+		if (instance->getIsActive()) {
+			instance->onEnable();
+			instance->onStart();
 		}
 	}
 	return instance;
 }
 
-bool Scene::destroyActor(ECS::Object& p_target) {
-	auto found = std::find_if(objects.begin(), objects.end(), [&p_target](std::shared_ptr<ECS::Object>& element) {
-		return element.get() == &p_target;
+bool Scene::destroyObject(std::shared_ptr<ECS::Object> p_target) {
+	auto found = std::find_if(objects.begin(), objects.end(), [p_target](std::shared_ptr<ECS::Object> element) {
+		return element == p_target;
 	});
 
 	if (found != objects.end()) {
@@ -122,91 +126,290 @@ bool Scene::destroyActor(ECS::Object& p_target) {
 	}
 }
 
-KUMA::ECS::Object* Scene::findActorByName(const std::string& p_name) {
+std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByName(const std::string& p_name) {
 	auto result = std::find_if(objects.begin(), objects.end(), [p_name](std::shared_ptr<ECS::Object>& element) {
 		return element->getName() == p_name;
 	});
 
-	if (result != objects.end())
-		return (*result).get();
-	else
+	if (result != objects.end()) {
+		return *result;
+	} 
+	else {
 		return nullptr;
+	}
 }
 
-KUMA::ECS::Object* Scene::findActorByTag(const std::string& p_tag) {
+std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByTag(const std::string& p_tag) {
 	auto result = std::find_if(objects.begin(), objects.end(), [p_tag](std::shared_ptr<ECS::Object>& element) {
 		return (*element).getTag() == p_tag;
 	});
 
-	if (result != objects.end())
-		return (*result).get();
-	else
+	if (result != objects.end()) {
+		return *result;
+	}
+	else {
 		return nullptr;
+	}
 }
 
-std::shared_ptr<KUMA::ECS::Object> Scene::findActorByID(ObjectId<ECS::Object> p_id) {
+std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByID(ObjectId<ECS::Object> p_id) {
 	auto result = std::find_if(objects.begin(), objects.end(), [p_id](std::shared_ptr<ECS::Object>& element) {
 		return element->getID() == p_id;
 	});
 
-	if (result != objects.end())
+	if (result != objects.end()) {
 		return *result;
-	else
+	}
+	else {
 		return nullptr;
+	}
 }
 
-std::vector<std::reference_wrapper<KUMA::ECS::Object>> Scene::findActorsByName(const std::string& p_name) {
-	std::vector<std::reference_wrapper<KUMA::ECS::Object>> actors;
-
-	for (auto actor : objects) {
-		if (actor->getName() == p_name)
-			actors.push_back(std::ref(*actor));
+std::vector<std::shared_ptr<KUMA::ECS::Object>> Scene::findObjectsByName(const std::string& p_name) {
+	std::vector<std::shared_ptr<KUMA::ECS::Object>> actors;
+	for (const auto& actor : objects) {
+		if (actor->getName() == p_name) {
+			actors.push_back(actor);
+		}
 	}
-
 	return actors;
 }
 
-std::vector<std::reference_wrapper<KUMA::ECS::Object>> Scene::findActorsByTag(const std::string& p_tag) {
-	std::vector<std::reference_wrapper<KUMA::ECS::Object>> actors;
-
-	for (auto actor : objects) {
-		if (actor->getTag() == p_tag)
-			actors.push_back(std::ref(*actor));
+std::vector<std::shared_ptr<KUMA::ECS::Object>> Scene::findObjectsByTag(const std::string& p_tag) {
+	std::vector<std::shared_ptr<KUMA::ECS::Object>> actors;
+	for (const auto& actor : objects) {
+		if (actor->getTag() == p_tag) {
+			actors.push_back(actor);
+		}
 	}
-
 	return actors;
 }
 
-void Scene::onComponentAdded(std::shared_ptr<ECS::Component> p_compononent) {
-	if (auto result = std::dynamic_pointer_cast<ECS::ModelRenderer>(p_compononent))
-		ECS::ComponentManager::getInstance()->addComponent(result->obj.getID(), result);
-	else if (auto result = std::dynamic_pointer_cast<ECS::CameraComponent>(p_compononent))
-		ECS::ComponentManager::getInstance()->addComponent(result->obj.getID(), result);
-	else if (auto result = std::dynamic_pointer_cast<ECS::LightComponent>(p_compononent)) {
-		ECS::ComponentManager::getInstance()->addComponent(result->obj.getID(), result);
-
-	}
-	else if (auto result = std::dynamic_pointer_cast<ECS::InputComponent>(p_compononent))
-		ECS::ComponentManager::getInstance()->addComponent(result->obj.getID(), result);
-	else if (auto result = std::dynamic_pointer_cast<ECS::MaterialRenderer>(p_compononent))
-		ECS::ComponentManager::getInstance()->addComponent(result->obj.getID(), result);
-	else if (auto result = std::dynamic_pointer_cast<ECS::Script>(p_compononent))
-		ECS::ComponentManager::getInstance()->addComponent(result->obj.getID(), result);
-}
-
-void Scene::onComponentRemoved(std::shared_ptr<ECS::Component> p_compononent) {
-	if (auto result = std::dynamic_pointer_cast<ECS::ModelRenderer>(p_compononent))
-		ECS::ComponentManager::getInstance()->modelComponents.erase(p_compononent->obj.getID());
-
-	else if (auto result = std::dynamic_pointer_cast<ECS::CameraComponent>(p_compononent))
-		ECS::ComponentManager::getInstance()->cameraComponents.erase(p_compononent->obj.getID());
-
-	else if (auto result = std::dynamic_pointer_cast<ECS::LightComponent>(p_compononent))
-		ECS::ComponentManager::getInstance()->lightComponents.erase(p_compononent->obj.getID());
-
-	//TODO: add other components
-}
-
-std::vector<std::shared_ptr<KUMA::ECS::Object>>& Scene::getObjects() {
+const std::vector<std::shared_ptr<KUMA::ECS::Object>>& Scene::getObjects() const {
 	return objects;
+}
+
+
+std::shared_ptr<KUMA::ECS::CameraComponent> Scene::findMainCamera() {
+	for (auto& camera : ECS::ComponentManager::getInstance()->cameraComponents) {
+		if (camera.second->obj.getIsActive()) {
+			return camera.second;
+		}
+	}
+	return nullptr;
+}
+
+std::vector<KUMA::RENDER::LightOGL> Scene::findLightData() {
+	std::vector<RENDER::LightOGL> result;
+	for (auto light : ECS::ComponentManager::getInstance()->lightComponents) {
+		if (light.second->obj.getIsActive()) {
+			auto ldata = light.second->getData().generateOGLStruct();
+			result.push_back(ldata);
+		}
+	}
+	return result;
+}
+
+std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::Frustum& p_frustum) {
+	std::vector<RENDER::LightOGL> result;
+	for (auto& light : ECS::ComponentManager::getInstance()->lightComponents) {
+		if (light.second->obj.getIsActive()) {
+			const auto& lightData = light.second->getData();
+			const auto& position = lightData.getTransform().getWorldPosition();
+			auto effectRange = lightData.getEffectRange();
+			
+			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
+				auto ldata = lightData.generateOGLStruct();
+				result.push_back(ldata);
+			}
+		}
+	}
+	return result;
+}
+
+std::vector<std::reference_wrapper<KUMA::RESOURCES::Mesh>> Scene::getMeshesInFrustum(
+	const RENDER::Model& model,
+	const RENDER::BoundingSphere& modelBoundingSphere,
+	const ECS::Transform& modelTransform,
+	const RENDER::Frustum& frustum,
+	RENDER::CullingOptions cullingOptions
+) {
+	const bool frustumPerModel = isFlagSet(RENDER::CullingOptions::FRUSTUM_PER_MODEL, cullingOptions);
+
+	if (!frustumPerModel || frustum.boundingSphereInFrustum(modelBoundingSphere, modelTransform)) {
+		std::vector<std::reference_wrapper<RESOURCES::Mesh>> result;
+
+		const bool frustumPerMesh = isFlagSet(RENDER::CullingOptions::FRUSTUM_PER_MESH, cullingOptions);
+
+		const auto& meshes = model.getMeshes();
+
+		for (auto mesh : meshes) {
+			if (meshes.size() == 1 || !frustumPerMesh || frustum.boundingSphereInFrustum(mesh->getBoundingSphere(), modelTransform)) {
+				result.emplace_back(*mesh);
+			}
+		}
+		return result;
+	}
+	return {};
+}
+
+
+std::tuple<KUMA::RENDER::OpaqueDrawables,
+KUMA::RENDER::TransparentDrawables,
+KUMA::RENDER::OpaqueDrawables,
+KUMA::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
+(
+	const MATHGL::Vector3& cameraPosition,
+	const RENDER::Frustum& frustum,
+	std::shared_ptr<RENDER::Material> defaultMaterial
+) {
+	RENDER::OpaqueDrawables opaqueDrawablesForward;
+	RENDER::TransparentDrawables transparentDrawablesForward;
+	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
+	RENDER::TransparentDrawables transparentDrawablesDeferred;
+
+	for (const auto& modelRenderer : ECS::ComponentManager::getInstance()->modelComponents) {
+		auto& owner = modelRenderer.second->obj;
+
+		if (owner.getIsActive()) {
+			if (auto model = modelRenderer.second->getModel()) {
+				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
+					auto& transform = owner.transform->getTransform();
+
+					RENDER::CullingOptions cullingOptions = RENDER::CullingOptions::NONE;
+
+					if (modelRenderer.second->getFrustumBehaviour() != ECS::ModelRenderer::EFrustumBehaviour::DISABLED) {
+						cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MODEL;
+					}
+
+					if (modelRenderer.second->getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_MESHES) {
+						cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MESH;
+					}
+
+					const auto& modelBoundingSphere = modelRenderer.second->getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer.second->getCustomBoundingSphere() : model->getBoundingSphere();
+
+					std::vector<std::reference_wrapper<RESOURCES::Mesh>> meshes;
+					{
+						meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
+					}
+
+					if (!meshes.empty()) {
+						float distanceToActor = MATHGL::Vector3::Distance(transform.getWorldPosition(), cameraPosition);
+						const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
+
+						for (const auto& mesh : meshes) {
+							std::shared_ptr<RENDER::Material> material;
+							if (mesh.get().getMaterialIndex() < MAX_MATERIAL_COUNT) {
+								material = materials.at(mesh.get().getMaterialIndex());
+								if (!material || (!material->getShader() && !material->isDeferred)) {
+									material = defaultMaterial;
+								}
+							}
+
+							if (material) {
+								RENDER::Drawable element = {transform.getWorldMatrix(), &mesh.get(), material};
+								if (material->isBlendable()) {
+									if (material->getShader()) {
+										transparentDrawablesForward.emplace(distanceToActor, element);
+									}
+									else {
+										transparentDrawablesDeferred.emplace(distanceToActor, element);
+									}
+								}
+								else {
+									if (material->getShader()) {
+										opaqueDrawablesForward.emplace(distanceToActor, element);
+									}
+									else {
+										opaqueDrawablesDeferred.emplace(distanceToActor, element);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return {opaqueDrawablesForward, transparentDrawablesForward, opaqueDrawablesDeferred, transparentDrawablesDeferred};
+}
+
+std::tuple<KUMA::RENDER::OpaqueDrawables,
+	KUMA::RENDER::TransparentDrawables,
+	KUMA::RENDER::OpaqueDrawables,
+	KUMA::RENDER::TransparentDrawables>  Scene::findAndSortDrawables
+(
+	const MATHGL::Vector3& cameraPosition,
+	std::shared_ptr<RENDER::Material> defaultMaterial
+) {
+	RENDER::OpaqueDrawables opaqueDrawablesForward;
+	RENDER::TransparentDrawables transparentDrawablesForward;
+	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
+	RENDER::TransparentDrawables transparentDrawablesDeferred;
+
+	for (auto& modelRenderer : ECS::ComponentManager::getInstance()->modelComponents) {
+		if (modelRenderer.second->obj.getIsActive() && modelRenderer.second->obj.getName() != "Skybox") {
+			if (auto model = modelRenderer.second->getModel()) {
+				float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.second->obj.transform->getWorldPosition(), cameraPosition);
+
+				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
+					const auto& transform = modelRenderer.second->obj.transform->getTransform();
+
+					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
+
+					for (auto mesh : model->getMeshes()) {
+						std::shared_ptr<RENDER::Material> material;
+						if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
+							material = materials.at(mesh->getMaterialIndex());
+							if (!material || (!material->getShader() && !material->isDeferred)) {
+								material = defaultMaterial;
+							}
+						}
+
+						if (material) {
+							RENDER::Drawable element = {transform.getWorldMatrix(), mesh, material};
+							if (material->isBlendable()) {
+								if (material->getShader()) {
+									transparentDrawablesForward.emplace(distanceToActor, element);
+								}
+								else {
+									transparentDrawablesDeferred.emplace(distanceToActor, element);
+								}
+							}
+							else {
+								if (material->getShader()) {
+									opaqueDrawablesForward.emplace(distanceToActor, element);
+								}
+								else {
+									opaqueDrawablesDeferred.emplace(distanceToActor, element);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return {opaqueDrawablesForward, transparentDrawablesForward, opaqueDrawablesDeferred, transparentDrawablesDeferred};
+}
+
+
+std::tuple<KUMA::RENDER::OpaqueDrawables,
+	KUMA::RENDER::TransparentDrawables,
+	KUMA::RENDER::OpaqueDrawables,
+	KUMA::RENDER::TransparentDrawables> Scene::findDrawables(
+	const MATHGL::Vector3& cameraPosition,
+	const RENDER::Camera& camera,
+	const RENDER::Frustum* customFrustum,
+	std::shared_ptr<RENDER::Material> defaultMaterial
+) {
+	if (camera.isFrustumGeometryCulling()) {
+		const auto& frustum = customFrustum ? *customFrustum : camera.getFrustum();
+		return findAndSortFrustumCulledDrawables(cameraPosition, frustum, defaultMaterial);
+	}
+	else {
+		return findAndSortDrawables(cameraPosition, defaultMaterial);
+	}
 }

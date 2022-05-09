@@ -68,9 +68,7 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
 
 	p_luaState.new_usertype<MaterialRenderer>("MaterialRenderer",
 		sol::base_classes, sol::bases<Component>(),
-		"SetMaterial", &MaterialRenderer::setMaterial,
-		"SetUserMatrixElement", &MaterialRenderer::setUserMatrixElement,
-		"GetUserMatrixElement", &MaterialRenderer::getUserMatrixElement
+		"SetMaterial", &MaterialRenderer::setMaterial
 	);
 
     p_luaState.new_enum<KUMA::RENDER::Camera::ProjectionMode>("ProjectionMode",

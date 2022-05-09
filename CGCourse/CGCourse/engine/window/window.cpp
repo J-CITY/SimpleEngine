@@ -105,7 +105,20 @@ void Window::create() {
 		position.first = x;
 		position.second = y;
 	}
+
+	GamepadMgr::Instance().Initialize();
 }
+
+struct GamepadData {
+	int id = 0;
+	std::list<Gamepad::GAMEPAD_BUTTON> pressedButtons;
+	float leftSticX = 0.0f;
+	float leftSticY = 0.0f;
+	float rightSticX = 0.0f;
+	float rightSticY = 0.0f;
+	float leftTrigger = 0.0f;
+	float rightTrigger = 0.0f;
+};
 
 void Window::update() {
 	sf::Event event;
@@ -114,17 +127,54 @@ void Window::update() {
 		LOG_INFO("Window close: " + title);
 		isClosed = true;
 	}
-	if (event.type == sf::Event::KeyPressed) {
+	else if (event.type == sf::Event::KeyPressed) {
 		keyPressedEvent.run(event.key.code);
 	}
-	if (event.type == sf::Event::KeyReleased) {
+	else if (event.type == sf::Event::KeyReleased) {
 		keyReleasedEvent.run(event.key.code);
 	}
-	if (event.type == sf::Event::MouseButtonPressed) {
+	else if (event.type == sf::Event::MouseButtonPressed) {
 		mouseButtonPressedEvent.run(event.mouseButton.button);
 	}
-	if (event.type == sf::Event::MouseButtonReleased) {
+	else if (event.type == sf::Event::MouseButtonReleased) {
 		mouseButtonReleasedEvent.run(event.mouseButton.button);
+	}
+	auto g0 = GamepadMgr::Instance().GamepadOne();
+	auto g1 = GamepadMgr::Instance().GamepadTwo();
+	std::array btns = {Gamepad::btn_a, Gamepad::btn_b, Gamepad::btn_x, Gamepad::btn_y,
+		Gamepad::btn_leftStick, Gamepad::btn_rightStick, Gamepad::btn_back, Gamepad::btn_start,
+		Gamepad::btn_lb, Gamepad::btn_rb, Gamepad::dpad_up, Gamepad::dpad_down, Gamepad::dpad_left, Gamepad::dpad_right};
+	if (g0) {
+		GamepadData gd;
+		gd.id = 0;
+		gd.leftSticX    = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_X);
+		gd.leftSticY    = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_Y);
+		gd.rightSticX   = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
+		gd.rightSticY   = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
+		gd.leftTrigger  = g0->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
+		gd.rightTrigger = g0->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
+		for (auto& btn : btns) {
+			if (g0->isButtonPressed(btn)) {
+				gd.pressedButtons.push_back(btn);
+			}
+		}
+		gamepadEvent.run(gd);
+	}
+	if (g1) {
+		GamepadData gd;
+		gd.id = 1;
+		gd.leftSticX =    g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_X);
+		gd.leftSticY =    g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_Y);
+		gd.rightSticX =   g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
+		gd.rightSticY =   g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
+		gd.leftTrigger =  g1->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
+		gd.rightTrigger = g1->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
+		for (auto& btn : btns) {
+			if (g1->isButtonPressed(btn)) {
+				gd.pressedButtons.push_back(btn);
+			}
+		}
+		gamepadEvent.run(gd);
 	}
 }
 

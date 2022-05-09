@@ -6,7 +6,7 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-MaterialRenderer::MaterialRenderer(const ECS::Object & obj) : Component(obj) {
+MaterialRenderer::MaterialRenderer(const ECS::Object& obj) : Component(obj) {
 	__NAME__ = "MaterialRenderer";
 	materials.fill(nullptr);
 }
@@ -45,25 +45,8 @@ void MaterialRenderer::removeMaterials() {
 	}
 }
 
-const MATHGL::Matrix4 & MaterialRenderer::getUserMatrix() const {
-	return userMatrix;
-}
-
 const MaterialRenderer::MaterialList& MaterialRenderer::getMaterials() const {
 	return materials;
-}
-
-void MaterialRenderer::setUserMatrixElement(unsigned row, unsigned col, float value) {
-	if (row < 4 && col < 4) {
-		userMatrix.data[4 * row + col] = value;
-	}
-}
-
-float MaterialRenderer::getUserMatrixElement(unsigned  row, unsigned col) const {
-	if (row < 4 && col < 4) {
-		return userMatrix.data[4 * row + col];
-	}
-	return 0.0f;
 }
 
 void MaterialRenderer::onDeserialize(nlohmann::json& j) {

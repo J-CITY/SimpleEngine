@@ -26,9 +26,6 @@ namespace KUMA::ECS {
 		void removeMaterial(std::shared_ptr<RENDER::Material> instance);
 		void removeMaterials();
 		void updateMaterialList();
-		void setUserMatrixElement(unsigned row, unsigned col, float value);
-		float getUserMatrixElement(unsigned row, unsigned col) const;
-		const MATHGL::Matrix4& getUserMatrix() const;
 		const MaterialList& getMaterials() const;
 
 		virtual void onDeserialize(nlohmann::json& j) override;
@@ -36,6 +33,5 @@ namespace KUMA::ECS {
 	private:
 		MaterialList materials;
 		MaterialNames materialNames;
-		MATHGL::Matrix4 userMatrix;
 	};
 }

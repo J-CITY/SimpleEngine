@@ -215,7 +215,7 @@ void BaseRender::draw(RESOURCES::Mesh& mesh, Material& material, PrimitiveMode p
 			__time += KUMA::TIME::Timer::instance()->getDeltaTime();
 			mesh.boneTransform(__time / 10.0f, Transforms);
 		
-			material.getShader()->setUniformInt("useBone", Transforms.empty() ? 0 : 1);
+			material.getShader()->setUniformInt("u_UseBone", Transforms.empty() ? 0 : 1);
 			for (unsigned i = 0; i < Transforms.size(); i++) {
 				auto s = "gBones[" + std::to_string(i) + "]";
 				glUniformMatrix4fv(material.getShader()->getUniformLocation(s), 1, GL_TRUE, &Transforms[i].data[0]);
@@ -223,19 +223,7 @@ void BaseRender::draw(RESOURCES::Mesh& mesh, Material& material, PrimitiveMode p
 		}*/
 		
 
-		if (animator) {
-			auto transforms = animator->GetFinalBoneMatrices();
-			for (int i = 0; i < transforms.size(); ++i) {
-				MATHGL::Matrix4 m = MATHGL::Matrix4(
-					transforms[i][0][0], transforms[i][0][1], transforms[i][0][2], transforms[i][0][3],
-					transforms[i][1][0], transforms[i][1][1], transforms[i][1][2], transforms[i][1][3],
-					transforms[i][2][0], transforms[i][2][1], transforms[i][2][2], transforms[i][2][3],
-					transforms[i][3][0], transforms[i][3][1], transforms[i][3][2], transforms[i][3][3]
-				);
-				//material.getShader()->setUniformMat4("finalBonesMatrices[" + std::to_string(i) + "]", MATHGL::Matrix4::Transpose(m));
-				glUniformMatrix4fv(glGetUniformLocation(material.getShader()->id, std::string("finalBonesMatrices[" + std::to_string(i) + "]").c_str()), 1, GL_FALSE, &transforms[i][0][0]);
-			}
-		}
+		
 		if (mesh.getIndexCount() > 0) {
 			// EBO
 			if (instances == 1) {
@@ -287,32 +275,6 @@ void BaseRender::draw(RESOURCES::Mesh& mesh, PrimitiveMode primitiveMode, uint32
 
 		mesh.unbind();
 	}
-}
-
-std::vector<std::reference_wrapper<RESOURCES::Mesh>> BaseRender::getMeshesInFrustum(
-	const Model& model,
-	const BoundingSphere& modelBoundingSphere,
-	const ECS::Transform& modelTransform,
-	const Frustum& frustum,
-	CullingOptions cullingOptions
-) {
-	const bool frustumPerModel = isFlagSet(CullingOptions::FRUSTUM_PER_MODEL, cullingOptions);
-
-	if (!frustumPerModel || frustum.boundingSphereInFrustum(modelBoundingSphere, modelTransform)) {
-		std::vector<std::reference_wrapper<RESOURCES::Mesh>> result;
-
-		const bool frustumPerMesh = isFlagSet(CullingOptions::FRUSTUM_PER_MESH, cullingOptions);
-
-		const auto& meshes = model.getMeshes();
-
-		for (auto mesh : meshes) {
-			if (meshes.size() == 1 || !frustumPerMesh || frustum.boundingSphereInFrustum(mesh->getBoundingSphere(), modelTransform)) {
-				result.emplace_back(*mesh);
-			}
-		}
-		return result;
-	}
-	return {};
 }
 
 uint8_t BaseRender::fetchGLState() {

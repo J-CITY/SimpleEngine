@@ -159,6 +159,7 @@ namespace KUMA::INPUT_SYSTEM {
 		bool isKeyReleased(EKey p_key) const;
 		bool isMouseButtonPressed(EMouseButton p_button) const;
 		bool isMouseButtonReleased(EMouseButton p_button);
+		KUMA::WINDOW_SYSTEM::Window::GamepadData InputManager::getGamepad(int id);
 
 		std::pair<int, int> getMousePosition() const;
 		void clearEvents();
@@ -168,16 +169,18 @@ namespace KUMA::INPUT_SYSTEM {
 		void onKeyReleased(int val);
 		void onMouseButtonPressed(int val);
 		void onMouseButtonReleased(int val);
+		void onGamepad(WINDOW_SYSTEM::Window::GamepadData gd);
 
-	private:
 		WINDOW_SYSTEM::Window& window;
 
 		EVENT::Event<>::id keyPressedListener = EVENT::Event<>::id(0);
 		EVENT::Event<>::id keyReleasedListener = EVENT::Event<>::id(0);
 		EVENT::Event<>::id mouseButtonPressedListener = EVENT::Event<>::id(0);
 		EVENT::Event<>::id mouseButtonReleasedListener = EVENT::Event<>::id(0);
+		EVENT::Event<>::id gamepadListener = EVENT::Event<>::id(0);
 
 		std::unordered_map<EKey, EKeyState> keyEvents;
 		std::unordered_map<EMouseButton, EMouseButtonState>	mouseButtonEvents;
+		WINDOW_SYSTEM::Window::GamepadData g0, g1;
 	};
 }

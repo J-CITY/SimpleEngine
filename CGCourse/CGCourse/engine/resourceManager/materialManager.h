@@ -36,6 +36,7 @@ namespace KUMA {
 			virtual void destroyResource(std::shared_ptr<RENDER::Material> res) override {
 				MaterialLoader::Destroy(res);
 			}
+
 		};
 	}
 }

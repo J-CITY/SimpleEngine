@@ -2,6 +2,7 @@
 
 #include <map>
 #include "Camera.h"
+#include "drawable.h"
 #include "Material.h"
 #include "primitiveRender.h"
 #include "../utils/math/Matrix4.h"
@@ -32,37 +33,30 @@ namespace KUMA {
 }
 
 namespace KUMA::RENDER {
+	class ShaderStorageBuffer;
+	class UniformBuffer;
 	struct LightOGL;
-	class GameRenderer {
-	public:
-		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;
-		
-		GameRenderer(CORE_SYSTEM::Core& context);
-		void renderScene();
-		void updateEngineUBO(ECS::CameraComponent& mainCamera);
-		void updateLights(SCENE_SYSTEM::Scene& scene);
-		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
-		
-		//move later to component
-		Game::World* world;
-		
-	public:
-		void renderSkybox();
-		
-		CORE_SYSTEM::Core& context;
-		Material emptyMaterial;
-	};
+
 
 	struct DirLightData {
 		uint32_t id;
 		MATHGL::Matrix4 projMap;
+		MATHGL::Vector3 pos;
 	};
 	struct SpotLightData {
 		uint32_t id;
 		MATHGL::Matrix4 projMap;
 	};
 	struct PointLightData {
+		uint32_t id;
+	};
 
+	enum class ShadowMapResolution {
+		LOW, MEDIUM, HIGH
+	};
+
+	struct ShadowLightData {
+		ShadowMapResolution resolution = ShadowMapResolution::MEDIUM;
 	};
 
 	struct RenderPipeline {
@@ -72,54 +66,43 @@ namespace KUMA::RENDER {
 		std::vector<SpotLightData> spotLightsData;
 		std::vector<PointLightData> pointLightsData;
 
+		ShadowLightData shadowLightData;
+
 	};
 
-	//TODO: move to new file
 	class Renderer : public BaseRender {
 
 		unsigned int clearMask = 0;
 	public:
-		struct Drawable {
-			MATHGL::Matrix4 world;
-			RESOURCES::Mesh* mesh;
-			Material* material;
-			MATHGL::Matrix4 userMatrix;
-		};
+
+		//defered render
+		unsigned int gBuffer;
+		unsigned int gPosition, gNormal, gAlbedoSpec;
 
 		RenderPipeline pipeline;
 		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shadersMap;
 
 
+		OpaqueDrawables	opaqueMeshesForward;
+		TransparentDrawables transparentMeshesForward;
 
-		using OpaqueDrawables = std::multimap<float, Drawable, std::less<float>>;
-		using TransparentDrawables = std::multimap<float, Drawable, std::greater<float>>;
-		OpaqueDrawables	opaqueMeshes;
-		TransparentDrawables transparentMeshes;
+		OpaqueDrawables	opaqueMeshesDeferred;
+		TransparentDrawables transparentMeshesDeferred;
+		
 
-		Renderer(GL_SYSTEM::GlManager& driver);
+		Renderer(GL_SYSTEM::GlManager& driver, CORE_SYSTEM::Core& context);
 		~Renderer();
 
-		std::shared_ptr<ECS::CameraComponent> findMainCamera(const SCENE_SYSTEM::Scene& scene);
-		std::vector<LightOGL> findLightMatrices(const SCENE_SYSTEM::Scene& scene);
-		std::vector<LightOGL> findLightMatricesInFrustum(const SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
+		void renderScene();
+
+		void renderSkybox();
+		void renderDirShadowMap();
+		void updateEngineUBO(ECS::CameraComponent& mainCamera);
+		void updateLights(SCENE_SYSTEM::Scene& scene);
+		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
+
 		void renderScene(std::shared_ptr<RESOURCES::Shader> shader);
-
-		void FindDrawables(const MATHGL::Vector3& p_cameraPosition,
-			const Camera& p_camera,
-			const Frustum* p_customFrustum,
-			Material* p_defaultMaterial);
 		
-		std::pair<OpaqueDrawables, TransparentDrawables> findAndSortFrustumCulledDrawables(
-			const MATHGL::Vector3& cameraPosition,
-			const Frustum& frustum,
-			Material* defaultMaterial
-		);
-
-		
-		std::pair<OpaqueDrawables, TransparentDrawables> findAndSortDrawables(
-			const MATHGL::Vector3& cameraPosition,
-			Material* defaultMaterial
-		);
 		void drawDrawable(const Drawable& toDraw);
 		void drawDrawable(const Drawable& p_toDraw, std::shared_ptr<RESOURCES::Shader> shader);
 		void drawModelWithSingleMaterial(Model& model, Material& material, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
@@ -129,10 +112,9 @@ namespace KUMA::RENDER {
 		void drawDirShadowMap(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
 		void drawMesh(RESOURCES::Mesh& mesh, Material& material, MATHGL::Matrix4 const* modelMatrix, bool useTexutres=true);
 		void registerModelMatrixSender(std::function<void(MATHGL::Matrix4)> modelMatrixSender);
-		void registerUserMatrixSender(std::function<void(MATHGL::Matrix4)> userMatrixSender);
-		void Clear() const;
-		void ClearDepth() const;
-		void Flush() const {
+		void clear() const;
+		void clearDepth() const;
+		void flush() const {
 			glFlush();
 			
 		}
@@ -144,14 +126,38 @@ namespace KUMA::RENDER {
 		void prepareDirLightShadowMap();
 		void prepareSpotLightShadowMap();
 		void preparePointLightShadowMap();
+
+		void init();
+
+		MATHGL::Vector2 getShadowMapResolution();
 	public:
+
+		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;
 
 		enum class PipelineRenderShaderType {
 			POINT_SHADOW,
 			DIR_SHADOW
 		};
 		std::function<void(MATHGL::Matrix4)> modelMatrixSender;
-		std::function<void(MATHGL::Matrix4)> userMatrixSender;
 		std::shared_ptr<RESOURCES::Texture> emptyTexture;
+
+
+		std::unique_ptr<RENDER::UniformBuffer>       engineUBO;
+		std::unique_ptr<RENDER::ShaderStorageBuffer> lightSSBO;
+
+
+		std::shared_ptr<Material> emptyMaterial;
+
+		CORE_SYSTEM::Core& context;
+
+		bool currentSwapBuffer = 0;
+		std::array<FrameBuffer, 2> swapBuffers;
+		std::array<RESOURCES::Texture, 2> swapTextures;
+
+		RESOURCES::Texture textureForGodRays;
+		//move later to component
+		//Game::World* world;
+
+		std::shared_ptr<RENDER::Model> sphere;
 	};
 }

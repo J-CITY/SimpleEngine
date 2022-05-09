@@ -49,6 +49,7 @@ Object::~Object() {
 
 	std::for_each(components.begin(), components.end(), [&](std::shared_ptr<Component> p_component) {
 		componentRemovedEvent.run(p_component);
+		ComponentManager::getInstance()->removeAllObjectComponents(getID());
 	});
 }
 

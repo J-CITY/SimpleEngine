@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 
 namespace KUMA {
 	namespace MATHGL {
@@ -31,7 +32,55 @@ namespace KUMA {
 			Vector3& operator/=(float p_scalar);
 			bool operator==(const Vector3 & p_other);
 			bool operator!=(const Vector3 & p_other);
-			
+
+
+			float& operator[](unsigned i)
+			{
+				if (i == 0)
+				{
+					return x;
+				}
+				if (i == 1) {
+					return y;
+				}
+				if (i == 2) {
+					return z;
+				}
+
+			}
+
+			void addScaledVector(const Vector3& vector, float scale) {
+				x += vector.x * scale;
+				y += vector.y * scale;
+				z += vector.z * scale;
+			}
+			float dot(const Vector3& vector) const {
+				return Dot(*this, vector);
+			}
+			Vector3 componentProduct(const Vector3& vector) const {
+				return Vector3(x * vector.x, y * vector.y, z * vector.z);
+			}
+			Vector3 cross(const Vector3& vector) const {
+				return Cross(*this, vector);
+			}
+			float magnitude() const {
+				return sqrt(x * x + y * y + z * z);
+			}
+			float squareMagnitude() const {
+				return x * x + y * y + z * z;
+			}
+			void normalise() {
+				float l = magnitude();
+				if (l > 0) {
+					(*this) *= 1.f / l;
+				}
+			}
+			void componentProductUpdate(const Vector3& vector) {
+				x *= vector.x;
+				y *= vector.y;
+				z *= vector.z;
+			}
+
 			static Vector3 Add(const Vector3 & p_left, const Vector3 & p_right);
 			static Vector3 Substract(const Vector3 & p_left, const Vector3 & p_right);
 			static Vector3 Multiply(const Vector3 & p_target, float p_scalar);

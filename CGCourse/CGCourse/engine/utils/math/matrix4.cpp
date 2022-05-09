@@ -369,6 +369,20 @@ Matrix4 Matrix4::CreatePerspective(const float fov, const float aspectRatio, con
 	return CreateFrustum(-width, width, -height, height, zNear, zFar);
 }
 
+Matrix4 Matrix4::CreateOrthographic(const float left, const float right, const float bottom, const float top, const float zNear, const float zFar) {
+	auto ortho = Matrix4::Identity;
+
+	ortho(0, 0) = 2.0f / (right - left);
+	ortho(1, 1) = 2.0f / (top - bottom);
+	ortho(2, 2) = -2.0f / (zFar - zNear);
+	ortho(0, 3) = -(right + left) / (right - left);
+	ortho(1, 3) = -(top + bottom) / (top - bottom);
+	ortho(2, 3) = -(zFar + zNear) / (zFar - zNear);
+	ortho(3, 3) = 1.0f;
+
+	return ortho;
+}
+
 Matrix4 Matrix4::CreateOrthographic(const float size, const float aspectRatio, const float zNear, const float zFar) {
 	auto ortho = Matrix4::Identity;
 
@@ -423,13 +437,13 @@ Matrix4 Matrix4::CreateView(const float eyeX, const float eyeY, const float eyeZ
 }
 
 Matrix4 Matrix4::CreateView(Vector3 eye, Vector3 look, Vector3 up) {
-	const Vector3 forward(eye - look);
+	const Vector3 forward(Vector3::Normalize(eye - look));
 	Vector3::Normalize(forward);
 
-	const Vector3 upXForward(Vector3::Cross(up, forward));
+	const Vector3 upXForward(Vector3::Normalize(Vector3::Cross(up, forward)));
 	Vector3::Normalize(upXForward);
 
-	const Vector3 v(Vector3::Cross(forward, upXForward));
+	const Vector3 v(Vector3::Normalize(Vector3::Cross(forward, upXForward)));
 
 	Matrix4 View;
 

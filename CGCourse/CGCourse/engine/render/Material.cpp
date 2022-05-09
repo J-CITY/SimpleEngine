@@ -111,7 +111,10 @@ void Material::bind(std::shared_ptr<RESOURCES::Texture> emptyTexture, bool useTe
 
 		for (auto& [name, value] : uniformsData) {
 			auto uniformData = shader->getUniformInfo(name);
-
+			if (!uniformData) {
+				shader->getUniformLocation(name);
+				uniformData = shader->getUniformInfo(name);
+			}
 			if (uniformData) {
 				switch (uniformData->type) {
 				case UniformType::UNIFORM_BOOL: {

@@ -20,11 +20,6 @@ namespace KUMA {
 		protected:
 			Core core;
 			float delta = 0.0f;
-		public:
-			RENDER::GameRenderer renderer;
-			
-			EVENT::Event<std::shared_ptr<ECS::Component>> componentAddedEvent;
-			EVENT::Event<std::shared_ptr<ECS::Component>> componentRemovedEvent;
 		};
 	}
 }

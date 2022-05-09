@@ -90,6 +90,8 @@ namespace KUMA {
 			bool depthWriting = true;
 			bool colorWriting = true;
 			int gpuInstances = 1;
+
+			bool isDeferred = false;
 		};
 	}
 }
