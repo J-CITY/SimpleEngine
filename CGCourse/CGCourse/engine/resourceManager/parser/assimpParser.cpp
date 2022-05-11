@@ -194,7 +194,7 @@ void AssimpParser::processMesh(void* transform, aiMesh* mesh, const aiScene* sce
 					position.y,
 					position.z
 				},
-				MATHGL::Vector2{
+				MATHGL::Vector2f{
 					texCoords.x,
 					texCoords.y
 				},

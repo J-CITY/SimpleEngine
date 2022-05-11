@@ -167,10 +167,10 @@ namespace Game {
 
 				for (int i = 0; i < list_sz; i++) {
 					if (texture_list[i] == BlockTypeTexture::GrassSide) {
-						BlockDatabase[texture_list[i]] = BlockTextureAtlas.SampleTexel(Vector2(i, 0), Vector2(i + 1, 1), true);
+						BlockDatabase[texture_list[i]] = BlockTextureAtlas.SampleTexel(Vector2f(i, 0), Vector2f(i + 1, 1), true);
 					}
 					else {
-						BlockDatabase[texture_list[i]] = BlockTextureAtlas.SampleTexel(Vector2(i, 0), Vector2(i + 1, 1));
+						BlockDatabase[texture_list[i]] = BlockTextureAtlas.SampleTexel(Vector2f(i, 0), Vector2f(i + 1, 1));
 					}
 				}
 			}

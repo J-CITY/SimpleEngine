@@ -31,7 +31,7 @@ namespace Game
 	{
 	public:
 
-		World(int seed, const KUMA::MATHGL::Vector2& window_size, const std::string& world_name, WorldGenerationType world_gen_type, KUMA::ECS::Object* player);
+		World(int seed, const KUMA::MATHGL::Vector2f& window_size, const std::string& world_name, WorldGenerationType world_gen_type, KUMA::ECS::Object* player);
 		~World();
 
 		void OnUpdate(KUMA::WINDOW_SYSTEM::Window* window);

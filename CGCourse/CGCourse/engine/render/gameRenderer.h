@@ -59,6 +59,17 @@ namespace KUMA::RENDER {
 		ShadowMapResolution resolution = ShadowMapResolution::MEDIUM;
 	};
 
+	struct Hdr {
+		FrameBuffer hdrFBO;
+
+		//Texture, which draw on screen
+		std::shared_ptr<RESOURCES::Texture> finalTexture;
+	};
+
+	struct Bloom {
+		std::shared_ptr<RESOURCES::Texture> blurTexture;
+	};
+
 	struct RenderPipeline {
 		FrameBuffer depthMapFBO;
 
@@ -67,6 +78,9 @@ namespace KUMA::RENDER {
 		std::vector<PointLightData> pointLightsData;
 
 		ShadowLightData shadowLightData;
+
+		Hdr hdr;
+		Bloom bloom;
 
 	};
 
@@ -129,7 +143,7 @@ namespace KUMA::RENDER {
 
 		void init();
 
-		MATHGL::Vector2 getShadowMapResolution();
+		MATHGL::Vector2f getShadowMapResolution();
 	public:
 
 		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;

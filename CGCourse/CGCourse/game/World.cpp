@@ -59,7 +59,7 @@ namespace Game
 		World class constructor
 	*/
 
-	World::World(int seed, const KUMA::MATHGL::Vector2& window_size, const std::string& world_name, WorldGenerationType world_gen_type, KUMA::ECS::Object* player)
+	World::World(int seed, const KUMA::MATHGL::Vector2f& window_size, const std::string& world_name, WorldGenerationType world_gen_type, KUMA::ECS::Object* player)
 		: m_WorldSeed(seed), m_WorldName(world_name), m_WorldGenType(world_gen_type), p_Player(player)
 	{
 		m_SunCycle = CurrentSunCycle::Sun_Rising;

@@ -26,7 +26,8 @@ Game::World* world = nullptr;
 std::shared_ptr<KUMA::RESOURCES::Animation> danceAnimation;
 std::shared_ptr<KUMA::RESOURCES::Animator> animator;
 
-float liveTime = 25.0f;
+float liveTime = 20.0f;
+float liveTime2 = 20.0f;
 
 namespace Game {
 	Game::ChunkDataTypePtr _GetChunkDataForMeshing(int cx, int cz) {
@@ -247,8 +248,8 @@ int main() {
 				prev = mpos;
 				isFirst = false;
 			}
-			static KUMA::MATHGL::Vector2 offset(0.0f, 0.0f);
-			static KUMA::MATHGL::Vector2 look(0.0f, 0.0f);
+			static KUMA::MATHGL::Vector2f offset(0.0f, 0.0f);
+			static KUMA::MATHGL::Vector2f look(0.0f, 0.0f);
 
 			offset.x = mpos.first - prev.first;
 			offset.y = mpos.second - prev.second;
@@ -270,7 +271,7 @@ int main() {
 
 		});*/
 		
-		//world = new Game::World(42, KUMA::MATHGL::Vector2(800, 600), "test", Game::Generation_Normal, &obj);
+		//world = new Game::World(42, KUMA::MATHGL::Vector2f(800, 600), "test", Game::Generation_Normal, &obj);
 		//app->renderer.world = world;
 	}
 	/*{
@@ -343,8 +344,8 @@ int main() {
 		data["u_NormalMap"] = tex2;
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		mat->fillWithMaterial(_m);
 		
 		
@@ -426,8 +427,8 @@ int main() {
 			//data["u_NormalMap"] = tex2;
 			//data["u_Shininess"] = 100;
 			//data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-			//data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-			//data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+			//data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+			//data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 			//mat->fillWithMaterial(_m);
 
 			auto tex1 =  KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_albedo.jpg");
@@ -451,7 +452,7 @@ int main() {
 			//data["Height_map"] = 20;
 			data["id"] = 1;
 			data["MetallicFactor"] = 0.0f;
-			data["UVMultipliers"] = KUMA::MATHGL::Vector2(1.0f, 1.0f);
+			data["UVMultipliers"] = KUMA::MATHGL::Vector2f(1.0f, 1.0f);
 			//data["metallic_map"] : 18446744073709551615,
 			data["Name"] = "DefaultMaterial";
 			auto texN = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
@@ -527,7 +528,7 @@ int main() {
 			//data["Height_map"] = 20;
 			data["id"] = 1;
 			data["MetallicFactor"] = 0.0f;
-			data["UVMultipliers"] = KUMA::MATHGL::Vector2(1.0f, 1.0f);
+			data["UVMultipliers"] = KUMA::MATHGL::Vector2f(1.0f, 1.0f);
 			//data["metallic_map"] : 18446744073709551615,
 			data["Name"] = "DefaultMaterial";
 			auto texN = KUMA::RESOURCES::TextureLoader().createResource("textures\\brick_normal.jpg");
@@ -613,8 +614,8 @@ int main() {
 		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = true;
 		mat->fillWithMaterial(_m);
 	}
@@ -673,43 +674,57 @@ int main() {
 		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 
 
-		auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto b = std::make_shared<KUMA::PHYSICS::RigidBody>();
-		b->setInverseMass(0);
-		//b->setDamping(0.8f, 0.8f);
-		//b->setAcceleration(KUMA::MATHGL::Vector3(0, -9.81, 0));
-		//b->calculateDerivedData();
-		//b->setAwake();
-		//b->setCanSleep(false);
-		b->setPosition(obj->transform->getLocalPosition());
-		b->setOrientation(obj->transform->getLocalRotation());
-		//b->setCanSleep(false);
-		//b->setAwake(false);
-		//b->isStatic = true;
-		auto colider = std::make_unique<KUMA::PHYSICS::CollisionBox>();
-		colider->halfSize = KUMA::MATHGL::Vector3{300.0f, 1.0f, 300.0f} *0.5f;
-		colider->transform = obj->transform->getLocalMatrix();
-		colider->body = b;
+		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
+		auto body = new cyclone::RigidBody();
+		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
+		body->setOrientation(1, 0, 0, 0);
+		body->setVelocity(0, 0, 0);
+		body->setRotation(0, 0, 0);
+		
+		body->setInverseMass(0);
 
-		pc->body = b;
-		pc->collider = std::move(colider);
-		pc->boundingSphere = bs;
-		pc->collisionType = KUMA::ECS::CollisionType::OBB;
+		cyclone::Matrix3 tensor;
+		tensor.setBlockInertiaTensor(cyclone::Vector3{30, 1.f, 30} *0.5f, 0);
+		body->setInertiaTensor(tensor);
 
-		//app.getCore().physicsManger->onObjectSpawned(pc, bs);
+		body->setLinearDamping(0.95f);
+		body->setAngularDamping(0.8f);
+		body->clearAccumulators();
+		body->setAcceleration(0, 0, 0);
+
+		body->setCanSleep(false);
+		body->setAwake();
+
+		body->calculateDerivedData();
+		auto colider = new cyclone::CollisionBox();
+		colider->halfSize = {30.0f, 1.0f, 30.0f} * 0.5f;
+		//colider->transform = obj->transform->getLocalMatrix();
+		colider->body = body;
+		colider->calculateInternals();
+
+		//pc->body = b;
+		//pc->collider = std::move(colider);
+		//pc->boundingSphere = bs;
+		//pc->collisionType = KUMA::ECS::CollisionType::OBB;
+
+		app.getCore().physicsManger->bodies.push_back(body);
+		app.getCore().physicsManger->bodiesCollide.push_back(colider);
 		//app.getCore().physicsManger->objectsList.push_back(pc);
 
-		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([pc](float dt) {
-			if (pc->body)
-				pc->obj.transform->setLocalPosition(pc->body->getPosition());
-			pc->collider->transform = pc->obj.transform->getLocalMatrix();
-			pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
+		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
+			//if (pc->body)
+				obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
+				obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+					body->getOrientation().i, body->getOrientation().j, body->getOrientation().k, body->getOrientation().r));
+
+			//pc->collider->transform = pc->obj.transform->getLocalMatrix();
+			//pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
 			//if (pc->obj.transform->getLocalPosition().y < -500.0f) {
 			//	pc->obj.transform->setLocalPosition(KUMA::MATHGL::Vector3(obj->transform->getLocalPosition().x, 500.0f, obj->transform->getLocalPosition().z));
 			//}
@@ -768,85 +783,74 @@ int main() {
 		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 
-		auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
-		body->setPosition(obj->transform->getLocalPosition());
+		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
+		auto body = new cyclone::RigidBody();
+		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
-		body->setRotation(KUMA::MATHGL::Vector3(0, 0, 0));
+		body->setRotation(0,0,0);
 		//halfSize = cyclone::Vector3(1, 1, 1);
-		float mass = 5.0f;
+		float mass = 5555.0f;
 		body->setMass(mass);
 
-		KUMA::MATHGL::Matrix3 tensor;
-		tensor.setBlockInertiaTensor(KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f, mass);
+		cyclone::Matrix3 tensor;
+		tensor.setBlockInertiaTensor(cyclone::Vector3{10.5f, 10.5f, 10.5f} * 0.5f, mass);
 		body->setInertiaTensor(tensor);
 
 		body->setLinearDamping(0.95f);
 		body->setAngularDamping(0.8f);
 		body->clearAccumulators();
-		body->setAcceleration(0, -10.0f, 0);
+		//body->setAcceleration(0, -10.0f, 0);
 
 		body->setCanSleep(false);
 		body->setAwake();
 
 		body->calculateDerivedData();
 
-		auto colider = std::make_unique<KUMA::PHYSICS::CollisionBox>();
-		colider->halfSize = KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
-		colider->transform = obj->transform->getLocalMatrix();
+		auto colider = new cyclone::CollisionBox();
+		colider->halfSize = cyclone::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
+		//colider->transform = obj->transform->getLocalMatrix();
 		colider->body = body;
+		colider->calculateInternals();
 		//colider->transform.data[3]  += 10.5f * 0.5;
 		//colider->transform.data[7]  += 10.5f * 0.5;
 		//colider->transform.data[11] += 10.5f * 0.5;
 		//colider->body = ;
-		pc->body = body;
-		pc->collider = std::move(colider);
-		pc->boundingSphere = bs;
-		pc->collisionType = KUMA::ECS::CollisionType::OBB;
+		//pc->body = body;
+		//pc->collider = std::move(colider);
+		//pc->boundingSphere = bs;
+		//pc->collisionType = KUMA::ECS::CollisionType::OBB;
 
-		//app.getCore().physicsManger->onObjectSpawned(pc, bs);
-		//app.getCore().physicsManger->objectsList.push_back(pc);
+		app.getCore().physicsManger->bodies.push_back(body);
+		app.getCore().physicsManger->bodiesCollide.push_back(colider);
 
-		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([pc](float dt) {
-			pc->obj.transform->setLocalPosition(pc->body->getPosition());
-			pc->collider->transform = pc->obj.transform->getLocalMatrix();
-			pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
-			if (pc->body->velocity.x < -10) {
-				pc->body->velocity.x = -10;
-			}
-			if (pc->body->velocity.x > 10) {
-				pc->body->velocity.x = 10;
-			}
+		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
+			//if (pc->body)
+			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
+			//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+			//	KUMA::MATHGL::Vector3(TO_DEGREES(body->getRotation().x), TO_DEGREES(body->getRotation().y), TO_DEGREES(body->getRotation().z))));
+			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+				body->getOrientation().i, body->getOrientation().j, body->getOrientation().k, body->getOrientation().r));
 
-			if (pc->body->velocity.y < -10) {
-				pc->body->velocity.y = -10;
-			}
-			if (pc->body->velocity.y > 10) {
-				pc->body->velocity.y = 10;
-			}
 
-			if (pc->body->velocity.z < -10) {
-				pc->body->velocity.z = -10;
-			}
-			if (pc->body->velocity.z > 10) {
-				pc->body->velocity.z = 10;
-			}
-			//if (liveTime < 0)
-			//{
-			//	pc->body->position = {0.0f, 55.0f, 0.0f};
-			//	pc->body->setVelocity(KUMA::MATHGL::Vector3(0.f, 0.f, 0.f));
-			//	pc->body->setRotation(KUMA::MATHGL::Vector3(0.f, 0.f, 0.f));
-			//}
-			//LOG_INFO(std::to_string(pc->body->velocity.y) + "\n");
+			//pc->collider->transform = pc->obj.transform->getLocalMatrix();
+			//pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
 			//if (pc->obj.transform->getLocalPosition().y < -500.0f) {
 			//	pc->obj.transform->setLocalPosition(KUMA::MATHGL::Vector3(obj->transform->getLocalPosition().x, 500.0f, obj->transform->getLocalPosition().z));
 			//}
+			liveTime -= dt;
+			if (liveTime < 0) {
+				liveTime = 20.0f;
+				body->setPosition(0.0f, 55.0f, 0.0f);
+				body->setOrientation(1, 0, 0, 0);
+				body->setVelocity(0, 0, 0);
+				body->setRotation(cyclone::Vector3(0, 0, 0));
+			}
 		});
 	}
 
@@ -869,7 +873,7 @@ int main() {
 	bs.position = {0.0f, 0.0f, 0.0f};
 	bs.radius = 10.50;
 	model->setCustomBoundingSphere(bs);
-	obj->transform->setLocalPosition({1.0f, 155.0f, 0.0f});
+	obj->transform->setLocalPosition({7.0f, 155.0f, 0.0f});
 	obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 	//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
 	obj->transform->setLocalScale({10.5f, 10.5f, 10.5f});
@@ -903,86 +907,76 @@ int main() {
 	data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 	data["u_Shininess"] = 100;
 	data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-	data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-	data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+	data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+	data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 	data["u_UseBone"] = false;
 	mat->fillWithMaterial(_m);
 
-	auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-	auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
-	body->setPosition(obj->transform->getLocalPosition());
+	//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
+	auto body = new cyclone::RigidBody();
+	body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 	body->setOrientation(1, 0, 0, 0);
 	body->setVelocity(0, 0, 0);
-	body->setRotation(KUMA::MATHGL::Vector3(0, 0, 0));
+	body->setRotation(0, 0, 0);
 	//halfSize = cyclone::Vector3(1, 1, 1);
-	float mass = 5.0f;
+	float mass = 5555.0f;
 	body->setMass(mass);
 
-	KUMA::MATHGL::Matrix3 tensor;
-	tensor.setBlockInertiaTensor(KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f, mass);
+	cyclone::Matrix3 tensor;
+	tensor.setBlockInertiaTensor(cyclone::Vector3{10.5f, 10.5f, 10.5f} *0.5f, mass);
 	body->setInertiaTensor(tensor);
 
 	body->setLinearDamping(0.95f);
 	body->setAngularDamping(0.8f);
 	body->clearAccumulators();
-	body->setAcceleration(0, -10.0f, 0);
+	//body->setAcceleration(0, -10.0f, 0);
 
 	body->setCanSleep(false);
 	body->setAwake();
 
 	body->calculateDerivedData();
 
-	auto colider = std::make_unique<KUMA::PHYSICS::CollisionBox>();
-	colider->halfSize = KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
-	colider->transform = obj->transform->getLocalMatrix();
+	auto colider = new cyclone::CollisionBox();
+	colider->halfSize = cyclone::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
+	//colider->transform = obj->transform->getLocalMatrix();
 	colider->body = body;
-	//colider->transform.data[3]	+= 10.5f * 0.5;
+
+	colider->calculateInternals();
+		//colider->transform.data[3]	+= 10.5f * 0.5;
 	//colider->transform.data[7]	+= 10.5f * 0.5;
 	//colider->transform.data[11] += 10.5f * 0.5;
 	//colider->body = b;
-	pc->body = body;
-	pc->collider = std::move(colider);
-	pc->boundingSphere = bs;
-	pc->collisionType = KUMA::ECS::CollisionType::OBB;
+	//pc->body = body;
+	//pc->collider = std::move(colider);
+	//pc->boundingSphere = bs;
+	//pc->collisionType = KUMA::ECS::CollisionType::OBB;
 
-	//app.getCore().physicsManger->onObjectSpawned(pc, bs);
-	//app.getCore().physicsManger->objectsList.push_back(pc);
 
-	auto inp = obj->addComponent<KUMA::ECS::InputComponent>([pc](float dt) {
-		pc->obj.transform->setLocalPosition(pc->body->getPosition());
-		pc->collider->transform = pc->obj.transform->getLocalMatrix();
-		pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
-		if (pc->body->velocity.x < -10) {
-			pc->body->velocity.x = -10;
-		}
-		if (pc->body->velocity.x > 10) {
-			pc->body->velocity.x = 10;
-		}
+	app.getCore().physicsManger->bodies.push_back(body);
+	app.getCore().physicsManger->bodiesCollide.push_back(colider);
 
-		if (pc->body->velocity.y < -10) {
-			pc->body->velocity.y = -10;
-		}
-		if (pc->body->velocity.y > 10) {
-			pc->body->velocity.y = 10;
-		}
+	auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
+		//if (pc->body)
+		obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
+		//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+		//	KUMA::MATHGL::Vector3(TO_DEGREES(body->getRotation().x), TO_DEGREES(body->getRotation().y), TO_DEGREES(body->getRotation().z))));
+		obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+			body->getOrientation().i, body->getOrientation().j, body->getOrientation().k, body->getOrientation().r));
 
-		if (pc->body->velocity.z < -10) {
-			pc->body->velocity.z = -10;
-		}
-		if (pc->body->velocity.z > 10) {
-			pc->body->velocity.z = 10;
-		}
-		liveTime -= dt;
-		//if (liveTime < 0) {
-		//	pc->body->position = {0.0f, 155.0f, 0.0f};
-		//	liveTime = 25.0f;
-		//	pc->body->setVelocity(KUMA::MATHGL::Vector3(0.f, 0.f, 0.f));
-		//	pc->body->setRotation(KUMA::MATHGL::Vector3(0.f, 0.f, 0.f));
-		//}
-		//LOG_INFO(std::to_string(pc->body->velocity.y) + "\n");
+		//pc->collider->transform = pc->obj.transform->getLocalMatrix();
+		//pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
 		//if (pc->obj.transform->getLocalPosition().y < -500.0f) {
 		//	pc->obj.transform->setLocalPosition(KUMA::MATHGL::Vector3(obj->transform->getLocalPosition().x, 500.0f, obj->transform->getLocalPosition().z));
 		//}
+		liveTime2 -= dt;
+		if (liveTime2 < 0)
+		{
+			liveTime2 = 20.0f;
+			body->setPosition(7.0f, 155.0f, 0.0f);
+			body->setOrientation(1, 0, 0, 0);
+			body->setVelocity(0, 0, 0);
+			body->setRotation(cyclone::Vector3(0, 0, 0));
+		}
 	});
 	}
 
@@ -1036,8 +1030,8 @@ int main() {
 		data["u_NormalMap"] = tex2;
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 	}
@@ -1093,8 +1087,8 @@ int main() {
 		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 	}
@@ -1149,8 +1143,8 @@ int main() {
 		data["u_NormalMap"] = tex2;
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 
@@ -1210,8 +1204,8 @@ int main() {
 		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 	}
@@ -1263,8 +1257,8 @@ int main() {
 		data["u_NormalMap"] = tex2;
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 	}*/
@@ -1323,8 +1317,8 @@ int main() {
 
 		data["u_MaxHeight"] = 10;
 		data["u_Spacing"] = KUMA::MATHGL::Vector3{0.3f, 0.0f, 0.5f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{1.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{1.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 		data["u_Velocity"] = KUMA::MATHGL::Vector3{0.0f, 0.5f, 0.0f};
 		data["u_UseBone"] = false;
 		data["castShadow"] = false;
@@ -1386,7 +1380,7 @@ int main() {
 		data["u_NormalMap"] = tex2;
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{3.0f, 3.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{3.0f, 3.0f};
 		
 		data["u_UseBone"] = false;
 		data["castShadow"] = false;
@@ -1485,8 +1479,8 @@ int main() {
 		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
 		data["u_Shininess"] = 100;
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2{1.0f, 1.0f};
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
 
 
 		data["u_Levels"] = KUMA::MATHGL::Vector4(0.2f, 0.3f, 0.55, 0.7);
@@ -1541,11 +1535,11 @@ int main() {
 			//glActiveTexture(GL_TEXTURE6);
 			//glBindTexture(GL_TEXTURE_2D, gp);
 			auto mpos = app.getCore().inputManager->getMousePosition();
-			s->setUniformVec2("iMouse", KUMA::MATHGL::Vector2(mpos.first, mpos.second));
+			s->setUniformVec2("iMouse", KUMA::MATHGL::Vector2f(mpos.x, mpos.y));
 			s->unbind();
 		});
 
-		//data["iResolution"] = KUMA::MATHGL::Vector2(800, 600);
+		//data["iResolution"] = KUMA::MATHGL::Vector2f(800, 600);
 		
 
 		// Textures //

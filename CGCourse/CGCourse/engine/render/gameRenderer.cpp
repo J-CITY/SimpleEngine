@@ -28,16 +28,12 @@ using namespace KUMA::RENDER;
 //unsigned int depthMap;
 
 
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
 
 
 GLuint depthBufferTexture;
 
 //hdr
-unsigned int hdrFBO;
-std::shared_ptr<RESOURCES::Shader> hdrShader;
-unsigned int colorBuffers[2];
+//unsigned int hdrFBO;
 bool hdr = true;
 float exposure = 1.0f;
 
@@ -146,11 +142,11 @@ void renderCube() {
 	glBindVertexArray(0);
 }
 
-MATHGL::Vector2 Renderer::getShadowMapResolution() {
+MATHGL::Vector2f Renderer::getShadowMapResolution() {
 	switch (pipeline.shadowLightData.resolution) {
-	case ShadowMapResolution::LOW: return MATHGL::Vector2(512, 512);
-	case ShadowMapResolution::MEDIUM: return MATHGL::Vector2(1024, 1024);
-	case ShadowMapResolution::HIGH: return MATHGL::Vector2(2048, 2048);
+	case ShadowMapResolution::LOW: return MATHGL::Vector2f(512, 512);
+	case ShadowMapResolution::MEDIUM: return MATHGL::Vector2f(1024, 1024);
+	case ShadowMapResolution::HIGH: return MATHGL::Vector2f(2048, 2048);
 	}
 }
 
@@ -228,15 +224,16 @@ void Renderer::init() {
 	shadersMap["godRaysTexture"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\godRaysTexture.glsl");
 	shadersMap["godRays"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\godRays.glsl");
 
-	unsigned screenWidth, screenHeight;
-	std::tie(screenWidth, screenHeight) = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	//hdr
+	shadersMap["hdr"] = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\hdr.glsl");
+	auto screenRes= RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 	{//create swap buffers
 		int i = 0;
 		for (auto& buffer : swapBuffers) {
 			buffer.bind();
 			auto& texture = swapTextures[i];
 			texture.bindWithoutAttach();
-			texture.Load(nullptr, screenWidth, screenHeight, 4, true, RESOURCES::TextureFormat::RGBA16F);
+			texture.Load(nullptr, screenRes.x, screenRes.y, 4, true, RESOURCES::TextureFormat::RGBA16F);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			buffer.AttachTexture(texture, Attachment::COLOR_ATTACHMENT0);
@@ -245,7 +242,7 @@ void Renderer::init() {
 
 		
 		textureForGodRays.bindWithoutAttach();
-		textureForGodRays.Load(nullptr, screenWidth, screenHeight, 4, true, RESOURCES::TextureFormat::RGBA16F);
+		textureForGodRays.Load(nullptr, screenRes.x, screenRes.y, 4, true, RESOURCES::TextureFormat::RGBA16F);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	}
@@ -259,7 +256,7 @@ void Renderer::init() {
 		// Цветовой буфер позиций
 		glGenTextures(1, &gPosition);
 		glBindTexture(GL_TEXTURE_2D, gPosition);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
@@ -267,7 +264,7 @@ void Renderer::init() {
 		// Цветовой буфер нормалей
 		glGenTextures(1, &gNormal);
 		glBindTexture(GL_TEXTURE_2D, gNormal);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
@@ -275,7 +272,7 @@ void Renderer::init() {
 		// Цветовой буфер значений цвета + отраженной составляющей
 		glGenTextures(1, &gAlbedoSpec);
 		glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenRes.x, screenRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
@@ -288,7 +285,7 @@ void Renderer::init() {
 		unsigned int rboDepth;
 		glGenRenderbuffers(1, &rboDepth);
 		glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screenRes.x, screenRes.y);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
 
 		// Проверяем готовность фреймбуфера
@@ -325,7 +322,7 @@ void Renderer::init() {
 		// Цветовой буфер SSAO 
 		glGenTextures(1, &ssaoColorBuffer);
 		glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, screenRes.x, screenRes.y, 0, GL_RED, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
@@ -336,7 +333,7 @@ void Renderer::init() {
 		glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
 		glGenTextures(1, &ssaoColorBufferBlur);
 		glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, screenRes.x, screenRes.y, 0, GL_RED, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBufferBlur, 0);
@@ -611,26 +608,17 @@ void Renderer::init() {
 	
 
 	//hdr
-	hdrShader = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Shaders\\hdr.glsl");
 	// Конфигурируем фреймбуфер типа с плавающей точкой
 	
-	glGenFramebuffers(1, &hdrFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+	pipeline.hdr.hdrFBO.bind();
+	//glGenFramebuffers(1, &hdrFBO);
+	//glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
 	// Создаем 2 цветовых фреймбуфера типа с плавающей точкой (первый - для обычного рендеринга, другой - для граничных значений яркости)
-	
-	glGenTextures(2, colorBuffers);
-	for (unsigned int i = 0; i < 2; i++) {
-		glBindTexture(GL_TEXTURE_2D, colorBuffers[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  //используем режим GL_CLAMP_TO_EDGE, т.к. в противном случае фильтр размытия производил бы выборку повторяющихся значений текстуры!
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-		// Прикрепляем текстуру к фреймбуферу
-		
-	}
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffers[0], 0);
+	pipeline.hdr.finalTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y); //colorBuffer0
+	pipeline.bloom.blurTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y);  //colorBuffer1
+	pipeline.hdr.hdrFBO.AttachTexture(*pipeline.hdr.finalTexture, Attachment::COLOR_ATTACHMENT0);
+	//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffers[0], 0);
 
 	// Создание буфера глубины (рендербуфер)
 	unsigned int rboDepth;
@@ -655,7 +643,7 @@ void Renderer::init() {
 	for (unsigned int i = 0; i < 2; i++) {
 		glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
 		glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // используем режим GL_CLAMP_TO_EDGE, т.к. в противном случае фильтр размытия производил бы выборку повторяющихся значений текстуры!
@@ -670,8 +658,8 @@ void Renderer::init() {
 	tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\noiseTexture.png");
 	
 
-	hdrShader->bind();
-	hdrShader->setUniformInt("u_Scene", 0);
+	shadersMap["hdr"]->bind();
+	shadersMap["hdr"]->setUniformInt("u_Scene", 0);
 	//hdrShader->setUniformInt("hdrBuffer0", 0);
 	//hdrShader->setUniformInt("hdrBuffer1", 1);
 	//hdrShader->setUniformInt("hdrBuffer2", 2);
@@ -679,7 +667,7 @@ void Renderer::init() {
 	//hdrShader->setUniformInt("bloomBlur",  4);
 	//hdrShader->setUniformInt("u_Noise",  5);
 	//hdrShader->setUniformInt("u_Depth",  6);
-	hdrShader->unbind();
+	shadersMap["hdr"]->unbind();
 
 
 	shadersMap["blur"]->bind();
@@ -746,6 +734,7 @@ void Renderer::renderSkybox() {
 
 
 void Renderer::renderScene() {
+	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 	if (auto currentScene = context.sceneManager->getCurrentScene()) {
 		//grass
 		auto grass = currentScene->findObjectByName("Grass");
@@ -777,7 +766,7 @@ void Renderer::renderScene() {
 			//preparePointLightShadowMap();
 
 
-			glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+			pipeline.hdr.hdrFBO.bind();
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			
@@ -834,7 +823,7 @@ void Renderer::renderScene() {
 				}
 				
 
-				glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+				pipeline.hdr.hdrFBO.bind();
 				
 				// 2. Проход освещения: вычисление освещение, перебирая попиксельно экранный прямоугольник, используя содержимое g-буфера
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -865,9 +854,9 @@ void Renderer::renderScene() {
 			}
 			// 2.5. Копируем содержимое буфера глубины (геометрический проход) в буфер глубины заданного по умолчанию фреймбуфера
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, hdrFBO); // пишем в заданный по умолчанию фреймбуфер
-			glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pipeline.hdr.hdrFBO.id); // пишем в заданный по умолчанию фреймбуфер
+			glBlitFramebuffer(0, 0, screenRes.x, screenRes.y, 0, 0, screenRes.x, screenRes.y, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			pipeline.hdr.hdrFBO.bind();
 			
 			renderSkybox();
 
@@ -928,7 +917,7 @@ void Renderer::renderScene() {
 					glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
 					shadersMap["blur"]->setUniformInt("horizontal", horizontal);
 					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, firstIteration ? colorBuffers[1] : pingpongColorbuffers[!horizontal]);  // привязка текстуры другого фреймбуфера (или сцены, если это - первая итерация)
+					glBindTexture(GL_TEXTURE_2D, firstIteration ? pipeline.bloom.blurTexture->id : pingpongColorbuffers[!horizontal]);  // привязка текстуры другого фреймбуфера (или сцены, если это - первая итерация)
 					renderQuad();
 					horizontal = !horizontal;
 					if (firstIteration) {
@@ -940,7 +929,8 @@ void Renderer::renderScene() {
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["bloom"]->bind();
 				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+				pipeline.hdr.finalTexture->bind();
+				//glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
 				glActiveTexture(GL_TEXTURE1);
 				glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
 				shadersMap["bloom"]->setUniformInt("u_UseBloom", true);
@@ -1026,7 +1016,7 @@ void Renderer::renderScene() {
 
 			
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			hdrShader->bind();
+			shadersMap["hdr"]->bind();
 			//glActiveTexture(GL_TEXTURE0);
 			//glBindTexture(GL_TEXTURE_2D, motionBlurTextures[0]);
 			//glActiveTexture(GL_TEXTURE1);
@@ -1043,12 +1033,12 @@ void Renderer::renderScene() {
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			swapTextures[!currentSwapBuffer].bind();
 			//textureForGodRays.bind();
-			hdrShader->setUniformInt("u_UseHDR", hdr);
-			hdrShader->setUniformFloat("u_Exposure", exposure);
-			hdrShader->setUniformFloat("u_Gamma", 2.2f);
+			shadersMap["hdr"]->setUniformInt("u_UseHDR", hdr);
+			shadersMap["hdr"]->setUniformFloat("u_Exposure", exposure);
+			shadersMap["hdr"]->setUniformFloat("u_Gamma", 2.2f);
 			//hdrShader->setUniformVec3("sunPos", {-20.0f, 40.0f, 10.0f});
 			renderQuad();
-			hdrShader->unbind();
+			shadersMap["hdr"]->unbind();
 
 			applyStateMask(glState);
 
@@ -1189,8 +1179,9 @@ void Renderer::prepareDirLightShadowMap() {
 		clearDepth();
 		renderDirShadowMap();
 		pipeline.depthMapFBO.unbind();
-		
-		glViewport(0, 0, context.window->getSize().first, context.window->getSize().second);
+
+		auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+		glViewport(0, 0, screenRes.x, screenRes.y);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//Support only one shadow map for dir light

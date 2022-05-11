@@ -32,7 +32,7 @@ Core::Core() {
 	driver = std::make_unique<GL_SYSTEM::GlManager>(GL_SYSTEM::DriverSettings{false});
 	scriptInterpreter = std::make_unique<SCRIPTING::ScriptInterpreter>(Config::ROOT + Config::USER_ASSETS_PATH + "scripts\\");
 	audioManager = std::make_unique<AUDIO::AudioManager>();
-	physicsManger = std::make_unique<PHYSICS::PhysicWorld>();
+	physicsManger = std::make_unique<cyclone::PhysicWorld>(256);
 	
 	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(modelManager);
 	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(textureManager);

@@ -90,6 +90,22 @@ namespace KUMA {
 				//texture.path = "[[deleted]]";
 				////texture.samples = 0;
 			}
+
+			Texture::Texture(unsigned w, unsigned h) noexcept {
+				this->width = w;
+				this->height = h;
+				this->textureType = GL_TEXTURE_2D;
+				this->path = "";
+				this->format = TextureFormat::RG16F;
+
+				glGenTextures(1, &id);
+				glBindTexture(GL_TEXTURE_2D, id);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  //используем режим GL_CLAMP_TO_EDGE, т.к. в противном случае фильтр размытия производил бы выборку повторяющихся значений текстуры!
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			}
 			
 			~Texture() = default;
 

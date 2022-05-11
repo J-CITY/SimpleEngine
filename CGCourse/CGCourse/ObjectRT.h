@@ -26,7 +26,7 @@ public:
 	bool BoundingBox(float t0, float t1, AABB& box) const override;
 
 private:
-	KUMA::MATHGL::Vector2 SphereUV(const KUMA::MATHGL::Vector3& p) const;
+	KUMA::MATHGL::Vector2f SphereUV(const KUMA::MATHGL::Vector3& p) const;
 	KUMA::MATHGL::Vector3 Center(float time) const;
 
 	float radius;

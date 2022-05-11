@@ -65,8 +65,8 @@ void Material::bind(std::shared_ptr<RESOURCES::Shader> _shader, std::shared_ptr<
 				}
 				case UniformType::UNIFORM_FLOAT_VEC2:
 				{
-					if (std::holds_alternative<MATHGL::Vector2>(value)) {
-						_shader->setUniformVec2(name, std::get<MATHGL::Vector2>(value));
+					if (std::holds_alternative<MATHGL::Vector2f>(value)) {
+						_shader->setUniformVec2(name, std::get<MATHGL::Vector2f>(value));
 						break;
 					}
 				}
@@ -136,8 +136,8 @@ void Material::bind(std::shared_ptr<RESOURCES::Texture> emptyTexture, bool useTe
 					}
 				}
 				case UniformType::UNIFORM_FLOAT_VEC2: {
-					if (std::holds_alternative<MATHGL::Vector2>(value)) {
-						shader->setUniformVec2(name, std::get<MATHGL::Vector2>(value));
+					if (std::holds_alternative<MATHGL::Vector2f>(value)) {
+						shader->setUniformVec2(name, std::get<MATHGL::Vector2f>(value));
 						break;
 					}
 				}
@@ -340,8 +340,8 @@ void Material::onSerialize(nlohmann::json& j) {
 				break;
 
 			case UniformType::UNIFORM_FLOAT_VEC2:
-				if (std::holds_alternative<MATHGL::Vector2>(uniformValue)) {
-					RESOURCES::SerializeVec2(j["data"]["uniforms"][uniformName]["value"], std::get<MATHGL::Vector2>(uniformValue));
+				if (std::holds_alternative<MATHGL::Vector2f>(uniformValue)) {
+					RESOURCES::SerializeVec2(j["data"]["uniforms"][uniformName]["value"], std::get<MATHGL::Vector2f>(uniformValue));
 					j["data"]["uniforms"][uniformName]["type"] = "vec2";
 				}
 				break;

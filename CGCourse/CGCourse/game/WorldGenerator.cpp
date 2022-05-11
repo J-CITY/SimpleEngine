@@ -398,7 +398,7 @@ namespace Game
         }
     }
 
-    float _rounded(const KUMA::MATHGL::Vector2& coord)
+    float _rounded(const KUMA::MATHGL::Vector2f& coord)
     {
         auto bump = [](float t) { return std::max(0.0f, 1.0f - std::pow(t, 6.0f)); };
         float b = bump(coord.x) * bump(coord.y);

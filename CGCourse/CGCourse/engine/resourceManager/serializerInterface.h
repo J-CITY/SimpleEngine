@@ -28,10 +28,10 @@ namespace KUMA {
 			vec.z = j[2];
 		}
 
-		inline void SerializeVec2(nlohmann::json& j, const MATHGL::Vector2& vec) {
+		inline void SerializeVec2(nlohmann::json& j, const MATHGL::Vector2f& vec) {
 			j = {vec.x, vec.y};
 		}
-		inline void DeserializeVec2(nlohmann::json& j, MATHGL::Vector2& vec) {
+		inline void DeserializeVec2(nlohmann::json& j, MATHGL::Vector2f& vec) {
 			vec.x = j[0];
 			vec.y = j[1];
 		}

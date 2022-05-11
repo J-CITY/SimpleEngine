@@ -35,9 +35,9 @@ namespace Game {
 			m_TileY = ty;
 		}
 
-		std::array<GLfloat, 8> Sample(const KUMA::MATHGL::Vector2& start_coords, const KUMA::MATHGL::Vector2& end_coords, bool flip = false) {
-			KUMA::MATHGL::Vector2 s_coords;
-			KUMA::MATHGL::Vector2 e_coords;
+		std::array<GLfloat, 8> Sample(const KUMA::MATHGL::Vector2f& start_coords, const KUMA::MATHGL::Vector2f& end_coords, bool flip = false) {
+			KUMA::MATHGL::Vector2f s_coords;
+			KUMA::MATHGL::Vector2f e_coords;
 
 			s_coords = start_coords;
 			e_coords = end_coords;
@@ -75,9 +75,9 @@ namespace Game {
 			return TextureCoordinates;
 		}
 
-		std::array<uint16_t, 8> SampleTexel(const KUMA::MATHGL::Vector2& start_coords, const KUMA::MATHGL::Vector2& end_coords, bool flip = false) {
-			KUMA::MATHGL::Vector2 s_coords;
-			KUMA::MATHGL::Vector2 e_coords;
+		std::array<uint16_t, 8> SampleTexel(const KUMA::MATHGL::Vector2f& start_coords, const KUMA::MATHGL::Vector2f& end_coords, bool flip = false) {
+			KUMA::MATHGL::Vector2f s_coords;
+			KUMA::MATHGL::Vector2f e_coords;
 
 			s_coords = start_coords;
 			e_coords = end_coords;
@@ -111,7 +111,7 @@ namespace Game {
 			return TextureCoordinates;
 		}
 
-		std::array<GLfloat, 8> SampleCustom(const KUMA::MATHGL::Vector2& start_coords, const KUMA::MATHGL::Vector2& end_coords) {
+		std::array<GLfloat, 8> SampleCustom(const KUMA::MATHGL::Vector2f& start_coords, const KUMA::MATHGL::Vector2f& end_coords) {
 			float width, height;
 			float x2, y2;
 			float x1, y1;

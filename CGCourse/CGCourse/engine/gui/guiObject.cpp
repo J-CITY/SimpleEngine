@@ -109,23 +109,23 @@ void GuiScroll::onEvent(GuiEventType etype) {
 		auto mpos = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().getMousePosition();
 		if (!scroll->isPress) {
 			for (auto& ch : childs) {
-				if (contains(sf::FloatRect(ch->transform->posGlobal.x, ch->transform->posGlobal.y, ch->getWidht(), ch->getHeight()), mpos.first, mpos.second)) {
+				if (contains(sf::FloatRect(ch->transform->posGlobal.x, ch->transform->posGlobal.y, ch->getWidht(), ch->getHeight()), mpos.x, mpos.y)) {
 					selectedObj = ch;
 					selectedObjPos = ch->transform->pos;
 					break;
 				}
 			}
 			if (selectedObj) {
-				scroll->startX = mpos.first;
-				scroll->startY = mpos.second;
+				scroll->startX = mpos.x;
+				scroll->startY = mpos.y;
 
 			}
 			scroll->isPress = true;
 		}
 
 		if (selectedObj) {
-			auto shiftX = scroll->isScrollHorizontal ? mpos.first - scroll->startX : 0.0f;
-			auto shiftY = scroll->isScrollVertical ? mpos.second- scroll->startY : 0.0f;
+			auto shiftX = scroll->isScrollHorizontal ? mpos.x - scroll->startX : 0.0f;
+			auto shiftY = scroll->isScrollVertical ? mpos.y- scroll->startY : 0.0f;
 			selectedObj->setPos(selectedObjPos.x + shiftX, selectedObjPos.y + shiftY);
 
 			bool check = false;
