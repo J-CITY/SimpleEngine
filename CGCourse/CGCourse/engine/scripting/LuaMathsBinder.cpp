@@ -12,25 +12,25 @@ using namespace KUMA::SCRIPTING;
 void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 	using namespace KUMA::MATHGL;
 
-	p_luaState.new_usertype<Vector2>("Vector2",
+	p_luaState.new_usertype<Vector2f>("Vector2",
 		sol::constructors
 		<
-		Vector2(),
-		Vector2(float, float)
+		Vector2f(),
+		Vector2f(float, float)
 		>(),
-		"x", &Vector2::x,
-		"y", &Vector2::y,
+		"x", &Vector2f::x,
+		"y", &Vector2f::y,
 
 		
-		sol::meta_function::addition, sol::resolve<Vector2(const Vector2&) const>(&Vector2::operator+),
-		sol::meta_function::subtraction, sol::resolve<Vector2(const Vector2&) const>(&Vector2::operator-),
-		sol::meta_function::unary_minus, sol::resolve<Vector2() const>(&Vector2::operator-),
-		sol::meta_function::multiplication, sol::resolve<Vector2(const float)>(&Vector2::operator*),
-		sol::meta_function::division, &Vector2::operator/,
-		sol::meta_function::to_string, [](const Vector2& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + ")"; },
-		"Length", &Vector2::length,
-		"Dot", &Vector2::dot,
-		"Normalize", &Vector2::normalize
+		sol::meta_function::addition, sol::resolve<Vector2f(const Vector2f&) const>(&Vector2f::operator+),
+		sol::meta_function::subtraction, sol::resolve<Vector2f(const Vector2f&) const>(&Vector2f::operator-),
+		sol::meta_function::unary_minus, sol::resolve<Vector2f() const>(&Vector2f::operator-),
+		sol::meta_function::multiplication, sol::resolve<Vector2f(const float)>(&Vector2f::operator*),
+		sol::meta_function::division, &Vector2f::operator/,
+		sol::meta_function::to_string, [](const Vector2f& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + ")"; },
+		"Length", &Vector2f::length,
+		"Dot", &Vector2f::dot,
+		"Normalize", &Vector2f::normalize
 	);
 
 	p_luaState.new_usertype<Vector3>("Vector3",

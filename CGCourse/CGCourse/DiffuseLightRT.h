@@ -10,14 +10,14 @@ class Ray;
 KUMA::MATHGL::Vector3 Reflect(const KUMA::MATHGL::Vector3& v, const KUMA::MATHGL::Vector3& n);
 namespace KUMA {
 	namespace MATHGL {
-		struct Vector2;
+		//struct Vector2f;
 		struct Vector3;
 	}
 }
 class Material {
 public:
 	virtual bool Scatter(const Ray& rayIn, const HitRecord& hitRecord, KUMA::MATHGL::Vector3& attenuation, Ray& scattered) const = 0;
-	virtual KUMA::MATHGL::Vector3 Emitted(KUMA::MATHGL::Vector2 uv, const KUMA::MATHGL::Vector3& p) const { return KUMA::MATHGL::Vector3(); };
+	virtual KUMA::MATHGL::Vector3 Emitted(KUMA::MATHGL::Vector2f uv, const KUMA::MATHGL::Vector3& p) const { return KUMA::MATHGL::Vector3(); };
 };
 
 class Dielectric : public Material {
@@ -134,7 +134,7 @@ public:
 		return false;
 	}
 
-	KUMA::MATHGL::Vector3 Emitted(KUMA::MATHGL::Vector2 uv,
+	KUMA::MATHGL::Vector3 Emitted(KUMA::MATHGL::Vector2f uv,
 		const KUMA::MATHGL::Vector3& p) const override {
 		return emitTexture->Value(uv, p);
 	};

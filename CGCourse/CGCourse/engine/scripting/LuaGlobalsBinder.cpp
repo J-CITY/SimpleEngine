@@ -195,7 +195,7 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	p_luaState["Inputs"]["GetMousePos"] = []()
 	{
 		auto mousePos = KUMA::RESOURCES::ServiceManager::Get<InputManager>().getMousePosition();
-		return Vector3(static_cast<float>(mousePos.first), static_cast<float>(mousePos.second));
+		return Vector3(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
 	};
 
 	p_luaState["Scenes"]["GetCurrentScene"] = []() -> Scene& { return *KUMA::RESOURCES::ServiceManager::Get<SceneManager>().getCurrentScene(); };

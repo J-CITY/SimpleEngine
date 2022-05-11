@@ -63,7 +63,7 @@ bool InteractionComponentGui::contains(float x, float y) const {
 }
 void InteractionComponentGui::onUpdate(float dt) {
 	auto mpos = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().getMousePosition();
-	if (contains(mpos.first, mpos.second)) {
+	if (contains(mpos.x, mpos.y)) {
 		if (RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().isMouseButtonPressed(INPUT_SYSTEM::EMouseButton::MOUSE_BUTTON_1)) {
 			obj.onEvent(GuiEventType::PRESS);
 		}
@@ -111,6 +111,6 @@ void ClipComponentGui::calculateOwnPos() {
 	view = sf::View(rect);
 
 	auto windowSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
-	view.setViewport(sf::FloatRect(rect.left / (float)windowSize.first, rect.top / (float)windowSize.second, 
-		rect.width / (float)windowSize.first, rect.height / (float)windowSize.second));
+	view.setViewport(sf::FloatRect(rect.left / (float)windowSize.x, rect.top / (float)windowSize.y, 
+		rect.width / (float)windowSize.x, rect.height / (float)windowSize.y));
 }

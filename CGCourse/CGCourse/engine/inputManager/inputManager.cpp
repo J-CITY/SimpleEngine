@@ -37,7 +37,7 @@ bool InputManager::isMouseButtonReleased(EMouseButton p_button) {
 	return res;
 }
 
-std::pair<int, int> InputManager::getMousePosition() const {
+KUMA::MATHGL::Vector2i InputManager::getMousePosition() const {
 	return window.getMousePos();
 }
 

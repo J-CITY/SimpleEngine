@@ -34,7 +34,7 @@ std::shared_ptr<RENDER::Model> MeshGenerator::createTerrainFromHeightmap(const s
 			vertices.push_back(
 			{
 					MATHGL::Vector3{-0.5f + factorColumn, fVertexHeight, -0.5f + factorRow},
-					MATHGL::Vector2{textureStepU * j, textureStepV * i}
+					MATHGL::Vector2f{textureStepU * j, textureStepV * i}
 				}
 			);
 		}

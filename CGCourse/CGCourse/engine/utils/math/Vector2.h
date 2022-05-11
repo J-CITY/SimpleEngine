@@ -4,16 +4,47 @@
 
 namespace KUMA {
 	namespace MATHGL {
+		template<typename T = float>
 		struct Vector2 {
-			float x = 0.0f, y = 0.0f;
+			T x = 0.0f, y = 0.0f;
 
-			Vector2() = default;
-			Vector2(const float f) : x(f), y(f) {}
-			Vector2(const float x, const float y) : x(x), y(y) {}
+			Vector2() {
+				static_assert(std::is_arithmetic<T>::value, "T is not number");
+			};
+			Vector2(const T f) : x(f), y(f) {
+				Vector2::Vector2();
+			}
+			Vector2(const T x, const T y) : x(x), y(y) {
+				Vector2::Vector2();
+			}
 
-			float& operator[](const int index);
-			const float& operator[](const int index) const;
-			Vector2& operator=(const Vector2& right);
+			T& operator[](const int index) {
+				if (index > 1) {
+					throw std::logic_error("Index > 3");
+				}
+				switch (index) {
+				case 0: return x;
+				case 1: return y;
+				}
+			}
+			const T& operator[](const int index) const {
+				if (index > 1) {
+					throw std::logic_error("Index > 3");
+				}
+				switch (index) {
+				case 0: return x;
+				case 1: return y;
+				}
+			}
+
+			Vector2& operator=(const Vector2& right) {
+				if (this == &right) {
+					return *this;
+				}
+				x = right.x;
+				y = right.y;
+				return *this;
+			}
 
 			inline bool operator==(const Vector2& V2) {
 				return this->x == V2.x && this->y == V2.y;
@@ -82,5 +113,8 @@ namespace KUMA {
 			}
 		};
 
+		using Vector2i = Vector2<int>;
+		using Vector2u = Vector2<unsigned>;
+		using Vector2f = Vector2<float>;
 	}
 }

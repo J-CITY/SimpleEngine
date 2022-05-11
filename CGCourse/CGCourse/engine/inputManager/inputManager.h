@@ -161,7 +161,7 @@ namespace KUMA::INPUT_SYSTEM {
 		bool isMouseButtonReleased(EMouseButton p_button);
 		KUMA::WINDOW_SYSTEM::Window::GamepadData InputManager::getGamepad(int id);
 
-		std::pair<int, int> getMousePosition() const;
+		MATHGL::Vector2i getMousePosition() const;
 		void clearEvents();
 
 	private:

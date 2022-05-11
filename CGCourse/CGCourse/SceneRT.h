@@ -12,7 +12,7 @@ class Material;
 struct HitRecord {
 	KUMA::MATHGL::Vector3 point;
 	KUMA::MATHGL::Vector3 normal;
-	KUMA::MATHGL::Vector2 uv;
+	KUMA::MATHGL::Vector2f uv;
 	float t = 0.0f;
 	Material* material = nullptr;
 };

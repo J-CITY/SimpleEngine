@@ -6,7 +6,7 @@ namespace KUMA {
     class Vertex {
     public:
         MATHGL::Vector3 position;
-        MATHGL::Vector2 texCoord;
+        MATHGL::Vector2f texCoord;
         MATHGL::Vector3 normal;
         MATHGL::Vector3 tangent;
         MATHGL::Vector3 bitangent;
@@ -18,7 +18,7 @@ namespace KUMA {
 
         Vertex() {}
     	
-        Vertex(const MATHGL::Vector3& position, const MATHGL::Vector2& texCoord = MATHGL::Vector2(0, 0),
+        Vertex(const MATHGL::Vector3& position, const MATHGL::Vector2f& texCoord = MATHGL::Vector2f(0, 0),
             const  MATHGL::Vector3& normal = MATHGL::Vector3(0, 0, 0), const  MATHGL::Vector3& tangent = MATHGL::Vector3(0, 0, 0),
             const  MATHGL::Vector3& bitangent = MATHGL::Vector3(0, 0, 0)) {
             this->position = position;

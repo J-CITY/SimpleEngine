@@ -49,7 +49,7 @@ namespace KUMA {
 				glUniform1f(getUniformLocation(name), value);
 			}
 
-			void setUniformVec2(const std::string& name, const MATHGL::Vector2& vec2) {
+			void setUniformVec2(const std::string& name, const MATHGL::Vector2f& vec2) {
 				glUniform2f(getUniformLocation(name), vec2.x, vec2.y);
 			}
 
@@ -81,10 +81,10 @@ namespace KUMA {
 				return value;
 			}
 
-			MATHGL::Vector2 getUniformVec2(const std::string& name) {
+			MATHGL::Vector2f getUniformVec2(const std::string& name) {
 				GLfloat values[2];
 				glGetnUniformfv(id, getUniformLocation(name), 2 * sizeof(float), values);
-				return reinterpret_cast<MATHGL::Vector2&>(values);
+				return reinterpret_cast<MATHGL::Vector2f&>(values);
 			}
 
 			MATHGL::Vector3 getUniformVec3(const std::string& name) {

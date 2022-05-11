@@ -106,19 +106,19 @@ namespace KUMA {
 						transform->posGlobal.x = transform->pos.x;
 					}
 					else if (transform->haligh == EAlign::CENTER) {
-						transform->posGlobal.x = windowSize.first / 2.0f + transform->pos.x - getWidht() / 2.0f;
+						transform->posGlobal.x = windowSize.x / 2.0f + transform->pos.x - getWidht() / 2.0f;
 					}
 					else if (transform->haligh == EAlign::RIGHT) {
-						transform->posGlobal.x = windowSize.first + transform->pos.x - getWidht();
+						transform->posGlobal.x = windowSize.x + transform->pos.x - getWidht();
 					}
 					if (transform->valigh == EAlign::TOP) {
 						transform->posGlobal.y = transform->pos.y;
 					}
 					else if (transform->valigh == EAlign::CENTER) {
-						transform->posGlobal.y = windowSize.second / 2.0f + transform->pos.y - getHeight() / 2.0f;
+						transform->posGlobal.y = windowSize.y / 2.0f + transform->pos.y - getHeight() / 2.0f;
 					}
 					else if (transform->valigh == EAlign::BOTTOM) {
-						transform->posGlobal.y = windowSize.second + transform->pos.y - getHeight();
+						transform->posGlobal.y = windowSize.y + transform->pos.y - getHeight();
 					}
 				}
 				applyTransform();

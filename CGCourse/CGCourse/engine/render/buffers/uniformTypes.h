@@ -34,7 +34,7 @@ namespace KUMA {
 			UNIFORM_SAMPLER_CUBE = 0x8B60
 		};
 
-		using ShaderUniform = std::variant<float, int, bool, MATHGL::Vector2, MATHGL::Vector3, MATHGL::Vector4, std::shared_ptr<RESOURCES::Texture>>;
+		using ShaderUniform = std::variant<float, int, bool, MATHGL::Vector2f, MATHGL::Vector3, MATHGL::Vector4, std::shared_ptr<RESOURCES::Texture>>;
 
 		struct UniformInfo {
 			RENDER::UniformType type;

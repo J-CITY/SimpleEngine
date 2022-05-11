@@ -44,21 +44,22 @@ namespace KUMA::WINDOW_SYSTEM {
 		EVENT::Event<int> mouseButtonReleasedEvent;
 		EVENT::Event<GamepadData> gamepadEvent;
 
-		std::pair<int, int> getMousePos() {
+		MATHGL::Vector2i getMousePos() {
 			auto p = sf::Mouse::getPosition(*window);
-			return std::make_pair(p.x, p.y);
+			return MATHGL::Vector2i(p.x, p.y);
 		}
-		std::pair<int, int> getMousePosGlobal() {
+
+		MATHGL::Vector2i getMousePosGlobal() {
 			auto p = sf::Mouse::getPosition();
-			return std::make_pair(p.x, p.y);
+			return MATHGL::Vector2i(p.x, p.y);
 		}
 		Window(const WindowSettings& p_windowSettings);
 		~Window();
 		
 		void setSize(unsigned int width, unsigned int height);
-		std::pair<unsigned, unsigned> getSize() const {
+		MATHGL::Vector2u getSize() const {
 			auto sz = window->getSize();
-			return std::make_pair(sz.x, sz.y);
+			return MATHGL::Vector2u(sz.x, sz.y);
 		}
 		void setPosition(int x, int y);
 		

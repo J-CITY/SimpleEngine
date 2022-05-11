@@ -15,14 +15,14 @@ namespace KUMA {
 				std::vector<Vertex> vertices;
 				vertices.push_back({
 					MATHGL::Vector3{0, 0, 0},
-					MATHGL::Vector2{0, 0},
+					MATHGL::Vector2f{0, 0},
 					MATHGL::Vector3{0, 0, 0},
 					MATHGL::Vector3{0, 0, 0},
 					MATHGL::Vector3{0, 0, 0}
 				});
 				vertices.push_back({
 					MATHGL::Vector3{0, 0, 0},
-					MATHGL::Vector2{0, 0},
+					MATHGL::Vector2f{0, 0},
 					MATHGL::Vector3{0, 0, 0},
 					MATHGL::Vector3{0, 0, 0},
 					MATHGL::Vector3{0, 0, 0}

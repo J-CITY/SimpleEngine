@@ -8,6 +8,6 @@ ConstantTexture::ConstantTexture(KUMA::MATHGL::Vector3& _color)
 
 }
 
-KUMA::MATHGL::Vector3 ConstantTexture::Value(const KUMA::MATHGL::Vector2& uv, const KUMA::MATHGL::Vector3& p) const {
+KUMA::MATHGL::Vector3 ConstantTexture::Value(const KUMA::MATHGL::Vector2f& uv, const KUMA::MATHGL::Vector3& p) const {
 	return color;
 }
