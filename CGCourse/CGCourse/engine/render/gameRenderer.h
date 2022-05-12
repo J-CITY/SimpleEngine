@@ -64,10 +64,22 @@ namespace KUMA::RENDER {
 
 		//Texture, which draw on screen
 		std::shared_ptr<RESOURCES::Texture> finalTexture;
+		bool isEnabled = true;
+		float exposure = 1.0f;
+		float gamma = 2.2f;
 	};
 
 	struct Bloom {
 		std::shared_ptr<RESOURCES::Texture> blurTexture;
+	};
+
+	struct MotionBlur {
+		bool isInit = false;
+		std::vector<std::shared_ptr<RESOURCES::Texture>> motionBlurTextures;
+	};
+
+	struct GodRays {
+		std::shared_ptr<RESOURCES::Texture> godRaysTexture;
 	};
 
 	struct RenderPipeline {
@@ -81,6 +93,8 @@ namespace KUMA::RENDER {
 
 		Hdr hdr;
 		Bloom bloom;
+		MotionBlur motionBlur;
+		GodRays godRays;
 
 	};
 
@@ -106,7 +120,9 @@ namespace KUMA::RENDER {
 
 		Renderer(GL_SYSTEM::GlManager& driver, CORE_SYSTEM::Core& context);
 		~Renderer();
-
+		RENDER::UniformBuffer& getUBO() const {
+			return *engineUBO;
+		}
 		void renderScene();
 
 		void renderSkybox();
@@ -145,7 +161,7 @@ namespace KUMA::RENDER {
 
 		MATHGL::Vector2f getShadowMapResolution();
 	public:
-
+		void initShaders();
 		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;
 
 		enum class PipelineRenderShaderType {
@@ -166,7 +182,7 @@ namespace KUMA::RENDER {
 
 		bool currentSwapBuffer = 0;
 		std::array<FrameBuffer, 2> swapBuffers;
-		std::array<RESOURCES::Texture, 2> swapTextures;
+		std::array<std::shared_ptr<RESOURCES::Texture>, 2> swapTextures;
 
 		RESOURCES::Texture textureForGodRays;
 		//move later to component

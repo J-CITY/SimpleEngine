@@ -3,9 +3,19 @@
 #include <vector>
 #include <string>
 #include <array>
+#include <GL/glew.h>
 
-#include "../engine/resourceManager/resource/texture.h"
 #include "../engine/utils/math/Vector2.h"
+#include "../engine/resourceManager/ServiceManager.h"
+#include "../engine/resourceManager/textureManager.h"
+
+namespace KUMA
+{
+	namespace RESOURCES
+	{
+		class ShaderLoader;
+	}
+}
 
 namespace Game {
 
@@ -16,16 +26,16 @@ namespace Game {
 			m_Atlas = atlas_texture;
 			m_TileX = tx;
 			m_TileY = ty;
-			m_AtlasWidth = atlas_texture->width;
-			m_AtlasHeight = atlas_texture->height;
+			m_AtlasWidth = atlas_texture->getWidth();
+			m_AtlasHeight = atlas_texture->getHeight();
 		}
 
 		TextureAtlas(const std::string& atlas_path, int tx, int ty) {
-			m_Atlas = KUMA::RESOURCES::TextureLoader().createResource(atlas_path);
+			m_Atlas = KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::TextureLoader>().createResource(atlas_path);
 			m_TileX = tx;
 			m_TileY = ty;
-			m_AtlasWidth = m_Atlas->width;
-			m_AtlasHeight = m_Atlas->height;
+			m_AtlasWidth = m_Atlas->getWidth();
+			m_AtlasHeight = m_Atlas->getHeight();
 		}
 
 		TextureAtlas(int width, int height, int tx, int ty) {

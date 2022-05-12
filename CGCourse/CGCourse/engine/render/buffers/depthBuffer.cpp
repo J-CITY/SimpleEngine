@@ -39,10 +39,10 @@ FrameBuffer::FrameBuffer() {
 
 void FrameBuffer::OnTextureAttach(const RESOURCES::Texture& texture, Attachment attachment) {
     GLenum mode = AttachmentTable[int(attachment)];
-    GLint textureId = texture.id;
+    GLint textureId = texture.getId();
 
     bind();
-    glFramebufferTexture2D(GL_FRAMEBUFFER, mode, texture.textureType, textureId, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, mode, texture.getType(), textureId, 0);
 }
 
 void FrameBuffer::OnCubeMapAttach(const RESOURCES::CubeMap& cubemap, Attachment attachment) {
@@ -115,7 +115,7 @@ void FrameBuffer::UseOnlyDepth() const {
 size_t FrameBuffer::GetWidth() const {
     
     if (this->currentAttachment == AttachmentType::TEXTURE && attachedTexture)
-        return attachedTexture->width;
+        return attachedTexture->getWidth();
     if (this->currentAttachment == AttachmentType::CUBEMAP && attachedCubeMap)
         return attachedCubeMap->width;
 
@@ -124,7 +124,7 @@ size_t FrameBuffer::GetWidth() const {
 
 size_t FrameBuffer::GetHeight() const {
     if (this->currentAttachment == AttachmentType::TEXTURE && attachedTexture)
-        return attachedTexture->height;
+        return attachedTexture->getHeight();
     if (this->currentAttachment == AttachmentType::CUBEMAP && attachedCubeMap)
         return attachedCubeMap->height;
     return 0;

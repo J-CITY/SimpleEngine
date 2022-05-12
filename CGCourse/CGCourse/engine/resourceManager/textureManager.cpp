@@ -10,17 +10,15 @@ void RESOURCES::stbiSetFlipVerticallyOnLoad(bool b) {
 	stbi_set_flip_vertically_on_load(b);
 }
 
-float* RESOURCES::stbiLoadf(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels)
-{
+float* RESOURCES::stbiLoadf(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels) {
 	return stbi_loadf(filename, x, y, channels_in_file, desired_channels);
 }
 
-void RESOURCES::stbiImageFree(float* data)
-{
+void RESOURCES::stbiImageFree(float* data) {
 	stbi_image_free(data);
 }
 
-std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, ETextureFilteringMode firstFilter, ETextureFilteringMode secondFilter, bool generateMipmap) {
+std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	GLuint textureID;
 	int textureWidth;
 	int textureHeight;
@@ -56,13 +54,30 @@ std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, ETex
 	}
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, ETextureFilteringMode firstFilter, ETextureFilteringMode secondFilter, bool generateMipmap) {
-	auto texture = std::make_shared<Texture>();
+std::shared_ptr<Texture> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	uint8_t buffer [] = {r, g, b};
-	texture->Load(buffer, 1, 1, 3, false, TextureFormat::RGB);
-	return texture;
+
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, &buffer);
+
+	if (generateMipmap) {
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return std::make_shared<Texture>("", textureID, 1, 1, 32, firstFilter, secondFilter, generateMipmap);
 }
-std::shared_ptr<Texture> TextureLoader::CreateColor(uint32_t p_data, ETextureFilteringMode firstFilter, ETextureFilteringMode secondFilter, bool generateMipmap) {
+
+std::shared_ptr<Texture> TextureLoader::CreateColor(uint32_t p_data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	GLuint textureID;
 	glGenTextures(1, &textureID);
 	glBindTexture(GL_TEXTURE_2D, textureID);
@@ -91,7 +106,7 @@ std::shared_ptr<CubeMap> TextureLoader::CreateColorCM(uint8_t r, uint8_t g, uint
 	return cubemap;
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, ETextureFilteringMode firstFilter, ETextureFilteringMode secondFilter, bool generateMipmap) {
+std::shared_ptr<Texture> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	GLuint textureID;
 	glGenTextures(1, &textureID);
 	glBindTexture(GL_TEXTURE_2D, textureID);
@@ -154,7 +169,7 @@ std::unique_ptr<CubeMap> TextureLoader::LoadCubeMap(const int shadow_width, cons
 	return sb;
 }
 
-void TextureLoader::Reload(Texture& texture, const std::string& filePath, ETextureFilteringMode firstFilter, ETextureFilteringMode secondFilter, bool generateMipmap) {
+void TextureLoader::Reload(Texture& texture, const std::string& filePath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	std::shared_ptr<Texture> newTexture = Create(filePath, firstFilter, secondFilter, generateMipmap);
 
 	if (newTexture) {
@@ -164,8 +179,8 @@ void TextureLoader::Reload(Texture& texture, const std::string& filePath, ETextu
 		*const_cast<uint32_t*>(&texture.width) = newTexture->width;
 		*const_cast<uint32_t*>(&texture.height) = newTexture->height;
 		*const_cast<uint32_t*>(&texture.bitsPerPixel) = newTexture->bitsPerPixel;
-		*const_cast<ETextureFilteringMode*>(&texture.firstFilter) = newTexture->firstFilter;
-		*const_cast<ETextureFilteringMode*>(&texture.secondFilter) = newTexture->secondFilter;
+		*const_cast<TextureFiltering*>(&texture.firstFilter) = newTexture->firstFilter;
+		*const_cast<TextureFiltering*>(&texture.secondFilter) = newTexture->secondFilter;
 		*const_cast<bool*>(&texture.isMimapped) = newTexture->isMimapped;
 	}
 }
@@ -181,8 +196,8 @@ void TextureLoader::Destroy(std::shared_ptr<Texture> textureInstance) {
 std::shared_ptr<Texture> TextureLoader::createResource(const std::string& path) {
 	std::string realPath = getRealPath(path);
 
-	auto [min, mag, mipmap] = std::tuple<ETextureFilteringMode, ETextureFilteringMode, bool>{
-		ETextureFilteringMode::LINEAR_MIPMAP_LINEAR, ETextureFilteringMode::LINEAR, true};
+	auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
+		TextureFiltering::LINEAR_MIPMAP_LINEAR, TextureFiltering::LINEAR, true};
 
 	std::shared_ptr<Texture> texture = Create(realPath, min, mag, mipmap);
 	if (texture) {

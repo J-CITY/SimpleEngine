@@ -28,23 +28,6 @@ namespace KUMA {
 			}
 
 			template<typename T>
-			std::shared_ptr<T> getResource(const std::string& path) {
-				if (auto resource = resources.find(path); resource != resources.end()) {
-					return resource->second.lock();
-				}
-				return nullptr;
-			}
-
-			template<typename T>
-			std::shared_ptr<T> registerResource(const std::string& path, std::shared_ptr<T> res) {
-				if (auto resource = getResource(path)) {
-					destroyResource(resource);
-				}
-				resources[path] = res;
-				return res;
-			}
-
-			template<typename T>
 			void unloadResource(const std::string& path) {
 				if (auto resource = getResource(path)) {
 					destroyResource(resource);
@@ -59,9 +42,25 @@ namespace KUMA {
 
 			static void SetAssetPaths(const std::string& projectAssetsPath, const std::string& engineAssetsPath);
 
-		protected:
 			virtual std::shared_ptr<T> createResource(const std::string& p_path) = 0;
 			virtual void destroyResource(std::shared_ptr<T> res) = 0;
+		protected:
+			template<typename T>
+			std::shared_ptr<T> getResource(const std::string& path) {
+				if (auto resource = resources.find(path); resource != resources.end()) {
+					return resource->second.lock();
+				}
+				return nullptr;
+			}
+
+			template<typename T>
+			std::shared_ptr<T> registerResource(const std::string& path, std::shared_ptr<T> res) {
+				if (auto resource = getResource<T>(path)) {
+					destroyResource(resource);
+				}
+				resources[path] = res;
+				return res;
+			}
 			
 			inline std::string getRealPath(const std::string& p_path) const {
 				std::string result;
