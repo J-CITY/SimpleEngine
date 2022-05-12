@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "../resourceManager/resource/shader.h"
-#include "../resourceManager/resource/texture.h"
+#include "../resourceManager/textureManager.h"
 #include "../utils/debug/logger.h"
 //TODO: move to resources
 

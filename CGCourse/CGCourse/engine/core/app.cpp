@@ -33,7 +33,7 @@ void App::preUpdate() {
 void App::update(float dt) {
 	delta += dt;
 
-	core.renderer->engineUBO->setSubData(delta, 3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
+	core.renderer->getUBO().setSubData(delta, 3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
 
 	if (auto currentScene = core.sceneManager->getCurrentScene()) {
 		currentScene->fixedUpdate(dt);

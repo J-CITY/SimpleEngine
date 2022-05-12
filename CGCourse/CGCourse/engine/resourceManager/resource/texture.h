@@ -4,8 +4,8 @@
 #include <map>
 #include <GL/glew.h>
 #include <string>
+#include <vector>
 
-#include "../textureManager.h"
 
 namespace KUMA {
 	namespace RESOURCES {
@@ -36,6 +36,15 @@ namespace KUMA {
 			MIRRORED_REPEAT,
 			REPEAT,
 		};
+		enum class TextureFiltering {
+			NEAREST = 0x2600,
+			LINEAR = 0x2601,
+			NEAREST_MIPMAP_NEAREST = 0x2700,
+			LINEAR_MIPMAP_LINEAR = 0x2703,
+			LINEAR_MIPMAP_NEAREST = 0x2701,
+			NEAREST_MIPMAP_LINEAR = 0x2702
+		};
+
 		class Texture {
 			friend class TextureLoader;
 			std::vector<GLenum> formatTable = {
@@ -58,144 +67,81 @@ namespace KUMA {
 				GL_DEPTH_COMPONENT,
 				GL_DEPTH_COMPONENT32F
 			};
+
+			std::vector<GLint> wrapTable = {
+					GL_CLAMP_TO_EDGE,
+					GL_CLAMP_TO_BORDER,
+					GL_MIRRORED_REPEAT,
+					GL_REPEAT,
+			};
 		public:
-			unsigned int textureType = 0;
-			mutable uint32_t BoundId = 0;
-			Texture() {
-				glGenTextures(1, &id);
-			}
-			Texture(const std::string path, uint32_t id, uint32_t width, uint32_t height, uint32_t bpp, ETextureFilteringMode firstFilter, ETextureFilteringMode secondFilter, bool generateMipmap):
-				path(path),
-				id(id),
-				width(width),
-				height(height),
-				bitsPerPixel(bpp),
-				firstFilter(firstFilter),
-				secondFilter(secondFilter),
-				isMimapped(generateMipmap) {}
-
-			Texture::Texture(Texture& texture) noexcept {
-				this->width = texture.width;
-				this->height = texture.height;
-				this->textureType = texture.textureType;
-				this->path = std::move(texture.path);
-				//this->samples = texture.samples;
-				this->format = texture.format;
-				this->id = texture.id;
-
-				//texture.id = 0;
-				////texture.activeId = 0;
-				//texture.width = 0;
-				//texture.height = 0;
-				//texture.path = "[[deleted]]";
-				////texture.samples = 0;
-			}
-
-			Texture::Texture(unsigned w, unsigned h) noexcept {
-				this->width = w;
-				this->height = h;
-				this->textureType = GL_TEXTURE_2D;
-				this->path = "";
-				this->format = TextureFormat::RG16F;
-
-				glGenTextures(1, &id);
-				glBindTexture(GL_TEXTURE_2D, id);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  //используем режим GL_CLAMP_TO_EDGE, т.к. в противном случае фильтр размытия производил бы выборку повторяющихся значений текстуры!
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			}
-			
+			Texture();
+			Texture(const std::string path, uint32_t id, uint32_t width, uint32_t height, uint32_t bpp, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
+			Texture(unsigned w, unsigned h) noexcept;
 			~Texture() = default;
 
-			void bind(uint32_t slot = 0) const {
-				glActiveTexture(GL_TEXTURE0 + slot);
-				glBindTexture(GL_TEXTURE_2D, id);
-				BoundId = slot;
-			}
+			void setFilter(TextureFiltering minFilter, TextureFiltering magFilter);
+			void setWrapType(TextureWrap wrapS, TextureWrap wrapT);
+			void bind(uint32_t slot = 0) const;
+			void bindWithoutAttach() const;
+			void unbind() const;
+			void generateMipmaps() const;
+			void loadDepth(int _width, int _height);
 
-			void bindWithoutAttach() const {
-				glBindTexture(GL_TEXTURE_2D, id);
-			}
+			static void CopyTexture(const Texture & from, const Texture & to);
 
+			//bool IsFloatingPoint() const {
+			//	switch (this->format) {
+			//	case TextureFormat::R:
+			//		return false;
+			//	case TextureFormat::R16:
+			//		return false;
+			//	case TextureFormat::RG:
+			//		return false;
+			//	case TextureFormat::RG16:
+			//		return false;
+			//	case TextureFormat::R16F:
+			//		return true;
+			//	case TextureFormat::R32F:
+			//		return true;
+			//	case TextureFormat::RG16F:
+			//		return true;
+			//	case TextureFormat::RG32F:
+			//		return true;
+			//	case TextureFormat::RGB:
+			//		return false;
+			//	case TextureFormat::RGBA:
+			//		return false;
+			//	case TextureFormat::RGB16:
+			//		return false;
+			//	case TextureFormat::RGB16F:
+			//		return true;
+			//	case TextureFormat::RGBA16:
+			//		return false;
+			//	case TextureFormat::RGBA16F:
+			//		return true;
+			//	case TextureFormat::RGB32F:
+			//		return true;
+			//	case TextureFormat::RGBA32F:
+			//		return true;
+			//	case TextureFormat::DEPTH:
+			//		return false;
+			//	case TextureFormat::DEPTH32F:
+			//		return true;
+			//	default:
+			//		return false;
+			//	}
+			//}
 
-			void unbind() const {
-				glBindTexture(GL_TEXTURE_2D, 0);
-			}
-
-			void GenerateMipmaps() const {
-				bind(0);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glGenerateMipmap(GL_TEXTURE_2D);
-			}
-			
-			void LoadDepth(int _width, int _height) {
-				textureType = GL_TEXTURE_2D;
-
-				glBindTexture(GL_TEXTURE_2D, id);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _width, _height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-				float borderColor [] = {1.0, 1.0, 1.0, 1.0};
-				glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-			}
-
-			bool IsFloatingPoint() const {
-				switch (this->format) {
-				case TextureFormat::R:
-					return false;
-				case TextureFormat::R16:
-					return false;
-				case TextureFormat::RG:
-					return false;
-				case TextureFormat::RG16:
-					return false;
-				case TextureFormat::R16F:
-					return true;
-				case TextureFormat::R32F:
-					return true;
-				case TextureFormat::RG16F:
-					return true;
-				case TextureFormat::RG32F:
-					return true;
-				case TextureFormat::RGB:
-					return false;
-				case TextureFormat::RGBA:
-					return false;
-				case TextureFormat::RGB16:
-					return false;
-				case TextureFormat::RGB16F:
-					return true;
-				case TextureFormat::RGBA16:
-					return false;
-				case TextureFormat::RGBA16F:
-					return true;
-				case TextureFormat::RGB32F:
-					return true;
-				case TextureFormat::RGBA32F:
-					return true;
-				case TextureFormat::DEPTH:
-					return false;
-				case TextureFormat::DEPTH32F:
-					return true;
-				default:
-					return false;
-				}
-			}
-
-			void Load(uint8_t* data, int width, int height, int channels, bool isFloating, TextureFormat format) {
+			void load(uint8_t* data, int width, int height, int channels, bool isFloating, TextureFormat format) {
 				this->path = "raw";
 				this->width = width;
 				this->height = height;
 				this->textureType = GL_TEXTURE_2D;
 				this->format = format;
-
+			
 				GLenum type = isFloating ? GL_FLOAT : GL_UNSIGNED_BYTE;
-
+			
 				GLenum dataChannels = GL_RGB;
 				switch (channels) {
 				case 1:
@@ -213,47 +159,61 @@ namespace KUMA {
 				default:
 					break;
 				}
-
+			
 				glBindTexture(GL_TEXTURE_2D, id);
-				glTexImage2D(GL_TEXTURE_2D, 0, formatTable[(int)this->format], 
+				glTexImage2D(GL_TEXTURE_2D, 0, formatTable[(int)this->format],
 					(GLsizei)width, (GLsizei)height, 0, dataChannels, type, data);
-
-				GenerateMipmaps();
+			
+				generateMipmaps();
+			}
+			uint32_t getId() const {
+				return id;
 			}
 
-			std::vector<GLint> wrapTable =
-			{
-				GL_CLAMP_TO_EDGE,
-				GL_CLAMP_TO_BORDER,
-				GL_MIRRORED_REPEAT,
-				GL_REPEAT,
-			};
-			void SetWrapType(TextureWrap wrapType) {
-				bind(0);
-				glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, &wrapTable[(int)wrapType]);
-				glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, &wrapTable[(int)wrapType]);
+			uint32_t getWidth() const {
+				return width;
 			}
-			void Texture::SetMaxLOD(size_t lod) {
-				bind(0);
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)lod);
+
+			uint32_t getHeight() const {
+				return height;
 			}
-			size_t Texture::GetMaxTextureLOD() const {
-				return log2(width > height ? width : height);
+
+			uint32_t getType() const {
+				return textureType;
 			}
-			void Texture::SetMinLOD(size_t lod) {
-				bind(0);
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, (float)lod);
+
+			std::string getPath() const {
+				return path;
 			}
+
+			//void SetWrapType(TextureWrap wrapType) {
+			//	bind(0);
+			//	glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, &wrapTable[(int)wrapType]);
+			//	glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, &wrapTable[(int)wrapType]);
+			//}
+			//void Texture::SetMaxLOD(size_t lod) {
+			//	bind(0);
+			//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)lod);
+			//}
+			//size_t Texture::GetMaxTextureLOD() const {
+			//	return log2(width > height ? width : height);
+			//}
+			//void Texture::SetMinLOD(size_t lod) {
+			//	bind(0);
+			//	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, (float)lod);
+			//}
 		public:
 			uint32_t id = -1;
 			uint32_t width = 0;
 			uint32_t height = 0;
 			uint32_t bitsPerPixel = 0;
-			ETextureFilteringMode firstFilter = ETextureFilteringMode::LINEAR;
-			ETextureFilteringMode secondFilter = ETextureFilteringMode::LINEAR;
+			TextureFiltering firstFilter = TextureFiltering::LINEAR;
+			TextureFiltering secondFilter = TextureFiltering::LINEAR;
 			std::string path;
 			bool isMimapped = false;
 			TextureFormat format;
+			unsigned int textureType = 0;
+			mutable uint32_t boundId = 0;
 		};
 
 		class CubeMap {
@@ -289,7 +249,13 @@ namespace KUMA {
 			}
 			~CubeMap() = default;
 
-			
+			uint32_t getWidth() const {
+				return width;
+			}
+
+			uint32_t getHeight() const {
+				return height;
+			}
 			void bind(uint32_t slot = 0) const {
 				glActiveTexture(GL_TEXTURE0 + slot);
 				glBindTexture(GL_TEXTURE_CUBE_MAP, id);
@@ -358,10 +324,10 @@ namespace KUMA {
 			uint32_t id = 0;
 			int channels = 1;
 			std::string path;
-			uint32_t width=0;
-			uint32_t height=0;
+			uint32_t width = 0;
+			uint32_t height = 0;
 		};
 
-		
+
 	}
 }

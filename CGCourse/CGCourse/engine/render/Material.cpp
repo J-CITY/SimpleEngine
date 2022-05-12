@@ -26,7 +26,7 @@ void Material::setShader(std::shared_ptr<RESOURCES::Shader> _shader) {
 void Material::fillUniform() {
 	uniformsData.clear();
 
-	for (const UniformInfo& element : shader->uniforms) {
+	for (const UniformInfo& element : shader->getUniforms()) {
 		uniformsData.emplace(element.name, element.defaultValue);
 	}
 }
@@ -302,7 +302,7 @@ void Material::onDeserialize(nlohmann::json& j) {
 	}
 }
 void Material::onSerialize(nlohmann::json& j) {
-	j["data"]["shader"] = shader->path;
+	j["data"]["shader"] = shader->getPath();
 	j["data"]["blendable"] = blendable;
 	j["data"]["backfaceCulling"] = backfaceCulling;
 	j["data"]["frontfaceCulling"] = frontfaceCulling;
@@ -362,7 +362,7 @@ void Material::onSerialize(nlohmann::json& j) {
 
 			case UniformType::UNIFORM_SAMPLER_2D:
 				if (std::holds_alternative<std::shared_ptr<RESOURCES::Texture>>(uniformValue)) {
-					j["data"]["uniforms"][uniformName]["value"] = std::get<std::shared_ptr<RESOURCES::Texture>>(uniformValue)->path;
+					j["data"]["uniforms"][uniformName]["value"] = std::get<std::shared_ptr<RESOURCES::Texture>>(uniformValue)->getPath();
 					j["data"]["uniforms"][uniformName]["type"] = "texture";
 				}
 				break;

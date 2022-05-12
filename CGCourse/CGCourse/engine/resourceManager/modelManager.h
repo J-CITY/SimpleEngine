@@ -28,15 +28,9 @@ namespace KUMA {
 					newModel->meshes.clear();
 				}
 			}
-			static void Destroy(std::shared_ptr<RENDER::Model> modelInstance) {
-				if (modelInstance) {
-					modelInstance.reset();
-				}
-			}
-		public:
 			virtual std::shared_ptr<RENDER::Model> createResource(const std::string& path) override {
 				std::string realPath = getRealPath(path);
-				auto model = ModelLoader::Create(realPath, GetAssetMetadata(realPath));
+				auto model = ModelLoader::Create(realPath, getAssetMetadata(realPath));
 				if (model)
 					model->path = path;
 
@@ -44,12 +38,15 @@ namespace KUMA {
 			}
 
 			virtual void destroyResource(std::shared_ptr<RENDER::Model> res) override {
-				ModelLoader::Destroy(res);
+				if (res) {
+					res.reset();
+				}
 			}
-		private:
+		protected:
 			static AssimpParser _ASSIMP;
 
-			ModelParserFlags GetAssetMetadata(const std::string& path) {
+			//TODO: load from file
+			ModelParserFlags getAssetMetadata(const std::string& path) {
 				//auto metaFile = iniFile(path + ".meta");
 
 				ModelParserFlags flags = ModelParserFlags::NONE;

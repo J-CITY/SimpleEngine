@@ -1,14 +1,10 @@
 #pragma once
 
-#include <any>
-#include <map>
 #include <string>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 #include <GL/glew.h>
-
-
 
 #include "texture.h"
 #include "../../render/buffers/uniformTypes.h"
@@ -20,6 +16,7 @@
 #include "../../utils/math/Matrix4.h"
 
 #define MAX_BONES 100
+
 namespace KUMA {
 	namespace RESOURCES {
 		class ShaderLoader;
@@ -34,7 +31,19 @@ namespace KUMA {
 			~Shader() {
 				glDeleteProgram(id);
 			}
-			
+
+			uint32_t getId() const {
+				return id;
+			}
+
+			std::vector<RENDER::UniformInfo>& getUniforms() {
+				return uniforms;
+			}
+
+			std::string getPath() {
+				return path;
+			}
+
 			void bind() const {
 				glUseProgram(id);
 			}
@@ -165,9 +174,9 @@ namespace KUMA {
 				//bones
 				//getUniformLocation("u_UseBone");
 				//setUniformInt("u_UseBone", 0);
-				for (int i = 0; i < MAX_BONES; i ++) {
-					getUniformLocation("u_FinalBonesMatrices["+ std::to_string(i) +"]");
-				}
+				//for (int i = 0; i < MAX_BONES; i ++) {
+				//	getUniformLocation("u_FinalBonesMatrices["+ std::to_string(i) +"]");
+				//}
 			}
 
 			static bool isEngineUBOMember(const std::string& uniformName) {
@@ -188,12 +197,10 @@ namespace KUMA {
 				return location;
 			}
 
-		public:
+		private:
 			uint32_t id;
 			std::string path;
 			std::vector<RENDER::UniformInfo> uniforms;
-
-		private:
 			std::unordered_map<std::string, int> uniformLocationCache;
 		};
 	}
