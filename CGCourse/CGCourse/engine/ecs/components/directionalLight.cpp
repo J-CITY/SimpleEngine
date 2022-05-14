@@ -1,5 +1,6 @@
 #include "directionalLight.h"
 #include "../object.h"
+#include "../../resourceManager/resource/texture.h"
 
 using namespace KUMA::ECS;
 
@@ -10,7 +11,7 @@ DirectionalLight::DirectionalLight(const ECS::Object& obj) : LightComponent(obj)
     shadowMap = std::make_shared<RESOURCES::Texture>();
 
     const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-    shadowMap->LoadDepth(SHADOW_WIDTH, SHADOW_HEIGHT);
+    shadowMap->loadDepth(SHADOW_WIDTH, SHADOW_HEIGHT);
 }
 
 KUMA::MATHGL::Matrix4 DirectionalLight::GetMatrix(const KUMA::MATHGL::Vector3& center, size_t index) const {
@@ -42,7 +43,7 @@ KUMA::MATHGL::Matrix4 DirectionalLight::GetMatrix(const KUMA::MATHGL::Vector3& c
     auto Low = KUMA::MATHGL::Vector3(-Projections[index], -Projections[index], -Projections[index]) + Center;
     auto High = KUMA::MATHGL::Vector3(Projections[index], Projections[index], Projections[index]) + Center;
 
-    auto shadowMapSize = float(shadowMap->height + 1);
+    auto shadowMapSize = float(shadowMap->getHeight() + 1);
     auto worldUnitsPerText = (High - Low) / shadowMapSize;
     auto dummy = MATHGL::Vector3(std::floor(Low.x / worldUnitsPerText.x), std::floor(Low.y / worldUnitsPerText.y), std::floor(Low.z / worldUnitsPerText.z));
 	Low = MATHGL::Vector3(dummy.x * worldUnitsPerText.x, dummy.y * worldUnitsPerText.y, dummy.z * worldUnitsPerText.z);

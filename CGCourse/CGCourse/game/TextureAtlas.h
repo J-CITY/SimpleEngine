@@ -31,7 +31,7 @@ namespace Game {
 		}
 
 		TextureAtlas(const std::string& atlas_path, int tx, int ty) {
-			m_Atlas = KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::TextureLoader>().createResource(atlas_path);
+			m_Atlas = KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::TextureLoader>().CreateFromFile(atlas_path);
 			m_TileX = tx;
 			m_TileY = ty;
 			m_AtlasWidth = m_Atlas->getWidth();

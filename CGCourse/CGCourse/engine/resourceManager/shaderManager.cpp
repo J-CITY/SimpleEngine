@@ -6,8 +6,12 @@ using namespace KUMA::RESOURCES;
 std::string KUMA::RESOURCES::ShaderLoader::FILE_PATH = "";
 
 std::shared_ptr<Shader> ShaderLoader::createResource(const std::string& path) {
+	return CreateFromFile(path);
+}
+
+std::shared_ptr<Shader> ShaderLoader::CreateFromFile(const std::string& path) {
 	std::string realPath = getRealPath(path);
-	auto shader = ShaderLoader::Create(realPath);
+	auto shader = Create(realPath);
 	if (shader) {
 		shader->path = path;
 	}

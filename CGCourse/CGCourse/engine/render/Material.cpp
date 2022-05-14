@@ -260,9 +260,9 @@ std::map<std::string, ShaderUniform>& Material::getUniformsData() {
 
 void Material::onDeserialize(nlohmann::json& j) {
 	if (shader) {
-		RESOURCES::ShaderLoader().destroyResource(shader);
+		RESOURCES::ShaderLoader().Destroy(shader);
 	}
-	shader = RESOURCES::ShaderLoader().createResource(j["data"]["shader"]);
+	//shader = RESOURCES::ShaderLoader().CreateFromFile(j["data"]["shader"]);
 	blendable = j["data"]["blendable"];
 	backfaceCulling = j["data"]["backfaceCulling"];
 	frontfaceCulling = j["data"]["frontfaceCulling"];
@@ -297,7 +297,7 @@ void Material::onDeserialize(nlohmann::json& j) {
 			uniformsData[k] = dummy;
 		}
 		else if (v["type"] == "texture") {
-			uniformsData[k] = RESOURCES::TextureLoader().createResource(v["value"]);
+			//uniformsData[k] = RESOURCES::TextureLoader().CreateFromFile(v["value"]);
 		}
 	}
 }

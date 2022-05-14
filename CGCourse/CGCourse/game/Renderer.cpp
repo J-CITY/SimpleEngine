@@ -8,10 +8,10 @@ namespace Game
 	{
 		// Create and compile the shaders
 
-		m_DefaultChunkShader = KUMA::RESOURCES::ShaderLoader().createResource("shaders\\BlockRendererVertex.glsl");
-		m_DefaultChunkModelShader = KUMA::RESOURCES::ShaderLoader().createResource("shaders\\ModelRendererVertex.glsl");
+		//m_DefaultChunkShader = KUMA::RESOURCES::ShaderLoader().CreateFromFile("shaders\\BlockRendererVertex.glsl");
+		//m_DefaultChunkModelShader = KUMA::RESOURCES::ShaderLoader().CreateFromFile("shaders\\ModelRendererVertex.glsl");
 		
-		m_BlockAtlas = KUMA::RESOURCES::TextureLoader().createResource("textures\\64x64_sheet.png");
+		//m_BlockAtlas = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\64x64_sheet.png");
 	}
 
 	void Renderer::RenderChunk(Chunk* chunk)

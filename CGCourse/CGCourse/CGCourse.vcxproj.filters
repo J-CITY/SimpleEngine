@@ -92,6 +92,12 @@
     <Filter Include="Исходные файлы\engine\gui\components">
       <UniqueIdentifier>{23df24ab-2b9f-45ff-ae16-42c25f34da29}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Исходные файлы\engine\utils\gamepad">
+      <UniqueIdentifier>{354de6ae-6853-4e76-a248-555efa068f18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\engine\physics">
+      <UniqueIdentifier>{d4b15ce3-393a-4df7-b06f-906f828cf4a3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CGCourse.cpp">
@@ -351,6 +357,42 @@
     </ClCompile>
     <ClCompile Include="engine\render\buffers\depthBuffer.cpp">
       <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\gamepad\Gamepad.cpp">
+      <Filter>Исходные файлы\engine\utils\gamepad</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\gamepad\GamepadMgr.cpp">
+      <Filter>Исходные файлы\engine\utils\gamepad</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\utils\meshGenerator.cpp">
+      <Filter>Исходные файлы\engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\body.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\broadPhase.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\contacts.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\forceGenerator.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\joint.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\narrowPhase.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\PhysicWorld.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\ecs\components\audioComponent.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\physics\coreP.cpp">
+      <Filter>Исходные файлы\engine\physics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -731,6 +773,48 @@
     </ClInclude>
     <ClInclude Include="engine\render\buffers\depthBuffer.h">
       <Filter>Исходные файлы\engine\render\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\gamepad\Gamepad.h">
+      <Filter>Исходные файлы\engine\utils\gamepad</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\gamepad\GamepadMgr.h">
+      <Filter>Исходные файлы\engine\utils\gamepad</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\meshGenerator.h">
+      <Filter>Исходные файлы\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\body.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\broadPhase.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\contacts.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\forceGenerator.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\joint.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\narrowPhase.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\PhysicWorld.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\cyclone.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\precision.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\ecs\components\audioComponent.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\physics\coreP.h">
+      <Filter>Исходные файлы\engine\physics</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -61,7 +61,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\libs\glm;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\include;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\include;F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\irrKlang\include;C:\libs\glm;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\include;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\include;F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableModules>false</EnableModules>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
@@ -70,8 +70,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\lib;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-main-d.lib;sfml-graphics-d.lib;sfml-system-d.lib;sfml-window-d.lib;Lua.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\irrKlang\lib\Winx64-visualStudio;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\lib;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-main-d.lib;sfml-graphics-d.lib;sfml-system-d.lib;sfml-window-d.lib;Lua.lib;assimp.lib;irrKlang.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -114,6 +114,7 @@
     <ClCompile Include="engine\ecs\ComponentManager.cpp" />
     <ClCompile Include="engine\ecs\components\ambientLight.cpp" />
     <ClCompile Include="engine\ecs\components\ambientSphereLight.cpp" />
+    <ClCompile Include="engine\ecs\components\audioComponent.cpp" />
     <ClCompile Include="engine\ecs\components\cameraComponent.cpp" />
     <ClCompile Include="engine\ecs\components\component.cpp" />
     <ClCompile Include="engine\ecs\components\directionalLight.cpp" />
@@ -130,6 +131,14 @@
     <ClCompile Include="engine\gui\components\spriteComponent.cpp" />
     <ClCompile Include="engine\gui\guiObject.cpp" />
     <ClCompile Include="engine\inputManager\inputManager.cpp" />
+    <ClCompile Include="engine\physics\body.cpp" />
+    <ClCompile Include="engine\physics\broadPhase.cpp" />
+    <ClCompile Include="engine\physics\contacts.cpp" />
+    <ClCompile Include="engine\physics\coreP.cpp" />
+    <ClCompile Include="engine\physics\forceGenerator.cpp" />
+    <ClCompile Include="engine\physics\joint.cpp" />
+    <ClCompile Include="engine\physics\narrowPhase.cpp" />
+    <ClCompile Include="engine\physics\PhysicWorld.cpp" />
     <ClCompile Include="engine\render\buffers\depthBuffer.cpp" />
     <ClCompile Include="engine\render\buffers\ShaderStorageBuffer.cpp" />
     <ClCompile Include="engine\render\buffers\uniformBuffer.cpp" />
@@ -160,12 +169,15 @@
     <ClCompile Include="engine\tasks\safeQueue.cpp" />
     <ClCompile Include="engine\tasks\task.cpp" />
     <ClCompile Include="engine\tasks\taskSystem.cpp" />
+    <ClCompile Include="engine\utils\gamepad\Gamepad.cpp" />
+    <ClCompile Include="engine\utils\gamepad\GamepadMgr.cpp" />
     <ClCompile Include="engine\utils\math\matrix3.cpp" />
     <ClCompile Include="engine\utils\math\matrix4.cpp" />
     <ClCompile Include="engine\utils\math\quaternion.cpp" />
     <ClCompile Include="engine\utils\math\vector2.cpp" />
     <ClCompile Include="engine\utils\math\vector3.cpp" />
     <ClCompile Include="engine\utils\math\vector4.cpp" />
+    <ClCompile Include="engine\utils\meshGenerator.cpp" />
     <ClCompile Include="engine\utils\time\time.cpp" />
     <ClCompile Include="engine\window\window.cpp" />
     <ClCompile Include="game\Block.cpp" />
@@ -224,6 +236,7 @@
     <ClInclude Include="engine\ecs\ComponentManager.h" />
     <ClInclude Include="engine\ecs\components\ambientLight.h" />
     <ClInclude Include="engine\ecs\components\ambientSphereLight.h" />
+    <ClInclude Include="engine\ecs\components\audioComponent.h" />
     <ClInclude Include="engine\ecs\components\cameraComponent.h" />
     <ClInclude Include="engine\ecs\components\component.h" />
     <ClInclude Include="engine\ecs\components\directionalLight.h" />
@@ -241,6 +254,16 @@
     <ClInclude Include="engine\gui\components\spriteComponent.h" />
     <ClInclude Include="engine\gui\guiObject.h" />
     <ClInclude Include="engine\inputManager\inputManager.h" />
+    <ClInclude Include="engine\physics\body.h" />
+    <ClInclude Include="engine\physics\broadPhase.h" />
+    <ClInclude Include="engine\physics\contacts.h" />
+    <ClInclude Include="engine\physics\coreP.h" />
+    <ClInclude Include="engine\physics\cyclone.h" />
+    <ClInclude Include="engine\physics\forceGenerator.h" />
+    <ClInclude Include="engine\physics\joint.h" />
+    <ClInclude Include="engine\physics\narrowPhase.h" />
+    <ClInclude Include="engine\physics\PhysicWorld.h" />
+    <ClInclude Include="engine\physics\precision.h" />
     <ClInclude Include="engine\render\buffers\depthBuffer.h" />
     <ClInclude Include="engine\render\buffers\indexBuffer.h" />
     <ClInclude Include="engine\render\buffers\ShaderStorageBuffer.h" />
@@ -282,6 +305,8 @@
     <ClInclude Include="engine\tasks\taskSystem.h" />
     <ClInclude Include="engine\utils\debug\logger.h" />
     <ClInclude Include="engine\utils\event.h" />
+    <ClInclude Include="engine\utils\gamepad\Gamepad.h" />
+    <ClInclude Include="engine\utils\gamepad\GamepadMgr.h" />
     <ClInclude Include="engine\utils\idObject.h" />
     <ClInclude Include="engine\utils\math\matrix3.h" />
     <ClInclude Include="engine\utils\math\matrix4.h" />
@@ -289,6 +314,7 @@
     <ClInclude Include="engine\utils\math\vector2.h" />
     <ClInclude Include="engine\utils\math\vector3.h" />
     <ClInclude Include="engine\utils\math\vector4.h" />
+    <ClInclude Include="engine\utils\meshGenerator.h" />
     <ClInclude Include="engine\utils\pointers\objPtr.h" />
     <ClInclude Include="engine\utils\time\time.h" />
     <ClInclude Include="engine\utils\vertex.h" />

@@ -116,7 +116,7 @@ namespace KUMA::RENDER {
 
 		OpaqueDrawables	opaqueMeshesDeferred;
 		TransparentDrawables transparentMeshesDeferred;
-		
+
 
 		Renderer(GL_SYSTEM::GlManager& driver, CORE_SYSTEM::Core& context);
 		~Renderer();
@@ -132,7 +132,7 @@ namespace KUMA::RENDER {
 		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
 
 		void renderScene(std::shared_ptr<RESOURCES::Shader> shader);
-		
+
 		void drawDrawable(const Drawable& toDraw);
 		void drawDrawable(const Drawable& p_toDraw, std::shared_ptr<RESOURCES::Shader> shader);
 		void drawModelWithSingleMaterial(Model& model, Material& material, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
@@ -140,13 +140,13 @@ namespace KUMA::RENDER {
 
 		void drawGBuffer(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
 		void drawDirShadowMap(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
-		void drawMesh(RESOURCES::Mesh& mesh, Material& material, MATHGL::Matrix4 const* modelMatrix, bool useTexutres=true);
+		void drawMesh(RESOURCES::Mesh& mesh, Material& material, MATHGL::Matrix4 const* modelMatrix, bool useTexutres = true);
 		void registerModelMatrixSender(std::function<void(MATHGL::Matrix4)> modelMatrixSender);
 		void clear() const;
 		void clearDepth() const;
 		void flush() const {
 			glFlush();
-			
+
 		}
 		void useColorMask(bool r, bool g, bool b, bool a) {
 			glColorMask(r, g, b, a);

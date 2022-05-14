@@ -28,7 +28,7 @@ void Scene::init() {
 	skyboxTexture = KUMA::RESOURCES::TextureLoader::CreateSkybox("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\sb\\");
 	auto mat = skyboxObject->addComponent<KUMA::ECS::MaterialRenderer>();
 	auto skyboxMat = std::make_shared<KUMA::RENDER::Material>();
-	auto s = KUMA::RESOURCES::ShaderLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\skybox.glsl");
+	auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\skybox1.glsl");
 	skyboxMat->setShader(s);
 	skyboxMat->setBackfaceCulling(true);
 	skyboxMat->setBackfaceCulling(true);

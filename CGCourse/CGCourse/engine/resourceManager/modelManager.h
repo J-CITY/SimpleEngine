@@ -9,16 +9,6 @@ namespace KUMA {
 	namespace RESOURCES {
 		class ModelLoader : public ResourceManager<RENDER::Model> {
 		public:
-			static std::shared_ptr<RENDER::Model> Create(const std::string& filepath, ModelParserFlags parserFlags = ModelParserFlags::NONE) {
-				std::shared_ptr<RENDER::Model> result = std::make_shared<RENDER::Model>(filepath);
-
-				if (_ASSIMP.LoadModel(filepath, result, parserFlags)) {
-					result->computeBoundingSphere();
-					return result;
-				}
-				return nullptr;
-			}
-
 			static void Reload(RENDER::Model& model, const std::string& filePath, ModelParserFlags parserFlags = ModelParserFlags::NONE) {
 				std::shared_ptr<RENDER::Model> newModel = Create(filePath, parserFlags);
 
@@ -28,25 +18,43 @@ namespace KUMA {
 					newModel->meshes.clear();
 				}
 			}
-			virtual std::shared_ptr<RENDER::Model> createResource(const std::string& path) override {
+			static void Destroy(std::shared_ptr<RENDER::Model> res) {
+				if (res) {
+					res.reset();
+				}
+			}
+			static std::shared_ptr<RENDER::Model> CreateFromFile(const std::string& path) {
 				std::string realPath = getRealPath(path);
-				auto model = ModelLoader::Create(realPath, getAssetMetadata(realPath));
+				auto model = Create(realPath, getAssetMetadata(realPath));
+				if (model)
+					model->path = path;
+
+				return model;
+			}
+			static std::shared_ptr<RENDER::Model> CreateFromFile(const std::string& path, ModelParserFlags parserFlags) {
+				std::string realPath = getRealPath(path);
+				auto model = Create(realPath, parserFlags);
 				if (model)
 					model->path = path;
 
 				return model;
 			}
 
-			virtual void destroyResource(std::shared_ptr<RENDER::Model> res) override {
-				if (res) {
-					res.reset();
+			//move to private
+			static std::shared_ptr<RENDER::Model> Create(const std::string& filepath, ModelParserFlags parserFlags = ModelParserFlags::NONE) {
+				std::shared_ptr<RENDER::Model> result = std::make_shared<RENDER::Model>(filepath);
+
+				if (_ASSIMP.LoadModel(filepath, result, parserFlags)) {
+					result->computeBoundingSphere();
+					return result;
 				}
+				return nullptr;
 			}
 		protected:
 			static AssimpParser _ASSIMP;
 
 			//TODO: load from file
-			ModelParserFlags getAssetMetadata(const std::string& path) {
+			static ModelParserFlags getAssetMetadata(const std::string& path) {
 				//auto metaFile = iniFile(path + ".meta");
 
 				ModelParserFlags flags = ModelParserFlags::NONE;
@@ -79,6 +87,21 @@ namespace KUMA {
 				if (true)	flags |= ModelParserFlags::DEBONE;
 
 				return {flags};
+			}
+
+			
+
+			virtual std::shared_ptr<RENDER::Model> createResource(const std::string& path) override {
+				std::string realPath = getRealPath(path);
+				auto model = Create(realPath, getAssetMetadata(realPath));
+				if (model)
+					model->path = path;
+
+				return model;
+			}
+
+			virtual void destroyResource(std::shared_ptr<RENDER::Model> res) override {
+				Destroy(res);
 			}
 		};
 	
