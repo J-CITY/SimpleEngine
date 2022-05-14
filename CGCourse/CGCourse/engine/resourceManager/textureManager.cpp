@@ -181,37 +181,37 @@ std::shared_ptr<Texture> TextureLoader::createColor(const std::string& name, uin
 	}
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateEmpty(uint32_t width, uint32_t height) {
+std::shared_ptr<Texture> TextureLoader::CreateEmpty(uint32_t width, uint32_t height, bool isFloating, int channels, TextureFormat format) {
 	auto res = std::make_shared<Texture>();
 	res->path = "";
 	res->width = width;
 	res->height = height;
 	res->textureType = GL_TEXTURE_2D;
-	res->format = TextureFormat::RGBA16F;
-	//
-	//	GLenum type = isFloating ? GL_FLOAT : GL_UNSIGNED_BYTE;
-	//
-	//	GLenum dataChannels = GL_RGB;
-	//	switch (channels) {
-	//	case 1:
-	//		dataChannels = GL_RED;
-	//		break;
-	//	case 2:
-	//		dataChannels = GL_RG;
-	//		break;
-	//	case 3:
-	//		dataChannels = GL_RGB;
-	//		break;
-	//	case 4:
-	//		dataChannels = GL_RGBA;
-	//		break;
-	//	default:
-	//		break;
-	//	}
-	//
+	res->format = format;
+	
+	GLenum type = isFloating ? GL_FLOAT : GL_UNSIGNED_BYTE;
+	
+	GLenum dataChannels = GL_RGB;
+	switch (channels) {
+	case 1:
+		dataChannels = GL_RED;
+		break;
+	case 2:
+		dataChannels = GL_RG;
+		break;
+	case 3:
+		dataChannels = GL_RGB;
+		break;
+	case 4:
+		dataChannels = GL_RGBA;
+		break;
+	default:
+		break;
+	}
+	
 	glBindTexture(GL_TEXTURE_2D, res->getId());
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F,
-		(GLsizei)width, (GLsizei)height, 0, GL_RGBA, GL_FLOAT, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, res->formatTable[(int)format],
+		(GLsizei)width, (GLsizei)height, 0, dataChannels, type, nullptr);
 
 	res->generateMipmaps();
 	return res;

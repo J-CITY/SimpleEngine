@@ -144,41 +144,53 @@ void Renderer::init() {
 			i++;
 		}
 
-		textureForGodRays.bindWithoutAttach();
-		textureForGodRays.load(nullptr, screenRes.x, screenRes.y, 4, true, RESOURCES::TextureFormat::RGBA16F);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		pipeline.godRays.godRaysTexture = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.godRays.godRaysTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		//textureForGodRays.bindWithoutAttach();
+		//textureForGodRays.load(nullptr, screenRes.x, screenRes.y, 4, true, RESOURCES::TextureFormat::RGBA16F);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	}
 
 	{//defered render
 		// Конфигурирование g-буфера фреймбуфера
 
-		glGenFramebuffers(1, &gBuffer);
-		glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+		//glGenFramebuffers(1, &gBuffer);
+		//glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+		pipeline.deferredRender.gBuffer.bind();
 
 		// Цветовой буфер позиций
-		glGenTextures(1, &gPosition);
-		glBindTexture(GL_TEXTURE_2D, gPosition);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+		pipeline.deferredRender.gPosition = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.deferredRender.gPosition->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		pipeline.deferredRender.gBuffer.AttachTexture(*pipeline.deferredRender.gPosition, Attachment::COLOR_ATTACHMENT0);
+		//glGenTextures(1, &gPosition);
+		//glBindTexture(GL_TEXTURE_2D, gPosition);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipeline.deferredRender.gPosition->getId(), 0);
 
 		// Цветовой буфер нормалей
-		glGenTextures(1, &gNormal);
-		glBindTexture(GL_TEXTURE_2D, gNormal);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+		pipeline.deferredRender.gNormal = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.deferredRender.gNormal->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		pipeline.deferredRender.gBuffer.AttachTexture(*pipeline.deferredRender.gNormal, Attachment::COLOR_ATTACHMENT1);
+		//glGenTextures(1, &gNormal);
+		//glBindTexture(GL_TEXTURE_2D, gNormal);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, pipeline.deferredRender.gNormal->getId(), 0);
 
 		// Цветовой буфер значений цвета + отраженной составляющей
-		glGenTextures(1, &gAlbedoSpec);
-		glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenRes.x, screenRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
+		pipeline.deferredRender.gAlbedoSpec = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y, false, 4, RESOURCES::TextureFormat::RGBA);
+		pipeline.deferredRender.gAlbedoSpec->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		pipeline.deferredRender.gBuffer.AttachTexture(*pipeline.deferredRender.gAlbedoSpec, Attachment::COLOR_ATTACHMENT2);
+		//glGenTextures(1, &gAlbedoSpec);
+		//glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenRes.x, screenRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, pipeline.deferredRender.gAlbedoSpec->getId(), 0);
 
 		// Указываем OpenGL на то, в какой прикрепленный цветовой буфер (заданного фреймбуфера) мы собираемся выполнять рендеринг 
 		unsigned int attachments[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
@@ -694,7 +706,8 @@ void Renderer::renderScene() {
 			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			{//deferred
 				// 1. Геометрический проход: выполняем рендеринг геометрических/цветовых данных сцены в g-буфер
-				glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+				//glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+				pipeline.deferredRender.gBuffer.bind();
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["deferredGBuffer"]->bind();
 
@@ -718,10 +731,12 @@ void Renderer::renderScene() {
 					for (unsigned int i = 0; i < 64; ++i)
 						shadersMap["ssao"]->setUniformVec3("samples[" + std::to_string(i) + "]", pipeline.ssao.ssaoKernel[i]);
 					//shaderSSAO.setMat4("projection", projection);
-					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, gPosition);
-					glActiveTexture(GL_TEXTURE1);
-					glBindTexture(GL_TEXTURE_2D, gNormal);
+					//glActiveTexture(GL_TEXTURE0);
+					//glBindTexture(GL_TEXTURE_2D, gPosition);
+					pipeline.deferredRender.gPosition->bind(0);
+					pipeline.deferredRender.gNormal->bind(1);
+					//glActiveTexture(GL_TEXTURE1);
+					//glBindTexture(GL_TEXTURE_2D, gNormal);
 					//glActiveTexture(GL_TEXTURE2);
 					//glBindTexture(GL_TEXTURE_2D, noiseTexture);
 					pipeline.ssao.noiseTexture->bind(2);
@@ -747,12 +762,16 @@ void Renderer::renderScene() {
 				// 2. Проход освещения: вычисление освещение, перебирая попиксельно экранный прямоугольник, используя содержимое g-буфера
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["deferredLightning"]->bind();
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, gPosition);
-				glActiveTexture(GL_TEXTURE1);
-				glBindTexture(GL_TEXTURE_2D, gNormal);
-				glActiveTexture(GL_TEXTURE2);
-				glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+
+				pipeline.deferredRender.gPosition->bind(0);
+				pipeline.deferredRender.gNormal->bind(1);
+				pipeline.deferredRender.gAlbedoSpec->bind(2);
+				//glActiveTexture(GL_TEXTURE0);
+				//glBindTexture(GL_TEXTURE_2D, gPosition);
+				//glActiveTexture(GL_TEXTURE1);
+				//glBindTexture(GL_TEXTURE_2D, gNormal);
+				//glActiveTexture(GL_TEXTURE2);
+				//glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
 
 				{//ibl TODO: (send to forward shaders too)
 					shadersMap["deferredLightning"]->setUniformInt("irradianceMap", 7);
@@ -772,7 +791,8 @@ void Renderer::renderScene() {
 				shadersMap["deferredLightning"]->unbind();
 			}
 			// 2.5. Копируем содержимое буфера глубины (геометрический проход) в буфер глубины заданного по умолчанию фреймбуфера
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+			//glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+			pipeline.deferredRender.gBuffer.bind();
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pipeline.finalFBOBeforePostprocessing.id); // пишем в заданный по умолчанию фреймбуфер
 			glBlitFramebuffer(0, 0, screenRes.x, screenRes.y, 0, 0, screenRes.x, screenRes.y, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			pipeline.finalFBOBeforePostprocessing.bind();
@@ -792,7 +812,8 @@ void Renderer::renderScene() {
 				swapBuffers[0].unbind();
 
 				swapBuffers[0].bind();
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureForGodRays.id, 0);
+				//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureForGodRays.id, 0);
+				swapBuffers[0].AttachTexture(*pipeline.godRays.godRaysTexture);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["godRaysTexture"]->bind();
 				glActiveTexture(GL_TEXTURE0);
@@ -872,8 +893,9 @@ void Renderer::renderScene() {
 					shadersMap["godRays"]->bind();
 					glActiveTexture(GL_TEXTURE0);
 					glBindTexture(GL_TEXTURE_2D, swapTextures[!currentSwapBuffer]->getId());
-					glActiveTexture(GL_TEXTURE1);
-					glBindTexture(GL_TEXTURE_2D, textureForGodRays.id);
+					//glActiveTexture(GL_TEXTURE1);
+					//glBindTexture(GL_TEXTURE_2D, textureForGodRays.id);
+					pipeline.godRays.godRaysTexture->bind(1);
 					shadersMap["godRays"]->setUniformInt("u_UseGodRays", true);
 					shadersMap["godRays"]->setUniformVec3("u_SunPos", dirLights[0]->obj.transform->getLocalPosition());
 					renderQuad();
