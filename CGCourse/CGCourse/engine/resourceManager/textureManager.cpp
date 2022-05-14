@@ -29,23 +29,7 @@ std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, Text
 	unsigned char* dataBuffer = stbi_load(filepath.c_str(), &textureWidth, &textureHeight, &bitsPerPixel, 4);
 
 	if (dataBuffer) {
-		glBindTexture(GL_TEXTURE_2D, textureID);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, dataBuffer);
-
-		if (generateMipmap) {
-			glGenerateMipmap(GL_TEXTURE_2D);
-		}
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
-
-		stbi_image_free(dataBuffer);
-		glBindTexture(GL_TEXTURE_2D, 0);
-
-		return std::make_shared<Texture>(filepath, textureID, textureWidth, textureHeight, bitsPerPixel, firstFilter, secondFilter, generateMipmap);
+		return CreateFromMemory(dataBuffer, textureWidth, textureHeight, firstFilter, secondFilter, generateMipmap);
 	}
 	else {
 		stbi_image_free(dataBuffer);
@@ -55,47 +39,17 @@ std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, Text
 }
 
 std::shared_ptr<Texture> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
-	uint8_t buffer [] = {r, g, b};
-
-	GLuint textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_2D, textureID);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, &buffer);
-
-	if (generateMipmap) {
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	return std::make_shared<Texture>("", textureID, 1, 1, 32, firstFilter, secondFilter, generateMipmap);
+	uint8_t buffer [] = {r, g, b, 255};
+	return CreateFromMemory(&buffer[0], 1, 1, firstFilter, secondFilter, generateMipmap);
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateColor(uint32_t p_data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
-	GLuint textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_2D, textureID);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, &p_data);
-
-	if (generateMipmap) {
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	return std::make_shared<Texture>("", textureID, 1, 1, 32, firstFilter, secondFilter, generateMipmap);
+std::shared_ptr<Texture> TextureLoader::CreateColor(uint32_t data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+	unsigned char bytes[4];
+	bytes[0] = (data >> 24) & 0xFF;
+	bytes[1] = (data >> 16) & 0xFF;
+	bytes[2] = (data >> 8) & 0xFF;
+	bytes[3] = data & 0xFF;
+	return CreateFromMemory(&bytes[0], 1, 1, firstFilter, secondFilter, generateMipmap);
 }
 
 std::shared_ptr<CubeMap> TextureLoader::CreateColorCM(uint8_t r, uint8_t g, uint8_t b) {
@@ -124,7 +78,7 @@ std::shared_ptr<Texture> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	return std::make_shared<Texture>("", textureID, 1, 1, 32, firstFilter, secondFilter, generateMipmap);
+	return std::make_shared<Texture>("", textureID, width, height, 32, firstFilter, secondFilter, generateMipmap);
 }
 
 std::unique_ptr<CubeMap> TextureLoader::CreateSkybox(const std::string& path) {
@@ -187,13 +141,15 @@ void TextureLoader::Reload(Texture& texture, const std::string& filePath, Textur
 
 void TextureLoader::Destroy(std::shared_ptr<Texture> textureInstance) {
 	if (textureInstance) {
-		glDeleteTextures(1, &textureInstance->id);
 		textureInstance.reset();
-		textureInstance = nullptr;
 	}
 }
 
 std::shared_ptr<Texture> TextureLoader::createResource(const std::string& path) {
+	return CreateFromFile(path);
+}
+
+std::shared_ptr<Texture> TextureLoader::CreateFromFile(const std::string& path) {
 	std::string realPath = getRealPath(path);
 
 	auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
@@ -205,7 +161,59 @@ std::shared_ptr<Texture> TextureLoader::createResource(const std::string& path) 
 	}
 	return texture;
 }
+
 void TextureLoader::destroyResource(std::shared_ptr<Texture> res) {
 	Destroy(res);
+}
+
+std::shared_ptr<Texture> TextureLoader::createColor(const std::string& name, uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+	if (auto resource = getResource<Texture>(name)) {
+		return resource;
+	}
+	else {
+		auto newResource = CreateColor(r, g, b, firstFilter, secondFilter, generateMipmap);
+		if (newResource) {
+			return registerResource(name, newResource);
+		}
+		else {
+			return nullptr;
+		}
+	}
+}
+
+std::shared_ptr<Texture> TextureLoader::CreateEmpty(uint32_t width, uint32_t height) {
+	auto res = std::make_shared<Texture>();
+	res->path = "";
+	res->width = width;
+	res->height = height;
+	res->textureType = GL_TEXTURE_2D;
+	res->format = TextureFormat::RGBA16F;
+	//
+	//	GLenum type = isFloating ? GL_FLOAT : GL_UNSIGNED_BYTE;
+	//
+	//	GLenum dataChannels = GL_RGB;
+	//	switch (channels) {
+	//	case 1:
+	//		dataChannels = GL_RED;
+	//		break;
+	//	case 2:
+	//		dataChannels = GL_RG;
+	//		break;
+	//	case 3:
+	//		dataChannels = GL_RGB;
+	//		break;
+	//	case 4:
+	//		dataChannels = GL_RGBA;
+	//		break;
+	//	default:
+	//		break;
+	//	}
+	//
+	glBindTexture(GL_TEXTURE_2D, res->getId());
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F,
+		(GLsizei)width, (GLsizei)height, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+	res->generateMipmaps();
+	return res;
 }
 

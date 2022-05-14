@@ -75,10 +75,10 @@ void FrameBuffer::Validate() const {
 }
 
 void FrameBuffer::DetachRenderTarget() {
-    if (this->currentAttachment == AttachmentType::TEXTURE)
-        delete attachedTexture;
-    else if (this->currentAttachment == AttachmentType::CUBEMAP)
-        delete attachedCubeMap;
+    //if (this->currentAttachment == AttachmentType::TEXTURE)
+    //    delete attachedTexture;
+    //else if (this->currentAttachment == AttachmentType::CUBEMAP)
+    //    delete attachedCubeMap;
 
     this->currentAttachment = AttachmentType::NONE;
 

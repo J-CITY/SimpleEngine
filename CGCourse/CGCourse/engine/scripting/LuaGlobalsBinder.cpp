@@ -200,8 +200,8 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 
 	p_luaState["Scenes"]["GetCurrentScene"] = []() -> Scene& { return *KUMA::RESOURCES::ServiceManager::Get<SceneManager>().getCurrentScene(); };
 
-	p_luaState["Resources"]["GetModel"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::ModelLoader>().createResource(p_resPath); };
-	p_luaState["Resources"]["GetShader"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::ShaderLoader>().createResource(p_resPath); };
-	p_luaState["Resources"]["GetTexture"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::TextureLoader>().createResource(p_resPath); };
-	p_luaState["Resources"]["GetMaterial"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::MaterialLoader>().createResource(p_resPath); };
+	p_luaState["Resources"]["GetModel"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::ModelLoader>().CreateFromFile(p_resPath); };
+	//p_luaState["Resources"]["GetShader"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::ShaderLoader>().CreateFromFile(p_resPath); };
+	//p_luaState["Resources"]["GetTexture"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::TextureLoader>().CreateFromFile(p_resPath); };
+	p_luaState["Resources"]["GetMaterial"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::MaterialLoader>().CreateFromFile(p_resPath); };
 }

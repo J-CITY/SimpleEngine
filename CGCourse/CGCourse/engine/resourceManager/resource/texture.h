@@ -78,7 +78,9 @@ namespace KUMA {
 			Texture();
 			Texture(const std::string path, uint32_t id, uint32_t width, uint32_t height, uint32_t bpp, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 			Texture(unsigned w, unsigned h) noexcept;
-			~Texture() = default;
+			~Texture() {
+				glDeleteTextures(1, &id);
+			};
 
 			void setFilter(TextureFiltering minFilter, TextureFiltering magFilter);
 			void setWrapType(TextureWrap wrapS, TextureWrap wrapT);

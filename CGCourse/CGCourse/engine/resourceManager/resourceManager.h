@@ -62,7 +62,7 @@ namespace KUMA {
 				return res;
 			}
 			
-			inline std::string getRealPath(const std::string& p_path) const {
+			static std::string getRealPath(const std::string& p_path) {
 				std::string result;
 				if (std::filesystem::exists(ENGINE_ASSETS_PATH + p_path)) {
 					result = Config::ROOT + ENGINE_ASSETS_PATH + p_path;

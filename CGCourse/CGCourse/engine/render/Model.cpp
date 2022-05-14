@@ -16,7 +16,11 @@ Model::Model(const std::string& path) : path(path) {
 	}
 }
 
-Model::~Model() = default;
+Model::~Model() {
+	for (auto m : meshes) {
+		delete m;
+	}
+};
 
 void Model::computeBoundingSphere() {
 	if (meshes.size() == 1) {

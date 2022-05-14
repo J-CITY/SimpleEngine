@@ -42,9 +42,9 @@ void ModelRenderer::onDeserialize(nlohmann::json& j) {
 	customBoundingSphere.radius = j["data"]["customBoundingSphere"]["radius"];
 	frustumBehaviour = j["data"]["frustumBehaviour"];
 	if (model) {
-		RESOURCES::ModelLoader().destroyResource(model);
+		RESOURCES::ModelLoader().Destroy(model);
 	}
-	model = RESOURCES::ModelLoader().createResource(j["data"]["model"]["path"]);
+	model = RESOURCES::ModelLoader().CreateFromFile(j["data"]["model"]["path"]);
 }
 void ModelRenderer::onSerialize(nlohmann::json& j) {
 	RESOURCES::SerializeVec3(j["data"]["customBoundingSphere"]["position"], customBoundingSphere.position);

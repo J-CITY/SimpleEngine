@@ -47,55 +47,54 @@ unsigned int brdfLUTTexture;
 
 MATHGL::Vector2f Renderer::getShadowMapResolution() {
 	switch (pipeline.shadowLightData.resolution) {
-		case ShadowMapResolution::LOW: return MATHGL::Vector2f(512, 512);
-		case ShadowMapResolution::MEDIUM: return MATHGL::Vector2f(1024, 1024);
-		case ShadowMapResolution::HIGH: return MATHGL::Vector2f(2048, 2048);
+	case ShadowMapResolution::LOW: return MATHGL::Vector2f(512, 512);
+	case ShadowMapResolution::MEDIUM: return MATHGL::Vector2f(1024, 1024);
+	case ShadowMapResolution::HIGH: return MATHGL::Vector2f(2048, 2048);
 	}
 }
 
 void Renderer::initShaders() {
-	auto shaderLoader = RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>();
 	//shadows
-	shadersMap["simpleDepthShader"]              = shaderLoader.createResource("Shaders/dirShadow.glsl");
-	shadersMap["pointShadowShader"]              = shaderLoader.createResource("Shaders/pointShadow.glsl");
+	shadersMap["simpleDepthShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/dirShadow.glsl");
+	shadersMap["pointShadowShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/pointShadow.glsl");
 
 	//deferred
-	shadersMap["deferredGBuffer"]                = shaderLoader.createResource("Shaders/deferredGBuffer.glsl");
-	shadersMap["deferredLightning"]              = shaderLoader.createResource("Shaders/deferredLightning.glsl");
+	shadersMap["deferredGBuffer"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredGBuffer.glsl");
+	shadersMap["deferredLightning"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredLightning.glsl");
 
 	//ssao
-	shadersMap["ssao"]                           = shaderLoader.createResource("Shaders/ssao.glsl");
-	shadersMap["ssaoBlur"]                       = shaderLoader.createResource("Shaders/ssaoBlur.glsl");
+	shadersMap["ssao"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssao.glsl");
+	shadersMap["ssaoBlur"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssaoBlur.glsl");
 
 	//ibl
-	shadersMap["equirectangularToCubemapShader"] = shaderLoader.createResource("Shaders/equirectangular_to_cubemap.glsl");
-	shadersMap["irradianceShader"]               = shaderLoader.createResource("Shaders/irradiance_convolution.glsl");
-	shadersMap["prefilterShader"]                = shaderLoader.createResource("Shaders/prefilter.glsl");
-	shadersMap["brdfShader"]                     = shaderLoader.createResource("Shaders/brdf.glsl");
+	shadersMap["equirectangularToCubemapShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/equirectangular_to_cubemap.glsl");
+	shadersMap["irradianceShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/irradiance_convolution.glsl");
+	shadersMap["prefilterShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/prefilter.glsl");
+	shadersMap["brdfShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/brdf.glsl");
 
 	//blum
-	shadersMap["blur"]                           = shaderLoader.createResource("Shaders/blur.glsl");
-	shadersMap["bloom"]                          = shaderLoader.createResource("Shaders/bloom.glsl");
+	shadersMap["blur"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/blur.glsl");
+	shadersMap["bloom"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/bloom.glsl");
 
 	//motion blur
-	shadersMap["motionBlur"]                     = shaderLoader.createResource("Shaders/motionBlur.glsl");
+	shadersMap["motionBlur"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/motionBlur.glsl");
 
 	//fxaa
-	shadersMap["fxaa"]                           = shaderLoader.createResource("Shaders/fxaa.glsl");
+	shadersMap["fxaa"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/fxaa.glsl");
 
 	//good rays
-	shadersMap["bright"]                         = shaderLoader.createResource("Shaders/bright.glsl");
-	shadersMap["godRaysTexture"]                 = shaderLoader.createResource("Shaders/godRaysTexture.glsl");
-	shadersMap["godRays"]                        = shaderLoader.createResource("Shaders/godRays.glsl");
+	shadersMap["bright"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/bright.glsl");
+	shadersMap["godRaysTexture"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/godRaysTexture.glsl");
+	shadersMap["godRays"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/godRays.glsl");
 
 	//hdr
-	shadersMap["hdr"] = shaderLoader.createResource("Shaders/hdr.glsl");
+	shadersMap["hdr"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/hdr.glsl");
 }
 
 
 void Renderer::init() {
 	emptyMaterial = std::make_shared<RENDER::Material>();
-	emptyMaterial->setShader(context.shaderManager.createResource("Shaders\\Unlit.glsl"));
+	emptyMaterial->setShader(context.shaderManager.CreateFromFile("Shaders\\Unlit.glsl"));
 	emptyMaterial->set("u_Diffuse", MATHGL::Vector3(1.f, 0.f, 1.f));
 	emptyMaterial->set<RESOURCES::Texture*>("u_DiffuseMap", nullptr);
 
@@ -492,7 +491,7 @@ void Renderer::init() {
 	{//motion blur
 		pipeline.motionBlur.motionBlurTextures.resize(4);
 		for (auto i = 0; i < 4; i++) {
-			pipeline.motionBlur.motionBlurTextures[i] = RESOURCES::TextureLoader::Create(screenRes.x, screenRes.y);
+			pipeline.motionBlur.motionBlurTextures[i] = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
 			pipeline.motionBlur.motionBlurTextures[i]->setFilter(RESOURCES::TextureFiltering::LINEAR, RESOURCES::TextureFiltering::LINEAR);
 		}
 	}
@@ -566,7 +565,7 @@ void Renderer::init() {
 			std::cout << "Framebuffer not complete!" << std::endl;
 	}
 
-	tex3 = KUMA::RESOURCES::TextureLoader().createResource("textures\\noiseTexture.png");
+	tex3 = KUMA::RESOURCES::TextureLoader::CreateFromFile("textures\\noiseTexture.png");
 
 
 	shadersMap["hdr"]->bind();
@@ -772,15 +771,15 @@ void Renderer::renderScene() {
 			renderSkybox();
 
 			renderScene(nullptr);
-			/* {//prepare textures for post processing
+			{//prepare textures for post processing
 				swapBuffers[0].bind();
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffers[1], 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipeline.bloom.blurTexture->getId(), 0);
 				shadersMap["bright"]->bind();
 				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+				glBindTexture(GL_TEXTURE_2D, pipeline.hdr.finalTexture->getId());
 				renderQuad();
 				shadersMap["bright"]->unbind();
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapTextures[0].id, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapTextures[0]->getId(), 0);
 				swapBuffers[0].unbind();
 
 				swapBuffers[0].bind();
@@ -788,7 +787,7 @@ void Renderer::renderScene() {
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["godRaysTexture"]->bind();
 				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+				glBindTexture(GL_TEXTURE_2D, pipeline.hdr.finalTexture->getId());
 				shadersMap["godRaysTexture"]->setUniformVec3("u_Color", MATHGL::Vector3(0.0f, 0.0f, 0.0f));
 				//renderScene(shadersMap["godRaysTexture"]);
 
@@ -809,9 +808,9 @@ void Renderer::renderScene() {
 					drawDrawable(d, shadersMap["godRaysTexture"]);
 				}
 				shadersMap["godRaysTexture"]->unbind();
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapTextures[0].id, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapTextures[0]->getId(), 0);
 				swapBuffers[0].unbind();
-			}*/
+			}
 			//applyStateMask(glState);
 
 			//glBindFramebuffer(GL_READ_FRAMEBUFFER, hdrFBO);
@@ -851,30 +850,30 @@ void Renderer::renderScene() {
 				currentSwapBuffer = !currentSwapBuffer;
 			}
 
-			//{//god rays
-			//	auto dirLights = ECS::ComponentManager::getInstance()->getAllDirectionalLights();
-			//	if (dirLights.size() > 0) {
-			//		swapBuffers[currentSwapBuffer].bind();
-			//
-			//		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			//		shadersMap["godRays"]->bind();
-			//		glActiveTexture(GL_TEXTURE0);
-			//		glBindTexture(GL_TEXTURE_2D, swapTextures[!currentSwapBuffer].id);
-			//		glActiveTexture(GL_TEXTURE1);
-			//		glBindTexture(GL_TEXTURE_2D, textureForGodRays.id);
-			//		shadersMap["godRays"]->setUniformInt("u_UseGodRays", true);
-			//		shadersMap["godRays"]->setUniformVec3("u_SunPos", dirLights[0]->obj.transform->getLocalPosition());
-			//		renderQuad();
-			//		shadersMap["godRays"]->unbind();
-			//
-			//		swapBuffers[currentSwapBuffer].unbind();
-			//		currentSwapBuffer = !currentSwapBuffer;
-			//	}
-			//}
+			{//god rays
+				auto dirLights = ECS::ComponentManager::getInstance()->getAllDirectionalLights();
+				if (dirLights.size() > 0) {
+					swapBuffers[currentSwapBuffer].bind();
+			
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					shadersMap["godRays"]->bind();
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, swapTextures[!currentSwapBuffer]->getId());
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_2D, textureForGodRays.id);
+					shadersMap["godRays"]->setUniformInt("u_UseGodRays", true);
+					shadersMap["godRays"]->setUniformVec3("u_SunPos", dirLights[0]->obj.transform->getLocalPosition());
+					renderQuad();
+					shadersMap["godRays"]->unbind();
+			
+					swapBuffers[currentSwapBuffer].unbind();
+					currentSwapBuffer = !currentSwapBuffer;
+				}
+			}
 
 			{//motion blur
 				swapBuffers[currentSwapBuffer].bind();
-			
+
 				//update textures
 				if (!pipeline.motionBlur.isInit) {
 					pipeline.motionBlur.isInit = true;
@@ -886,7 +885,7 @@ void Renderer::renderScene() {
 					auto front = pipeline.motionBlur.motionBlurTextures[0];
 					pipeline.motionBlur.motionBlurTextures.erase(pipeline.motionBlur.motionBlurTextures.begin());
 					pipeline.motionBlur.motionBlurTextures.push_back(front);
-					RESOURCES::Texture::CopyTexture(*swapTextures[!currentSwapBuffer], 
+					RESOURCES::Texture::CopyTexture(*swapTextures[!currentSwapBuffer],
 						*pipeline.motionBlur.motionBlurTextures[pipeline.motionBlur.motionBlurTextures.size() - 1]);
 				}
 				shadersMap["motionBlur"]->bind();
@@ -902,11 +901,11 @@ void Renderer::renderScene() {
 				//glBindTexture(GL_TEXTURE_2D, motionBlurTextures[2]);
 				//glActiveTexture(GL_TEXTURE3);
 				//glBindTexture(GL_TEXTURE_2D, motionBlurTextures[3]);
-			
+
 				shadersMap["motionBlur"]->setUniformInt("u_UseMotionBlur", true);
 				renderQuad();
 				shadersMap["motionBlur"]->unbind();
-			
+
 				swapBuffers[currentSwapBuffer].unbind();
 				currentSwapBuffer = !currentSwapBuffer;
 			}

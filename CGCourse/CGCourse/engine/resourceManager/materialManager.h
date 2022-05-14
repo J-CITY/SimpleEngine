@@ -8,7 +8,14 @@ namespace KUMA {
 	namespace RESOURCES {
 		class MaterialLoader : public ResourceManager<RENDER::Material> {
 		public:
-			virtual std::shared_ptr<RENDER::Material> createResource(const std::string& path) override {
+			static bool Destroy(std::shared_ptr<RENDER::Material> material) {
+				if (material) {
+					material.reset();
+					return true;
+				}
+				return false;
+			}
+			static std::shared_ptr<RENDER::Material> CreateFromFile(const std::string& path) {
 				std::string realPath = getRealPath(path);
 
 				std::shared_ptr<RENDER::Material> material = MaterialLoader::Create(realPath);
@@ -19,25 +26,22 @@ namespace KUMA {
 				return material;
 			}
 
-			virtual void destroyResource(std::shared_ptr<RENDER::Material> res) override {
-				MaterialLoader::Destroy(res);
-			}
-		//protected:
+			//move to private
 			static std::shared_ptr<RENDER::Material> Create(const std::string& path) {
 				std::shared_ptr<RENDER::Material> material = std::make_shared<RENDER::Material>();
 
 				//material->OnDeserialize(doc, root);
 				return material;
 			}
+		protected:
 			
-			static bool Destroy(std::shared_ptr<RENDER::Material> material) {
-				if (material) {
-					material.reset();
-					return true;
-				}
-				return false;
+			virtual std::shared_ptr<RENDER::Material> createResource(const std::string& path) override {
+				return CreateFromFile(path);
 			}
 
+			virtual void destroyResource(std::shared_ptr<RENDER::Material> res) override {
+				Destroy(res);
+			}
 		};
 	}
 }
