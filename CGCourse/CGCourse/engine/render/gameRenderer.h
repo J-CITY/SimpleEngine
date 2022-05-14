@@ -99,6 +99,13 @@ namespace KUMA::RENDER {
 		std::shared_ptr<RESOURCES::Texture> brdfLUTTexture;
 	};
 
+	struct DeferredRender {
+		FrameBuffer gBuffer;
+		std::shared_ptr<RESOURCES::Texture> gPosition;
+		std::shared_ptr<RESOURCES::Texture> gNormal;
+		std::shared_ptr<RESOURCES::Texture> gAlbedoSpec;
+	};
+
 	struct RenderPipeline {
 		FrameBuffer depthMapFBO;
 
@@ -113,7 +120,10 @@ namespace KUMA::RENDER {
 		MotionBlur motionBlur;
 		GodRays godRays;
 
+
+		DeferredRender deferredRender;
 		ScreenSpaceAmbientOcclusion ssao;
+
 		ImageBasedLightning ibl;
 
 		FrameBuffer finalFBOBeforePostprocessing;
@@ -126,8 +136,8 @@ namespace KUMA::RENDER {
 	public:
 
 		//defered render
-		unsigned int gBuffer;
-		unsigned int gPosition, gNormal, gAlbedoSpec;
+		//unsigned int gBuffer;
+		//unsigned int gPosition, gNormal, gAlbedoSpec;
 
 		RenderPipeline pipeline;
 		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shadersMap;
@@ -206,7 +216,7 @@ namespace KUMA::RENDER {
 		std::array<FrameBuffer, 2> swapBuffers;
 		std::array<std::shared_ptr<RESOURCES::Texture>, 2> swapTextures;
 
-		RESOURCES::Texture textureForGodRays;
+		//RESOURCES::Texture textureForGodRays;
 		//move later to component
 		//Game::World* world;
 

@@ -22,7 +22,7 @@ namespace KUMA {
 			static void Destroy(std::shared_ptr<Texture> textureInstance);
 			static std::shared_ptr<Texture> CreateColor(uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 			static std::shared_ptr<Texture> CreateColor(uint32_t p_data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
-			static std::shared_ptr<Texture> CreateEmpty(uint32_t width, uint32_t height);
+			static std::shared_ptr<Texture> CreateEmpty(uint32_t width, uint32_t height, bool isFloating=true, int channels=4, TextureFormat format= TextureFormat::RGBA16F);
 			static std::shared_ptr<Texture> CreateFromFile(const std::string& path);
 
 			static std::shared_ptr<CubeMap> CreateColorCM(uint8_t r, uint8_t g, uint8_t b);
