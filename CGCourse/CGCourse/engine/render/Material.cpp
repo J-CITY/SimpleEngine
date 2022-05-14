@@ -260,44 +260,46 @@ std::map<std::string, ShaderUniform>& Material::getUniformsData() {
 
 void Material::onDeserialize(nlohmann::json& j) {
 	if (shader) {
-		RESOURCES::ShaderLoader().Destroy(shader);
+		RESOURCES::ShaderLoader::Destroy(shader);
 	}
-	//shader = RESOURCES::ShaderLoader().CreateFromFile(j["data"]["shader"]);
-	blendable = j["data"]["blendable"];
-	backfaceCulling = j["data"]["backfaceCulling"];
-	frontfaceCulling = j["data"]["frontfaceCulling"];
-	depthTest = j["data"]["depthTest"];
-	depthWriting = j["data"]["depthWriting"];
-	colorWriting = j["data"]["colorWriting"];
-	gpuInstances = j["data"]["gpuInstances"];
+	shader = RESOURCES::ShaderLoader::CreateFromFile(j.value("shader", "Shaders/Unlit.glsl"));
+	blendable = j.value("blendable", false);
+	backfaceCulling = j.value("backfaceCulling", true);
+	frontfaceCulling = j.value("frontfaceCulling", false);
+	depthTest = j.value("depthTest", true);
+	depthWriting = j.value("depthWriting", true);
+	colorWriting = j.value("colorWriting", true);
+	gpuInstances = j.value("gpuInstances", 1);
 
-	for (auto& [k, v] : j["data"]["uniforms"].items()) {
-		if (v["type"] == "bool") {
-			uniformsData[k] = (bool)v["value"];
-		}
-		else if (v["type"] == "int") {
-			uniformsData[k] = (int)v["value"];
-		}
-		else if (v["type"] == "float") {
-			uniformsData[k] = (float)v["value"];
-		}
-		else if (v["type"] == "vec2") {
-			MATHGL::Vector2 dummy;
-			RESOURCES::DeserializeVec2(v["value"], dummy);
-			uniformsData[k] = dummy;
-		}
-		else if (v["type"] == "vec3") {
-			MATHGL::Vector3 dummy;
-			RESOURCES::DeserializeVec3(v["value"], dummy);
-			uniformsData[k] = dummy;
-		}
-		else if (v["type"] == "vec4") {
-			MATHGL::Vector4 dummy;
-			RESOURCES::DeserializeVec4(v["value"], dummy);
-			uniformsData[k] = dummy;
-		}
-		else if (v["type"] == "texture") {
-			//uniformsData[k] = RESOURCES::TextureLoader().CreateFromFile(v["value"]);
+	if (j.count("uniforms")) {
+		for (auto& [k, v] : j["uniforms"].items()) {
+			if (v.type() == nlohmann::json::value_t::boolean) {
+				uniformsData[k] = v.get<bool>();
+			}
+			if (v.type() == nlohmann::json::value_t::number_float) {
+				uniformsData[k] = v.get<float>();
+			}
+			if (v.type() == nlohmann::json::value_t::number_integer || v.type() == nlohmann::json::value_t::number_unsigned) {
+				uniformsData[k] = v.get<int>();
+			}
+			else if (v.type() == nlohmann::json::value_t::array && v.size() == 2) {
+				MATHGL::Vector2 dummy;
+				RESOURCES::DeserializeVec2(v, dummy);
+				uniformsData[k] = dummy;
+			}
+			else if (v.type() == nlohmann::json::value_t::array && v.size() == 3) {
+				MATHGL::Vector3 dummy;
+				RESOURCES::DeserializeVec3(v, dummy);
+				uniformsData[k] = dummy;
+			}
+			else if (v.type() == nlohmann::json::value_t::array && v.size() == 4) {
+				MATHGL::Vector4 dummy;
+				RESOURCES::DeserializeVec4(v, dummy);
+				uniformsData[k] = dummy;
+			}
+			else if (v.type() == nlohmann::json::value_t::string) {
+				uniformsData[k] = RESOURCES::TextureLoader::CreateFromFile(v.get<std::string>());
+			}
 		}
 	}
 }

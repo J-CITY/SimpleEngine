@@ -60,17 +60,19 @@ namespace KUMA::RENDER {
 	};
 
 	struct Hdr {
-		FrameBuffer hdrFBO;
+		//FrameBuffer hdrFBO;
 
 		//Texture, which draw on screen
-		std::shared_ptr<RESOURCES::Texture> finalTexture;
 		bool isEnabled = true;
 		float exposure = 1.0f;
 		float gamma = 2.2f;
 	};
 
 	struct Bloom {
-		std::shared_ptr<RESOURCES::Texture> blurTexture;
+		std::shared_ptr<RESOURCES::Texture> brightTexture;
+
+		std::array<FrameBuffer, 2> pingpongFBO;
+		std::array<std::shared_ptr<RESOURCES::Texture>, 2> pingpongColorbuffers;
 	};
 
 	struct MotionBlur {
@@ -80,6 +82,21 @@ namespace KUMA::RENDER {
 
 	struct GodRays {
 		std::shared_ptr<RESOURCES::Texture> godRaysTexture;
+	};
+
+	struct ScreenSpaceAmbientOcclusion {
+		FrameBuffer ssaoFBO;
+		FrameBuffer ssaoBlurFBO;
+		std::shared_ptr<RESOURCES::Texture> ssaoColorBuffer;
+		std::shared_ptr<RESOURCES::Texture> ssaoColorBufferBlur;
+		std::vector<MATHGL::Vector3> ssaoKernel;
+		std::shared_ptr<RESOURCES::Texture> noiseTexture;
+	};
+
+	struct ImageBasedLightning {
+		//std::shared_ptr<RESOURCES::Texture> irradianceMap;
+		//std::shared_ptr<RESOURCES::Texture> prefilterMap;
+		std::shared_ptr<RESOURCES::Texture> brdfLUTTexture;
 	};
 
 	struct RenderPipeline {
@@ -96,6 +113,11 @@ namespace KUMA::RENDER {
 		MotionBlur motionBlur;
 		GodRays godRays;
 
+		ScreenSpaceAmbientOcclusion ssao;
+		ImageBasedLightning ibl;
+
+		FrameBuffer finalFBOBeforePostprocessing;
+		std::shared_ptr<RESOURCES::Texture> finalTextureBeforePostprocessing;
 	};
 
 	class Renderer : public BaseRender {

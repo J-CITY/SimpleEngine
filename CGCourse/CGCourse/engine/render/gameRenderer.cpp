@@ -21,20 +21,8 @@ using namespace KUMA;
 using namespace KUMA::RENDER;
 
 
-GLuint depthBufferTexture;
+//GLuint depthBufferTexture;
 
-//ssao
-unsigned int ssaoFBO, ssaoBlurFBO;
-unsigned int ssaoColorBuffer, ssaoColorBufferBlur;
-std::vector<MATHGL::Vector3> ssaoKernel;
-unsigned int noiseTexture;
-
-//bloom
-unsigned int pingpongFBO[2];
-unsigned int pingpongColorbuffers[2];
-
-//fog
-std::shared_ptr<RESOURCES::Texture> tex3;
 
 void renderQuad();
 void renderCube();
@@ -42,53 +30,53 @@ void renderCube();
 //ibl
 unsigned int irradianceMap;
 unsigned int prefilterMap;
-unsigned int brdfLUTTexture;
+//unsigned int brdfLUTTexture;
 
 
 MATHGL::Vector2f Renderer::getShadowMapResolution() {
 	switch (pipeline.shadowLightData.resolution) {
-	case ShadowMapResolution::LOW: return MATHGL::Vector2f(512, 512);
-	case ShadowMapResolution::MEDIUM: return MATHGL::Vector2f(1024, 1024);
-	case ShadowMapResolution::HIGH: return MATHGL::Vector2f(2048, 2048);
+		case ShadowMapResolution::LOW: return MATHGL::Vector2f(512, 512);
+		case ShadowMapResolution::MEDIUM: return MATHGL::Vector2f(1024, 1024);
+		case ShadowMapResolution::HIGH: return MATHGL::Vector2f(2048, 2048);
 	}
 }
 
 void Renderer::initShaders() {
 	//shadows
-	shadersMap["simpleDepthShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/dirShadow.glsl");
-	shadersMap["pointShadowShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/pointShadow.glsl");
+	shadersMap["simpleDepthShader"] =              RESOURCES::ShaderLoader::CreateFromFile("Shaders/dirShadow.glsl");
+	shadersMap["pointShadowShader"] =              RESOURCES::ShaderLoader::CreateFromFile("Shaders/pointShadow.glsl");
 
 	//deferred
-	shadersMap["deferredGBuffer"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredGBuffer.glsl");
-	shadersMap["deferredLightning"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredLightning.glsl");
+	shadersMap["deferredGBuffer"] =                RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredGBuffer.glsl");
+	shadersMap["deferredLightning"] =              RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredLightning.glsl");
 
 	//ssao
-	shadersMap["ssao"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssao.glsl");
-	shadersMap["ssaoBlur"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssaoBlur.glsl");
+	shadersMap["ssao"] =                           RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssao.glsl");
+	shadersMap["ssaoBlur"] =                       RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssaoBlur.glsl");
 
 	//ibl
 	shadersMap["equirectangularToCubemapShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/equirectangular_to_cubemap.glsl");
-	shadersMap["irradianceShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/irradiance_convolution.glsl");
-	shadersMap["prefilterShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/prefilter.glsl");
-	shadersMap["brdfShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/brdf.glsl");
+	shadersMap["irradianceShader"] =               RESOURCES::ShaderLoader::CreateFromFile("Shaders/irradiance_convolution.glsl");
+	shadersMap["prefilterShader"] =                RESOURCES::ShaderLoader::CreateFromFile("Shaders/prefilter.glsl");
+	shadersMap["brdfShader"] =                     RESOURCES::ShaderLoader::CreateFromFile("Shaders/brdf.glsl");
 
 	//blum
-	shadersMap["blur"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/blur.glsl");
-	shadersMap["bloom"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/bloom.glsl");
+	shadersMap["blur"] =                           RESOURCES::ShaderLoader::CreateFromFile("Shaders/blur.glsl");
+	shadersMap["bloom"] =                          RESOURCES::ShaderLoader::CreateFromFile("Shaders/bloom.glsl");
 
 	//motion blur
-	shadersMap["motionBlur"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/motionBlur.glsl");
+	shadersMap["motionBlur"] =                     RESOURCES::ShaderLoader::CreateFromFile("Shaders/motionBlur.glsl");
 
 	//fxaa
-	shadersMap["fxaa"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/fxaa.glsl");
+	shadersMap["fxaa"] =                           RESOURCES::ShaderLoader::CreateFromFile("Shaders/fxaa.glsl");
 
 	//good rays
-	shadersMap["bright"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/bright.glsl");
-	shadersMap["godRaysTexture"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/godRaysTexture.glsl");
-	shadersMap["godRays"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/godRays.glsl");
+	shadersMap["bright"] =                         RESOURCES::ShaderLoader::CreateFromFile("Shaders/bright.glsl");
+	shadersMap["godRaysTexture"] =                 RESOURCES::ShaderLoader::CreateFromFile("Shaders/godRaysTexture.glsl");
+	shadersMap["godRays"] =                        RESOURCES::ShaderLoader::CreateFromFile("Shaders/godRays.glsl");
 
 	//hdr
-	shadersMap["hdr"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/hdr.glsl");
+	shadersMap["hdr"] =                            RESOURCES::ShaderLoader::CreateFromFile("Shaders/hdr.glsl");
 }
 
 
@@ -135,9 +123,9 @@ void Renderer::init() {
 	clip->calculateTransform();
 	//GUI test end
 
-	glGenTextures(1, &depthBufferTexture);
-	glBindTexture(GL_TEXTURE_2D, depthBufferTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 800, 600, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+	//glGenTextures(1, &depthBufferTexture);
+	//glBindTexture(GL_TEXTURE_2D, depthBufferTexture);
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 800, 600, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
 
 	initShaders();
 
@@ -155,7 +143,6 @@ void Renderer::init() {
 			buffer.AttachTexture(*swapTextures[i], Attachment::COLOR_ATTACHMENT0);
 			i++;
 		}
-
 
 		textureForGodRays.bindWithoutAttach();
 		textureForGodRays.load(nullptr, screenRes.x, screenRes.y, 4, true, RESOURCES::TextureFormat::RGBA16F);
@@ -233,26 +220,34 @@ void Renderer::init() {
 
 
 	{//ssao
-		glGenFramebuffers(1, &ssaoFBO);  glGenFramebuffers(1, &ssaoBlurFBO);
-		glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+		//glGenFramebuffers(1, &ssaoFBO);  glGenFramebuffers(1, &ssaoBlurFBO);
+		pipeline.ssao.ssaoFBO.bind();
+		//glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
 		// Цветовой буфер SSAO 
-		glGenTextures(1, &ssaoColorBuffer);
-		glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, screenRes.x, screenRes.y, 0, GL_RED, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
+		//glGenTextures(1, &ssaoColorBuffer);
+		//glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+		pipeline.ssao.ssaoColorBuffer = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.ssao.ssaoColorBuffer->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, screenRes.x, screenRes.y, 0, GL_RED, GL_FLOAT, NULL);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
+		pipeline.ssao.ssaoFBO.AttachTexture(*pipeline.ssao.ssaoColorBuffer);
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			std::cout << "SSAO Framebuffer not complete!" << std::endl;
 
 		// И стадия размытия
-		glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
-		glGenTextures(1, &ssaoColorBufferBlur);
-		glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, screenRes.x, screenRes.y, 0, GL_RED, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBufferBlur, 0);
+		//glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+		pipeline.ssao.ssaoBlurFBO.bind();
+		pipeline.ssao.ssaoColorBufferBlur = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.ssao.ssaoColorBufferBlur->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		//glGenTextures(1, &ssaoColorBufferBlur);
+		//glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, screenRes.x, screenRes.y, 0, GL_RED, GL_FLOAT, NULL);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBufferBlur, 0);
+		pipeline.ssao.ssaoBlurFBO.AttachTexture(*pipeline.ssao.ssaoColorBufferBlur);
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			std::cout << "SSAO Blur Framebuffer not complete!" << std::endl;
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -273,22 +268,28 @@ void Renderer::init() {
 			// Масштабируем точки выборки, чтобы они распологались ближе к центру ядра
 			scale = lerp(0.1f, 1.0f, scale * scale);
 			sample *= scale;
-			ssaoKernel.push_back(sample);
+			pipeline.ssao.ssaoKernel.push_back(sample);
 		}
 
 		// Генерируем текстуру шума
-		std::vector<glm::vec3> ssaoNoise;
+		std::vector<uint8_t> ssaoNoise;
 		for (unsigned int i = 0; i < 16; i++) {
-			glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f); // поворот вокруг z-оси (в касательном пространстве)
-			ssaoNoise.push_back(noise);
+			//glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f); // поворот вокруг z-оси (в касательном пространстве)
+			ssaoNoise.push_back(randomFloats(generator) * 2.0 - 1.0);
+			ssaoNoise.push_back(randomFloats(generator) * 2.0 - 1.0);
+			ssaoNoise.push_back(0.0);
 		}
-		glGenTextures(1, &noiseTexture);
-		glBindTexture(GL_TEXTURE_2D, noiseTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+		pipeline.ssao.noiseTexture = RESOURCES::TextureLoader::CreateFromMemory(&ssaoNoise[0], 4, 4, RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST, false);
+		//pipeline.ssao.noiseTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		pipeline.ssao.noiseTexture->setWrapType(RESOURCES::TextureWrap::REPEAT, RESOURCES::TextureWrap::REPEAT);
+		//glGenTextures(1, &noiseTexture);
+		//glBindTexture(GL_TEXTURE_2D, noiseTexture);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 		shadersMap["ssao"]->bind();
 		shadersMap["ssao"]->setUniformInt("gPosition", 0);
@@ -457,24 +458,26 @@ void Renderer::init() {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		// PBR: генерируем 2D LUT-текстуру при помощи используемых уравнений BRDF
-
-		glGenTextures(1, &brdfLUTTexture);
-
-		// Выделяем необходимое количество памяти для LUT-текстуры
-		glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
+		pipeline.ibl.brdfLUTTexture = RESOURCES::TextureLoader::CreateEmpty(512, 512);
+		//glGenTextures(1, &brdfLUTTexture);
+		//
+		//// Выделяем необходимое количество памяти для LUT-текстуры
+		//glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
 
 		// Убеждаемся, что режим наложения задан как GL_CLAMP_TO_EDGE
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		pipeline.ibl.brdfLUTTexture->setFilter(RESOURCES::TextureFiltering::LINEAR, RESOURCES::TextureFiltering::LINEAR);
+		pipeline.ibl.brdfLUTTexture->setWrapType(RESOURCES::TextureWrap::CLAMP_TO_EDGE, RESOURCES::TextureWrap::CLAMP_TO_EDGE);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		// Затем переконфигурируем захват объекта фреймбуфера и рендерим экранный прямоугольник с использованием BRDF-шейдера
 		glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
 		glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfLUTTexture, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipeline.ibl.brdfLUTTexture->getId(), 0);
 
 		glViewport(0, 0, 512, 512);
 		shadersMap["brdfShader"]->bind();
@@ -520,14 +523,14 @@ void Renderer::init() {
 	//hdr
 	// Конфигурируем фреймбуфер типа с плавающей точкой
 
-	pipeline.hdr.hdrFBO.bind();
+	pipeline.finalFBOBeforePostprocessing.bind();
 	//glGenFramebuffers(1, &hdrFBO);
 	//glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
 	// Создаем 2 цветовых фреймбуфера типа с плавающей точкой (первый - для обычного рендеринга, другой - для граничных значений яркости)
 
-	pipeline.hdr.finalTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y); //colorBuffer0
-	pipeline.bloom.blurTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y);  //colorBuffer1
-	pipeline.hdr.hdrFBO.AttachTexture(*pipeline.hdr.finalTexture, Attachment::COLOR_ATTACHMENT0);
+	pipeline.finalTextureBeforePostprocessing = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y); //colorBuffer0
+	pipeline.bloom.brightTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y);  //colorBuffer1
+	pipeline.finalFBOBeforePostprocessing.AttachTexture(*pipeline.finalTextureBeforePostprocessing, Attachment::COLOR_ATTACHMENT0);
 	//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffers[0], 0);
 
 	// Создание буфера глубины (рендербуфер)
@@ -548,25 +551,27 @@ void Renderer::init() {
 
 	// ping-pong-фреймбуфер для размытия
 
-	glGenFramebuffers(2, pingpongFBO);
-	glGenTextures(2, pingpongColorbuffers);
+	//glGenFramebuffers(2, pingpongFBO);
+	//glGenTextures(2, pingpongColorbuffers);
 	for (unsigned int i = 0; i < 2; i++) {
-		glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
-		glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // используем режим GL_CLAMP_TO_EDGE, т.к. в противном случае фильтр размытия производил бы выборку повторяющихся значений текстуры!
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongColorbuffers[i], 0);
-
+		//glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+		pipeline.bloom.pingpongFBO[i].bind();
+		pipeline.bloom.pingpongColorbuffers[i] = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.bloom.pingpongColorbuffers[i]->setFilter(RESOURCES::TextureFiltering::LINEAR, RESOURCES::TextureFiltering::LINEAR);
+		pipeline.bloom.pingpongColorbuffers[i]->setWrapType(RESOURCES::TextureWrap::CLAMP_TO_EDGE, RESOURCES::TextureWrap::CLAMP_TO_EDGE);
+		//glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[i]);
+		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // используем режим GL_CLAMP_TO_EDGE, т.к. в противном случае фильтр размытия производил бы выборку повторяющихся значений текстуры!
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongColorbuffers[i], 0);
+		pipeline.bloom.pingpongFBO[i].AttachTexture(*pipeline.bloom.pingpongColorbuffers[i]);
 		// Также проверяем, готовы ли фреймбуферы (буфер глубины нам не нужен)
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			std::cout << "Framebuffer not complete!" << std::endl;
 	}
-
-	tex3 = KUMA::RESOURCES::TextureLoader::CreateFromFile("textures\\noiseTexture.png");
-
+	
 
 	shadersMap["hdr"]->bind();
 	shadersMap["hdr"]->setUniformInt("u_Scene", 0);
@@ -676,7 +681,7 @@ void Renderer::renderScene() {
 			//preparePointLightShadowMap();
 
 
-			pipeline.hdr.hdrFBO.bind();
+			pipeline.finalFBOBeforePostprocessing.bind();
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -704,36 +709,40 @@ void Renderer::renderScene() {
 
 				{//ssao
 					// 2. Генерируем текстуру для SSAO
-					glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+					//glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+					pipeline.ssao.ssaoFBO.bind();
 					glClear(GL_COLOR_BUFFER_BIT);
 					shadersMap["ssao"]->bind();
 
 					// Посылаем ядро + поворот 
 					for (unsigned int i = 0; i < 64; ++i)
-						shadersMap["ssao"]->setUniformVec3("samples[" + std::to_string(i) + "]", ssaoKernel[i]);
+						shadersMap["ssao"]->setUniformVec3("samples[" + std::to_string(i) + "]", pipeline.ssao.ssaoKernel[i]);
 					//shaderSSAO.setMat4("projection", projection);
 					glActiveTexture(GL_TEXTURE0);
 					glBindTexture(GL_TEXTURE_2D, gPosition);
 					glActiveTexture(GL_TEXTURE1);
 					glBindTexture(GL_TEXTURE_2D, gNormal);
-					glActiveTexture(GL_TEXTURE2);
-					glBindTexture(GL_TEXTURE_2D, noiseTexture);
+					//glActiveTexture(GL_TEXTURE2);
+					//glBindTexture(GL_TEXTURE_2D, noiseTexture);
+					pipeline.ssao.noiseTexture->bind(2);
 					renderQuad();
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
 					// 3. Размываем SSAO-текстуру, чтобы убрать шум
-					glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+					pipeline.ssao.ssaoBlurFBO.bind();
+					//glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
 					glClear(GL_COLOR_BUFFER_BIT);
 					shadersMap["ssaoBlur"]->bind();
-					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+					//glActiveTexture(GL_TEXTURE0);
+					//glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+					pipeline.ssao.ssaoColorBuffer->bind(0);
 					renderQuad();
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				}
 
 
-				pipeline.hdr.hdrFBO.bind();
+				pipeline.finalFBOBeforePostprocessing.bind();
 
 				// 2. Проход освещения: вычисление освещение, перебирая попиксельно экранный прямоугольник, используя содержимое g-буфера
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -755,7 +764,7 @@ void Renderer::renderScene() {
 					glActiveTexture(GL_TEXTURE8);
 					glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
 					glActiveTexture(GL_TEXTURE9);
-					glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+					glBindTexture(GL_TEXTURE_2D, pipeline.ibl.brdfLUTTexture->getId());
 				}
 
 				//// Рендерим прямоугольник
@@ -764,19 +773,19 @@ void Renderer::renderScene() {
 			}
 			// 2.5. Копируем содержимое буфера глубины (геометрический проход) в буфер глубины заданного по умолчанию фреймбуфера
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pipeline.hdr.hdrFBO.id); // пишем в заданный по умолчанию фреймбуфер
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pipeline.finalFBOBeforePostprocessing.id); // пишем в заданный по умолчанию фреймбуфер
 			glBlitFramebuffer(0, 0, screenRes.x, screenRes.y, 0, 0, screenRes.x, screenRes.y, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			pipeline.hdr.hdrFBO.bind();
+			pipeline.finalFBOBeforePostprocessing.bind();
 
 			renderSkybox();
 
 			renderScene(nullptr);
 			{//prepare textures for post processing
 				swapBuffers[0].bind();
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipeline.bloom.blurTexture->getId(), 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pipeline.bloom.brightTexture->getId(), 0);
 				shadersMap["bright"]->bind();
 				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, pipeline.hdr.finalTexture->getId());
+				glBindTexture(GL_TEXTURE_2D, pipeline.finalTextureBeforePostprocessing->getId());
 				renderQuad();
 				shadersMap["bright"]->unbind();
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapTextures[0]->getId(), 0);
@@ -787,7 +796,7 @@ void Renderer::renderScene() {
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["godRaysTexture"]->bind();
 				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, pipeline.hdr.finalTexture->getId());
+				glBindTexture(GL_TEXTURE_2D, pipeline.finalTextureBeforePostprocessing->getId());
 				shadersMap["godRaysTexture"]->setUniformVec3("u_Color", MATHGL::Vector3(0.0f, 0.0f, 0.0f));
 				//renderScene(shadersMap["godRaysTexture"]);
 
@@ -824,10 +833,13 @@ void Renderer::renderScene() {
 				unsigned int amount = 10;
 				shadersMap["blur"]->bind();
 				for (unsigned int i = 0; i < amount; i++) {
-					glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+					//glBindFramebuffer(GL_FRAMEBUFFER, pipeline.bloom.pingpongFBO[horizontal]);
+					pipeline.bloom.pingpongFBO[horizontal].bind();
 					shadersMap["blur"]->setUniformInt("horizontal", horizontal);
-					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, firstIteration ? pipeline.bloom.blurTexture->getId() : pingpongColorbuffers[!horizontal]);  // привязка текстуры другого фреймбуфера (или сцены, если это - первая итерация)
+					//glActiveTexture(GL_TEXTURE0);
+					//glBindTexture(GL_TEXTURE_2D, firstIteration ? pipeline.bloom.brightTexture->getId() : pingpongColorbuffers[!horizontal]);  // привязка текстуры другого фреймбуфера (или сцены, если это - первая итерация)
+					firstIteration ? pipeline.bloom.brightTexture->bind(0) : pipeline.bloom.pingpongColorbuffers[!horizontal]->bind(0);
+
 					renderQuad();
 					horizontal = !horizontal;
 					if (firstIteration) {
@@ -839,10 +851,11 @@ void Renderer::renderScene() {
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["bloom"]->bind();
 				glActiveTexture(GL_TEXTURE0);
-				pipeline.hdr.finalTexture->bind();
+				pipeline.finalTextureBeforePostprocessing->bind(0);
 				//glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
-				glActiveTexture(GL_TEXTURE1);
-				glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
+				//glActiveTexture(GL_TEXTURE1);
+				//glBindTexture(GL_TEXTURE_2D, pipeline.bloom.pingpongColorbuffers[!horizontal]);
+				pipeline.bloom.pingpongColorbuffers[!horizontal]->bind(1);
 				shadersMap["bloom"]->setUniformInt("u_UseBloom", true);
 				renderQuad();
 				shadersMap["bloom"]->unbind();

@@ -45,6 +45,7 @@ namespace KUMA {
 			in.z = j[2];
 			in.w = j[3];
 		}
+
 		
 		class Serializable {
 		public:

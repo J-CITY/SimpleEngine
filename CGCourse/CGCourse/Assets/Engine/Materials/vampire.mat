@@ -1,0 +1,24 @@
+{
+    "shader": "Shaders\\Standard.glsl",
+    "blendable": false,
+    "backfaceCulling": true,
+    "frontfaceCulling": false,
+    "depthTest": true,
+    "depthWriting": true,
+    "colorWriting": true,
+    "gpuInstances": 1,
+    "uniforms": {
+        "u_Diffuse": [1.0, 1.0, 1.0, 1.0],
+		"u_DiffuseMap": "textures\\Vampire_diffuse.png",
+		"u_EnableNormalMapping": true,
+		"u_HeightScale": 0.0,
+		"u_NormalMap": "textures\\Vampire_normal.png",
+		"u_Noise": "textures\\noiseTexture.png",
+		"fogScaleBias": [0, -0.06, 0, 0.0008],
+		"u_Shininess": 100,
+		"u_Specular": [1.0, 1.0, 1.0],
+		"u_TextureOffset": [0.0, 0.0],
+		"u_TextureTiling": [1.0, 1.0],
+		"u_UseBone": true
+    }
+}
