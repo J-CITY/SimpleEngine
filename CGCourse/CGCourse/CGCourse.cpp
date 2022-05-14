@@ -588,36 +588,38 @@ int main() {
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
 		auto mat = obj->addComponent<KUMA::ECS::MaterialRenderer>();
-		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
 
-		_m->setShader(s);
-		_m->setBlendable(false);
-		_m->setBackfaceCulling(true);
-		_m->setFrontfaceCulling(false);
-		_m->setDepthTest(true);
-		_m->setDepthWriting(true);
-		_m->setColorWriting(true);
-		_m->setGPUInstances(1);
-		auto& data = _m->getUniformsData();
-		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
-
-		auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\Vampire_diffuse.png");
-		data["u_DiffuseMap"] = tex1;
-
-		data["u_EnableNormalMapping"] = true;
-		data["u_HeightScale"] = 0.0f;
-
-		auto tex2 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\Vampire_normal.png");
-		data["u_NormalMap"] = tex2;
-		auto tex3 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\noiseTexture.png");
-		data["u_Noise"] = tex3;
-		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
-		data["u_Shininess"] = 100;
-		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
-		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
-		data["u_UseBone"] = true;
-		mat->fillWithMaterial(_m);
+		auto mm = KUMA::RESOURCES::MaterialLoader::CreateFromFile("Materials/vampire.mat");
+		mat->fillWithMaterial(mm);
+		//auto _m = KUMA::RESOURCES::MaterialLoader::Create("Materials/vampire.mat");
+		//_m->setShader(s);
+		//_m->setBlendable(false);
+		//_m->setBackfaceCulling(true);
+		//_m->setFrontfaceCulling(false);
+		//_m->setDepthTest(true);
+		//_m->setDepthWriting(true);
+		//_m->setColorWriting(true);
+		//_m->setGPUInstances(1);
+		//auto& data = _m->getUniformsData();
+		//data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+		//
+		//auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\Vampire_diffuse.png");
+		//data["u_DiffuseMap"] = tex1;
+		//
+		//data["u_EnableNormalMapping"] = true;
+		//data["u_HeightScale"] = 0.0f;
+		//
+		//auto tex2 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\Vampire_normal.png");
+		//data["u_NormalMap"] = tex2;
+		//auto tex3 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\noiseTexture.png");
+		//data["u_Noise"] = tex3;
+		//data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
+		//data["u_Shininess"] = 100;
+		//data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
+		//data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
+		//data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
+		//data["u_UseBone"] = true;
+		//mat->fillWithMaterial(_m);
 	}
 
 

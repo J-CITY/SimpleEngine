@@ -3,6 +3,7 @@
 
 #include "resourceManager.h"
 #include "../render/Material.h"
+#include <fstream>
 
 namespace KUMA {
 	namespace RESOURCES {
@@ -29,8 +30,11 @@ namespace KUMA {
 			//move to private
 			static std::shared_ptr<RENDER::Material> Create(const std::string& path) {
 				std::shared_ptr<RENDER::Material> material = std::make_shared<RENDER::Material>();
-
-				//material->OnDeserialize(doc, root);
+				if (!path.empty()) {
+					std::ifstream ifs(path);
+					auto root = nlohmann::json::parse(ifs);
+					material->onDeserialize(root);
+				}
 				return material;
 			}
 		protected:
