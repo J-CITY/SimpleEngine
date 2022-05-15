@@ -19,17 +19,41 @@ void RESOURCES::stbiImageFree(float* data) {
 }
 
 std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
-	GLuint textureID;
+	//GLuint textureID;
 	int textureWidth;
 	int textureHeight;
 	int bitsPerPixel;
-	glGenTextures(1, &textureID);
+	//glGenTextures(1, &textureID);
 
 	stbi_set_flip_vertically_on_load(true);
 	unsigned char* dataBuffer = stbi_load(filepath.c_str(), &textureWidth, &textureHeight, &bitsPerPixel, 4);
 
 	if (dataBuffer) {
-		return CreateFromMemory(dataBuffer, textureWidth, textureHeight, firstFilter, secondFilter, generateMipmap);
+		auto res = CreateFromMemory(dataBuffer, textureWidth, textureHeight, firstFilter, secondFilter, generateMipmap);
+		stbi_image_free(dataBuffer);
+		return res;
+	}
+	else {
+		stbi_image_free(dataBuffer);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		return nullptr;
+	}
+}
+
+std::shared_ptr<Texture> TextureLoader::CreateFloat(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+	//GLuint textureID;
+	int textureWidth;
+	int textureHeight;
+	int bitsPerPixel;
+	//glGenTextures(1, &textureID);
+
+	stbi_set_flip_vertically_on_load(true);
+	float* dataBuffer = stbi_loadf(filepath.c_str(), &textureWidth, &textureHeight, &bitsPerPixel, 0);
+
+	if (dataBuffer) {
+		auto res = CreateFromMemoryFloat(dataBuffer, textureWidth, textureHeight, firstFilter, secondFilter, generateMipmap);
+		stbi_image_free(dataBuffer);
+		return res;
 	}
 	else {
 		stbi_image_free(dataBuffer);
@@ -81,6 +105,27 @@ std::shared_ptr<Texture> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t
 	return std::make_shared<Texture>("", textureID, width, height, 32, firstFilter, secondFilter, generateMipmap);
 }
 
+std::shared_ptr<Texture> TextureLoader::CreateFromMemoryFloat(float* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data);
+
+	if (generateMipmap) {
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return std::make_shared<Texture>("", textureID, width, height, 32, firstFilter, secondFilter, generateMipmap);
+}
+
 std::unique_ptr<CubeMap> TextureLoader::CreateSkybox(const std::string& path) {
 	auto sb = std::make_unique<CubeMap>(path);
 	glGenTextures(1, &sb->id);
@@ -123,6 +168,27 @@ std::unique_ptr<CubeMap> TextureLoader::LoadCubeMap(const int shadow_width, cons
 	return sb;
 }
 
+
+std::shared_ptr<CubeMap> TextureLoader::CreateCubeMap(const int width, const int height,
+	TextureFiltering firstFilter, TextureFiltering secondFilter) {
+	auto cm = std::make_shared<CubeMap>();
+	//glGenTextures(1, &sb->id);
+	//glBindTexture(GL_TEXTURE_CUBE_MAP, sb->id);
+	cm->bindWithoutAttach();
+	for (unsigned int i = 0; i < cm->types.size(); ++i) {
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+			0, GL_RGB16F, width, height, 0,
+			GL_RGB, GL_FLOAT, NULL);
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	return cm;
+}
+
 void TextureLoader::Reload(Texture& texture, const std::string& filePath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	std::shared_ptr<Texture> newTexture = Create(filePath, firstFilter, secondFilter, generateMipmap);
 
@@ -156,6 +222,19 @@ std::shared_ptr<Texture> TextureLoader::CreateFromFile(const std::string& path) 
 		TextureFiltering::LINEAR_MIPMAP_LINEAR, TextureFiltering::LINEAR, true};
 
 	std::shared_ptr<Texture> texture = Create(realPath, min, mag, mipmap);
+	if (texture) {
+		texture->path = path;
+	}
+	return texture;
+}
+
+std::shared_ptr<Texture> TextureLoader::CreateFromFileFloat(const std::string& path) {
+	std::string realPath = getRealPath(path);
+
+	auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
+		TextureFiltering::LINEAR, TextureFiltering::LINEAR, false};
+
+	std::shared_ptr<Texture> texture = CreateFloat(realPath, min, mag, mipmap);
 	if (texture) {
 		texture->path = path;
 	}

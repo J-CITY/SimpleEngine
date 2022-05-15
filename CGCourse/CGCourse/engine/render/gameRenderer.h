@@ -94,8 +94,8 @@ namespace KUMA::RENDER {
 	};
 
 	struct ImageBasedLightning {
-		//std::shared_ptr<RESOURCES::Texture> irradianceMap;
-		//std::shared_ptr<RESOURCES::Texture> prefilterMap;
+		std::shared_ptr<RESOURCES::CubeMap> irradianceMap;
+		std::shared_ptr<RESOURCES::CubeMap> prefilterMap;
 		std::shared_ptr<RESOURCES::Texture> brdfLUTTexture;
 	};
 
