@@ -140,7 +140,7 @@ void Renderer::init() {
 			swapTextures[i]->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			buffer.AttachTexture(*swapTextures[i], Attachment::COLOR_ATTACHMENT0);
+			buffer.attachTexture(*swapTextures[i], Attachment::COLOR_ATTACHMENT0);
 			i++;
 		}
 
@@ -162,7 +162,7 @@ void Renderer::init() {
 		// Цветовой буфер позиций
 		pipeline.deferredRender.gPosition = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
 		pipeline.deferredRender.gPosition->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
-		pipeline.deferredRender.gBuffer.AttachTexture(*pipeline.deferredRender.gPosition, Attachment::COLOR_ATTACHMENT0);
+		pipeline.deferredRender.gBuffer.attachTexture(*pipeline.deferredRender.gPosition, Attachment::COLOR_ATTACHMENT0);
 		//glGenTextures(1, &gPosition);
 		//glBindTexture(GL_TEXTURE_2D, gPosition);
 		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
@@ -173,7 +173,7 @@ void Renderer::init() {
 		// Цветовой буфер нормалей
 		pipeline.deferredRender.gNormal = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
 		pipeline.deferredRender.gNormal->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
-		pipeline.deferredRender.gBuffer.AttachTexture(*pipeline.deferredRender.gNormal, Attachment::COLOR_ATTACHMENT1);
+		pipeline.deferredRender.gBuffer.attachTexture(*pipeline.deferredRender.gNormal, Attachment::COLOR_ATTACHMENT1);
 		//glGenTextures(1, &gNormal);
 		//glBindTexture(GL_TEXTURE_2D, gNormal);
 		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenRes.x, screenRes.y, 0, GL_RGBA, GL_FLOAT, NULL);
@@ -184,7 +184,7 @@ void Renderer::init() {
 		// Цветовой буфер значений цвета + отраженной составляющей
 		pipeline.deferredRender.gAlbedoSpec = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y, false, 4, RESOURCES::TextureFormat::RGBA);
 		pipeline.deferredRender.gAlbedoSpec->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
-		pipeline.deferredRender.gBuffer.AttachTexture(*pipeline.deferredRender.gAlbedoSpec, Attachment::COLOR_ATTACHMENT2);
+		pipeline.deferredRender.gBuffer.attachTexture(*pipeline.deferredRender.gAlbedoSpec, Attachment::COLOR_ATTACHMENT2);
 		//glGenTextures(1, &gAlbedoSpec);
 		//glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
 		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenRes.x, screenRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -193,20 +193,26 @@ void Renderer::init() {
 		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, pipeline.deferredRender.gAlbedoSpec->getId(), 0);
 
 		// Указываем OpenGL на то, в какой прикрепленный цветовой буфер (заданного фреймбуфера) мы собираемся выполнять рендеринг 
-		unsigned int attachments[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-		glDrawBuffers(3, attachments);
+		//unsigned int attachments[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+		//glDrawBuffers(3, attachments);
+		pipeline.deferredRender.gBuffer.setOupbutBuffers({Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1, Attachment::COLOR_ATTACHMENT2});
 
 		// Создаем и прикрепляем буфер глубины (рендербуфер)
-		unsigned int rboDepth;
-		glGenRenderbuffers(1, &rboDepth);
-		glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screenRes.x, screenRes.y);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+		DepthBuffer rboDepth(screenRes.x, screenRes.y);
+		//glGenRenderbuffers(1, &rboDepth);
+		//glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+		//glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screenRes.x, screenRes.y);
+		//glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+		pipeline.deferredRender.gBuffer.attachDepth(rboDepth);
 
 		// Проверяем готовность фреймбуфера
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "Framebuffer not complete!" << std::endl;
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		//	std::cout << "Framebuffer not complete!" << std::endl;
+		if (pipeline.deferredRender.gBuffer.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
+			LOG_ERROR("Deferred Framebuffer not complete!");
+		}
+		pipeline.deferredRender.gBuffer.unbind();
+		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		shadersMap["deferredLightning"]->bind();
 		shadersMap["deferredLightning"]->setUniformInt("u_PositionMap", 0);
@@ -244,9 +250,10 @@ void Renderer::init() {
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
-		pipeline.ssao.ssaoFBO.AttachTexture(*pipeline.ssao.ssaoColorBuffer);
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "SSAO Framebuffer not complete!" << std::endl;
+		pipeline.ssao.ssaoFBO.attachTexture(*pipeline.ssao.ssaoColorBuffer);
+		if (pipeline.ssao.ssaoFBO.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
+			LOG_ERROR("SSAO Framebuffer not complete!");
+		}
 
 		// И стадия размытия
 		//glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
@@ -259,10 +266,12 @@ void Renderer::init() {
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBufferBlur, 0);
-		pipeline.ssao.ssaoBlurFBO.AttachTexture(*pipeline.ssao.ssaoColorBufferBlur);
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "SSAO Blur Framebuffer not complete!" << std::endl;
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		pipeline.ssao.ssaoBlurFBO.attachTexture(*pipeline.ssao.ssaoColorBufferBlur);
+		if (pipeline.ssao.ssaoBlurFBO.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
+			LOG_ERROR("SSAO Framebuffer not complete!");
+		}
+		pipeline.ssao.ssaoBlurFBO.unbind();
+		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		// Генерируем ядро выборки
 		std::uniform_real_distribution<GLfloat> randomFloats(0.0, 1.0); // генерируем случайное число типа float в диапазоне между 0.0 и 1.0
@@ -542,7 +551,7 @@ void Renderer::init() {
 
 	pipeline.finalTextureBeforePostprocessing = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y); //colorBuffer0
 	pipeline.bloom.brightTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y);  //colorBuffer1
-	pipeline.finalFBOBeforePostprocessing.AttachTexture(*pipeline.finalTextureBeforePostprocessing, Attachment::COLOR_ATTACHMENT0);
+	pipeline.finalFBOBeforePostprocessing.attachTexture(*pipeline.finalTextureBeforePostprocessing, Attachment::COLOR_ATTACHMENT0);
 	//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffers[0], 0);
 
 	// Создание буфера глубины (рендербуфер)
@@ -578,7 +587,7 @@ void Renderer::init() {
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // используем режим GL_CLAMP_TO_EDGE, т.к. в противном случае фильтр размытия производил бы выборку повторяющихся значений текстуры!
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongColorbuffers[i], 0);
-		pipeline.bloom.pingpongFBO[i].AttachTexture(*pipeline.bloom.pingpongColorbuffers[i]);
+		pipeline.bloom.pingpongFBO[i].attachTexture(*pipeline.bloom.pingpongColorbuffers[i]);
 		// Также проверяем, готовы ли фреймбуферы (буфер глубины нам не нужен)
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			std::cout << "Framebuffer not complete!" << std::endl;
@@ -813,7 +822,7 @@ void Renderer::renderScene() {
 
 				swapBuffers[0].bind();
 				//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureForGodRays.id, 0);
-				swapBuffers[0].AttachTexture(*pipeline.godRays.godRaysTexture);
+				swapBuffers[0].attachTexture(*pipeline.godRays.godRaysTexture);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				shadersMap["godRaysTexture"]->bind();
 				glActiveTexture(GL_TEXTURE0);
@@ -1074,7 +1083,7 @@ Renderer::~Renderer() {
 void Renderer::prepareDirLightShadowMap() {
 	pipeline.dirLightsData.clear();
 	for (auto& light : ECS::ComponentManager::getInstance()->getAllDirectionalLights()) {
-		pipeline.depthMapFBO.AttachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
+		pipeline.depthMapFBO.attachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 		pipeline.depthMapFBO.unbind();
@@ -1111,7 +1120,7 @@ void Renderer::prepareDirLightShadowMap() {
 void Renderer::prepareSpotLightShadowMap() {
 	pipeline.spotLightsData.clear();
 	for (auto& light : ECS::ComponentManager::getInstance()->getAllSpotLights()) {
-		pipeline.depthMapFBO.AttachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
+		pipeline.depthMapFBO.attachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 		pipeline.depthMapFBO.unbind();
@@ -1146,7 +1155,7 @@ void Renderer::preparePointLightShadowMap() {
 	pipeline.pointLightsData.clear();
 	auto res = getShadowMapResolution();
 	for (auto& light : ECS::ComponentManager::getInstance()->getAllPointLights()) {
-		pipeline.depthMapFBO.AttachCubeMap(*light->DepthMap, Attachment::DEPTH_ATTACHMENT);
+		pipeline.depthMapFBO.attachCubeMap(*light->DepthMap, Attachment::DEPTH_ATTACHMENT);
 		//glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO.id);
 		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, light->shadowMap->id, 0);
 		glDrawBuffer(GL_NONE);

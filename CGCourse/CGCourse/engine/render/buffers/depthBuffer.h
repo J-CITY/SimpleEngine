@@ -26,6 +26,42 @@ namespace KUMA {
             DEPTH_STENCIL_ATTACHMENT,
         };
 
+        enum class FrameBufferStatus
+        {
+            FRAMEBUFFER_COMPLETE = 0x8CD5,
+            FRAMEBUFFER_UNDEFINED = 0x8219,
+            FRAMEBUFFER_INCOMPLETE_ATTACHMENT = 0x8CD6,
+            FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT = 0x8CD7,
+            FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER = 0x8CDB,
+            FRAMEBUFFER_INCOMPLETE_READ_BUFFER = 0x8CDC,
+            FRAMEBUFFER_UNSUPPORTED = 0x8CDD,
+            FRAMEBUFFER_INCOMPLETE_MULTISAMPLE = 0x8D56,
+            FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS = 0x8DA8
+        };
+
+        class DepthBuffer
+        {
+            using BindableId = unsigned int;
+            BindableId id;
+
+        public:
+            DepthBuffer(unsigned w, unsigned h) {
+                glGenRenderbuffers(1, &id);
+                bind();
+                glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+            }
+
+            void bind() {
+                glBindRenderbuffer(GL_RENDERBUFFER, id);
+            }
+            void unbind() {
+                glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            }
+            BindableId getId() {
+                return id;
+            }
+        };
+
         class FrameBuffer {
             enum class AttachmentType : uint8_t {
                 NONE,
@@ -35,13 +71,8 @@ namespace KUMA {
 
             using BindableId = unsigned int;
 
-            
             AttachmentType currentAttachment = AttachmentType::NONE;
-
-            //std::aligned_storage_t<24> attachmentStorage;
-            void OnTextureAttach(const RESOURCES::Texture& texture, Attachment attachment);
-            void OnCubeMapAttach(const RESOURCES::CubeMap& cubemap, Attachment attachment);
-            void FreeFrameBuffer();
+            
         public:
             BindableId id = 0;
             FrameBuffer();
@@ -50,49 +81,41 @@ namespace KUMA {
             FrameBuffer(FrameBuffer&&) noexcept;
             FrameBuffer& operator=(const FrameBuffer&) = delete;
             FrameBuffer& operator=(FrameBuffer&&) noexcept;
-            void CopyFrameBufferContents(const FrameBuffer& framebuffer) const;
-            void CopyFrameBufferContents(int screenWidth, int screenHeight) const;
-            void Validate() const;
-            void DetachRenderTarget();
-            void DetachExtraTarget(Attachment attachment);
-            bool HasTextureAttached() const;
-            bool HasCubeMapAttached() const;
-            //void UseDrawBuffers(ArrayView<Attachment> attachments) const;
-            void UseOnlyDepth() const;
-            size_t GetWidth() const;
-            size_t GetHeight() const;
+
+
+
+            size_t getWidth() const;
+            size_t getHeight() const;
             void bind() const;
             void unbind() const;
+
             BindableId GetNativeHandle() const;
-            RESOURCES::Texture* attachedTexture = nullptr;
-            RESOURCES::CubeMap* attachedCubeMap = nullptr;
-            void AttachTexture(RESOURCES::Texture& texture, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
-                DetachRenderTarget();
-                attachedTexture = new RESOURCES::Texture(texture);
-                this->currentAttachment = AttachmentType::TEXTURE;
-                this->OnTextureAttach(*attachedTexture, attachment);
 
+            FrameBufferStatus getStatus() {
+                return static_cast<FrameBufferStatus>(glCheckNamedFramebufferStatus(id, GL_FRAMEBUFFER));
             }
 
-            void AttachTextureExtra(RESOURCES::Texture& texture, Attachment attachment) {
-                this->OnTextureAttach(texture, attachment);
+            void attachTexture(RESOURCES::Texture& texture, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
+                currentAttachment = AttachmentType::TEXTURE;
+                GLenum mode = attachmentTable[int(attachment)];
+                GLint textureId = texture.getId();
+                bind();
+                glFramebufferTexture2D(GL_FRAMEBUFFER, mode, GL_TEXTURE_2D, textureId, 0);
             }
 
-            void AttachCubeMapExtra(RESOURCES::CubeMap& cubemap, Attachment attachment) {
-                this->OnCubeMapAttach(cubemap, attachment);
+            void attachCubeMap(RESOURCES::CubeMap& cubemap, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
+                GLenum mode = attachmentTable[int(attachment)];
+                GLint cubemapId = cubemap.id;//cubemap.getNativeHandle();
+                bind();
+                glFramebufferTexture(GL_FRAMEBUFFER, mode, cubemapId, 0);
             }
 
-            void AttachCubeMap(RESOURCES::CubeMap& cubemap, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
-                
-                DetachRenderTarget();
-                attachedCubeMap = new RESOURCES::CubeMap(cubemap);
-                this->currentAttachment = AttachmentType::CUBEMAP;
-                this->OnCubeMapAttach(*attachedCubeMap, attachment);
-
+            void attachDepth(DepthBuffer& rboDepth) {
+                bind();
+                glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth.getId());
             }
 
-            std::vector<GLenum> AttachmentTable
-            {
+            std::vector<GLenum> attachmentTable {
                 GL_COLOR_ATTACHMENT0,
                 GL_COLOR_ATTACHMENT1,
                 GL_COLOR_ATTACHMENT2,
@@ -111,36 +134,14 @@ namespace KUMA {
                 GL_STENCIL_ATTACHMENT,
                 GL_DEPTH_STENCIL_ATTACHMENT,
             };
-            void UseDrawBuffers(std::vector<Attachment> attachments) const {
-                std::array<GLenum, 20> attachmentTypes;
-                
-                bind();
-                for (size_t i = 0; i < attachments.size(); i++) {
-                    attachmentTypes[i] = AttachmentTable[(int)attachments[i]];
+
+            void setOupbutBuffers(const std::vector<Attachment>& outBuffers) {
+                std::vector<GLenum> buffers;
+                for (auto e : outBuffers) {
+                    buffers.push_back(attachmentTable[int(e)]);
                 }
-                //glDrawBuffers((GLsizei)attachments.size(), attachmentTypes.data());
-            }
-
-            //template<template<typename, typename> typename Resource, typename Factory>
-            //RESOURCES::Texture* GetAttachedTexture() const {
-            //    if (!this->HasTextureAttached())
-            //        return Resource<Texture, Factory>{ };
-            //
-            //    const auto& texture = *std::launder(reinterpret_cast<const Resource<Texture, Factory>*>(&this->attachmentStorage));
-            //
-            //    return texture;
-            //}
-            //
-            //template<template<typename, typename> typename Resource, typename Factory>
-            //RESOURCES::CubeMap* GetAttachedCubeMap() const {
-            //    if (!this->HasCubeMapAttached())
-            //        return Resource<CubeMap, Factory>{ };
-            //
-            //    const auto& cubemap = *std::launder(reinterpret_cast<const Resource<CubeMap, Factory>*>(&this->attachmentStorage));
-            //
-            //    return cubemap;
-            //}
+                glDrawBuffers(3, buffers.data());
+            };
         };
-
 	}
 }

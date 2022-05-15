@@ -5,6 +5,8 @@
 #include "../utils/debug/logger.h"
 
 #include "../config.h"
+#include "imgui/imgui-SFML.h"
+#include "imgui/imgui.h"
 
 using namespace KUMA::WINDOW_SYSTEM;
 
@@ -94,7 +96,7 @@ void Window::create() {
 		sf::String(title.c_str()), mask, settings);
 	window->setFramerateLimit(60);
 	window->setActive();
-	
+	ImGui::SFML::Init(*window);
 
 	if (!window) {
 		throw std::runtime_error("Failed to create GLFW window");
@@ -122,22 +124,24 @@ struct GamepadData {
 
 void Window::update() {
 	sf::Event event;
-	window->pollEvent(event);
-	if (event.type == sf::Event::Closed) {
-		LOG_INFO("Window close: " + title);
-		isClosed = true;
-	}
-	else if (event.type == sf::Event::KeyPressed) {
-		keyPressedEvent.run(event.key.code);
-	}
-	else if (event.type == sf::Event::KeyReleased) {
-		keyReleasedEvent.run(event.key.code);
-	}
-	else if (event.type == sf::Event::MouseButtonPressed) {
-		mouseButtonPressedEvent.run(event.mouseButton.button);
-	}
-	else if (event.type == sf::Event::MouseButtonReleased) {
-		mouseButtonReleasedEvent.run(event.mouseButton.button);
+	while (window->pollEvent(event)) {
+		ImGui::SFML::ProcessEvent(event);
+		if (event.type == sf::Event::Closed) {
+			LOG_INFO("Window close: " + title);
+			isClosed = true;
+		}
+		else if (event.type == sf::Event::KeyPressed) {
+			keyPressedEvent.run(event.key.code);
+		}
+		else if (event.type == sf::Event::KeyReleased) {
+			keyReleasedEvent.run(event.key.code);
+		}
+		else if (event.type == sf::Event::MouseButtonPressed) {
+			mouseButtonPressedEvent.run(event.mouseButton.button);
+		}
+		else if (event.type == sf::Event::MouseButtonReleased) {
+			mouseButtonReleasedEvent.run(event.mouseButton.button);
+		}
 	}
 	auto g0 = GamepadMgr::Instance().GamepadOne();
 	auto g1 = GamepadMgr::Instance().GamepadTwo();
@@ -178,7 +182,45 @@ void Window::update() {
 	}
 }
 
+sf::Clock deltaClock;
 void Window::draw() {
+
+
+	window->pushGLStates();
+	{//Debug
+		ImGui::SFML::Update(*window, deltaClock.restart());
+
+		ImGui::Begin("Sample window"); // создаём окно
+
+		// Инструмент выбора цвета
+		//if (ImGui::ColorEdit3("Background color", color)) {
+		//	// код вызывается при изменении значения, поэтому всё
+		//	// обновляется автоматически
+		//	bgColor.r = static_cast<sf::Uint8>(color[0] * 255.f);
+		//	bgColor.g = static_cast<sf::Uint8>(color[1] * 255.f);
+		//	bgColor.b = static_cast<sf::Uint8>(color[2] * 255.f);
+		//}
+
+		static float lpx = 0.0f, lpy = 0.0f, lpz = 5.0f;
+		ImGui::InputFloat("LightX", &lpx, 1.0f, 1.0f, "%.2f");
+		ImGui::InputFloat("LightY", &lpy, 1.0f, 1.0f, "%.2f");
+		ImGui::InputFloat("LightZ", &lpz, 1.0f, 1.0f, "%.2f");
+
+		//ImGui::InputFloat("Shin", &materialShin, 2, 1.0f, "%.1f");
+		//ImGui::InputFloat("Scale", &scale, 0.01f, 1.0f, "%.1f");
+		//lightPos = glm::vec3(lpx, lpy, lpz);
+		//char s[100] = "ImGui + SFML = <3";
+		//ImGui::InputText("Window title", s, 255);
+		//
+		//if (ImGui::Button("Update window title")) {
+		//	s[99] = '\0';
+		//	window.setTitle("OKNO");
+		//}
+		ImGui::End(); // end window
+	}
+	ImGui::SFML::Render(*window);
+	window->popGLStates();
+
 	window->display();
 }
 
