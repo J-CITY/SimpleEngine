@@ -45,10 +45,22 @@ namespace KUMA {
             BindableId id;
 
         public:
-            DepthBuffer(unsigned w, unsigned h) {
+
+            enum class Format {
+                DEPTH_COMPONENT = 0x1902,
+                DEPTH_COMPONENT16 = 0x81A5,
+                DEPTH_COMPONENT24 = 0x81A6,
+                DEPTH_COMPONENT32 = 0x81A7
+            };
+            DepthBuffer(unsigned w, unsigned h, Format format= Format::DEPTH_COMPONENT) {
                 glGenRenderbuffers(1, &id);
                 bind();
-                glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+                glRenderbufferStorage(GL_RENDERBUFFER, static_cast<GLenum>(format), w, h);
+            }
+
+            void init(unsigned w, unsigned h, Format format = Format::DEPTH_COMPONENT) {
+                bind();
+                glRenderbufferStorage(GL_RENDERBUFFER, static_cast<GLenum>(format), w, h);
             }
 
             void bind() {
@@ -59,6 +71,10 @@ namespace KUMA {
             }
             BindableId getId() {
                 return id;
+            }
+
+            void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId, unsigned mip) {
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.id, mip);
             }
         };
 
@@ -103,6 +119,10 @@ namespace KUMA {
                 glFramebufferTexture2D(GL_FRAMEBUFFER, mode, GL_TEXTURE_2D, textureId, 0);
             }
 
+            void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId) {
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.id, 0);
+            }
+
             void attachCubeMap(RESOURCES::CubeMap& cubemap, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
                 GLenum mode = attachmentTable[int(attachment)];
                 GLint cubemapId = cubemap.id;//cubemap.getNativeHandle();
@@ -142,6 +162,16 @@ namespace KUMA {
                 }
                 glDrawBuffers(3, buffers.data());
             };
+
+            static void Unbind() {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            }
+
+            static void CopyDepth(const FrameBuffer& from, const FrameBuffer& to, unsigned w, unsigned h) {
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, from.id);
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, to.id); // пишем в заданный по умолчанию фреймбуфер
+                glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+            }
         };
 	}
 }

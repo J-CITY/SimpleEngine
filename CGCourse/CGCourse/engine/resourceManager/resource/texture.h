@@ -264,6 +264,10 @@ namespace KUMA {
 				BoundId = slot;
 			}
 
+			void bindWithoutAttach() const {
+				glBindTexture(GL_TEXTURE_CUBE_MAP, id);
+			}
+
 
 			void unbind() const {
 				glBindTexture(GL_TEXTURE_2D, 0);
@@ -298,10 +302,10 @@ namespace KUMA {
 
 				GenerateMipmaps();*/
 			}
-			void GenerateMipmaps() {
-				bind(0);
-				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			void generateMipmaps() {
+				bindWithoutAttach();
+				//glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				//glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 			}
 
@@ -319,9 +323,11 @@ namespace KUMA {
 				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-				this->GenerateMipmaps();
+				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				generateMipmaps();
 			}
+			
 		public:
 			uint32_t id = 0;
 			int channels = 1;

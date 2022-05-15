@@ -807,7 +807,7 @@ int main() {
 		body->setLinearDamping(0.95f);
 		body->setAngularDamping(0.8f);
 		body->clearAccumulators();
-		//body->setAcceleration(0, -10.0f, 0);
+		body->setAcceleration(0, -10.0f, 0);
 
 		body->setCanSleep(false);
 		body->setAwake();
@@ -931,7 +931,7 @@ int main() {
 		body->setLinearDamping(0.95f);
 		body->setAngularDamping(0.8f);
 		body->clearAccumulators();
-		//body->setAcceleration(0, -10.0f, 0);
+		body->setAcceleration(0, -10.0f, 0);
 
 		body->setCanSleep(false);
 		body->setAwake();

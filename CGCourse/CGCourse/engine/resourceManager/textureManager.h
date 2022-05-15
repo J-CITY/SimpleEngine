@@ -18,21 +18,25 @@ namespace KUMA {
 		public:
 			//without cache
 			static std::shared_ptr<Texture> CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
+			static std::shared_ptr<Texture> CreateFromMemoryFloat(float* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 			static void Reload(Texture& texture, const std::string& filePath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 			static void Destroy(std::shared_ptr<Texture> textureInstance);
 			static std::shared_ptr<Texture> CreateColor(uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 			static std::shared_ptr<Texture> CreateColor(uint32_t p_data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 			static std::shared_ptr<Texture> CreateEmpty(uint32_t width, uint32_t height, bool isFloating=true, int channels=4, TextureFormat format= TextureFormat::RGBA16F);
 			static std::shared_ptr<Texture> CreateFromFile(const std::string& path);
+			static std::shared_ptr<Texture> CreateFromFileFloat(const std::string& path);
 
 			static std::shared_ptr<CubeMap> CreateColorCM(uint8_t r, uint8_t g, uint8_t b);
 			static std::unique_ptr<CubeMap> CreateSkybox(const std::string& filepath);
 			static std::unique_ptr<CubeMap> LoadCubeMap(const int shadow_width, const int shadow_height);
-
+			static std::shared_ptr<CubeMap> CreateCubeMap(const int width, const int height,
+				TextureFiltering firstFilter = TextureFiltering::LINEAR, TextureFiltering secondFilter = TextureFiltering::LINEAR);
 			//with cache
 			std::shared_ptr<Texture> createColor(const std::string& name, uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 		private:
 			static std::shared_ptr<Texture> Create(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
+			static std::shared_ptr<Texture> CreateFloat(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 
 			virtual std::shared_ptr<Texture> createResource(const std::string& path) override;
 			virtual void destroyResource(std::shared_ptr<Texture> res) override;
