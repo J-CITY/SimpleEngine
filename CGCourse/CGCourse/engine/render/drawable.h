@@ -9,6 +9,11 @@ namespace KUMA
 	{
 		class Mesh;
 	}
+
+	namespace ECS
+	{
+		class Skeletal;
+	}
 }
 
 namespace KUMA {
@@ -19,6 +24,7 @@ namespace KUMA {
 			MATHGL::Matrix4 world;
 			RESOURCES::Mesh* mesh;
 			std::shared_ptr<RENDER::Material> material;
+			std::shared_ptr<ECS::Skeletal> animator;
 		};
 
 		using OpaqueDrawables = std::multimap<float, Drawable, std::less<float>>;

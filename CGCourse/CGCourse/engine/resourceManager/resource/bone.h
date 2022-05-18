@@ -107,7 +107,7 @@ namespace KUMA {
         };*/
 
         struct AssimpNodeData {
-            glm::mat4 transformation;
+            MATHGL::Matrix4 transformation;
             std::string name;
             int childrenCount;
             std::vector<AssimpNodeData> children;
@@ -115,37 +115,37 @@ namespace KUMA {
         class AssimpGLMHelpers {
         public:
 
-            static inline glm::mat4 ConvertMatrixToGLMFormat(const aiMatrix4x4& from) {
-                glm::mat4 to;
+            static inline MATHGL::Matrix4 ConvertMatrixToGLMFormat(const aiMatrix4x4& from) {
+                MATHGL::Matrix4 to;
                 //the a,b,c,d in assimp is the row ; the 1,2,3,4 is the column
-                to[0][0] = from.a1; to[1][0] = from.a2; to[2][0] = from.a3; to[3][0] = from.a4;
-                to[0][1] = from.b1; to[1][1] = from.b2; to[2][1] = from.b3; to[3][1] = from.b4;
-                to[0][2] = from.c1; to[1][2] = from.c2; to[2][2] = from.c3; to[3][2] = from.c4;
-                to[0][3] = from.d1; to[1][3] = from.d2; to[2][3] = from.d3; to[3][3] = from.d4;
+                to(0,0) = from.a1; to(1,0) = from.b1; to(2,0) = from.c1; to(3,0) = from.d1;
+                to(0,1) = from.a2; to(1,1) = from.b2; to(2,1) = from.c2; to(3,1) = from.d2;
+                to(0,2) = from.a3; to(1,2) = from.b3; to(2,2) = from.c3; to(3,2) = from.d3;
+                to(0,3) = from.a4; to(1,3) = from.b4; to(2,3) = from.c4; to(3,3) = from.d4;
                 return to;
             }
 
-            static inline glm::vec3 GetGLMVec(const aiVector3D& vec) {
-                return glm::vec3(vec.x, vec.y, vec.z);
+            static inline MATHGL::Vector3 GetGLMVec(const aiVector3D& vec) {
+                return MATHGL::Vector3(vec.x, vec.y, vec.z);
             }
 
-            static inline glm::quat GetGLMQuat(const aiQuaternion& pOrientation) {
-                return glm::quat(pOrientation.w, pOrientation.x, pOrientation.y, pOrientation.z);
+            static inline MATHGL::Quaternion GetGLMQuat(const aiQuaternion& pOrientation) {
+                return MATHGL::Quaternion(pOrientation.x, pOrientation.y, pOrientation.z, pOrientation.w);
             }
         };
 
         struct KeyPosition {
-            glm::vec3 position;
+            MATHGL::Vector3 position;
             float timeStamp;
         };
 
         struct KeyRotation {
-            glm::quat orientation;
+            MATHGL::Quaternion orientation;
             float timeStamp;
         };
 
         struct KeyScale {
-            glm::vec3 scale;
+            MATHGL::Vector3 scale;
             float timeStamp;
         };
 
@@ -189,12 +189,12 @@ namespace KUMA {
             }
 
             void Update(float animationTime) {
-                glm::mat4 translation = InterpolatePosition(animationTime);
-                glm::mat4 rotation = InterpolateRotation(animationTime);
-                glm::mat4 scale = InterpolateScaling(animationTime);
-                m_LocalTransform = translation * rotation * scale;
+                auto translation = InterpolatePosition(animationTime);
+                auto rotation = InterpolateRotation(animationTime);
+                auto scale = InterpolateScaling(animationTime);
+                m_LocalTransform = translation * (rotation * scale);
             }
-            glm::mat4 GetLocalTransform() { return m_LocalTransform; }
+            MATHGL::Matrix4 GetLocalTransform() { return m_LocalTransform; }
             std::string GetBoneName() const { return m_Name; }
             int GetBoneID() { return m_ID; }
 
@@ -235,47 +235,47 @@ namespace KUMA {
                 return scaleFactor;
             }
 
-            glm::mat4 InterpolatePosition(float animationTime) {
-                if (1 == m_NumPositions)
-                    return glm::translate(glm::mat4(1.0f), m_Positions[0].position);
-
+            MATHGL::Matrix4 InterpolatePosition(float animationTime) {
+                if (1 == m_NumPositions) {
+                    return MATHGL::Matrix4::Translation(m_Positions[0].position);// glm::translate(glm::mat4(1.0f), m_Positions[0].position);
+                }
                 int p0Index = GetPositionIndex(animationTime);
                 int p1Index = p0Index + 1;
                 float scaleFactor = GetScaleFactor(m_Positions[p0Index].timeStamp,
                     m_Positions[p1Index].timeStamp, animationTime);
-                glm::vec3 finalPosition = glm::mix(m_Positions[p0Index].position, m_Positions[p1Index].position
-                    , scaleFactor);
-                return glm::translate(glm::mat4(1.0f), finalPosition);
+                auto finalPosition = MATHGL::Vector3::Mix(m_Positions[p0Index].position, m_Positions[p1Index].position, scaleFactor); // glm::mix(m_Positions[p0Index].position, m_Positions[p1Index].position, scaleFactor);
+                return MATHGL::Matrix4::Translation(finalPosition); //glm::translate(glm::mat4(1.0f), finalPosition);
             }
-
-            glm::mat4 InterpolateRotation(float animationTime) {
+            
+            MATHGL::Matrix4 InterpolateRotation(float animationTime) {
                 if (1 == m_NumRotations) {
-                    auto rotation = glm::normalize(m_Rotations[0].orientation);
-                    return glm::toMat4(rotation);
+                    return MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(m_Rotations[0].orientation));
+                	auto rotation = glm::normalize(glm::quat(m_Rotations[0].orientation.w, m_Rotations[0].orientation.x, m_Rotations[0].orientation.y, m_Rotations[0].orientation.z));
+                    auto res = glm::toMat4(rotation);
+                    return MATHGL::Matrix4(
+                        res[0][0], res[1][0], res[2][0], res[3][0],
+                        res[0][1], res[1][1], res[2][1], res[3][1],
+                        res[0][2], res[1][2], res[2][2], res[3][2],
+                        res[0][3], res[1][3], res[2][3], res[3][3]
+                    );
                 }
 
                 int p0Index = GetRotationIndex(animationTime);
                 int p1Index = p0Index + 1;
-                float scaleFactor = GetScaleFactor(m_Rotations[p0Index].timeStamp,
-                    m_Rotations[p1Index].timeStamp, animationTime);
-                glm::quat finalRotation = glm::slerp(m_Rotations[p0Index].orientation, m_Rotations[p1Index].orientation
-                    , scaleFactor);
-                finalRotation = glm::normalize(finalRotation);
-                return glm::toMat4(finalRotation);
-
+                float scaleFactor = GetScaleFactor(m_Rotations[p0Index].timeStamp, m_Rotations[p1Index].timeStamp, animationTime);
+                auto res = MATHGL::Quaternion::Slerp(m_Rotations[p0Index].orientation, m_Rotations[p1Index].orientation, scaleFactor);
+                return MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(res));
             }
 
-            glm::mat4 Bone::InterpolateScaling(float animationTime) {
+            MATHGL::Matrix4 Bone::InterpolateScaling(float animationTime) {
                 if (1 == m_NumScalings)
-                    return glm::scale(glm::mat4(1.0f), m_Scales[0].scale);
+                    return MATHGL::Matrix4::Scaling(m_Scales[0].scale);// glm::scale(glm::mat4(1.0f), m_Scales[0].scale);
 
                 int p0Index = GetScaleIndex(animationTime);
                 int p1Index = p0Index + 1;
-                float scaleFactor = GetScaleFactor(m_Scales[p0Index].timeStamp,
-                    m_Scales[p1Index].timeStamp, animationTime);
-                glm::vec3 finalScale = glm::mix(m_Scales[p0Index].scale, m_Scales[p1Index].scale
-                    , scaleFactor);
-                return glm::scale(glm::mat4(1.0f), finalScale);
+                float scaleFactor = GetScaleFactor(m_Scales[p0Index].timeStamp, m_Scales[p1Index].timeStamp, animationTime);
+                auto finalScale = MATHGL::Vector3::Mix(m_Scales[p0Index].scale, m_Scales[p1Index].scale, scaleFactor);
+                return MATHGL::Matrix4::Scaling(finalScale);
             }
 
             std::vector<KeyPosition> m_Positions;
@@ -285,7 +285,7 @@ namespace KUMA {
             int m_NumRotations;
             int m_NumScalings;
 
-            glm::mat4 m_LocalTransform;
+            MATHGL::Matrix4 m_LocalTransform;
             std::string m_Name;
             int m_ID;
         };
@@ -316,17 +316,19 @@ namespace KUMA {
             inline const std::map<std::string, RENDER::BoneInfo>& GetBoneIDMap() {
                 return m_BoneInfoMap;
             }
-
+            static std::map<std::string, std::shared_ptr<Animation>> LoadAnimations(const std::string& animationPath, RENDER::Model* model);
         private:
-            void ReadMissingBones(const aiAnimation* animation, RENDER::Model& model) {
-                int size = animation->mNumChannels;
+            Animation(const aiAnimation& animation, const aiScene& scene, RENDER::Model& model);
+
+            void ReadMissingBones(const aiAnimation& animation, RENDER::Model& model) {
+                int size = animation.mNumChannels;
 
                 auto& boneInfoMap = model.GetBoneInfoMap();//getting m_BoneInfoMap from Model class
                 int& boneCount = model.GetBoneCount(); //getting the m_BoneCounter from Model class
 
                 //reading channels(bones engaged in an animation and their keyframes)
                 for (int i = 0; i < size; i++) {
-                    auto channel = animation->mChannels[i];
+                    auto channel = animation.mChannels[i];
                     std::string boneName = channel->mNodeName.data;
 
                     if (boneInfoMap.find(boneName) == boneInfoMap.end()) {
@@ -369,15 +371,18 @@ namespace KUMA {
                 m_FinalBoneMatrices.reserve(100);
 
                 for (int i = 0; i < 100; i++)
-                    m_FinalBoneMatrices.push_back(glm::mat4(1.0f));
+                    m_FinalBoneMatrices.push_back(MATHGL::Matrix4(1.0f));
             }
 
             void Animator::UpdateAnimation(float dt) {
+                if (!m_CurrentAnimation) {
+                    return;
+                }
                 m_DeltaTime = dt;
                 if (m_CurrentAnimation) {
                     m_CurrentTime += m_CurrentAnimation->GetTicksPerSecond() * dt;
                     m_CurrentTime = fmod(m_CurrentTime, m_CurrentAnimation->GetDuration());
-                    CalculateBoneTransform(&m_CurrentAnimation->GetRootNode(), glm::mat4(1.0f));
+                    CalculateBoneTransform(&m_CurrentAnimation->GetRootNode(), MATHGL::Matrix4(1.0f));
                 }
             }
 
@@ -386,9 +391,9 @@ namespace KUMA {
                 m_CurrentTime = 0.0f;
             }
 
-            void Animator::CalculateBoneTransform(const AssimpNodeData* node, glm::mat4 parentTransform) {
+            void Animator::CalculateBoneTransform(const AssimpNodeData* node, MATHGL::Matrix4 parentTransform) {
                 std::string nodeName = node->name;
-                glm::mat4 nodeTransform = node->transformation;
+                auto nodeTransform = node->transformation;
 
                 Bone* Bone = m_CurrentAnimation->FindBone(nodeName);
 
@@ -397,25 +402,26 @@ namespace KUMA {
                     nodeTransform = Bone->GetLocalTransform();
                 }
 
-                glm::mat4 globalTransformation = parentTransform * nodeTransform;
+                auto globalTransformation = parentTransform * nodeTransform;
 
                 auto boneInfoMap = m_CurrentAnimation->GetBoneIDMap();
                 if (boneInfoMap.find(nodeName) != boneInfoMap.end()) {
                     int index = boneInfoMap[nodeName].id;
-                    glm::mat4 offset = boneInfoMap[nodeName].offset;
+                    auto offset = boneInfoMap[nodeName].offset;
                     m_FinalBoneMatrices[index] = globalTransformation * offset;
                 }
 
-                for (int i = 0; i < node->childrenCount; i++)
+                for (int i = 0; i < node->childrenCount; i++) {
                     CalculateBoneTransform(&node->children[i], globalTransformation);
+                }
             }
 
-            std::vector<glm::mat4> GetFinalBoneMatrices() {
+            std::vector<MATHGL::Matrix4> GetFinalBoneMatrices() {
                 return m_FinalBoneMatrices;
             }
 
         private:
-            std::vector<glm::mat4> m_FinalBoneMatrices;
+            std::vector<MATHGL::Matrix4> m_FinalBoneMatrices;
             Animation* m_CurrentAnimation;
             float m_CurrentTime;
             float m_DeltaTime;

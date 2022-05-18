@@ -202,7 +202,7 @@ bool Quaternion::operator!=(const Quaternion& otherQuat) const {
 }
 
 Quaternion Quaternion::operator+(const Quaternion& otherQuat) const {
-	return Quaternion(x + otherQuat.x, y + otherQuat.x,
+	return Quaternion(x + otherQuat.x, y + otherQuat.y,
 		z + otherQuat.z, w + otherQuat.w);
 }
 

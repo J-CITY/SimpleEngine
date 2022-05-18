@@ -10,7 +10,7 @@ layout (location = 5) in ivec4 boneIds;
 layout (location = 6) in vec4 weights;
 
 
-uniform mat4 u_LightSpaceMatrix;
+uniform mat4 u_engine_LightSpaceMatrix;
 
 /* Global information sent by the engine */
 

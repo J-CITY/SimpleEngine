@@ -12,6 +12,7 @@
 #include "components/materialRenderer.h"
 #include "components/pointLight.h"
 #include "components/script.h"
+#include "components/skeletal.h"
 #include "components/spotLight.h"
 
 namespace KUMA {
@@ -76,6 +77,10 @@ namespace KUMA::ECS {
 		void addComponent<AudioComponent>(ObjectId<Object> id, std::shared_ptr<AudioComponent> component) {
 			audioComponents[id] = component;
 		}
+		template <>
+		void addComponent<Skeletal>(ObjectId<Object> id, std::shared_ptr<Skeletal> component) {
+			skeletalComponents[id] = component;
+		}
 		
 
 		template<class TYPE>
@@ -109,6 +114,10 @@ namespace KUMA::ECS {
 		void removeComponents<AudioComponent>(ObjectId<Object> id) {
 			audioComponents.erase(id);
 		}
+		template <>
+		void removeComponents<Skeletal>(ObjectId<Object> id) {
+			skeletalComponents.erase(id);
+		}
 
 		void enable(ObjectId<Object> id) {
 			if (transformComponentsOff.count(id)) {
@@ -134,6 +143,14 @@ namespace KUMA::ECS {
 			if (scriptComponentsOff.count(id)) {
 				scriptComponents[id] = scriptComponentsOff[id];
 				scriptComponentsOff.erase(id);
+			}
+			if (audioComponentsOff.count(id)) {
+				audioComponents[id] = audioComponentsOff[id];
+				audioComponentsOff.erase(id);
+			}
+			if (skeletalComponentsOff.count(id)) {
+				skeletalComponents[id] = skeletalComponentsOff[id];
+				skeletalComponentsOff.erase(id);
 			}
 		}
 
@@ -162,6 +179,14 @@ namespace KUMA::ECS {
 				scriptComponentsOff[id] = scriptComponents[id];
 				scriptComponents.erase(id);
 			}
+			if (audioComponents.count(id)) {
+				audioComponentsOff[id] = audioComponents[id];
+				audioComponents.erase(id);
+			}
+			if (skeletalComponents.count(id)) {
+				skeletalComponentsOff[id] = skeletalComponents[id];
+				skeletalComponents.erase(id);
+			}
 		}
 
 		void removeAllObjectComponents(ObjectId<Object> id) {
@@ -188,6 +213,14 @@ namespace KUMA::ECS {
 			if (scriptComponents.count(id)) {
 				scriptComponents.erase(id);
 				scriptComponentsOff.erase(id);
+			}
+			if (audioComponents.count(id)) {
+				audioComponents.erase(id);
+				audioComponentsOff.erase(id);
+			}
+			if (skeletalComponents.count(id)) {
+				skeletalComponents.erase(id);
+				skeletalComponentsOff.erase(id);
 			}
 		}
 
@@ -221,6 +254,7 @@ namespace KUMA::ECS {
 
 		std::map<ObjectId<Object>, std::shared_ptr<TransformComponent>> transformComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<AudioComponent>> audioComponents;
+		std::map<ObjectId<Object>, std::shared_ptr<Skeletal>> skeletalComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<CameraComponent>> cameraComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<LightComponent>> lightComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<ModelRenderer>> modelComponents;
@@ -229,6 +263,7 @@ namespace KUMA::ECS {
 
 		std::map<ObjectId<Object>, std::shared_ptr<TransformComponent>> transformComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<AudioComponent>> audioComponentsOff;
+		std::map<ObjectId<Object>, std::shared_ptr<Skeletal>> skeletalComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<CameraComponent>> cameraComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<LightComponent>> lightComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<ModelRenderer>> modelComponentsOff;

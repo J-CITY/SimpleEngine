@@ -266,5 +266,31 @@ Animation::Animation(const std::string& animationPath, RENDER::Model* model) {
     aiMatrix4x4 globalTransformation = scene->mRootNode->mTransformation;
     globalTransformation = globalTransformation.Inverse();
     ReadHeirarchyData(m_RootNode, scene->mRootNode);
-    ReadMissingBones(animation, *model);
+    ReadMissingBones(*animation, *model);
 }
+
+
+Animation::Animation(const aiAnimation& animation, const aiScene& scene, RENDER::Model& model) {
+    m_Duration = animation.mDuration;
+    m_TicksPerSecond = animation.mTicksPerSecond;
+    aiMatrix4x4 globalTransformation = scene.mRootNode->mTransformation;
+    globalTransformation = globalTransformation.Inverse();
+    ReadHeirarchyData(m_RootNode, scene.mRootNode);
+    ReadMissingBones(animation, model);
+}
+
+std::map<std::string, std::shared_ptr<Animation>> Animation::LoadAnimations(const std::string& animationPath, RENDER::Model* model) {
+    std::map<std::string, std::shared_ptr<Animation>> res;
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(animationPath, aiProcess_Triangulate);
+    assert(scene && scene->mRootNode);
+
+    for (auto i = 0u; i < scene->mNumAnimations; i++) {
+        auto animation = scene->mAnimations[i];
+        auto name = animation->mName;
+        res[name.C_Str()] = std::shared_ptr<Animation>(new Animation (*animation, *scene, *model));
+    }
+    return res;
+}
+

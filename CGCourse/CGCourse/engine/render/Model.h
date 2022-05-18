@@ -19,7 +19,7 @@ namespace KUMA {
 			int id;
 			/*offset matrix transforms vertex from model space to bone space*/
 			//MATHGL::Matrix4 offset;
-			glm::mat4 offset;
+			MATHGL::Matrix4 offset;
 		};
 
 		class Model{

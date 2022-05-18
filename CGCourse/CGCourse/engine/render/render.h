@@ -157,7 +157,7 @@ namespace KUMA {
 		
 		class BaseRender {
 		public:
-			static std::shared_ptr<KUMA::RESOURCES::Animator> animator;
+			//static std::shared_ptr<KUMA::RESOURCES::Animator> animator;
 			struct FrameInfo {
 				uint64_t batchCount = 0;
 				uint64_t instanceCount = 0;

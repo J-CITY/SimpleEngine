@@ -12,7 +12,7 @@ layout (location = 6) in vec4 weights;
 const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
 
-uniform mat4 u_FinalBonesMatrices[MAX_BONES];
+uniform mat4 u_engine_FinalBonesMatrices[MAX_BONES];
 uniform bool u_UseBone;
 uniform vec3 u_Color;
 
@@ -40,7 +40,7 @@ void main() {
 				totalPosition = vec4(geo_Pos,1.0f);
 				break;
 			}
-			vec4 localPosition = (u_FinalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
+			vec4 localPosition = (u_engine_FinalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
 			totalPosition += localPosition * weights[i];
 		}
 	}

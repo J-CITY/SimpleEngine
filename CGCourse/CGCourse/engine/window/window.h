@@ -12,6 +12,14 @@
 #include "../utils/gamepad/GamepadMgr.h"
 #include "../resourceManager/serializerInterface.h"
 
+namespace KUMA
+{
+	namespace CORE_SYSTEM
+	{
+		class Core;
+	}
+}
+
 namespace KUMA::WINDOW_SYSTEM {
 	struct WindowSettings {
 		bool isFullscreen = false;
@@ -80,6 +88,7 @@ namespace KUMA::WINDOW_SYSTEM {
 
 		bool isClosed = false;
 
+		void drawDebug(CORE_SYSTEM::Core& core);
 		void draw();
 
 		std::unique_ptr<sf::RenderWindow>& getSFMLContext() {

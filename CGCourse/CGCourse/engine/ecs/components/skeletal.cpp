@@ -5,20 +5,42 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-Skeletal::Skeletal(const ECS::Object& obj, std::string& path, int startAnimation) : Component(obj), animationPath(path){
+Skeletal::Skeletal(const ECS::Object& obj, const std::string& path, const std::optional<std::string>& startAnimation) : Component(obj), animationPath(path){
 	__NAME__ = "Skeletal";
 	auto model = ECS::ComponentManager::getInstance()->modelComponents[obj.getID()];
 	if (!model) {
 		//panic
 	}
-	animations.push_back(std::make_shared<KUMA::RESOURCES::Animation>(animationPath, model->getModel().get()));
-	animator = std::make_shared<KUMA::RESOURCES::Animator>(animations[startAnimation].get());
+	animations = RESOURCES::Animation::LoadAnimations(animationPath, model->getModel().get());
+	//for (auto a : animations) {
+	//	animationsVec.push_back(a.second);
+	//}
+	if (startAnimation) {
+		animator = std::make_unique<KUMA::RESOURCES::Animator>(animations.at(startAnimation.value()).get());
+	}
 }
 
 void Skeletal::onUpdate(float dt) {
 	animator->UpdateAnimation(dt);
 }
 
-void Skeletal::setAnimation(int id) {
-	
+void Skeletal::setAnimation(const std::string& id) {
+	if (!animations.count(id)) {
+		LOG_ERROR("Skeletal::setAnimation: Can not set animation (key do not exist)");
+		return;
+	}
+	//if (!id.empty()) {
+		animator = std::make_unique<KUMA::RESOURCES::Animator>(animations.at(id).get());
+	//}
 }
+
+//void Skeletal::setAnimation(int id) {
+//	//if (!id.empty()) {
+//	if (id >= animationsVec.size()) {
+//		LOG_ERROR("Skeletal::setAnimation: Can not set animation (out of vector range)");
+//		return;
+//	}
+//	animator = std::make_unique<KUMA::RESOURCES::Animator>(animationsVec[id].get());
+//	//}
+//}
+

@@ -142,7 +142,7 @@ namespace KUMA {
 					//	name = name.substr(0, p);
 					//}
 
-					if (!isEngineUBOMember(name)) {
+					if (!isEngineUBOMember(name) && !isEngineUniformMember(name)) {
 						RENDER::ShaderUniform defaultValue;
 
 						switch (static_cast<RENDER::UniformType>(type)) {
@@ -181,6 +181,10 @@ namespace KUMA {
 
 			static bool isEngineUBOMember(const std::string& uniformName) {
 				return uniformName.rfind("ubo_", 0) == 0;
+			}
+
+			static bool isEngineUniformMember(const std::string& uniformName) {
+				return uniformName.rfind("u_engine_", 0) == 0;
 			}
 			
 			unsigned int getUniformLocation(const std::string& name) {

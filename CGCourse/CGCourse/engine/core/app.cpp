@@ -54,5 +54,6 @@ void App::update(float dt) {
 }
 
 void App::postUpdate() {
+	core.window->drawDebug(core);
 	core.window->draw();
 }

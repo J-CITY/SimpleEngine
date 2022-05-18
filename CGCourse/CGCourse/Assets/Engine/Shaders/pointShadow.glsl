@@ -21,15 +21,16 @@ layout (std140) uniform EngineUBO
 
 const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
-uniform mat4 finalBonesMatrices[MAX_BONES];
-uniform bool useBone;
-//uniform mat4 lightSpaceMatrix;
+
+uniform mat4 u_engine_FinalBonesMatrices[MAX_BONES];
+uniform bool u_UseBone;
+
 uniform mat4 model;
 
 void main()
 {
     vec4 totalPosition = vec4(0.0f);
-    if (useBone) {
+    if (u_UseBone) {
         for(int i = 0; i < MAX_BONE_INFLUENCE; i++) {
             if(int(boneIds[i]) == -1) 
                 continue;
@@ -37,17 +38,17 @@ void main()
                 totalPosition = vec4(geo_Pos,1.0f);
                 break;
             }
-            vec4 localPosition = (finalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
+            vec4 localPosition = (u_engine_FinalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
             totalPosition += localPosition * weights[i];
         }
     }
 
-    if (useBone) {
+    if (u_UseBone) {
         gl_Position = model * totalPosition;
     }
-    else {
+    //else {
         gl_Position = model * vec4(geo_Pos, 1.0);
-    }
+    //}
 }
 
 #shader fragment
@@ -90,4 +91,4 @@ void main() {
         }    
         EndPrimitive();
     }
-} 
+}
