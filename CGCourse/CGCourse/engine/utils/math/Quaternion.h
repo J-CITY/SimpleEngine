@@ -60,12 +60,12 @@ namespace KUMA {
 			static Quaternion Slerp(Quaternion& x, Quaternion& y, float a) {
 				Quaternion z = y;
 
-				auto cosTheta = Quaternion::Dot(x, y);
+				float cosTheta = Quaternion::Dot(x, y);
 
 				// If cosTheta < 0, the interpolation will take the long way around the sphere.
 				// To fix this, one quat must be negated.
 				if (cosTheta < 0.0f) {
-					z = y * -1;
+					z = y * -1.0f;
 					cosTheta = -cosTheta;
 				}
 				auto mix = [](float x, float y, float a) {
@@ -84,7 +84,18 @@ namespace KUMA {
 				else {
 					// Essential Mathematics, page 467
 					auto angle = acos(cosTheta);
-					return (x * sin((1.0f - a) * angle) + z * sin(a * angle)) / sin(angle);
+
+					auto sin1 = sin((1.0f - a) * angle);
+					auto sin2 = sin(a * angle);
+					auto s = sin(angle);
+
+					auto xsin1 = x * sin1;
+					auto zsin2 = z * sin2;
+
+					auto res = xsin1 + zsin2;
+					auto res2 = res / s;
+
+					return ((x * sin((1.0f - a) * angle)) + (z * sin(a * angle))) / sin(angle);
 				}
 			}
 

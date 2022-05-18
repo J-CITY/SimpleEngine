@@ -11,6 +11,7 @@
 #include "engine/ecs/components/inputComponent.h"
 #include "engine/ecs/components/physicsComponent.h"
 #include "engine/ecs/components/pointLight.h"
+#include "engine/ecs/components/skeletal.h"
 #include "engine/physics/body.h"
 #include "engine/physics/narrowPhase.h"
 #include "engine/physics/PhysicWorld.h"
@@ -23,8 +24,8 @@ extern "C" {
 }
 Game::World* world = nullptr;
 
-std::shared_ptr<KUMA::RESOURCES::Animation> danceAnimation;
-std::shared_ptr<KUMA::RESOURCES::Animator> animator;
+//std::shared_ptr<KUMA::RESOURCES::Animation> danceAnimation;
+//std::shared_ptr<KUMA::RESOURCES::Animator> animator;
 
 float liveTime = 20.0f;
 float liveTime2 = 20.0f;
@@ -77,9 +78,48 @@ int main() {
 			light->setColor({255.0f, 200.0f, 255.0f});
 			light->Radius = 25.0f;
 			//obj.transform->setLocalPosition({rpos(), rpos(), rpos()});
-			obj->transform->setLocalPosition({0, 5, 0});
+			obj->transform->setLocalPosition({0, 50, 0});
 			obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 			obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
+
+			auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app](float dt) {
+			auto& core = app.getCore();
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_K)) {
+				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				pos.z += 1.0f;
+				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+			}
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_I)) {
+				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				pos.z -= 1.0f;
+				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+			}
+
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_J)) {
+				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				pos.x -= 1.0f;
+				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+			}
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_L)) {
+				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				pos.x += 1.0f;
+				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+			}
+
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_U)) {
+				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				pos.y -= 1.0f;
+				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+			}
+			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_O)) {
+				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				pos.y += 1.0f;
+				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+			}
+
+			auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+			LOG_INFO(std::to_string(pos.x) + " " + std::to_string(pos.y) + " " + std::to_string(pos.z) + "\n");
+		});
 		}
 	}
 
@@ -114,7 +154,7 @@ int main() {
 		//light->zFar = 2000.0f;
 		//light->strength = 1.0f;
 		//light->aspect = 1.0f;
-
+	
 		light->setIntensity(1.0f);
 		light->setQuadratic(1.0f);
 		light->setLinear(1.0f);
@@ -131,7 +171,7 @@ int main() {
 		//light->zFar = 2000.0f;
 		//light->strength = 1.0f;
 		//light->aspect = 1.0f;
-
+	
 		light->setIntensity(1.0f);
 		light->setQuadratic(1.0f);
 		light->setLinear(1.0f);
@@ -148,7 +188,7 @@ int main() {
 		//light->zFar = 2000.0f;
 		//light->strength = 1.0f;
 		//light->aspect = 1.0f;
-
+	
 		light->setIntensity(1.0f);
 		light->setQuadratic(1.0f);
 		light->setLinear(1.0f);
@@ -157,23 +197,7 @@ int main() {
 		obj->transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
 		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
-	{
-		auto& obj = scene->createObject("Point3Light");
-		auto light = obj->addComponent<KUMA::ECS::PointLight>();
-		//light->shadowRes = 2048;
-		//light->zNear = 1.0f;
-		//light->zFar = 2000.0f;
-		//light->strength = 1.0f;
-		//light->aspect = 1.0f;
 
-		light->setIntensity(1.0f);
-		light->setQuadratic(1.0f);
-		light->setLinear(1.0f);
-		light->setColor({255.0f, 255.0f, 255.0f});
-		obj->transform->setLocalPosition({-20.0f, 35.0f, 5.0f});
-		obj->transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
-		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
-	}
 	{
 		auto& obj = scene->createObject("AmbLight");
 
@@ -562,18 +586,14 @@ int main() {
 
 		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\guard\\boblampclean.md5mesh", flags);
 		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", flags);
-		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
-		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\stone\\Stonefbx.fbx", flags);
-		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\astroBoy_walk_Maya.dae", flags);
-		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Drone.fbx", flags);
 
-		danceAnimation = std::make_shared<KUMA::RESOURCES::Animation>("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", m.get());
-		animator = std::make_shared<KUMA::RESOURCES::Animator>(danceAnimation.get());
-		KUMA::RENDER::BaseRender::animator = animator;
-		obj->addComponent<KUMA::ECS::InputComponent>([](float dt) {
-			if (animator)
-				animator->UpdateAnimation(dt);
-		});
+		//danceAnimation = std::make_shared<KUMA::RESOURCES::Animation>("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", m.get());
+		//animator = std::make_shared<KUMA::RESOURCES::Animator>(danceAnimation.get());
+		//KUMA::RENDER::BaseRender::animator = animator;
+		//obj->addComponent<KUMA::ECS::InputComponent>([](float dt) {
+		//	if (animator)
+		//		animator->UpdateAnimation(dt);
+		//});
 		model->setModel(m);
 		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
 		auto bs = KUMA::RENDER::BoundingSphere();
@@ -584,6 +604,9 @@ int main() {
 		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
 		obj->transform->setLocalScale({10.20f, 10.20f, 10.20f});
+
+		obj->addComponent<KUMA::ECS::Skeletal>("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", "");
+
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
@@ -1566,5 +1589,23 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 
+	//{
+	//
+	//	auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\BW.glsl");
+	//	auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+	//	_m->setShader(s);
+	//	_m->setBlendable(false);
+	//	_m->setBackfaceCulling(true);
+	//	_m->setFrontfaceCulling(false);
+	//	_m->setDepthTest(false);
+	//	_m->setDepthWriting(false);
+	//	_m->setColorWriting(true);
+	//	_m->setGPUInstances(1);
+	//
+	//	app.getCore().renderer->addCustomPostRocessing("BlackWhite", _m);
+	//}
+
 	app.run();
 }
+
+

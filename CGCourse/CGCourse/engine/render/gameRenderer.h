@@ -47,7 +47,15 @@ namespace KUMA::RENDER {
 		uint32_t id;
 		MATHGL::Matrix4 projMap;
 	};
+
+	struct PointInfo {
+		MATHGL::Vector3 pos;
+		unsigned id;
+	};
 	struct PointLightData {
+		int size;
+		float farPlane;
+		std::array<PointInfo, 4> data;
 		uint32_t id;
 	};
 
@@ -111,7 +119,7 @@ namespace KUMA::RENDER {
 
 		std::vector<DirLightData> dirLightsData;
 		std::vector<SpotLightData> spotLightsData;
-		std::vector<PointLightData> pointLightsData;
+		PointLightData pointLightsData;
 
 		ShadowLightData shadowLightData;
 
@@ -134,7 +142,13 @@ namespace KUMA::RENDER {
 
 		unsigned int clearMask = 0;
 	public:
-
+		enum class PostProcessing {
+			BLOOM = 0u,
+			GOOD_RAYS,
+			MOTION_BLUR,
+			FXAA,
+			HDR
+		};
 		//defered render
 		//unsigned int gBuffer;
 		//unsigned int gPosition, gNormal, gAlbedoSpec;
@@ -170,8 +184,8 @@ namespace KUMA::RENDER {
 		void drawModelWithSingleMaterial(Model& model, Material& material, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
 		void drawModelWithMaterials(Model& model, std::vector<Material*> materials, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
 
-		void drawGBuffer(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
-		void drawDirShadowMap(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
+		//void drawGBuffer(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
+		void drawMeshWithShader(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
 		void drawMesh(RESOURCES::Mesh& mesh, Material& material, MATHGL::Matrix4 const* modelMatrix, bool useTexutres = true);
 		void registerModelMatrixSender(std::function<void(MATHGL::Matrix4)> modelMatrixSender);
 		void clear() const;
@@ -185,13 +199,55 @@ namespace KUMA::RENDER {
 		}
 
 
+		void setdBounseDataToShader(Material& material, std::shared_ptr<ECS::Skeletal> animator, RESOURCES::Shader& shader);
+		void sendShadowDirData(Material& p_material, RESOURCES::Shader& shader);
+		void sendShadowPointData(Material& p_material, RESOURCES::Shader& shader);
+
 		void prepareDirLightShadowMap();
 		void prepareSpotLightShadowMap();
 		void preparePointLightShadowMap();
 
-		void init();
+		void prepareTexturesForPostprocessing();
+		void applyBloom();
+		void applyGoodRays();
+		void applyMotionBlur();
+		void applyFXAA();
+		void applyHDR();
 
+		void configuratePostProcessing() {
+			postProcessingFuncs.clear();
+			for (auto i = 0u; i < postProcessingState.size(); i++) {
+				if (postProcessingState[i]) {
+					switch (static_cast<PostProcessing>(i)) {
+					case PostProcessing::BLOOM: postProcessingFuncs.push_back([this]() { applyBloom(); }); break;
+					case PostProcessing::GOOD_RAYS: postProcessingFuncs.push_back([this]() { applyGoodRays(); }); break;
+					case PostProcessing::MOTION_BLUR: postProcessingFuncs.push_back([this]() { applyMotionBlur(); }); break;
+					case PostProcessing::FXAA: postProcessingFuncs.push_back([this]() { applyFXAA(); }); break;
+					case PostProcessing::HDR: postProcessingFuncs.push_back([this]() { applyHDR(); }); break;
+					default: ;
+					}
+				}
+			} 
+		}
+
+		void setPostProcessing(PostProcessing type, bool isEnable) {
+			if (isEnable == postProcessingState[static_cast<unsigned>(type)]) {
+				return;
+			}
+			postProcessingState[static_cast<unsigned>(type)] = isEnable;
+			configuratePostProcessing();
+		}
+
+		void init();
 		MATHGL::Vector2f getShadowMapResolution();
+
+		struct CustomPostProcessing {
+			std::string name;
+			std::shared_ptr<Material> material;
+			bool isEnabled = true;
+		};
+
+		void addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled = true);
 	public:
 		void initShaders();
 		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;
@@ -221,5 +277,12 @@ namespace KUMA::RENDER {
 		//Game::World* world;
 
 		std::shared_ptr<RENDER::Model> sphere;
+
+
+		std::vector<bool> postProcessingState = std::vector<bool>(5, true);
+		std::vector<std::function<void()>> postProcessingFuncs;
+
+		std::vector<CustomPostProcessing> customPostProcessing;
+		
 	};
 }

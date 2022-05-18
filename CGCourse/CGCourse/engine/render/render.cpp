@@ -53,7 +53,7 @@ void BaseRender::useBlendFactors(BlendFactor src, BlendFactor dist) {
 	}
 }
 
-std::shared_ptr<KUMA::RESOURCES::Animator> BaseRender::animator;
+//std::shared_ptr<KUMA::RESOURCES::Animator> BaseRender::animator;
 
 BaseRender::BaseRender(GL_SYSTEM::GlManager& driver) : driver(driver), state(0) {
 }

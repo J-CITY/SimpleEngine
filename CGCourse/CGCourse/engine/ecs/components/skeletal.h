@@ -1,4 +1,6 @@
 #pragma once
+#include <optional>
+
 #include "component.h"
 #include "../../render/buffers/depthBuffer.h"
 
@@ -9,7 +11,7 @@ namespace KUMA::ECS { class Object; }
 namespace KUMA::ECS {
 	class Skeletal : public Component {
 	public:
-		Skeletal(const ECS::Object& obj, std::string& path, int startAnimation=0);
+		Skeletal(const ECS::Object& obj, const std::string& path, const std::optional<std::string>& startAnimation=std::nullopt);
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 
@@ -19,10 +21,12 @@ namespace KUMA::ECS {
 		}
 
 		void onUpdate(float dt) override;
-		void setAnimation(int id);
+		void setAnimation(const std::string& id);
+		//void setAnimation(int id);
 
-		std::vector<std::shared_ptr<KUMA::RESOURCES::Animation>> animations;
-		std::shared_ptr<KUMA::RESOURCES::Animator> animator;
+		std::map<std::string, std::shared_ptr<KUMA::RESOURCES::Animation>> animations;
+		//std::vector<std::shared_ptr<KUMA::RESOURCES::Animation>> animationsVec;
+		std::unique_ptr<KUMA::RESOURCES::Animator> animator;
 		std::string animationPath;
 	};
 }

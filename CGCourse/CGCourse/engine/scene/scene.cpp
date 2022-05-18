@@ -12,6 +12,14 @@
 
 namespace KUMA
 {
+	namespace ECS
+	{
+		class Skeletal;
+	}
+}
+
+namespace KUMA
+{
 	namespace RENDER
 	{
 		enum class CullingOptions;
@@ -275,6 +283,7 @@ KUMA::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 			if (auto model = modelRenderer.second->getModel()) {
 				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = owner.transform->getTransform();
+					auto animator = modelRenderer.second->obj.getComponent<ECS::Skeletal>();
 
 					RENDER::CullingOptions cullingOptions = RENDER::CullingOptions::NONE;
 
@@ -307,7 +316,7 @@ KUMA::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 							}
 
 							if (material) {
-								RENDER::Drawable element = {transform.getWorldMatrix(), &mesh.get(), material};
+								RENDER::Drawable element = {transform.getWorldMatrix(), &mesh.get(), material, animator};
 								if (material->isBlendable()) {
 									if (material->getShader()) {
 										transparentDrawablesForward.emplace(distanceToActor, element);
@@ -355,6 +364,7 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 
 				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
 					const auto& transform = modelRenderer.second->obj.transform->getTransform();
+					auto animator = modelRenderer.second->obj.getComponent<ECS::Skeletal>();
 
 					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
 
@@ -368,7 +378,7 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 						}
 
 						if (material) {
-							RENDER::Drawable element = {transform.getWorldMatrix(), mesh, material};
+							RENDER::Drawable element = {transform.getWorldMatrix(), mesh, material, animator};
 							if (material->isBlendable()) {
 								if (material->getShader()) {
 									transparentDrawablesForward.emplace(distanceToActor, element);
