@@ -13,15 +13,19 @@ const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
 uniform mat4 u_engine_FinalBonesMatrices[MAX_BONES];
 uniform bool u_UseBone;
+
+//dir light
 uniform mat4 u_engine_LightSpaceMatrix;
 
+//spot light
+uniform mat4 u_engine_SpotLightSpaceMatrix;
+
 //fog
-uniform vec4 fogScaleBias;
+//uniform vec4 fogScaleBias;
 
 /* Global information sent by the engine */
 
-layout (std140) uniform EngineUBO
-{
+layout (std140) uniform EngineUBO {
     mat4    ubo_Model;
     mat4    ubo_View;
     mat4    ubo_Projection;
@@ -30,8 +34,7 @@ layout (std140) uniform EngineUBO
 };
 
 /* Information passed to the fragment shader */
-out VS_OUT
-{
+out VS_OUT {
     vec3        FragPos;
     vec3        Normal;
     vec2        TexCoords;
@@ -40,12 +43,10 @@ out VS_OUT
     vec3        TangentFragPos;
 
     vec4 FragPosLightSpace;
+    vec4 FragPosSpotLightSpace;
 
     vec4 EyeSpacePosition;
-
-    vec3 fogCrd;
 } vs_out;
-int ub=1;
 
 void main() {
     vec4 totalPosition = vec4(0.0f);
@@ -84,10 +85,11 @@ void main() {
     vs_out.TangentViewPos   = TBNi * ubo_ViewPos;
     vs_out.TangentFragPos   = TBNi * vs_out.FragPos;
     vs_out.FragPosLightSpace = u_engine_LightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
+    vs_out.FragPosSpotLightSpace = u_engine_SpotLightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
     
 
     //fog
-    vs_out.fogCrd = vs_out.FragPos * fogScaleBias.w + vec3(fogScaleBias.x, fogScaleBias.y * ubo_Time, fogScaleBias.z);
+    //vs_out.fogCrd = vs_out.FragPos * fogScaleBias.w + vec3(fogScaleBias.x, fogScaleBias.y * ubo_Time, fogScaleBias.z);
 
     //mat4 viewModel = ubo_View * ubo_Model;
     gl_Position = ubo_Projection * (ubo_View * vec4(vs_out.FragPos, 1.0));
@@ -120,10 +122,9 @@ in VS_OUT
     vec3        TangentFragPos;
 
     vec4 FragPosLightSpace;
+    vec4 FragPosSpotLightSpace;
 
     vec4 EyeSpacePosition;
-
-    vec3 fogCrd;
 } fs_in;
 
 struct LightOGL {
@@ -140,8 +141,7 @@ struct LightOGL {
 };
 
 /* Light information sent by the engine */
-layout(std430, binding = 0) buffer LightSSBO
-{
+layout(std430, binding = 0) buffer LightSSBO {
     LightOGL ssbo_Lights[];
 };
 
@@ -157,17 +157,15 @@ uniform sampler2D   u_DiffuseMap;
 uniform sampler2D   u_SpecularMap;
 uniform sampler2D   u_NormalMap;
 uniform sampler2D   u_HeightMap;
-uniform sampler2D   u_MaskMap;
 
 
-uniform vec4 fogScaleBias;
+//uniform vec4 fogScaleBias;
 //uniform float fogStart;
 
 //dir light
 uniform sampler2D u_engine_ShadowMap;
-//uniform sampler2D spotShadowMap;
-//uniform samplerCube pointShadowMap[4];
 uniform vec3 u_engine_LightPos;
+uniform bool u_engine_UseDirShadow;
 
 //point lights
 const int MAX_POINTS_LIGHT_SHADOW = 4;
@@ -175,8 +173,14 @@ uniform int u_engine_PointLightsSize;
 uniform vec3 u_engine_PointLightsPos[MAX_POINTS_LIGHT_SHADOW];
 uniform float u_engine_FarPlane;
 uniform samplerCube u_engine_PointLightsCubeMap[MAX_POINTS_LIGHT_SHADOW];
+uniform bool u_engine_UsePointShadow;
 
-
+//spot light
+uniform sampler2D u_engine_SpotLightShadowMap;
+uniform float u_engine_SpotFarPlane;
+uniform float u_engine_SpotNearPlane;
+uniform vec3 u_engine_SpotLightPos;
+uniform bool u_engine_UseSpotShadow;
 
 uniform mat4 u_engine_LightSpaceMatrix;
 
@@ -189,265 +193,19 @@ vec4 g_SpecularTexel;
 vec4 g_HeightTexel;
 vec4 g_NormalTexel;
 
-struct FogParameters {
-	vec3 color;
-	float linearStart;
-	float linearEnd;
-	float density;
-	
-	int equation;
-	bool isEnabled;
-};
+#include "lib/blinnPhongLight.glsl"
+#include "lib/fog.glsl"
+#include "lib/shadows.glsl"
 
-
-//TODO: set as uniform
-FogParameters fogParams;
+uniform FogParameters u_engine_FogParams;
 
 out vec4 FRAGMENT_COLOR;
 
-float getFogFactor(FogParameters params, float fogCoordinate) {
-	float result = 0.0;
-	if(params.equation == 0) {
-		float fogLength = params.linearEnd - params.linearStart;
-		result = (params.linearEnd - fogCoordinate) / fogLength;
-	}
-	else if(params.equation == 1) {
-		result = exp(-params.density * fogCoordinate);
-	}
-	else if(params.equation == 2) {
-		result = exp(-pow(params.density * fogCoordinate, 2.0));
-	}
-	result = 1.0 - clamp(result, 0.0, 1.0);
-	return result;
-}
-
-
-bool PointInAABB(vec3 p_Point, vec3 p_AabbCenter, vec3 p_AabbHalfSize)
-{
-    return
-    (
-        p_Point.x > p_AabbCenter.x - p_AabbHalfSize.x && p_Point.x < p_AabbCenter.x + p_AabbHalfSize.x &&
-        p_Point.y > p_AabbCenter.y - p_AabbHalfSize.y && p_Point.y < p_AabbCenter.y + p_AabbHalfSize.y &&
-        p_Point.z > p_AabbCenter.z - p_AabbHalfSize.z && p_Point.z < p_AabbCenter.z + p_AabbHalfSize.z
-    );
-}
-
-vec2 ParallaxMapping(vec3 p_ViewDir)
-{
+vec2 ParallaxMapping(vec3 p_ViewDir) {
     const vec2 parallax = p_ViewDir.xy * u_HeightScale * texture(u_HeightMap, g_TexCoords).r;
     return g_TexCoords - vec2(parallax.x, 1.0 - parallax.y);
 }
 
-vec3 BlinnPhong(vec3 p_LightDir, vec3 p_LightColor, float p_Luminosity, float shadow)
-{
-    const vec3  halfwayDir          = normalize(p_LightDir + g_ViewDir);
-    const float diffuseCoefficient  = max(dot(g_Normal, p_LightDir), 0.0);
-    const float specularCoefficient = pow(max(dot(g_Normal, halfwayDir), 0.0), u_Shininess * 2.0);
-
-    return (1.0-shadow) * (p_LightColor * g_DiffuseTexel.rgb * diffuseCoefficient * p_Luminosity + ((p_Luminosity > 0.0) ? (p_LightColor * g_SpecularTexel.rgb * specularCoefficient * p_Luminosity) : vec3(0.0)));
-}
-
-
-float LuminosityFromAttenuation(LightOGL p_Light)
-{
-    const vec3  lightPosition   = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
-    const float constant        = p_Light.constant;
-    const float linear          = p_Light.linear;
-    const float quadratic       = p_Light.quadratic;
-
-    const float distanceToLight = length(lightPosition - fs_in.FragPos);
-    const float attenuation     = (constant + linear * distanceToLight + quadratic * (distanceToLight * distanceToLight));
-    return 1.0 / attenuation;
-}
-vec3 CalcPointLight(LightOGL p_Light, float shadow)
-{
-    const vec3 lightPosition  = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
-    const vec3 lightColor     = vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]);
-    const float intensity     = p_Light.intensity;
-
-    const vec3  lightDirection  = normalize(lightPosition - fs_in.FragPos);
-    const float luminosity      = LuminosityFromAttenuation(p_Light);
-
-    return BlinnPhong(lightDirection, lightColor, intensity * luminosity, shadow);
-}
-
-vec3 CalcDirectionalLight(LightOGL p_Light, float shadow)
-{
-    return BlinnPhong(-vec3(p_Light.forward[0], p_Light.forward[1], p_Light.forward[2]), 
-        vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]), p_Light.intensity, shadow);
-}
-
-vec3 CalcSpotLight(LightOGL p_Light)
-{
-    const vec3  lightPosition   = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
-    const vec3  lightForward    = vec3(p_Light.forward[0], p_Light.forward[1], p_Light.forward[2]);
-    const vec3  lightColor      = vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]);
-    const float intensity       = p_Light.intensity;
-    const float cutOff          = cos(radians(p_Light.cutoff));
-    const float outerCutOff     = cos(radians(p_Light.cutoff + p_Light.outerCutoff));
-
-    const vec3  lightDirection  = normalize(lightPosition - fs_in.FragPos);
-    const float luminosity      = LuminosityFromAttenuation(p_Light);
-
-    /* Calculate the spot intensity */
-    const float theta           = dot(lightDirection, normalize(-lightForward)); 
-    const float epsilon         = cutOff - outerCutOff;
-    const float spotIntensity   = clamp((theta - outerCutOff) / epsilon, 0.0, 1.0);
-    
-    return BlinnPhong(lightDirection, lightColor, intensity * spotIntensity * luminosity, 0.0);
-}
-
-vec3 CalcAmbientBoxLight(LightOGL p_Light)
-{
-    const vec3  lightPosition   = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
-    const vec3  lightColor      = vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]);
-    const float intensity       = p_Light.intensity;
-    const vec3  size            = vec3(p_Light.constant, p_Light.linear, p_Light.quadratic);
-
-    return PointInAABB(fs_in.FragPos, lightPosition, size) ? g_DiffuseTexel.rgb * lightColor * intensity : vec3(0.0);
-}
-
-vec3 CalcAmbientSphereLight(LightOGL p_Light)
-{
-    const vec3  lightPosition   = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
-    const vec3  lightColor      = vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]);
-    const float intensity       = p_Light.intensity;
-    const float radius          = p_Light.constant;
-
-    return distance(lightPosition, fs_in.FragPos) <= radius ? g_DiffuseTexel.rgb * lightColor * intensity : vec3(0.0);
-}
-
-
-float DirShadowCalculation(vec4 fragPosLightSpace)
-{
-    // Выполняем деление перспективы
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-	
-    // Трансформируем в диапазон [0,1]
-    projCoords = projCoords * 0.5 + 0.5;
-	
-    // Получаем наиболее близкое значение глубины исходя из перспективы глазами источника света (используя в диапазон [0,1] fragPosLight в качестве координат)
-    float closestDepth = texture(u_engine_ShadowMap, projCoords.xy).r; 
-	
-    // Получаем глубину текущего фрагмента исходя из перспективы глазами источника света
-    float currentDepth = projCoords.z;
-	
-    // Вычисляем смещение (на основе разрешения карты глубины и наклона)
-    vec3 normal = normalize(fs_in.Normal);
-    vec3 lightDir = normalize(u_engine_LightPos - fs_in.FragPos);
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-	
-    // Проверка нахождения текущего фрагмента в тени
-    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-	
-    // PCF
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(u_engine_ShadowMap, 0);
-    for(int x = -1; x <= 1; ++x)
-    {
-        for(int y = -1; y <= 1; ++y)
-        {
-            float pcfDepth = texture(u_engine_ShadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
-        }    
-    }
-    shadow /= 9.0;
-    
-    // Оставляем значение тени на уровне 0.0 за границей дальней плоскости пирамиды видимости глазами источника света
-    if(projCoords.z > 1.0)
-        shadow = 0.0;
-        
-    return shadow;
-}
-float near = 0.1; 
-float far  = 100.0;
-float LinearizeDepth(float depth) 
-{
-    float z = depth * 2.0 - 1.0; // обратно к NDC 
-    return (2.0 * near * far) / (far + near - z * (far - near));	
-}
-/*float SpotShadowCalculation(vec4 fragPosLightSpace)
-{
-    // Выполняем деление перспективы
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-	
-    // Трансформируем в диапазон [0,1]
-    projCoords = projCoords * 0.5 + 0.5;
-	
-    // Получаем наиболее близкое значение глубины исходя из перспективы глазами источника света (используя в диапазон [0,1] fragPosLight в качестве координат)
-    float closestDepth = texture(spotShadowMap, projCoords.xy).r; 
-	closestDepth = LinearizeDepth(closestDepth) / far; 
-    // Получаем глубину текущего фрагмента исходя из перспективы глазами источника света
-    float currentDepth = projCoords.z;
-	
-    // Вычисляем смещение (на основе разрешения карты глубины и наклона)
-    vec3 normal = normalize(fs_in.Normal);
-    vec3 lightDir = normalize(u_engine_LightPos - fs_in.FragPos);
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-	
-    // Проверка нахождения текущего фрагмента в тени
-    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-	
-    // PCF
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(spotShadowMap, 0);
-    for(int x = -1; x <= 1; ++x)
-    {
-        for(int y = -1; y <= 1; ++y)
-        {
-            float pcfDepth = texture(spotShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
-            pcfDepth = LinearizeDepth(pcfDepth) / far; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
-        }    
-    }
-    shadow /= 9.0;
-    
-    // Оставляем значение тени на уровне 0.0 за границей дальней плоскости пирамиды видимости глазами источника света
-    if(projCoords.z > 1.0)
-        shadow = 0.0;
-        
-    return shadow;
-}*/
-
-vec3 gridSamplingDisk[20] = vec3[] (
-   vec3(1, 1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1, 1,  1), 
-   vec3(1, 1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
-   vec3(1, 1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1, 1,  0),
-   vec3(1, 0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1, 0, -1),
-   vec3(0, 1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0, 1, -1)
-);
-
-float PointShadowCalculation(vec3 fragPos, int pointId) {
-    // Получаем вектор между положением фрагмента и положением источника света
-    vec3 fragToLight = fragPos - u_engine_PointLightsPos[pointId];
-    // Теперь получим текущую линейную глубину как длину между фрагментом и положением источника света
-    float currentDepth = length(fragToLight);
-
-    float shadow = 0.0;
-    float bias = 0.15;
-    int samples = 20;
-    float viewDistance = length(ubo_ViewPos - fragPos);
-    float diskRadius = (1.0 + (viewDistance / u_engine_FarPlane)) / 25.0;
-    for (int i = 0; i < samples; ++i) {
-        float closestDepth = texture(u_engine_PointLightsCubeMap[pointId], fragToLight + gridSamplingDisk[i] * diskRadius).r;
-        //closestDepth *= u_engine_FarPlane; 
-        if (currentDepth - bias > closestDepth) {
-            shadow += 1.0;
-        }
-    }
-    shadow /= float(samples);
-
-    //float closestDepth = texture(u_engine_PointLightsCubeMap[pointId], fragToLight).r;
-    //closestDepth *= u_engine_FarPlane;
-    
-    // Проводим проверку на нахождение в тени
-    //bias = 0.05; 
-    //shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
-    
-    //FRAGMENT_COLOR = vec4(vec3(closestDepth / u_engine_FarPlane), 1.0);
-    
-    return shadow;
-}
 
 #define PI 3.1415926535897932384626433832795
 const mat4 shadowBiasMatrix = mat4( 
@@ -502,17 +260,9 @@ vec3 Volumetric(const vec3 position, const vec3 eyePosition, const mat4 shadowMa
   return (volumetric / VOLUMETRIC_STEPS) * lightIntensity * VOLUMETRIC_INTENSITY * lightColor;
 }
 
-void main()
-{
-    fogParams.color = vec3(0.2);
-    fogParams.density = 0.01;
-    fogParams.equation = 2;
-    fogParams.isEnabled = true;
-	fogParams.linearStart=0.0;
-	fogParams.linearEnd=0.0;
-
+void main() {
     //FRAGMENT_COLOR = texture(u_DiffuseMap, fs_in.TexCoords);
-    //float depthValue = texture(shadowMap, fs_in.TexCoords).r;
+    //float depthValue = texture(u_engine_ShadowMap, fs_in.TexCoords).r;
     //FRAGMENT_COLOR = vec4(vec3(depthValue), 1.0);
     //return;
     g_TexCoords = u_TextureOffset + vec2(mod(fs_in.TexCoords.x * u_TextureTiling.x, 1), mod(fs_in.TexCoords.y * u_TextureTiling.y, 1));
@@ -534,44 +284,47 @@ void main()
     else {
         g_Normal = normalize(fs_in.Normal);
     }
+
     int pointShadowMapId = 0;
     vec3 lightSum = vec3(0.0);
     for (int i = 0; i < ssbo_Lights.length(); ++i) {
         switch(ssbo_Lights[i].type) {
             case 0: {
                 float shadow = 0.0f;
-                if (pointShadowMapId < MAX_POINTS_LIGHT_SHADOW) {
-                    shadow = PointShadowCalculation(fs_in.FragPosLightSpace.xyz, pointShadowMapId);
+                if (u_engine_UsePointShadow && pointShadowMapId < MAX_POINTS_LIGHT_SHADOW) {
+                    shadow = PointShadowCalculation(fs_in.FragPos, pointShadowMapId);
+                    pointShadowMapId++;
                 }
                 lightSum += CalcPointLight(ssbo_Lights[i], shadow);
-                pointShadowMapId++;
                 break;
             }
             case 1: {
-                float shadow = DirShadowCalculation(fs_in.FragPosLightSpace);
+                float shadow = 0.0f;
+                if (u_engine_UseDirShadow) {
+                    shadow = DirShadowCalculation(fs_in.FragPosLightSpace);
+                }
                 lightSum += CalcDirectionalLight(ssbo_Lights[i], shadow);
                 break;
             }
             case 2: {
-                //float shadow = SpotShadowCalculation(fs_in.FragPosLightSpace);
-                lightSum += CalcSpotLight(ssbo_Lights[i]);
+                float shadow = 0.0f;
+                if (u_engine_UseSpotShadow) {
+                    shadow = SpotShadowCalculation(fs_in.FragPosSpotLightSpace);
+                }
+                lightSum += CalcSpotLight(ssbo_Lights[i], shadow);
                 break;
             }
-            case 3: lightSum += CalcAmbientBoxLight(ssbo_Lights[i]);    break;
-            case 4: lightSum += CalcAmbientSphereLight(ssbo_Lights[i]); break;
+            case 3: lightSum += CalcAmbientBoxLight(ssbo_Lights[i], false, 0.0f);    break;
+            case 4: lightSum += CalcAmbientSphereLight(ssbo_Lights[i], false, 0.0f); break;
         }
     }
-
     //vec3 vol = Volumetric(fs_in.FragPos, ubo_ViewPos, u_engine_LightSpaceMatrix, u_engine_ShadowMap, vec3(0), vec3(255), 0.05f, 0.0f);
 
 
     FRAGMENT_COLOR = vec4(lightSum /** vol*/, g_DiffuseTexel.a);
 
-    if(fogParams.isEnabled) {
-      //volumetric
-
-	  float fogCoordinate = abs(fs_in.EyeSpacePosition.z / fs_in.EyeSpacePosition.w);
-      
-      FRAGMENT_COLOR = mix(FRAGMENT_COLOR, vec4(fogParams.color, 1.0), getFogFactor(fogParams, fogCoordinate));
+    if (u_engine_FogParams.isEnabled) {
+	    float fogCoordinate = abs(fs_in.EyeSpacePosition.z / fs_in.EyeSpacePosition.w);
+        FRAGMENT_COLOR = mix(FRAGMENT_COLOR, vec4(u_engine_FogParams.color, 1.0), getFogFactor(u_engine_FogParams, fogCoordinate));
     }
 }

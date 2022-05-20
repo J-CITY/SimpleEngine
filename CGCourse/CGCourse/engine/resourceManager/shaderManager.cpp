@@ -28,7 +28,7 @@ void ShaderLoader::Destroy(std::shared_ptr<Shader> res) {
 		res.reset();
 	}
 }
-
+int ln = 1;
 std::array<std::string, 3> ShaderLoader::ParseShader(const std::string& filePath) {
 	std::ifstream stream(filePath);
 	if (!stream) {
@@ -56,6 +56,7 @@ std::array<std::string, 3> ShaderLoader::ParseShader(const std::string& filePath
 			}
 			else {
 				ss << line << '\n';
+				//std::cout << ln << line << std::endl; ln++;
 			}
 		}
 	};
@@ -74,15 +75,16 @@ std::array<std::string, 3> ShaderLoader::ParseShader(const std::string& filePath
 
 	while (std::getline(stream, line)) {
 		if (line.find("#shader") != std::string::npos) {
-			if (line.find("vertex") != std::string::npos)			type = ShaderType::VERTEX;
-			else if (line.find("fragment") != std::string::npos)	type = ShaderType::FRAGMENT;
-			else if (line.find("geometry") != std::string::npos)	type = ShaderType::GEOMETRY;
+			if (line.find("vertex") != std::string::npos) { type = ShaderType::VERTEX; ln = 1; }
+			else if (line.find("fragment") != std::string::npos) { type = ShaderType::FRAGMENT; ln = 1; }
+			else if (line.find("geometry") != std::string::npos) { type = ShaderType::GEOMETRY; ln = 1; }
 		}
 		else if (line.find("#include") != std::string::npos) {
 			makeIncludePath(ss[static_cast<int>(type)], line, filePath);
 		}
 		else if (type != ShaderType::NONE) {
 			ss[static_cast<int>(type)] << line << '\n';
+			//std::cout << ln << line << std::endl; ln++;
 		}
 	}
 

@@ -32,11 +32,49 @@ MATHGL::Vector2f Renderer::getShadowMapResolution() {
 	}
 }
 
+void Renderer::configuratePostProcessing() {
+	postProcessingFuncs.clear();
+
+	if (postProcessingState[static_cast<int>(PostProcessing::BLOOM)]) {
+		postProcessingFuncs.push_back([this]() { applyBloom(); });
+	}
+	if (postProcessingState[static_cast<int>(PostProcessing::GOOD_RAYS)]) {
+		postProcessingFuncs.push_back([this]() { applyGoodRays(); });
+	}
+	if (postProcessingState[static_cast<int>(PostProcessing::MOTION_BLUR)]) {
+		postProcessingFuncs.push_back([this]() { applyMotionBlur(); });
+	}
+	if (postProcessingState[static_cast<int>(PostProcessing::FXAA)]) {
+		postProcessingFuncs.push_back([this]() { applyFXAA(); });
+	}
+
+	auto applyEffect = [this](Material& material) {
+		material.bind(emptyTexture, true);
+		material.getShader()->setUniformInt("u_engine_Scene", 0);
+		swapTextures[!currentSwapBuffer]->bind();
+		renderQuad();
+		material.unbind();
+		currentSwapBuffer = !currentSwapBuffer;
+	};
+
+	for (auto effect : customPostProcessing) {
+		if (effect.isEnabled) {
+			postProcessingFuncs.push_back([this, effect, applyEffect]() { applyEffect(*effect.material); });
+		}
+	}
+
+	if (postProcessingState[static_cast<int>(PostProcessing::HDR)]) {
+		postProcessingFuncs.push_back([this]() { applyHDR(); });
+	}
+}
+
 void Renderer::addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled) {
 	customPostProcessing.push_back({name, material, isEnabled});
 }
 
 void Renderer::initShaders() {
+	shadersMap["forward"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/Standard.glsl");
+	shadersMap["forwardPBR"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/StandardPBR.glsl");
 	//shadows
 	shadersMap["simpleDepthShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/dirShadow.glsl");
 	shadersMap["pointShadowShader"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/pointShadow.glsl");
@@ -44,6 +82,7 @@ void Renderer::initShaders() {
 	//deferred
 	shadersMap["deferredGBuffer"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredGBuffer.glsl");
 	shadersMap["deferredLightning"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredLightning.glsl");
+	shadersMap["deferredLightningPbr"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/deferredLightningPbr.glsl");
 
 	//ssao
 	shadersMap["ssao"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssao.glsl");
@@ -154,8 +193,14 @@ void Renderer::init() {
 		pipeline.deferredRender.gAlbedoSpec->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 		pipeline.deferredRender.gBuffer.attachTexture(*pipeline.deferredRender.gAlbedoSpec, Attachment::COLOR_ATTACHMENT2);
 
+		// Roughness + AO + fog
+		pipeline.deferredRender.gRoughAO = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.deferredRender.gRoughAO->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		pipeline.deferredRender.gBuffer.attachTexture(*pipeline.deferredRender.gRoughAO, Attachment::COLOR_ATTACHMENT3);
+
 		// Указываем OpenGL на то, в какой прикрепленный цветовой буфер (заданного фреймбуфера) мы собираемся выполнять рендеринг 
-		pipeline.deferredRender.gBuffer.setOupbutBuffers({Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1, Attachment::COLOR_ATTACHMENT2});
+		pipeline.deferredRender.gBuffer.setOupbutBuffers({Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1, 
+			Attachment::COLOR_ATTACHMENT2, Attachment::COLOR_ATTACHMENT3});
 
 		// Создаем и прикрепляем буфер глубины (рендербуфер)
 		DepthBuffer rboDepth(screenRes.x, screenRes.y);
@@ -171,9 +216,38 @@ void Renderer::init() {
 		shadersMap["deferredLightning"]->bind();
 		shadersMap["deferredLightning"]->setUniformInt("u_PositionMap", 0);
 		shadersMap["deferredLightning"]->setUniformInt("u_NormalMap", 1);
-		shadersMap["deferredLightning"]->setUniformInt("u_DiffuseMap", 2);
-		shadersMap["deferredLightning"]->setUniformInt("u_SSAO", 3);
+		shadersMap["deferredLightning"]->setUniformInt("u_AlbedoSpecMap", 2);
+		shadersMap["deferredLightning"]->setUniformInt("u_RoughAO", 3);
+		//shadersMap["deferredLightning"]->setUniformInt("u_SSAO", 3);
+		//shadersMap["deferredLightning"]->setUniformInt("irradianceMap", 4);
+		//shadersMap["deferredLightning"]->setUniformInt("prefilterMap", 5);
+		//shadersMap["deferredLightning"]->setUniformInt("brdfLUT", 6);
+		//shadersMap["deferredLightning"]->setUniformInt("u_engine_ShadowMap", 3);
+		//shadersMap["deferredLightning"]->setUniformInt("u_engine_PointLightsCubeMap[0]", 7);
+		//shadersMap["deferredLightning"]->setUniformInt("u_engine_PointLightsCubeMap[1]", 8);
+		//shadersMap["deferredLightning"]->setUniformInt("u_engine_PointLightsCubeMap[2]", 9);
+		//shadersMap["deferredLightning"]->setUniformInt("u_engine_PointLightsCubeMap[3]", 10);
+		//shadersMap["deferredLightning"]->setUniformInt("sampler2D", 11);
+		//shadersMap["deferredLightning"]->setUniformInt("sampler2D", 12);
 		shadersMap["deferredLightning"]->unbind();
+
+		shadersMap["deferredLightningPbr"]->bind();
+		shadersMap["deferredLightningPbr"]->setUniformInt("u_PositionMap", 0);
+		shadersMap["deferredLightningPbr"]->setUniformInt("u_NormalMap", 1);
+		shadersMap["deferredLightningPbr"]->setUniformInt("u_AlbedoSpecMap", 2);
+		shadersMap["deferredLightningPbr"]->setUniformInt("u_RoughAO", 3);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("u_SSAO", 4);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("irradianceMap", 4);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("prefilterMap", 5);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("brdfLUT", 6);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("u_engine_ShadowMap", 3);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("u_engine_PointLightsCubeMap[0]", 7);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("u_engine_PointLightsCubeMap[1]", 8);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("u_engine_PointLightsCubeMap[2]", 9);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("u_engine_PointLightsCubeMap[3]", 10);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("sampler2D", 11);
+		//shadersMap["deferredLightningPbr"]->setUniformInt("sampler2D", 12);
+		shadersMap["deferredLightningPbr"]->unbind();
 	}
 
 	{//bloom
@@ -640,6 +714,144 @@ void Renderer::applyHDR() {
 	shadersMap["hdr"]->unbind();
 }
 
+void Renderer::applySSAO() {
+	// 2. Генерируем текстуру для SSAO
+	pipeline.ssao.ssaoFBO.bind();
+	BaseRender::clear(true, false, false);
+	shadersMap["ssao"]->bind();
+
+	// Посылаем ядро + поворот 
+	for (unsigned int i = 0; i < 64; ++i)
+		shadersMap["ssao"]->setUniformVec3("samples[" + std::to_string(i) + "]", pipeline.ssao.ssaoKernel[i]);
+	pipeline.deferredRender.gPosition->bind(0);
+	pipeline.deferredRender.gNormal->bind(1);
+	pipeline.ssao.noiseTexture->bind(2);
+	renderQuad();
+	pipeline.ssao.ssaoFBO.unbind();
+
+	// 3. Размываем SSAO-текстуру, чтобы убрать шум
+	pipeline.ssao.ssaoBlurFBO.bind();
+	BaseRender::clear(true, false, false);
+	shadersMap["ssaoBlur"]->bind();
+	pipeline.ssao.ssaoColorBuffer->bind(0);
+	renderQuad();
+	pipeline.ssao.ssaoBlurFBO.unbind();
+}
+
+void Renderer::applyDeferred() {
+	{//deferred
+		// 1. Геометрический проход: выполняем рендеринг геометрических/цветовых данных сцены в g-буфер
+		pipeline.deferredRender.gBuffer.bind();
+		BaseRender::clear(true, true, false);
+		//shadersMap["deferredGBuffer"]->bind();
+
+		for (const auto& [distance, p_toDraw] : opaqueMeshesDeferred) {
+			if (p_toDraw.material->getGPUInstances() <= 0) {
+				continue;
+			}
+			setdBounseDataToShader(*p_toDraw.material, p_toDraw.animator, *shadersMap["deferredGBuffer"]);
+			bool useTextures = true;
+			p_toDraw.material->bind(shadersMap["deferredGBuffer"], emptyTexture, useTextures);
+			drawMeshWithShader(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+			//drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+		}
+		for (const auto& [distance, p_toDraw] : transparentMeshesDeferred) {
+			if (p_toDraw.material->getGPUInstances() <= 0) {
+				continue;
+			}
+			setdBounseDataToShader(*p_toDraw.material, p_toDraw.animator, *shadersMap["deferredGBuffer"]);
+			bool useTextures = true;
+			p_toDraw.material->bind(shadersMap["deferredGBuffer"], emptyTexture, useTextures);
+			drawMeshWithShader(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+			//drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+		}
+
+		//shadersMap["deferredGBuffer"]->unbind();
+		if (pipeline.ssao.useSSAO) {
+			applySSAO();
+		}
+		pipeline.finalFBOBeforePostprocessing.bind();
+
+		// 2. Проход освещения: вычисление освещение, перебирая попиксельно экранный прямоугольник, используя содержимое g-буфера
+		BaseRender::clear(true, true, false);
+		shadersMap["deferredLightning"]->bind();
+
+		pipeline.deferredRender.gPosition->bind(0);
+		pipeline.deferredRender.gNormal->bind(1);
+		pipeline.deferredRender.gAlbedoSpec->bind(2);
+		pipeline.deferredRender.gRoughAO->bind(3);
+
+		sendSSAOData(*shadersMap["deferredLightning"]);
+		sendShadowDirData(*shadersMap["deferredLightning"]);
+		sendShadowPointData(*shadersMap["deferredLightning"]);
+		sendShadowSpotData(*shadersMap["deferredLightning"]);
+		sendFogData(*shadersMap["deferredLightning"]);
+
+		shadersMap["deferredLightning"]->bind();
+		renderQuad();
+		shadersMap["deferredLightning"]->unbind();
+	}
+}
+
+
+void Renderer::applyDeferredPbr() {
+	{//deferred
+		// 1. Геометрический проход: выполняем рендеринг геометрических/цветовых данных сцены в g-буфер
+		pipeline.deferredRender.gBuffer.bind();
+		BaseRender::clear(true, true, false);
+		//shadersMap["deferredGBuffer"]->bind();
+
+		for (const auto& [distance, p_toDraw] : opaqueMeshesDeferred) {
+			if (p_toDraw.material->getGPUInstances() <= 0) {
+				continue;
+			}
+			setdBounseDataToShader(*p_toDraw.material, p_toDraw.animator, *shadersMap["deferredGBuffer"]);
+			bool useTextures = true;
+			p_toDraw.material->bind(shadersMap["deferredGBuffer"], emptyTexture, useTextures);
+			drawMeshWithShader(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+			//drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+		}
+		for (const auto& [distance, p_toDraw] : transparentMeshesDeferred) {
+			if (p_toDraw.material->getGPUInstances() <= 0) {
+				continue;
+			}
+			setdBounseDataToShader(*p_toDraw.material, p_toDraw.animator, *shadersMap["deferredGBuffer"]);
+			bool useTextures = true;
+			p_toDraw.material->bind(shadersMap["deferredGBuffer"], emptyTexture, useTextures);
+			drawMeshWithShader(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+			//drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
+		}
+
+		//shadersMap["deferredGBuffer"]->unbind();
+		if (pipeline.ssao.useSSAO) {
+			applySSAO();
+		}
+		sendIBLData(*shadersMap["deferredLightningPbr"]);
+
+		pipeline.finalFBOBeforePostprocessing.bind();
+
+		// 2. Проход освещения: вычисление освещение, перебирая попиксельно экранный прямоугольник, используя содержимое g-буфера
+		BaseRender::clear(true, true, false);
+		shadersMap["deferredLightningPbr"]->bind();
+
+		pipeline.deferredRender.gPosition->bind(0);
+		pipeline.deferredRender.gNormal->bind(1);
+		pipeline.deferredRender.gAlbedoSpec->bind(2);
+		pipeline.deferredRender.gRoughAO->bind(3);
+		
+		sendSSAOData(*shadersMap["deferredLightningPbr"]);
+		sendShadowDirData(*shadersMap["deferredLightningPbr"]);
+		sendShadowPointData(*shadersMap["deferredLightningPbr"]);
+		sendShadowSpotData(*shadersMap["deferredLightningPbr"]);
+		sendFogData(*shadersMap["deferredLightningPbr"]);
+
+		shadersMap["deferredLightningPbr"]->bind();
+		renderQuad();
+		shadersMap["deferredLightningPbr"]->unbind();
+	}
+}
+
+
 void Renderer::renderScene() {
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 	if (auto currentScene = context.sceneManager->getCurrentScene()) {
@@ -669,7 +881,7 @@ void Renderer::renderScene() {
 				currentScene->findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
 
 			prepareDirLightShadowMap();
-			//prepareSpotLightShadowMap();
+			prepareSpotLightShadowMap();
 			preparePointLightShadowMap();
 
 
@@ -680,90 +892,20 @@ void Renderer::renderScene() {
 
 			uint8_t glState = fetchGLState();
 			applyStateMask(glState);
-			{//deferred
-				// 1. Геометрический проход: выполняем рендеринг геометрических/цветовых данных сцены в g-буфер
-				pipeline.deferredRender.gBuffer.bind();
-				BaseRender::clear(true, true, false);
-				//shadersMap["deferredGBuffer"]->bind();
 
-				for (const auto& [distance, p_toDraw] : opaqueMeshesDeferred) {
-					if (p_toDraw.material->getGPUInstances() <= 0) {
-						continue;
-					}
-					setdBounseDataToShader(*p_toDraw.material, p_toDraw.animator, *shadersMap["deferredGBuffer"]);
-					bool useTextures = true;
-					p_toDraw.material->bind(shadersMap["deferredGBuffer"], emptyTexture, useTextures);
-					drawMeshWithShader(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
-					//drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
-				}
-				for (const auto& [distance, p_toDraw] : transparentMeshesDeferred) {
-					if (p_toDraw.material->getGPUInstances() <= 0) {
-						continue;
-					}
-					setdBounseDataToShader(*p_toDraw.material, p_toDraw.animator, *shadersMap["deferredGBuffer"]);
-					bool useTextures = true;
-					p_toDraw.material->bind(shadersMap["deferredGBuffer"], emptyTexture, useTextures);
-					drawMeshWithShader(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
-					//drawGBuffer(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world, shadersMap["deferredGBuffer"]);
-				}
-
-				//shadersMap["deferredGBuffer"]->unbind();
-
-				{//ssao
-					// 2. Генерируем текстуру для SSAO
-					pipeline.ssao.ssaoFBO.bind();
-					BaseRender::clear(true, false, false);
-					shadersMap["ssao"]->bind();
-
-					// Посылаем ядро + поворот 
-					for (unsigned int i = 0; i < 64; ++i)
-						shadersMap["ssao"]->setUniformVec3("samples[" + std::to_string(i) + "]", pipeline.ssao.ssaoKernel[i]);
-					pipeline.deferredRender.gPosition->bind(0);
-					pipeline.deferredRender.gNormal->bind(1);
-					pipeline.ssao.noiseTexture->bind(2);
-					renderQuad();
-					pipeline.ssao.ssaoFBO.unbind();
-
-					// 3. Размываем SSAO-текстуру, чтобы убрать шум
-					pipeline.ssao.ssaoBlurFBO.bind();
-					BaseRender::clear(true, false, false);
-					shadersMap["ssaoBlur"]->bind();
-					pipeline.ssao.ssaoColorBuffer->bind(0);
-					renderQuad();
-					pipeline.ssao.ssaoBlurFBO.unbind();
-				}
-
-
-				pipeline.finalFBOBeforePostprocessing.bind();
-
-				// 2. Проход освещения: вычисление освещение, перебирая попиксельно экранный прямоугольник, используя содержимое g-буфера
-				BaseRender::clear(true, true, false);
-				shadersMap["deferredLightning"]->bind();
-
-				pipeline.deferredRender.gPosition->bind(0);
-				pipeline.deferredRender.gNormal->bind(1);
-				pipeline.deferredRender.gAlbedoSpec->bind(2);
-
-				{//ibl TODO: (send to forward shaders too)
-					shadersMap["deferredLightning"]->setUniformInt("irradianceMap", 7);
-					shadersMap["deferredLightning"]->setUniformInt("prefilterMap", 8);
-					shadersMap["deferredLightning"]->setUniformInt("brdfLUT", 9);
-					// Связываем предварительно вычисленные IBL-данные
-					pipeline.ibl.irradianceMap->bind(7);
-					pipeline.ibl.prefilterMap->bind(8);
-					pipeline.ibl.brdfLUTTexture->bind(9);
-				}
-
-				//// Рендерим прямоугольник
-				renderQuad();
-				shadersMap["deferredLightning"]->unbind();
+			if (pipeline.deferred.usePbr) {
+				applyDeferredPbr();
 			}
+			else {
+				applyDeferred();
+			}
+			pipeline.finalFBOBeforePostprocessing.unbind();
 			// 2.5. Копируем содержимое буфера глубины (геометрический проход) в буфер глубины заданного по умолчанию фреймбуфера
 			FrameBuffer::CopyDepth(pipeline.deferredRender.gBuffer, pipeline.finalFBOBeforePostprocessing, screenRes.x, screenRes.y);
 			pipeline.finalFBOBeforePostprocessing.bind();
-
+			
 			renderSkybox();
-
+			
 			renderScene(nullptr);
 
 			RESOURCES::Texture::CopyTexture(*pipeline.finalTextureBeforePostprocessing, *swapTextures[!currentSwapBuffer]);
@@ -774,20 +916,7 @@ void Renderer::renderScene() {
 				f();
 			}
 
-			auto applyEffect = [this](Material& material) {
-				material.bind(emptyTexture, true);
-				material.getShader()->setUniformInt("u_engine_Scene", 0);
-				swapTextures[!currentSwapBuffer]->bind();
-				renderQuad();
-				material.unbind();
-				currentSwapBuffer = !currentSwapBuffer;
-			};
-
-			for (auto effect : customPostProcessing) {
-				if (effect.isEnabled) {
-					applyEffect(*effect.material);
-				}
-			}
+			
 			//applyBloom();
 			//applyGoodRays();
 			//applyMotionBlur();
@@ -892,7 +1021,6 @@ void Renderer::prepareDirLightShadowMap() {
 
 
 void Renderer::prepareSpotLightShadowMap() {
-	pipeline.spotLightsData.clear();
 	for (auto& light : ECS::ComponentManager::getInstance()->getAllSpotLights()) {
 		pipeline.depthMapFBO.attachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
 		glDrawBuffer(GL_NONE);
@@ -907,16 +1035,17 @@ void Renderer::prepareSpotLightShadowMap() {
 
 		auto lightSpaceMatrix = lightProjection * lightView;
 
-		pipeline.spotLightsData.push_back(SpotLightData{light->shadowMap->getId(), lightSpaceMatrix});
+		pipeline.spotLightData = SpotLightData{light->shadowMap->getId(), lightSpaceMatrix, light->obj.transform->getLocalPosition(), nearPlane, farPlane};
 
 		// Рендеринг сцены глазами источника света
 		shadersMap["simpleDepthShader"]->bind();
-		shadersMap["simpleDepthShader"]->setUniformMat4("u_LightSpaceMatrix", lightSpaceMatrix);
+		shadersMap["simpleDepthShader"]->setUniformMat4("u_engine_LightSpaceMatrix", lightSpaceMatrix);
 
 		setViewPort(0, 0, static_cast<unsigned>(res.x), static_cast<unsigned>(res.y));
 		pipeline.depthMapFBO.bind();
 		clearDepth();
-		renderScene(shadersMap["simpleDepthShader"]);
+		//renderScene(shadersMap["simpleDepthShader"]);
+		renderDirShadowMap();
 		pipeline.depthMapFBO.unbind();
 
 		// Сброс настроек области просмотра
@@ -1069,8 +1198,10 @@ void Renderer::renderDirShadowMap() {
 
 void Renderer::drawDrawable(const Drawable& p_toDraw) {
 	if (p_toDraw.material->hasShader() && p_toDraw.material->getGPUInstances() > 0) {
-		sendShadowDirData(*p_toDraw.material, *p_toDraw.material->getShader());
-		sendShadowPointData(*p_toDraw.material, *p_toDraw.material->getShader());
+		sendShadowDirData(*p_toDraw.material->getShader());
+		sendShadowPointData(*p_toDraw.material->getShader());
+		sendShadowSpotData(*p_toDraw.material->getShader());
+		sendFogData(*p_toDraw.material->getShader());
 		setdBounseDataToShader(*p_toDraw.material, p_toDraw.animator, *p_toDraw.material->getShader());
 	}
 	drawMesh(*p_toDraw.mesh, *p_toDraw.material, &p_toDraw.world);
@@ -1333,27 +1464,78 @@ void Renderer::setdBounseDataToShader(Material& material, std::shared_ptr<ECS::S
 	shader.unbind();
 }
 
-void Renderer::sendShadowDirData(Material& p_material, RESOURCES::Shader& shader) {
+void Renderer::sendShadowDirData(RESOURCES::Shader& shader) {
 	shader.bind();
+	shader.setUniformInt("u_engine_UseDirShadow", pipeline.dirLightsData[0].useShadow);
 	shader.setUniformVec3("u_engine_LightPos", pipeline.dirLightsData[0].pos);
 	shader.setUniformMat4("u_engine_LightSpaceMatrix", pipeline.dirLightsData[0].projMap);
-	shader.setUniformInt("u_engine_ShadowMap", 5);
+	shader.setUniformInt("u_engine_ShadowMap", 7);
 	//pipeline.dirLightsData[0]->bind(5);
-	glActiveTexture(GL_TEXTURE5);
+	glActiveTexture(GL_TEXTURE7);
 	glBindTexture(GL_TEXTURE_2D, pipeline.dirLightsData[0].id);
 	shader.unbind();
 }
 
-void Renderer::sendShadowPointData(Material& p_material, RESOURCES::Shader& shader) {
+void Renderer::sendShadowSpotData(RESOURCES::Shader& shader) {
 	shader.bind();
+	shader.setUniformInt("u_engine_UseSpotShadow", pipeline.spotLightData.useShadow);
+	shader.setUniformVec3("u_engine_SpotLightPos", pipeline.spotLightData.pos);
+	shader.setUniformMat4("u_engine_SpotLightSpaceMatrix", pipeline.spotLightData.projMap);
+	shader.setUniformInt("u_engine_SpotLightShadowMap", 12);
+	shader.setUniformFloat("u_engine_SpotNearPlane", pipeline.spotLightData.nearPlane);
+	shader.setUniformFloat("u_engine_SpotFarPlane", pipeline.spotLightData.farPlane);
+
+	//pipeline.dirLightsData[0]->bind(5);
+	glActiveTexture(GL_TEXTURE12);
+	glBindTexture(GL_TEXTURE_2D, pipeline.dirLightsData[0].id);
+	shader.unbind();
+}
+
+void Renderer::sendShadowPointData(RESOURCES::Shader& shader) {
+	shader.bind();
+	shader.setUniformInt("u_engine_UsePointShadow", pipeline.pointLightsData.useShadow);
 	shader.setUniformInt("u_engine_PointLightsSize", pipeline.pointLightsData.size);
 	shader.setUniformFloat("u_engine_FarPlane", pipeline.pointLightsData.farPlane);
 
 	for (auto i = 0u; i < pipeline.pointLightsData.size; i++) {
 		shader.setUniformVec3("u_engine_PointLightsPos[" + std::to_string(i) + "]", pipeline.pointLightsData.data[i].pos);
-		shader.setUniformInt("u_engine_PointLightsCubeMap[" + std::to_string(i) + "]", 6+i);
-		glActiveTexture(GL_TEXTURE6 + i);
+		shader.setUniformInt("u_engine_PointLightsCubeMap[" + std::to_string(i) + "]", 8+i);
+		glActiveTexture(GL_TEXTURE8 + i);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, pipeline.pointLightsData.data[i].id);
 	}
 	shader.unbind();
 }
+
+void Renderer::sendFogData(RESOURCES::Shader& shader) {
+	shader.bind();
+	shader.setUniformVec3("u_engine_FogParams.color", pipeline.fog.color);
+	shader.setUniformFloat("u_engine_FogParams.density", pipeline.fog.density);
+	shader.setUniformFloat("u_engine_FogParams.linearStart", pipeline.fog.linearStart);
+	shader.setUniformFloat("u_engine_FogParams.linearEnd", pipeline.fog.linearEnd);
+	shader.setUniformInt("u_engine_FogParams.isEnabled", pipeline.fog.isEnabled);
+	shader.setUniformInt("u_engine_FogParams.equation", pipeline.fog.equation);
+	shader.unbind();
+}
+
+
+void Renderer::sendIBLData(RESOURCES::Shader& shader) {
+	shader.bind();
+	shader.setUniformInt("u_engine_irradianceMap", 13);
+	shader.setUniformInt("u_engine_prefilterMap", 14);
+	shader.setUniformInt("u_engine_brdfLUT", 15);
+	shader.setUniformInt("u_UseIbl", pipeline.ibl.useIBL);
+
+	pipeline.ibl.irradianceMap->bind(13);
+	pipeline.ibl.prefilterMap->bind(14);
+	pipeline.ibl.brdfLUTTexture->bind(15);
+	shader.unbind();
+}
+
+void Renderer::sendSSAOData(RESOURCES::Shader& shader) {
+	shader.bind();
+	shader.setUniformInt("u_engine_SSAO", 5);
+	shader.setUniformInt("u_UseSSAO", pipeline.ssao.useSSAO);
+	pipeline.ssao.ssaoColorBuffer->bind(5);
+	shader.unbind();
+}
+

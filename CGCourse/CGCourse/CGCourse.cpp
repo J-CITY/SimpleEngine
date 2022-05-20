@@ -1096,10 +1096,10 @@ int main() {
 		_m->setColorWriting(true);
 		_m->setGPUInstances(1);
 		auto& data = _m->getUniformsData();
-		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
+		data["u_Albedo"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
 
 		auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\brick_albedo.jpg");
-		data["u_DiffuseMap"] = tex1;
+		data["u_AlbedoMap"] = tex1;
 
 		data["u_EnableNormalMapping"] = true;
 		data["u_HeightScale"] = 0.0f;

@@ -42,10 +42,15 @@ namespace KUMA::RENDER {
 		uint32_t id;
 		MATHGL::Matrix4 projMap;
 		MATHGL::Vector3 pos;
+		bool useShadow = true;
 	};
 	struct SpotLightData {
 		uint32_t id;
 		MATHGL::Matrix4 projMap;
+		MATHGL::Vector3 pos;
+		float nearPlane;
+		float farPlane;
+		bool useShadow = false;
 	};
 
 	struct PointInfo {
@@ -56,7 +61,7 @@ namespace KUMA::RENDER {
 		int size;
 		float farPlane;
 		std::array<PointInfo, 4> data;
-		uint32_t id;
+		bool useShadow = true;
 	};
 
 	enum class ShadowMapResolution {
@@ -99,12 +104,14 @@ namespace KUMA::RENDER {
 		std::shared_ptr<RESOURCES::Texture> ssaoColorBufferBlur;
 		std::vector<MATHGL::Vector3> ssaoKernel;
 		std::shared_ptr<RESOURCES::Texture> noiseTexture;
+		bool useSSAO = true;
 	};
 
 	struct ImageBasedLightning {
 		std::shared_ptr<RESOURCES::CubeMap> irradianceMap;
 		std::shared_ptr<RESOURCES::CubeMap> prefilterMap;
 		std::shared_ptr<RESOURCES::Texture> brdfLUTTexture;
+		bool useIBL = true;
 	};
 
 	struct DeferredRender {
@@ -112,13 +119,28 @@ namespace KUMA::RENDER {
 		std::shared_ptr<RESOURCES::Texture> gPosition;
 		std::shared_ptr<RESOURCES::Texture> gNormal;
 		std::shared_ptr<RESOURCES::Texture> gAlbedoSpec;
+		std::shared_ptr<RESOURCES::Texture> gRoughAO;
+	};
+
+	struct Fog {
+		MATHGL::Vector3 color = MATHGL::Vector3(0.2f, 0.2f, 0.2f);
+		float density = 0.01f;
+		int equation = 2;
+		bool isEnabled = true;
+		float linearStart = 0.0f;
+		float linearEnd = 0.0f;
+	};
+
+	struct Deffered {
+		bool usePbr = false;
 	};
 
 	struct RenderPipeline {
+		Deffered deferred;
 		FrameBuffer depthMapFBO;
 
 		std::vector<DirLightData> dirLightsData;
-		std::vector<SpotLightData> spotLightsData;
+		SpotLightData spotLightData;
 		PointLightData pointLightsData;
 
 		ShadowLightData shadowLightData;
@@ -127,7 +149,7 @@ namespace KUMA::RENDER {
 		Bloom bloom;
 		MotionBlur motionBlur;
 		GodRays godRays;
-
+		Fog fog;
 
 		DeferredRender deferredRender;
 		ScreenSpaceAmbientOcclusion ssao;
@@ -200,8 +222,12 @@ namespace KUMA::RENDER {
 
 
 		void setdBounseDataToShader(Material& material, std::shared_ptr<ECS::Skeletal> animator, RESOURCES::Shader& shader);
-		void sendShadowDirData(Material& p_material, RESOURCES::Shader& shader);
-		void sendShadowPointData(Material& p_material, RESOURCES::Shader& shader);
+		void sendShadowDirData(RESOURCES::Shader& shader);
+		void sendShadowPointData(RESOURCES::Shader& shader);
+		void sendShadowSpotData(RESOURCES::Shader& shader);
+		void sendFogData(RESOURCES::Shader& shader);
+		void Renderer::sendIBLData(RESOURCES::Shader& shader);
+		void Renderer::sendSSAOData(RESOURCES::Shader& shader);
 
 		void prepareDirLightShadowMap();
 		void prepareSpotLightShadowMap();
@@ -213,22 +239,11 @@ namespace KUMA::RENDER {
 		void applyMotionBlur();
 		void applyFXAA();
 		void applyHDR();
+		void applySSAO();
+		void applyDeferred();
+		void applyDeferredPbr();
 
-		void configuratePostProcessing() {
-			postProcessingFuncs.clear();
-			for (auto i = 0u; i < postProcessingState.size(); i++) {
-				if (postProcessingState[i]) {
-					switch (static_cast<PostProcessing>(i)) {
-					case PostProcessing::BLOOM: postProcessingFuncs.push_back([this]() { applyBloom(); }); break;
-					case PostProcessing::GOOD_RAYS: postProcessingFuncs.push_back([this]() { applyGoodRays(); }); break;
-					case PostProcessing::MOTION_BLUR: postProcessingFuncs.push_back([this]() { applyMotionBlur(); }); break;
-					case PostProcessing::FXAA: postProcessingFuncs.push_back([this]() { applyFXAA(); }); break;
-					case PostProcessing::HDR: postProcessingFuncs.push_back([this]() { applyHDR(); }); break;
-					default: ;
-					}
-				}
-			} 
-		}
+		void configuratePostProcessing();
 
 		void setPostProcessing(PostProcessing type, bool isEnable) {
 			if (isEnable == postProcessingState[static_cast<unsigned>(type)]) {

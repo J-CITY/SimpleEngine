@@ -3,14 +3,11 @@
 
 layout (location = 0) in vec3 geo_Pos;
 layout (location = 1) in vec2 geo_TexCoords;
-layout (location = 2) in vec3 geo_Normal;
-layout (location = 3) in vec3 geo_Tangent;
-layout (location = 4) in vec3 geo_Bitangent;
-layout (location = 5) in ivec4 boneIds;
-layout (location = 6) in vec4 weights;
 
 /* Global information sent by the engine */
-layout (std140) uniform EngineUBO {
+
+layout (std140) uniform EngineUBO
+{
     mat4    ubo_Model;
     mat4    ubo_View;
     mat4    ubo_Projection;
@@ -18,81 +15,19 @@ layout (std140) uniform EngineUBO {
     float   ubo_Time;
 };
 
-/* Information passed to the fragment shader */
-out VS_OUT {
-    vec3        FragPos;
-    vec3        Normal;
-    vec2        TexCoords;
-    mat3        TBN;
-    flat vec3   TangentViewPos;
-    vec3        TangentFragPos;
-
-    vec4 FragPosLightSpace;
-    vec4 FragPosSpotLightSpace;
-
-    vec4 EyeSpacePosition;
-} vs_out;
-
-const int MAX_BONES = 100;
-const int MAX_BONE_INFLUENCE = 4;
-uniform mat4 u_engine_FinalBonesMatrices[MAX_BONES];
-uniform bool u_UseBone;
-
-//dir light
-uniform mat4 u_engine_LightSpaceMatrix;
-
-//spot light
-uniform mat4 u_engine_SpotLightSpaceMatrix;
+out vec2 TexCoords;
 
 void main() {
-    vec4 totalPosition = vec4(0.0f);
-    if (u_UseBone) {
-        for(int i = 0; i < MAX_BONE_INFLUENCE; i++) {
-            if(int(boneIds[i]) == -1) 
-                continue;
-            if(int(boneIds[i]) >=MAX_BONES) {
-                totalPosition = vec4(geo_Pos,1.0f);
-                break;
-            }
-            vec4 localPosition = (u_engine_FinalBonesMatrices[int(boneIds[i])]) * vec4(geo_Pos,1.0f);
-            totalPosition += localPosition * weights[i];
-        }
-    }
-
-    vs_out.TBN = mat3 (
-        normalize(vec3(ubo_Model * vec4(geo_Tangent,   0.0))),
-        normalize(vec3(ubo_Model * vec4(geo_Bitangent, 0.0))),
-        normalize(vec3(ubo_Model * vec4(geo_Normal,    0.0)))
-    );
-
-    mat3 TBNi = transpose(vs_out.TBN);
-
-    if (u_UseBone) {
-        vs_out.FragPos          = vec3(ubo_Model * totalPosition);
-        
-        vs_out.EyeSpacePosition =  (ubo_View * ubo_Model) * totalPosition;
-    }
-    else {
-        vs_out.FragPos          = vec3(ubo_Model * vec4(geo_Pos, 1.0));
-    
-        vs_out.EyeSpacePosition =  (ubo_View * ubo_Model) * vec4(geo_Pos, 1.0);
-    }
-
-    vs_out.Normal           = normalize(mat3(transpose(inverse(ubo_Model))) * geo_Normal);
-    vs_out.TexCoords        = geo_TexCoords;
-    vs_out.TangentViewPos   = TBNi * ubo_ViewPos;
-    vs_out.TangentFragPos   = TBNi * vs_out.FragPos;
-    vs_out.FragPosLightSpace = u_engine_LightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
-    vs_out.FragPosSpotLightSpace = u_engine_SpotLightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
-    
-    gl_Position = ubo_Projection * (ubo_View * vec4(vs_out.FragPos, 1.0));
+    TexCoords = geo_TexCoords;
+    gl_Position = vec4(geo_Pos, 1.0);
 }
 
 #shader fragment
 #version 460 core
 
 /* Global information sent by the engine */
-layout (std140) uniform EngineUBO {
+layout (std140) uniform EngineUBO
+{
     mat4    ubo_Model;
     mat4    ubo_View;
     mat4    ubo_Projection;
@@ -100,22 +35,6 @@ layout (std140) uniform EngineUBO {
     float   ubo_Time;
 };
 
-/* Information passed from the fragment shader */
-in VS_OUT {
-    vec3        FragPos;
-    vec3        Normal;
-    vec2        TexCoords;
-    mat3        TBN;
-    flat vec3   TangentViewPos;
-    vec3        TangentFragPos;
-
-    vec4 FragPosLightSpace;
-    vec4 FragPosSpotLightSpace;
-
-    vec4 EyeSpacePosition;
-} fs_in;
-
-/* Light information sent by the engine */
 struct LightOGL {
 	float pos[3];
 	float forward[3];
@@ -129,26 +48,20 @@ struct LightOGL {
 	float intensity;
 };
 
+/* Light information sent by the engine */
 layout(std430, binding = 0) buffer LightSSBO {
     LightOGL ssbo_Lights[];
 };
 
-out vec4 FRAGMENT_COLOR;
+in vec2 TexCoords;
 
-uniform sampler2D   u_AlbedoMap;
-uniform sampler2D   u_MetallicMap;
-uniform sampler2D   u_RoughnessMap;
-uniform sampler2D   u_AmbientOcclusionMap;
+uniform sampler2D   u_PositionMap;
 uniform sampler2D   u_NormalMap;
-uniform sampler2D   u_HeightMap;
-uniform vec4        u_Albedo                = vec4(1.0);
-uniform vec2        u_TextureTiling         = vec2(1.0, 1.0);
-uniform vec2        u_TextureOffset         = vec2(0.0, 0.0);
-uniform bool        u_EnableNormalMapping   = false;
-uniform float       u_HeightScale           = 0.0;
-uniform float       u_Metallic              = 1.0;
-uniform float       u_Roughness             = 1.0;
-
+uniform sampler2D   u_AlbedoSpecMap;
+uniform sampler2D   u_RoughAO;
+//ssao
+uniform sampler2D   u_engine_SSAO;
+uniform bool        u_UseSSAO;
 //ibl
 uniform samplerCube u_engine_irradianceMap;
 uniform samplerCube u_engine_prefilterMap;
@@ -159,6 +72,7 @@ uniform bool        u_UseIbl;
 uniform sampler2D u_engine_ShadowMap;
 uniform vec3 u_engine_LightPos;
 uniform bool u_engine_UseDirShadow;
+uniform mat4 u_engine_LightSpaceMatrix;
 
 //point lights
 const int MAX_POINTS_LIGHT_SHADOW = 4;
@@ -174,6 +88,21 @@ uniform float u_engine_SpotFarPlane;
 uniform float u_engine_SpotNearPlane;
 uniform vec3 u_engine_SpotLightPos;
 uniform bool u_engine_UseSpotShadow;
+uniform mat4 u_engine_SpotLightSpaceMatrix;
+
+struct DATA
+{
+    vec3        FragPos;
+    vec3        Normal;
+};
+DATA fs_in;
+/* Global variables */
+vec3 g_Normal;
+vec2 g_TexCoords;
+vec3 g_ViewDir;
+vec3 g_DiffuseTexel;
+vec3 g_FragPos;
+float g_AmbientOcclusion;
 
 #include "lib/pbr.glsl"
 #include "lib/fog.glsl"
@@ -181,41 +110,30 @@ uniform bool u_engine_UseSpotShadow;
 
 uniform FogParameters u_engine_FogParams;
 
-/* Global variables */
-vec2 g_TexCoords;
+out vec4 FRAGMENT_COLOR;
 
-vec2 ParallaxMapping(vec3 p_ViewDir) {
-    const vec2 parallax = p_ViewDir.xy * u_HeightScale * texture(u_HeightMap, g_TexCoords).r;
-    return g_TexCoords - vec2(parallax.x, 1.0 - parallax.y);
-}
-
-void main() {
-    vec2 texCoords = u_TextureOffset + vec2(mod(fs_in.TexCoords.x * u_TextureTiling.x, 1), mod(fs_in.TexCoords.y * u_TextureTiling.y, 1));
-
-    /* Apply parallax mapping */
-    if (u_HeightScale > 0)
-        g_TexCoords = ParallaxMapping(normalize(fs_in.TangentViewPos - fs_in.TangentFragPos));
-
-    vec4 albedoRGBA     = texture(u_AlbedoMap, texCoords) * u_Albedo;
-    vec3 albedo         = pow(albedoRGBA.rgb, vec3(2.2));
-    float metallic      = texture(u_MetallicMap, texCoords).r * u_Metallic;
-    float roughness     = texture(u_RoughnessMap, texCoords).r * u_Roughness;
-    float ao            = texture(u_AmbientOcclusionMap, texCoords).r;
-    vec3 normal;
-
-    if (u_EnableNormalMapping)
-    {
-        normal = texture(u_NormalMap, texCoords).rgb;
-        normal = normalize(normal * 2.0 - 1.0);   
-        normal = normalize(fs_in.TBN * normal);
+void main()
+{
+    g_TexCoords         = TexCoords;
+    g_FragPos           = texture(u_PositionMap, TexCoords).rgb;
+    g_ViewDir           = normalize(ubo_ViewPos - g_FragPos);
+    g_DiffuseTexel      = texture(u_AlbedoSpecMap,  TexCoords).rgb;
+    float metallic      = texture(u_AlbedoSpecMap, TexCoords).a;
+    float roughness     = texture(u_RoughAO, TexCoords).r;
+    float ao            = texture(u_RoughAO, TexCoords).g;
+    g_Normal            = texture(u_NormalMap, TexCoords).rgb;
+    if (u_UseSSAO) {
+        g_AmbientOcclusion  = texture(u_engine_SSAO, TexCoords).r;
     }
-    else
-    {
-        normal = normalize(fs_in.Normal);
-    }
-
-    vec3 N = normalize(normal);
+    float EyeSpacePosition = texture(u_RoughAO, TexCoords).b;
+    fs_in.FragPos = g_FragPos;
+    fs_in.Normal = g_Normal;
+    vec3 albedo = g_DiffuseTexel;
+    vec3 N = normalize(g_Normal);
     vec3 V = normalize(ubo_ViewPos - fs_in.FragPos);
+
+    vec4 FragPosSpotLightSpace = u_engine_SpotLightSpaceMatrix * vec4(fs_in.FragPos, 1.0);
+    vec4 FragPosLightSpace = u_engine_LightSpaceMatrix * vec4(fs_in.FragPos, 1.0);
 
     vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedo, metallic);
@@ -238,8 +156,7 @@ void main() {
         ambientIBL = (kD * diffuse + specular) * ao;
     }
     //ibl end
-
-	           
+    
     // reflectance equation
     vec3 Lo = vec3(0.0);
     vec3 ambientSum = vec3(0.0);
@@ -248,10 +165,10 @@ void main() {
     for (int i = 0; i < ssbo_Lights.length(); ++i) 
     {
         if (ssbo_Lights[i].type == 3) {
-            ambientSum += CalcAmbientBoxLight(ssbo_Lights[i], false, 0.0f);
+            ambientSum += CalcAmbientBoxLight(ssbo_Lights[i], u_UseSSAO, g_AmbientOcclusion);
         }
         else if (ssbo_Lights[i].type == 4) {
-            ambientSum += CalcAmbientSphereLight(ssbo_Lights[i], false, 0.0f);
+            ambientSum += CalcAmbientSphereLight(ssbo_Lights[i], u_UseSSAO, g_AmbientOcclusion);
         }
         else {
             // calculate per-light radiance
@@ -272,14 +189,14 @@ void main() {
 
                 case 1:
                     if (u_engine_UseDirShadow) {
-                        shadow = DirShadowCalculation(fs_in.FragPosLightSpace);
+                        shadow = DirShadowCalculation(FragPosLightSpace);
                     }
                     lightCoeff = ssbo_Lights[i].intensity;
                     break;
 
                 case 2:
                     if (u_engine_UseSpotShadow) {
-                        shadow = SpotShadowCalculation(fs_in.FragPosSpotLightSpace);
+                        shadow = SpotShadowCalculation(FragPosSpotLightSpace);
                     }
                     const vec3  lightForward    = toVec3(ssbo_Lights[i].forward);
                     const float cutOff          = cos(radians(ssbo_Lights[i].cutoff));
@@ -323,6 +240,9 @@ void main() {
     vec3 ambient = ambientSum * albedo * ao;
     vec3 color = vec3(0.0f);
     if (u_UseIbl) {
+        if (u_UseSSAO) {
+            ambientIBL *= g_AmbientOcclusion;
+        }
         color = ambientIBL + Lo;
     } else {
         color = ambient + Lo;
@@ -330,11 +250,10 @@ void main() {
 	
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));  
-   
-    FRAGMENT_COLOR = vec4(color, albedoRGBA.a);
 
-    if (u_engine_FogParams.isEnabled) {
-        float fogCoordinate = abs(fs_in.EyeSpacePosition.z / fs_in.EyeSpacePosition.w);
-        FRAGMENT_COLOR = mix(FRAGMENT_COLOR, vec4(u_engine_FogParams.color, 1.0), getFogFactor(u_engine_FogParams, fogCoordinate));
+    FRAGMENT_COLOR = vec4(color, 1.0f);
+    if(u_engine_FogParams.isEnabled) {
+      float fogCoordinate = EyeSpacePosition;
+      FRAGMENT_COLOR = mix(FRAGMENT_COLOR, vec4(u_engine_FogParams.color, 1.0), getFogFactor(u_engine_FogParams, fogCoordinate));
     }
 }

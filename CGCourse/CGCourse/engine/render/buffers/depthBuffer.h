@@ -160,7 +160,7 @@ namespace KUMA {
                 for (auto e : outBuffers) {
                     buffers.push_back(attachmentTable[int(e)]);
                 }
-                glDrawBuffers(3, buffers.data());
+                glDrawBuffers(buffers.size(), buffers.data());
             };
 
             static void Unbind() {

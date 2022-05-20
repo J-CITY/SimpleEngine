@@ -36,8 +36,6 @@ out VS_OUT
     flat vec3   TangentViewPos;
     vec3        TangentFragPos;
 
-    vec4 FragPosLightSpace;
-
     vec4 EyeSpacePosition;
 } vs_out;
 
@@ -75,7 +73,6 @@ void main() {
     vs_out.TexCoords        = geo_TexCoords;
     vs_out.TangentViewPos   = TBNi * ubo_ViewPos;
     vs_out.TangentFragPos   = TBNi * vs_out.FragPos;
-    vs_out.FragPosLightSpace = u_engine_LightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
     
     gl_Position = ubo_Projection * (ubo_View * vec4(vs_out.FragPos, 1.0));
 }
@@ -102,7 +99,6 @@ in VS_OUT
     mat3        TBN;
     flat vec3   TangentViewPos;
     vec3        TangentFragPos;
-    vec4 FragPosLightSpace;
     vec4 EyeSpacePosition;
 } fs_in;
 
@@ -110,16 +106,21 @@ in VS_OUT
 /* Uniforms (Tweakable from the material editor) */
 uniform vec2        u_TextureTiling           = vec2(1.0, 1.0);
 uniform vec2        u_TextureOffset           = vec2(0.0, 0.0);
-uniform vec4        u_Diffuse                 = vec4(1.0, 1.0, 1.0, 1.0);
+uniform vec4        u_Albedo                  = vec4(1.0, 1.0, 1.0, 1.0);
 uniform vec3        u_Specular                = vec3(1.0, 1.0, 1.0);
 uniform float       u_Shininess               = 100.0;
 uniform float       u_HeightScale             = 0.0;
 uniform bool        u_EnableNormalMapping     = false;
-uniform sampler2D   u_DiffuseMap;
+uniform sampler2D   u_AlbedoMap;
 uniform sampler2D   u_SpecularMap;
 uniform sampler2D   u_NormalMap;
 uniform sampler2D   u_HeightMap;
-uniform sampler2D   u_MaskMap;
+uniform sampler2D   u_MetallicMap;
+uniform sampler2D   u_RoughnessMap;
+uniform sampler2D   u_AmbientOcclusionMap;
+
+uniform float       u_Metallic              = 1.0;
+uniform float       u_Roughness             = 1.0;
 
 /* Global variables */
 vec3 g_Normal;
@@ -134,6 +135,9 @@ vec4 g_NormalTexel;
 layout (location = 0) out vec3 gPosition;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gAlbedoSpec;
+layout (location = 3) out vec4 gRoughAO;
+
+uniform bool u_engine_IsPBR = false;
 
 vec2 ParallaxMapping(vec3 p_ViewDir) {
     const vec2 parallax = p_ViewDir.xy * u_HeightScale * texture(u_HeightMap, g_TexCoords).r;
@@ -141,7 +145,6 @@ vec2 ParallaxMapping(vec3 p_ViewDir) {
 }
 
 void main() {
-    // Храним вектор позиции фрагмента в первой текстуре g-буфера
     gPosition = fs_in.FragPos;
 
     vec2 g_TexCoords = u_TextureOffset + vec2(mod(fs_in.TexCoords.x * u_TextureTiling.x, 1), mod(fs_in.TexCoords.y * u_TextureTiling.y, 1));
@@ -159,10 +162,16 @@ void main() {
       g_Normal = normalize(fs_in.Normal);
     }
     gNormal = normalize(g_Normal);
-
-    // И диффузную составляющую цвета каждого фрагмента
-    gAlbedoSpec.rgb = texture(u_DiffuseMap, g_TexCoords).rgb;
-
-    // Сохраним значение интенсивности отраженной составляющей в альфа-компоненте переменной gAlbedoSpec
-    gAlbedoSpec.a = texture(u_SpecularMap, g_TexCoords).r;
+    gRoughAO.b = abs(fs_in.EyeSpacePosition.z / fs_in.EyeSpacePosition.w);
+    if (!u_engine_IsPBR) {
+        gAlbedoSpec.rgb = (texture(u_AlbedoMap, g_TexCoords) * u_Albedo).rgb;
+        gAlbedoSpec.a = (texture(u_SpecularMap, g_TexCoords) * vec4(u_Specular, 1.0)).r;
+    }
+    else {
+        vec4 albedoRGBA     = texture(u_AlbedoMap, g_TexCoords) * u_Albedo;
+        gAlbedoSpec.rgb = pow(albedoRGBA.rgb, vec3(2.2));
+        gAlbedoSpec.a = texture(u_MetallicMap, g_TexCoords).r * u_Metallic;
+        gRoughAO.r = texture(u_RoughnessMap, g_TexCoords).r * u_Roughness;
+        gRoughAO.g = texture(u_AmbientOcclusionMap, g_TexCoords).r;
+    }
 }
