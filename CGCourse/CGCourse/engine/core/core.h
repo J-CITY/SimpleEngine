@@ -15,10 +15,6 @@
 #include "../resourceManager/textureManager.h"
 #include "../scene/sceneManager.h"
 
-namespace cyclone
-{
-	class PhysicWorld;
-}
 
 namespace KUMA
 {
@@ -51,7 +47,7 @@ namespace KUMA {
 			std::unique_ptr<SCENE_SYSTEM::SceneManager>   sceneManager;
 			std::unique_ptr<AUDIO::AudioManager>          audioManager;
 
-			std::unique_ptr<cyclone::PhysicWorld>               physicsManger;
+			std::unique_ptr<PHYSICS::PhysicWorld>         physicsManger;
 
 
 			RESOURCES::ModelLoader    modelManager;
