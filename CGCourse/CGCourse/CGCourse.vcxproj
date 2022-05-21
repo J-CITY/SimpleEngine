@@ -124,6 +124,7 @@
     <ClCompile Include="engine\ecs\components\modelRenderer.cpp" />
     <ClCompile Include="engine\ecs\components\pointLight.cpp" />
     <ClCompile Include="engine\ecs\components\script.cpp" />
+    <ClCompile Include="engine\ecs\components\skeletal.cpp" />
     <ClCompile Include="engine\ecs\components\spotLight.cpp" />
     <ClCompile Include="engine\ecs\components\transform.cpp" />
     <ClCompile Include="engine\ecs\object.cpp" />
@@ -134,7 +135,6 @@
     <ClCompile Include="engine\physics\body.cpp" />
     <ClCompile Include="engine\physics\broadPhase.cpp" />
     <ClCompile Include="engine\physics\contacts.cpp" />
-    <ClCompile Include="engine\physics\coreP.cpp" />
     <ClCompile Include="engine\physics\forceGenerator.cpp" />
     <ClCompile Include="engine\physics\joint.cpp" />
     <ClCompile Include="engine\physics\narrowPhase.cpp" />
@@ -247,6 +247,7 @@
     <ClInclude Include="engine\ecs\components\modelRenderer.h" />
     <ClInclude Include="engine\ecs\components\pointLight.h" />
     <ClInclude Include="engine\ecs\components\script.h" />
+    <ClInclude Include="engine\ecs\components\skeletal.h" />
     <ClInclude Include="engine\ecs\components\spotLight.h" />
     <ClInclude Include="engine\ecs\components\transform.h" />
     <ClInclude Include="engine\ecs\object.h" />
@@ -257,13 +258,10 @@
     <ClInclude Include="engine\physics\body.h" />
     <ClInclude Include="engine\physics\broadPhase.h" />
     <ClInclude Include="engine\physics\contacts.h" />
-    <ClInclude Include="engine\physics\coreP.h" />
-    <ClInclude Include="engine\physics\cyclone.h" />
     <ClInclude Include="engine\physics\forceGenerator.h" />
     <ClInclude Include="engine\physics\joint.h" />
     <ClInclude Include="engine\physics\narrowPhase.h" />
     <ClInclude Include="engine\physics\PhysicWorld.h" />
-    <ClInclude Include="engine\physics\precision.h" />
     <ClInclude Include="engine\render\buffers\depthBuffer.h" />
     <ClInclude Include="engine\render\buffers\indexBuffer.h" />
     <ClInclude Include="engine\render\buffers\ShaderStorageBuffer.h" />
@@ -308,6 +306,7 @@
     <ClInclude Include="engine\utils\gamepad\Gamepad.h" />
     <ClInclude Include="engine\utils\gamepad\GamepadMgr.h" />
     <ClInclude Include="engine\utils\idObject.h" />
+    <ClInclude Include="engine\utils\math\constant.h" />
     <ClInclude Include="engine\utils\math\matrix3.h" />
     <ClInclude Include="engine\utils\math\matrix4.h" />
     <ClInclude Include="engine\utils\math\quaternion.h" />

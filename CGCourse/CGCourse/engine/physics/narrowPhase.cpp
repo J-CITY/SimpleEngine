@@ -1,11 +1,7 @@
-
 #include "narrowPhase.h"
-#include <memory.h>
-//#include <assert.h>
-
-#include "body.h"
-#include "contacts.h"
-#include "../ecs/components/physicsComponent.h"
+#include <assert.h>
+#include <cstdlib>
+#include <cstdio>
 
 using namespace KUMA;
 using namespace KUMA::PHYSICS;
@@ -22,8 +18,7 @@ bool IntersectionTests::sphereAndHalfSpace(
 {
     // Find the distance from the origin
     float ballDistance =
-        plane.direction.dot(sphere.getAxis(3)) -
-        sphere.radius;
+        plane.direction.dot(sphere.getAxis(3)) - sphere.radius;
 
     // Check for the intersection
     return ballDistance <= plane.offset;
@@ -47,17 +42,11 @@ static inline float transformToAxis(
     )
 {
     return
-        box.halfSize.x * fabs(axis.dot(box.getAxis(0))) +
-        box.halfSize.y * fabs(axis.dot(box.getAxis(1))) +
-        box.halfSize.z * fabs(axis.dot(box.getAxis(2)));
+        box.halfSize.x * abs(axis.dot(box.getAxis(0))) +
+        box.halfSize.y * abs(axis.dot(box.getAxis(1))) +
+        box.halfSize.z * abs(axis.dot(box.getAxis(2)));
 }
 
-/**
- * This function checks if the two boxes overlap
- * along the given axis. The final parameter toCentre
- * is used to pass in the vector between the boxes centre
- * points, to avoid having to recalculate it each time.
- */
 static inline bool overlapOnAxis(
     const CollisionBox &one,
     const CollisionBox &two,
@@ -70,12 +59,14 @@ static inline bool overlapOnAxis(
     float twoProject = transformToAxis(two, axis);
 
     // Project this onto the axis
-    float distance = fabs(toCentre.dot(axis));
+    float distance = abs(toCentre.dot(axis));
 
     // Check for overlap
     return (distance < oneProject + twoProject);
 }
 
+// This preprocessor definition is only used as a convenience
+// in the boxAndBox intersection  method.
 #define TEST_OVERLAP(axis) overlapOnAxis(one, two, (axis), toCentre)
 
 bool IntersectionTests::boxAndBox(
@@ -121,13 +112,12 @@ bool IntersectionTests::boxAndHalfSpace(
 
     // Work out how far the box is from the origin
     float boxDistance =
-        plane.direction.dot(box.getAxis(3)) -
-        projectedRadius;
+        plane.direction.dot(box.getAxis(3)) - projectedRadius;
 
     // Check for the intersection
     return boxDistance <= plane.offset;
 }
-/*
+
 unsigned CollisionDetector::sphereAndTruePlane(
     const CollisionSphere &sphere,
     const CollisionPlane &plane,
@@ -160,17 +150,17 @@ unsigned CollisionDetector::sphereAndTruePlane(
     penetration += sphere.radius;
 
     // Create the contact - it has a normal in the plane direction.
-    auto& contact = data->contactArray.get()[data->curContactId];
-    contact.contactNormal = normal;
-    contact.penetration = penetration;
-    contact.contactPoint = position - plane.direction * centreDistance;
-    contact.setBodyData(sphere.body, nullptr, data->friction, data->restitution);
+    Contact* contact = data->contacts;
+    contact->contactNormal = normal;
+    contact->penetration = penetration;
+    contact->contactPoint = position - plane.direction * centreDistance;
+    contact->setBodyData(sphere.body, NULL,
+        data->friction, data->restitution);
 
     data->addContacts(1);
     return 1;
 }
-*/
-/*
+
 unsigned CollisionDetector::sphereAndHalfSpace(
     const CollisionSphere &sphere,
     const CollisionPlane &plane,
@@ -190,18 +180,19 @@ unsigned CollisionDetector::sphereAndHalfSpace(
 
     if (ballDistance >= 0) return 0;
 
-    auto& contact = data->contactArray.get()[data->curContactId];
-    contact.contactNormal = plane.direction;
-    contact.penetration = -ballDistance;
-    contact.contactPoint =
+    // Create the contact - it has a normal in the plane direction.
+    Contact* contact = data->contacts;
+    contact->contactNormal = plane.direction;
+    contact->penetration = -ballDistance;
+    contact->contactPoint =
         position - plane.direction * (ballDistance + sphere.radius);
-    contact.setBodyData(sphere.body, nullptr, data->friction, data->restitution);
+    contact->setBodyData(sphere.body, NULL,
+        data->friction, data->restitution);
 
     data->addContacts(1);
     return 1;
 }
-*/
-/*
+
 unsigned CollisionDetector::sphereAndSphere(
     const CollisionSphere &one,
     const CollisionSphere &two,
@@ -229,16 +220,17 @@ unsigned CollisionDetector::sphereAndSphere(
     // size to hand.
     Vector3 normal = midline * (((float)1.0)/size);
 
-    auto& contact = data->contactArray.get()[data->curContactId];
-    contact.contactNormal = normal;
-    contact.contactPoint = positionOne + midline * (float)0.5;
-    contact.penetration = (one.radius+two.radius - size);
-    contact.setBodyData(one.body, two.body, data->friction, data->restitution);
+    Contact* contact = data->contacts;
+    contact->contactNormal = normal;
+    contact->contactPoint = positionOne + midline * (float)0.5;
+    contact->penetration = (one.radius+two.radius - size);
+    contact->setBodyData(one.body, two.body,
+        data->friction, data->restitution);
 
     data->addContacts(1);
     return 1;
 }
-*/
+
 static inline float penetrationOnAxis(
     const CollisionBox &one,
     const CollisionBox &two,
@@ -251,8 +243,10 @@ static inline float penetrationOnAxis(
     float twoProject = transformToAxis(two, axis);
 
     // Project this onto the axis
-    float distance = fabs(toCentre.dot(axis));
-    
+    float distance = abs(toCentre.dot(axis));
+
+    // Return the overlap (i.e. positive indicates
+    // overlap, negative indicates separation).
     return oneProject + twoProject - distance;
 }
 
@@ -284,8 +278,8 @@ static inline bool tryAxis(
 }
 
 void fillPointFaceBoxBox(
-    const CollisionBox& one,
-    const CollisionBox& two,
+    const CollisionBox &one,
+    const CollisionBox &two,
     const Vector3 &toCentre,
     CollisionData *data,
     unsigned best,
@@ -295,13 +289,14 @@ void fillPointFaceBoxBox(
     // This method is called when we know that a vertex from
     // box two is in contact with box one.
 
-    auto* contact = data->m_contacts;
+    Contact* contact = data->contacts;
 
     // We know which axis the collision is on (i.e. best),
     // but we need to work out which of the two faces on
     // this axis.
     Vector3 normal = one.getAxis(best);
-    if (one.getAxis(best).dot(toCentre) > 0) {
+    if (one.getAxis(best).dot(toCentre) > 0)
+    {
         normal = normal * -1.0f;
     }
 
@@ -315,19 +310,26 @@ void fillPointFaceBoxBox(
     // Create the contact data
     contact->contactNormal = normal;
     contact->penetration = pen;
-    contact->contactPoint = two.getTransform() * vertex;
-    contact->setBodyData(one.body, two.body, data->m_friction, data->m_restitution);
+    auto v = MATHGL::Vector3{vertex.x, vertex.y, vertex.z};
+    auto res = two.getTransform() * v;
+    contact->contactPoint = {(float)res.x, (float)res.y, (float)res.z};
+    contact->setBodyData(one.body, two.body,
+        data->friction, data->restitution);
 }
 
-
-static Vector3 contactPoint(
+static inline Vector3 contactPoint(
     const Vector3 &pOne,
     const Vector3 &dOne,
     float oneSize,
     const Vector3 &pTwo,
     const Vector3 &dTwo,
     float twoSize,
-    bool useOne) {
+
+    // If this is true, and the contact point is outside
+    // the edge (in the case of an edge-face contact) then
+    // we use one's midpoint, otherwise we use two's.
+    bool useOne)
+{
     Vector3 toSt, cOne, cTwo;
     float dpStaOne, dpStaTwo, dpOneTwo, smOne, smTwo;
     float denom, mua, mub;
@@ -341,14 +343,19 @@ static Vector3 contactPoint(
     dpStaTwo = dTwo.dot(toSt);
 
     denom = smOne * smTwo - dpOneTwo * dpOneTwo;
-    
-    if (fabs(denom) < 0.0001f) {
+
+    // Zero denominator indicates parrallel lines
+    if (abs(denom) < 0.0001f) {
         return useOne?pOne:pTwo;
     }
 
     mua = (dpOneTwo * dpStaTwo - smTwo * dpStaOne) / denom;
     mub = (smOne * dpStaTwo - dpOneTwo * dpStaOne) / denom;
 
+    // If either of the edges has the nearest point out
+    // of bounds, then the edges aren't crossed, we have
+    // an edge-face contact. Our point is on the edge, which
+    // we know from the useOne parameter.
     if (mua > oneSize ||
         mua < -oneSize ||
         mub > twoSize ||
@@ -364,117 +371,25 @@ static Vector3 contactPoint(
         return cOne * 0.5 + cTwo * 0.5;
     }
 }
-float TransformToAxis(std::shared_ptr<ECS::PhysicsComponent> box, Vector3& axis) {
-    auto& halfSize = reinterpret_cast<KUMA::PHYSICS::CollisionBox*>(box->collider.get())->halfSize;
 
-    return halfSize.x * fabsf(axis.dot(box->collider->getAxis(0))) +
-        halfSize.y *    fabsf(axis.dot(box->collider->getAxis(1))) +
-        halfSize.z *    fabsf(axis.dot(box->collider->getAxis(2)));
-}
-float CalcPenetrationOnAxis(std::shared_ptr<ECS::PhysicsComponent> lhs, std::shared_ptr<ECS::PhysicsComponent> rhs, Vector3& axis, Vector3& toCentre) {
-    float lhsProject = TransformToAxis(lhs, axis);
-    float rhsProject = TransformToAxis(rhs, axis);
-
-    float distance = fabsf(toCentre.dot(axis));
-
-    return lhsProject + rhsProject - distance;
-}
-
-bool TryAxis(std::shared_ptr<ECS::PhysicsComponent> lhs, std::shared_ptr<ECS::PhysicsComponent> rhs, Vector3& axis, 
-    Vector3& toCentre, unsigned int index, float& smallestPenetration, unsigned int& smallestCase) {
-    if (axis.LengthSqrt(axis) < 0.0001) {
-        return true;
-    }
-
-    float penetration = CalcPenetrationOnAxis(lhs, rhs, axis, toCentre);
-
-    if (penetration < 0) {
-        return false;
-    }
-    if (penetration < smallestPenetration) {
-        smallestPenetration = penetration;
-        smallestCase = index;
-    }
-
-    return true;
-}
-
-void FillPointFaceBoxBox(std::shared_ptr<ECS::PhysicsComponent> lhs, std::shared_ptr<ECS::PhysicsComponent> rhs, 
-    Vector3& toCentre, CollisionData* data, unsigned int best, float pen) {
-    Contact* contact = data->m_contacts;
-
-    auto normal = lhs->collider->getAxis(best);
-
-    if (normal.dot(toCentre) > 0) {
-        normal = -normal;
-    }
-
-    auto vertex = reinterpret_cast<KUMA::PHYSICS::CollisionBox*>(rhs->collider.get())->halfSize;
-    if (rhs->collider->getAxis(0).dot(normal) < 0) {
-        vertex.x = -vertex.x;
-    }
-    if (rhs->collider->getAxis(1).dot(normal) < 0) {
-        vertex.y = -vertex.y;
-    }
-    if (rhs->collider->getAxis(2).dot(normal) < 0) {
-        vertex.z = -vertex.z;
-    }
-
-    contact->contactNormal = normal;
-    contact->penetration = pen;
-    contact->contactPoint = rhs->collider->getTransform()* vertex;
-    contact->body[0] = lhs->body;
-    contact->body[1] = rhs->body;
-    contact->friction = data->m_friction;
-    contact->restitution = data->m_restitution;
-}
-
-Vector3 CalcEdgeContactPoint(Vector3& pLhs, Vector3& dLhs, float lhsSize, Vector3& pRhs, Vector3& dRhs, float rhsSize, bool useLhs) {
-    float smLhs =    dLhs.LengthSqrt(dLhs);
-    float smRhs =    dRhs.LengthSqrt(dRhs);
-    float dpLhsRhs = dLhs.dot(dRhs);
-
-    auto toSt = pLhs - pRhs;
-    float dpStaLhs = toSt.dot(dLhs);
-    float dpStaRhs = toSt.dot(dRhs);
-
-    float denom = smLhs * smRhs - dpLhsRhs * dpLhsRhs;
-
-    if (fabsf(denom) < 0.0001f) {
-        return useLhs ? pLhs : pRhs;
-    }
-
-    float  mua = (dpLhsRhs * dpStaRhs - smRhs * dpStaLhs) / denom;
-    float  mub = (smLhs * dpStaRhs - dpLhsRhs * dpStaLhs) / denom;
-
-    if (mua > lhsSize ||
-        mua < -lhsSize ||
-        mub > rhsSize ||
-        mub < -rhsSize) {
-        return useLhs ? pLhs : pRhs;
-    }
-    else {
-        auto cLhs = pLhs + (dLhs * mua);
-        auto cRhs = pRhs + (dRhs * mub);
-
-        return (cLhs + cRhs) * 0.5;
-    }
-}
+// This preprocessor definition is only used as a convenience
+// in the boxAndBox contact generation method.
 #define CHECK_OVERLAP(axis, index) \
     if (!tryAxis(one, two, (axis), toCentre, (index), pen, best)) return 0;
 
 unsigned CollisionDetector::boxAndBox(
-    const CollisionBox& one,
-    const CollisionBox& two,
-    CollisionData* data
-) {
+    const CollisionBox &one,
+    const CollisionBox &two,
+    CollisionData *data
+    )
+{
     //if (!IntersectionTests::boxAndBox(one, two)) return 0;
 
     // Find the vector between the two centres
     Vector3 toCentre = two.getAxis(3) - one.getAxis(3);
 
     // We start assuming there is no contact
-    float pen = FLT_MAX;
+    float pen = std::numeric_limits<float>::max();
     unsigned best = 0xffffff;
 
     // Now we check each axes, returning if it gives us
@@ -509,22 +424,25 @@ unsigned CollisionDetector::boxAndBox(
     // of the axes gave the smallest penetration. We now
     // can deal with it in different ways depending on
     // the case.
-    if (best < 3) {
+    if (best < 3)
+    {
         // We've got a vertex of box two on a face of box one.
         fillPointFaceBoxBox(one, two, toCentre, data, best, pen);
         data->addContacts(1);
         return 1;
     }
-    else if (best < 6) {
+    else if (best < 6)
+    {
         // We've got a vertex of box one on a face of box two.
         // We use the same algorithm as above, but swap around
         // one and two (and therefore also the vector between their
         // centres).
-        fillPointFaceBoxBox(two, one, toCentre * -1.0f, data, best - 3, pen);
+        fillPointFaceBoxBox(two, one, toCentre*-1.0f, data, best-3, pen);
         data->addContacts(1);
         return 1;
     }
-    else {
+    else
+    {
         // We've got an edge-edge contact. Find out which axes
         best -= 6;
         unsigned oneAxisIndex = best / 3;
@@ -536,16 +454,11 @@ unsigned CollisionDetector::boxAndBox(
 
         // The axis should point from box one to box two.
         if (axis.dot(toCentre) > 0) axis = axis * -1.0f;
-
-        // We have the axes, but not the edges: each axis has 4 edges parallel
-        // to it, we need to find which of the 4 for each object. We do
-        // that by finding the point in the centre of the edge. We know
-        // its component in the direction of the box's collision axis is zero
-        // (its a mid-point) and we determine which of the extremes in each
-        // of the other axes is closest.
+        
         Vector3 ptOnOneEdge = one.halfSize;
         Vector3 ptOnTwoEdge = two.halfSize;
-        for (unsigned i = 0; i < 3; i++) {
+        for (unsigned i = 0; i < 3; i++)
+        {
             if (i == oneAxisIndex) ptOnOneEdge[i] = 0;
             else if (one.getAxis(i).dot(axis) > 0) ptOnOneEdge[i] = -ptOnOneEdge[i];
 
@@ -555,26 +468,28 @@ unsigned CollisionDetector::boxAndBox(
 
         // Move them into world coordinates (they are already oriented
         // correctly, since they have been derived from the axes).
-        ptOnOneEdge = one.transform * ptOnOneEdge;
-        ptOnTwoEdge = two.transform * ptOnTwoEdge;
+        auto res = one.transform * MATHGL::Vector3{ptOnOneEdge.x, ptOnOneEdge.y, ptOnOneEdge.z};
+        ptOnOneEdge = {(float)res.x, (float)res.y, (float)res.z};
+        res = two.transform * MATHGL::Vector3{ptOnTwoEdge.x, ptOnTwoEdge.y, ptOnTwoEdge.z};
+        ptOnTwoEdge = {(float)res.x, (float)res.y, (float)res.z};
 
         // So we have a point and a direction for the colliding edges.
         // We need to find out point of closest approach of the two
         // line-segments.
         Vector3 vertex = contactPoint(
-            ptOnOneEdge, oneAxis, static_cast<Vector3>(one.halfSize)[oneAxisIndex],
-            ptOnTwoEdge, twoAxis, static_cast<Vector3>(two.halfSize)[twoAxisIndex],
+            ptOnOneEdge, oneAxis, one.halfSize[oneAxisIndex],
+            ptOnTwoEdge, twoAxis, two.halfSize[twoAxisIndex],
             bestSingleAxis > 2
-        );
+            );
 
         // We can fill the contact.
-        Contact* contact = data->m_contacts;
+        Contact* contact = data->contacts;
 
         contact->penetration = pen;
         contact->contactNormal = axis;
         contact->contactPoint = vertex;
         contact->setBodyData(one.body, two.body,
-            data->m_friction, data->m_restitution);
+            data->friction, data->restitution);
         data->addContacts(1);
         return 1;
     }
@@ -582,7 +497,9 @@ unsigned CollisionDetector::boxAndBox(
 }
 #undef CHECK_OVERLAP
 
-/*
+
+
+
 unsigned CollisionDetector::boxAndPoint(
     const CollisionBox &box,
     const Vector3 &point,
@@ -590,17 +507,18 @@ unsigned CollisionDetector::boxAndPoint(
     )
 {
     // Transform the point into box coordinates
-    Vector3 relPt = box.transform.transformInverse(point);
+    auto res = box.transform.transformInverse(MATHGL::Vector3{point.x, point.y, point.z});
+    Vector3 relPt = {(float)res.x, (float)res.y, (float)res.z};
 
     Vector3 normal;
 
     // Check each axis, looking for the axis on which the
     // penetration is least deep.
-    float min_depth = box.halfSize.x - fabs(relPt.x);
+    float min_depth = box.halfSize.x - abs(relPt.x);
     if (min_depth < 0) return 0;
     normal = box.getAxis(0) * ((relPt.x < 0)?-1:1);
 
-    float depth = box.halfSize.y - fabs(relPt.y);
+    float depth = box.halfSize.y - abs(relPt.y);
     if (depth < 0) return 0;
     else if (depth < min_depth)
     {
@@ -608,7 +526,7 @@ unsigned CollisionDetector::boxAndPoint(
         normal = box.getAxis(1) * ((relPt.y < 0)?-1:1);
     }
 
-    depth = box.halfSize.z - fabs(relPt.z);
+    depth = box.halfSize.z - abs(relPt.z);
     if (depth < 0) return 0;
     else if (depth < min_depth)
     {
@@ -617,17 +535,21 @@ unsigned CollisionDetector::boxAndPoint(
     }
 
     // Compile the contact
-    auto& contact = data->contactArray.get()[data->curContactId];
-    contact.contactNormal = normal;
-    contact.contactPoint = point;
-    contact.penetration = min_depth;
-    contact.setBodyData(box.body, nullptr, data->friction, data->restitution);
+    Contact* contact = data->contacts;
+    contact->contactNormal = normal;
+    contact->contactPoint = point;
+    contact->penetration = min_depth;
+
+    // Note that we don't know what rigid body the point
+    // belongs to, so we just use NULL. Where this is called
+    // this value can be left, or filled in.
+    contact->setBodyData(box.body, NULL,
+        data->friction, data->restitution);
 
     data->addContacts(1);
     return 1;
 }
-*/
-/*
+
 unsigned CollisionDetector::boxAndSphere(
     const CollisionBox &box,
     const CollisionSphere &sphere,
@@ -636,12 +558,13 @@ unsigned CollisionDetector::boxAndSphere(
 {
     // Transform the centre of the sphere into box coordinates
     Vector3 centre = sphere.getAxis(3);
-    Vector3 relCentre = box.transform.transformInverse(centre);
+    auto res = box.transform.transformInverse(MATHGL::Vector3{centre.x, centre.y, centre.z});
+    Vector3 relCentre = {(float)res.x, (float)res.y,(float)res.z};
 
     // Early out check to see if we can exclude the contact
-    if (fabs(relCentre.x) - sphere.radius > box.halfSize.x ||
-        fabs(relCentre.y) - sphere.radius > box.halfSize.y ||
-        fabs(relCentre.z) - sphere.radius > box.halfSize.z)
+    if (abs(relCentre.x) - sphere.radius > box.halfSize.x ||
+        abs(relCentre.y) - sphere.radius > box.halfSize.y ||
+        abs(relCentre.z) - sphere.radius > box.halfSize.z)
     {
         return 0;
     }
@@ -670,19 +593,20 @@ unsigned CollisionDetector::boxAndSphere(
     if (dist > sphere.radius * sphere.radius) return 0;
 
     // Compile the contact
-    Vector3 closestPtWorld = box.transform.transform(closestPt);
+    res = box.transform.transform(MATHGL::Vector3{closestPt.x, closestPt.y, closestPt.z});
+    Vector3 closestPtWorld = {(float)res.x, (float)res.y, (float)res.z};
 
-    auto& contact = data->contactArray.get()[data->curContactId];
-    contact.contactNormal = (closestPtWorld - centre);
-    contact.contactNormal.normalise();
-    contact.contactPoint = closestPtWorld;
-    contact.penetration = sphere.radius - fabs(dist);
-    contact.setBodyData(box.body, sphere.body, data->friction, data->restitution);
+    Contact* contact = data->contacts;
+    contact->contactNormal = (closestPtWorld - centre);
+    contact->contactNormal.normalise();
+    contact->contactPoint = closestPtWorld;
+    contact->penetration = sphere.radius - sqrt(dist);
+    contact->setBodyData(box.body, sphere.body,
+        data->friction, data->restitution);
 
     data->addContacts(1);
     return 1;
 }
-*/
 
 unsigned CollisionDetector::boxAndHalfSpace(
     const CollisionBox &box,
@@ -691,24 +615,31 @@ unsigned CollisionDetector::boxAndHalfSpace(
     )
 {
     // Make sure we have contacts
-    if (data->m_contactsLeft <= 0) return 0;
+    if (data->contactsLeft <= 0) return 0;
 
     // Check for intersection
     if (!IntersectionTests::boxAndHalfSpace(box, plane))
     {
         return 0;
     }
+
+    // We have an intersection, so find the intersection points. We can make
+    // do with only checking vertices. If the box is resting on a plane
+    // or on an edge, it will be reported as four or two contact points.
+
+    // Go through each combination of + and - for each half-size
     static float mults[8][3] = {{1,1,1},{-1,1,1},{1,-1,1},{-1,-1,1},
                                {1,1,-1},{-1,1,-1},{1,-1,-1},{-1,-1,-1}};
 
-    auto* contact = data->m_contactArray;
+    Contact* contact = data->contacts;
     unsigned contactsUsed = 0;
     for (unsigned i = 0; i < 8; i++) {
 
         // Calculate the position of each vertex
         Vector3 vertexPos(mults[i][0], mults[i][1], mults[i][2]);
         vertexPos.componentProductUpdate(box.halfSize);
-        vertexPos = box.transform.transform(vertexPos);
+        auto res = box.transform.transform(MATHGL::Vector3{vertexPos.x, vertexPos.y, vertexPos.z});
+        vertexPos = {(float)res.x, (float)res.y, (float)res.z};
 
         // Calculate the distance from the plane
         float vertexDistance = vertexPos.dot(plane.direction);
@@ -716,6 +647,11 @@ unsigned CollisionDetector::boxAndHalfSpace(
         // Compare this to the plane's distance
         if (vertexDistance <= plane.offset)
         {
+            // Create the contact data.
+
+            // The contact point is halfway between the vertex and the
+            // plane - we multiply the direction by half the separation
+            // distance and add the vertex location.
             contact->contactPoint = plane.direction;
             contact->contactPoint *= (vertexDistance-plane.offset);
             contact->contactPoint += vertexPos;
@@ -723,67 +659,16 @@ unsigned CollisionDetector::boxAndHalfSpace(
             contact->penetration = plane.offset - vertexDistance;
 
             // Write the appropriate data
-            contact->setBodyData(box.body, nullptr, data->m_friction, data->m_restitution);
+            contact->setBodyData(box.body, NULL,
+                data->friction, data->restitution);
 
             // Move onto the next contact
-            //data->curContactId++;
             contact++;
             contactsUsed++;
-            if (contactsUsed == (unsigned)data->m_contactsLeft) return contactsUsed;
+            if (contactsUsed == (unsigned)data->contactsLeft) return contactsUsed;
         }
     }
 
     data->addContacts(contactsUsed);
     return contactsUsed;
-}
-
-
-unsigned int KUMA::PHYSICS::DetectCollisionObjectAndObject(std::shared_ptr<ECS::PhysicsComponent> lhs, std::shared_ptr<ECS::PhysicsComponent> rhs, CollisionData* data) {
-    assert(lhs && rhs && data);
-    ECS::CollisionType lhsType = lhs->collisionType;
-    ECS::CollisionType rhsType = rhs->collisionType;
-
-    if (lhsType > rhsType) {
-        std::swap(lhsType, rhsType);
-        std::swap(lhs, rhs);
-    }
-
-    //if (lhsType == ECS::CollisionType::SPHERE) {
-    //    const auto* lhsCollider = reinterpret_cast<const CollisionSphere*>(lhs->collider.get());
-
-        //if (rhsType == ECS::CollisionType::SPHERE) {
-        //    const CollisionSphere* rhsCollider = reinterpret_cast<const CollisionSphere*>(rhs->collider.get());
-        //    return CollisionDetector::sphereAndSphere(*lhsCollider, *rhsCollider, data);
-        //}
-        //else if (rhsType == CollisionType::AABB) {
-            //const CAaboundingbox* boxCollider = reinterpret_cast<const CAaboundingbox*>(rhs->GetDefaultCollider());
-            //return CollisionDetector::boxAndSphere(*boxCollider, *lhsCollider, data);
-        //}
-        //else if (rhsType == CollisionType::OBB) {
-        //    const CollisionBox* boxCollider = reinterpret_cast<const CollisionBox*>(rhs->GetDefaultCollider());
-        //    return CollisionDetector::boxAndSphere(*boxCollider, *lhsCollider, data);
-        //}
-    //}
-    //else if (lhsType == CollisionType::AABB) {
-    //    const CAaboundingbox* boxCollider1 = reinterpret_cast<const CAaboundingbox*>(lhs->GetDefaultCollider());
-    //
-    //    if (rhsType == CollisionType::AABB) {
-    //        const CAaboundingbox* boxCollider2 = reinterpret_cast<const CAaboundingbox*>(rhs->GetDefaultCollider());
-    //        return CollisionDetector::boxAndBox(*boxCollider1, *boxCollider2, data);
-    //    }
-    //    else if (rhsType == CollisionType::OBB) {
-    //        const COrientedBoundingBox* boxCollider2 = reinterpret_cast<const COrientedBoundingBox*>(rhs->GetDefaultCollider());
-    //        return CollisionDetector::boxAndBox(*boxCollider1, *boxCollider2, data);
-    //    }
-    //}
-    if (lhsType == ECS::CollisionType::OBB) {
-        //const CollisionBox* boxCollider1 = reinterpret_cast<const CollisionBox*>(lhs->collider.get());
-
-        if (rhsType == ECS::CollisionType::OBB) {
-            //const CollisionBox* boxCollider2 = reinterpret_cast<const CollisionBox*>(rhs->collider.get());
-            //return CollisionDetector::boxAndBox(lhs, rhs, data);
-        }
-    }
-
-    return 0;
 }

@@ -391,8 +391,8 @@
     <ClCompile Include="engine\ecs\components\audioComponent.cpp">
       <Filter>Исходные файлы\engine\ecs\components</Filter>
     </ClCompile>
-    <ClCompile Include="engine\physics\coreP.cpp">
-      <Filter>Исходные файлы\engine\physics</Filter>
+    <ClCompile Include="engine\ecs\components\skeletal.cpp">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -804,17 +804,14 @@
     <ClInclude Include="engine\physics\PhysicWorld.h">
       <Filter>Исходные файлы\engine\physics</Filter>
     </ClInclude>
-    <ClInclude Include="engine\physics\cyclone.h">
-      <Filter>Исходные файлы\engine\physics</Filter>
-    </ClInclude>
-    <ClInclude Include="engine\physics\precision.h">
-      <Filter>Исходные файлы\engine\physics</Filter>
-    </ClInclude>
     <ClInclude Include="engine\ecs\components\audioComponent.h">
       <Filter>Исходные файлы\engine\ecs\components</Filter>
     </ClInclude>
-    <ClInclude Include="engine\physics\coreP.h">
-      <Filter>Исходные файлы\engine\physics</Filter>
+    <ClInclude Include="engine\ecs\components\skeletal.h">
+      <Filter>Исходные файлы\engine\ecs\components</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\constant.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

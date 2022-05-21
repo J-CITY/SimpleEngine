@@ -706,7 +706,7 @@ int main() {
 
 
 		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto body = new cyclone::RigidBody();
+		auto body = new KUMA::PHYSICS::RigidBody();
 		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
@@ -714,8 +714,8 @@ int main() {
 
 		body->setInverseMass(0);
 
-		cyclone::Matrix3 tensor;
-		tensor.setBlockInertiaTensor(cyclone::Vector3{30, 1.f, 30} *0.5f, 0);
+		KUMA::MATHGL::Matrix3 tensor = KUMA::MATHGL::Matrix3(0.0f);
+		tensor.setBlockInertiaTensor(KUMA::MATHGL::Vector3{30, 1.f, 30} *0.5f, 0);
 		body->setInertiaTensor(tensor);
 
 		body->setLinearDamping(0.95f);
@@ -727,8 +727,8 @@ int main() {
 		body->setAwake();
 
 		body->calculateDerivedData();
-		auto colider = new cyclone::CollisionBox();
-		colider->halfSize = {30.0f, 1.0f, 30.0f} *0.5f;
+		auto colider = new KUMA::PHYSICS::CollisionBox();
+		colider->halfSize = {30.0f, 1.0f, 30.0f} * 0.5f;
 		//colider->transform = obj->transform->getLocalMatrix();
 		colider->body = body;
 		colider->calculateInternals();
@@ -746,7 +746,7 @@ int main() {
 			//if (pc->body)
 			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
 			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
-				body->getOrientation().i, body->getOrientation().j, body->getOrientation().k, body->getOrientation().r));
+				body->getOrientation().x, body->getOrientation().y, body->getOrientation().z, body->getOrientation().w));
 
 			//pc->collider->transform = pc->obj.transform->getLocalMatrix();
 			//pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
@@ -814,7 +814,7 @@ int main() {
 		mat->fillWithMaterial(_m);
 
 		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto body = new cyclone::RigidBody();
+		auto body = new KUMA::PHYSICS::RigidBody();
 		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
@@ -823,8 +823,8 @@ int main() {
 		float mass = 5555.0f;
 		body->setMass(mass);
 
-		cyclone::Matrix3 tensor;
-		tensor.setBlockInertiaTensor(cyclone::Vector3{10.5f, 10.5f, 10.5f} *0.5f, mass);
+		KUMA::MATHGL::Matrix3 tensor = KUMA::MATHGL::Matrix3(0.0f);
+		tensor.setBlockInertiaTensor(KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f, mass);
 		body->setInertiaTensor(tensor);
 
 		body->setLinearDamping(0.95f);
@@ -837,8 +837,8 @@ int main() {
 
 		body->calculateDerivedData();
 
-		auto colider = new cyclone::CollisionBox();
-		colider->halfSize = cyclone::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
+		auto colider = new KUMA::PHYSICS::CollisionBox();
+		colider->halfSize = KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
 		//colider->transform = obj->transform->getLocalMatrix();
 		colider->body = body;
 		colider->calculateInternals();
@@ -860,7 +860,7 @@ int main() {
 			//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
 			//	KUMA::MATHGL::Vector3(TO_DEGREES(body->getRotation().x), TO_DEGREES(body->getRotation().y), TO_DEGREES(body->getRotation().z))));
 			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
-				body->getOrientation().i, body->getOrientation().j, body->getOrientation().k, body->getOrientation().r));
+				body->getOrientation().x, body->getOrientation().y, body->getOrientation().z, body->getOrientation().w));
 
 
 			//pc->collider->transform = pc->obj.transform->getLocalMatrix();
@@ -874,7 +874,7 @@ int main() {
 				body->setPosition(0.0f, 55.0f, 0.0f);
 				body->setOrientation(1, 0, 0, 0);
 				body->setVelocity(0, 0, 0);
-				body->setRotation(cyclone::Vector3(0, 0, 0));
+				body->setRotation(KUMA::MATHGL::Vector3(0, 0, 0));
 			}
 		});
 	}
@@ -938,7 +938,7 @@ int main() {
 		mat->fillWithMaterial(_m);
 
 		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto body = new cyclone::RigidBody();
+		auto body = new KUMA::PHYSICS::RigidBody();
 		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
@@ -947,8 +947,8 @@ int main() {
 		float mass = 5555.0f;
 		body->setMass(mass);
 
-		cyclone::Matrix3 tensor;
-		tensor.setBlockInertiaTensor(cyclone::Vector3{10.5f, 10.5f, 10.5f} *0.5f, mass);
+		KUMA::MATHGL::Matrix3 tensor = KUMA::MATHGL::Matrix3(0.0f);
+		tensor.setBlockInertiaTensor(KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f, mass);
 		body->setInertiaTensor(tensor);
 
 		body->setLinearDamping(0.95f);
@@ -961,8 +961,8 @@ int main() {
 
 		body->calculateDerivedData();
 
-		auto colider = new cyclone::CollisionBox();
-		colider->halfSize = cyclone::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
+		auto colider = new KUMA::PHYSICS::CollisionBox();
+		colider->halfSize = KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
 		//colider->transform = obj->transform->getLocalMatrix();
 		colider->body = body;
 
@@ -986,7 +986,7 @@ int main() {
 			//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
 			//	KUMA::MATHGL::Vector3(TO_DEGREES(body->getRotation().x), TO_DEGREES(body->getRotation().y), TO_DEGREES(body->getRotation().z))));
 			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
-				body->getOrientation().i, body->getOrientation().j, body->getOrientation().k, body->getOrientation().r));
+				body->getOrientation().x, body->getOrientation().y, body->getOrientation().z, body->getOrientation().w));
 
 			//pc->collider->transform = pc->obj.transform->getLocalMatrix();
 			//pc->boundingSphere.position = pc->obj.transform->getLocalPosition();
@@ -999,7 +999,7 @@ int main() {
 				body->setPosition(7.0f, 155.0f, 0.0f);
 				body->setOrientation(1, 0, 0, 0);
 				body->setVelocity(0, 0, 0);
-				body->setRotation(cyclone::Vector3(0, 0, 0));
+				body->setRotation(KUMA::MATHGL::Vector3(0, 0, 0));
 			}
 		});
 	}

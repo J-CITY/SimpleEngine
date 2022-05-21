@@ -33,20 +33,24 @@ namespace KUMA {
 			bool operator==(const Vector3 & p_other);
 			bool operator!=(const Vector3 & p_other);
 
+			void clear() {
+				x = y = z = 0.0f;
+			}
 
-			float& operator[](unsigned i)
-			{
-				if (i == 0)
-				{
+			float& operator[](unsigned i) {
+				if (i == 0) {
 					return x;
 				}
 				if (i == 1) {
 					return y;
 				}
-				if (i == 2) {
-					return z;
-				}
+				return z;
 
+			}
+			float operator[](unsigned i) const {
+				if (i == 0) return x;
+				if (i == 1) return y;
+				return z;
 			}
 
 			void addScaledVector(const Vector3& vector, float scale) {
