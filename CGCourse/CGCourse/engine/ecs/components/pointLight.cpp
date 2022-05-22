@@ -11,8 +11,6 @@ PointLight::PointLight(const ECS::Object& obj) : LightComponent(obj) {
 
 	//shadowProjectionMat = MATHGL::Matrix4::CreatePerspective(ang, aspect, zNear, zFar);
 
-	MATHGL::Vector3 lightPos = this->obj.transform->getLocalPosition();
-
 	DepthMap = std::make_shared<RESOURCES::CubeMap>();
 	
 	auto depthTextureSize = 1024;

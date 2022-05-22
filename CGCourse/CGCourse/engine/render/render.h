@@ -198,8 +198,7 @@ namespace KUMA {
 			std::string getString(GLenum parameter, uint32_t index);
 			void clearFrameInfo();
 
-			void draw(RESOURCES::Mesh & mesh, Material& material, PrimitiveMode primitiveMode = PrimitiveMode::TRIANGLES, uint32_t instances = 1);
-			void draw(RESOURCES::Mesh & mesh, PrimitiveMode primitiveMode = PrimitiveMode::TRIANGLES, uint32_t instances = 1);
+			void draw(const RESOURCES::Mesh & mesh, PrimitiveMode primitiveMode = PrimitiveMode::TRIANGLES, uint32_t instances = 1);
 			
 			uint8_t fetchGLState();
 			void applyStateMask(uint8_t mask);

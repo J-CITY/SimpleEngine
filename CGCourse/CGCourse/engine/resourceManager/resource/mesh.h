@@ -58,22 +58,21 @@ namespace KUMA {
 
 			~Mesh() = default;
 			
-			virtual void bind() {
+			virtual void bind() const {
 				//indexBuffer->Bind();
 				vertexArray.bind();
 			}
 
-			virtual void unbind() {
-
+			virtual void unbind() const {
 				//indexBuffer->Unbind();
 				vertexArray.unbind();
 			}
 
-			virtual unsigned getVertexCount() {
+			virtual unsigned getVertexCount() const {
 				return vertexCount;
 			}
 
-			virtual unsigned getIndexCount() {
+			virtual unsigned getIndexCount() const {
 				return indicesCount;
 			}
 

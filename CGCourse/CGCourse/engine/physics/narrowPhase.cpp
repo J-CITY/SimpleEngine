@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <cstdio>
 
+#include "../ecs/components/physicsComponent.h"
+
 using namespace KUMA;
 using namespace KUMA::PHYSICS;
 using namespace KUMA::MATHGL;
