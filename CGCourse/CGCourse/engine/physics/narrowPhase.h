@@ -1,4 +1,6 @@
-#pragma once;
+#pragma once
+
+#include <cassert>
 
 #include "contacts.h"
 
@@ -193,5 +195,4 @@ namespace KUMA::PHYSICS {
             CollisionData *data
             );
     };
-
 }

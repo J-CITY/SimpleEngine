@@ -8,6 +8,7 @@
 #include "imgui/imgui-SFML.h"
 #include "imgui/imgui.h"
 #include "../core/core.h"
+#include "imgui/imgui_internal.h"
 
 using namespace KUMA::WINDOW_SYSTEM;
 
@@ -182,6 +183,121 @@ void Window::update() {
 		gamepadEvent.run(gd);
 	}
 }
+int uniqueNodeId = 0;
+std::shared_ptr<KUMA::ECS::Object> selectObj;
+
+std::shared_ptr<KUMA::ECS::Object> recursiveDraw(KUMA::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<KUMA::ECS::Object> parentEntity) {
+	std::shared_ptr<KUMA::ECS::Object> selectedNode;
+	
+	std::vector<std::shared_ptr<KUMA::ECS::Object>> nodeList;
+
+	if (parentEntity) {
+		nodeList = parentEntity->getChildren();
+	}
+	else {
+		nodeList = activeScene.getObjects();
+	}
+	auto i = 0u;
+	for (auto node : nodeList) {
+		ImGui::PushID(("node_" + std::to_string(i)).c_str());
+		ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_Selected;
+
+		bool isParent = node->getChildren().size();
+
+		if (!isParent) {
+			nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+		}
+		else {
+			nodeFlags |= ImGuiTreeNodeFlags_DefaultOpen;
+		}
+		const auto name = node->getName();
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0.0f, 0.0f});
+		bool nodeIsOpen = ImGui::TreeNodeBehavior(ImGui::GetCurrentWindow()->GetID(node->getName().c_str()), nodeFlags, name.c_str());
+		ImGui::PopStyleVar();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5.0f, 5.0f});
+		if (ImGui::BeginPopupContextItem("__SCENE_TREE_CONTEXTMENU__")) {
+			if (ImGui::MenuItem("Create new")) {
+				
+			}
+			if (ImGui::MenuItem("Delete")) {
+
+			}
+
+			ImGui::EndPopup();
+		}
+		ImGui::PopStyleVar();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{10.0f, 10.0f});
+		if (ImGui::BeginDragDropSource()) {
+			ImGui::SetDragDropPayload("__SCENE_NODE_DRAG__", &node, sizeof(KUMA::ECS::Object*));
+			ImGui::TextUnformatted(name.c_str());
+			ImGui::EndDragDropSource();
+		}
+		ImGui::PopStyleVar();
+
+		if (ImGui::BeginDragDropTarget()) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG__")) {
+				auto other = *static_cast<KUMA::ECS::Object**>(payload->Data);
+
+				//change node parent
+				auto parent = other->getParent();
+				if (parent) {
+					//parent->removeChild(other);
+					//other->setParent(nullptr);
+				}
+				//node.second->addChild(other);
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (ImGui::IsItemClicked()) {
+			selectedNode = node;
+		}
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0.0f, 0.0f});
+		ImGui::InvisibleButton("__NODE_ORDER_SET__", {-1, 5});
+		ImGui::PopStyleVar();
+
+		if (ImGui::BeginDragDropTarget()) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG__")) {
+				auto other = *static_cast<KUMA::ECS::Object**>(payload->Data);
+				if (node.get() != other && node->getParent()) {
+					auto parent = other->getParent();
+					if (parent) {
+						//parent->removeChild(other);
+						//other->setParent(nullptr);
+					}
+					//node.second->getParent()->addChild(other->getID(), other, i + 1);
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (isParent && nodeIsOpen) {
+			auto childClickedEntity = recursiveDraw(activeScene, node);
+			if (!selectedNode) {
+				selectedNode = childClickedEntity;
+			}
+			ImGui::TreePop();
+		}
+		i++;
+		ImGui::PopID();
+	}
+	return selectedNode;
+}
+void drawNodeTree(KUMA::CORE_SYSTEM::Core& core) {
+	static bool isobjTreeOpen = true;
+	if (auto scene = core.sceneManager->getCurrentScene()) {
+		if (ImGui::Begin("Scene Hierarchy", &isobjTreeOpen)) {
+			uniqueNodeId = 0;
+			auto _selectNode = recursiveDraw(*scene, nullptr);
+			if (_selectNode) {
+				selectObj = _selectNode;
+			}
+		}
+		ImGui::End();
+	}
+}
 
 sf::Clock deltaClock;
 void Window::drawDebug(CORE_SYSTEM::Core& core) {
@@ -209,6 +325,9 @@ void Window::drawDebug(CORE_SYSTEM::Core& core) {
 		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::FXAA, isFXAA);
 
 		ImGui::End();
+	}
+	{
+		drawNodeTree(core);
 	}
 	ImGui::SFML::Render(*window);
 	window->popGLStates();

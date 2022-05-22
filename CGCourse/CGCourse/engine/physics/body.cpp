@@ -115,9 +115,11 @@ void RigidBody::calculateDerivedData()
 
 }
 
-void RigidBody::integrate(float duration)
+bool RigidBody::integrate(float duration)
 {
-    if (!isAwake) return;
+    if (!isAwake) return false;
+
+    if (!inverseMass) return false;
 
     // Calculate linear acceleration from force inputs.
     lastFrameAcceleration = acceleration;
@@ -140,9 +142,11 @@ void RigidBody::integrate(float duration)
 
     // Adjust positions
     // Update linear position.
+    auto prevPos = position;
     position.addScaledVector(velocity, duration);
 
     // Update angular position.
+    auto prevOrient = orientation;
     orientation.addScaledVector(rotation, duration);
 
     // Normalise the orientation, and update the matrices with the new
@@ -164,6 +168,7 @@ void RigidBody::integrate(float duration)
         if (motion < sleepEpsilon) setAwake(false);
         else if (motion > 10 * sleepEpsilon) motion = 10 * sleepEpsilon;
     }
+    return (prevPos != position) || (prevOrient != orientation);
 }
 
 void RigidBody::setMass(const float mass)

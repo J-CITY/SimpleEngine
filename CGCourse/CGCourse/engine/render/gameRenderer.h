@@ -5,7 +5,7 @@
 #include "drawable.h"
 #include "Material.h"
 #include "primitiveRender.h"
-#include "../utils/math/Matrix4.h"
+#include "../utils/math/matrix4.h"
 #include "Model.h"
 #include "../../game/World.h"
 #include "../gui/guiObject.h"
@@ -73,9 +73,6 @@ namespace KUMA::RENDER {
 	};
 
 	struct Hdr {
-		//FrameBuffer hdrFBO;
-
-		//Texture, which draw on screen
 		bool isEnabled = true;
 		float exposure = 1.0f;
 		float gamma = 2.2f;
@@ -83,7 +80,6 @@ namespace KUMA::RENDER {
 
 	struct Bloom {
 		std::shared_ptr<RESOURCES::Texture> brightTexture;
-
 		std::array<FrameBuffer, 2> pingpongFBO;
 		std::array<std::shared_ptr<RESOURCES::Texture>, 2> pingpongColorbuffers;
 	};
@@ -138,31 +134,23 @@ namespace KUMA::RENDER {
 	struct RenderPipeline {
 		Deffered deferred;
 		FrameBuffer depthMapFBO;
-
 		std::vector<DirLightData> dirLightsData;
 		SpotLightData spotLightData;
 		PointLightData pointLightsData;
-
 		ShadowLightData shadowLightData;
-
 		Hdr hdr;
 		Bloom bloom;
 		MotionBlur motionBlur;
 		GodRays godRays;
 		Fog fog;
-
 		DeferredRender deferredRender;
 		ScreenSpaceAmbientOcclusion ssao;
-
 		ImageBasedLightning ibl;
-
 		FrameBuffer finalFBOBeforePostprocessing;
 		std::shared_ptr<RESOURCES::Texture> finalTextureBeforePostprocessing;
 	};
 
 	class Renderer : public BaseRender {
-
-		unsigned int clearMask = 0;
 	public:
 		enum class PostProcessing {
 			BLOOM = 0u,
@@ -171,13 +159,25 @@ namespace KUMA::RENDER {
 			FXAA,
 			HDR
 		};
-		//defered render
-		//unsigned int gBuffer;
-		//unsigned int gPosition, gNormal, gAlbedoSpec;
 
+		Renderer(GL_SYSTEM::GlManager& driver, CORE_SYSTEM::Core& context);
+		~Renderer();
+		RENDER::UniformBuffer& getUBO() const;
+		void renderScene();
+		void initShaders();
+		void setPostProcessing(PostProcessing type, bool isEnable);
+		void addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled = true);
+		void setCustomPostRocessing(std::string name, bool isEnabled);
+	private:
 		RenderPipeline pipeline;
-		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shadersMap;
+		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shaderStorage;
+		bool currentSwapBuffer = 0;
+		std::array<FrameBuffer, 2> swapBuffers;
+		std::array<std::shared_ptr<RESOURCES::Texture>, 2> swapTextures;
 
+		std::shared_ptr<RESOURCES::Texture> emptyTexture;
+		std::shared_ptr<Material> emptyMaterial;
+		std::shared_ptr<RENDER::Model> sphere;
 
 		OpaqueDrawables	opaqueMeshesForward;
 		TransparentDrawables transparentMeshesForward;
@@ -185,55 +185,53 @@ namespace KUMA::RENDER {
 		OpaqueDrawables	opaqueMeshesDeferred;
 		TransparentDrawables transparentMeshesDeferred;
 
+		std::vector<bool> postProcessingState = std::vector(5, true);
+		std::vector<std::function<void()>> postProcessingFuncs;
+		struct CustomPostProcessing {
+			std::string name;
+			std::shared_ptr<Material> material;
+			bool isEnabled = true;
+		};
+		std::unordered_map<std::string, CustomPostProcessing> customPostProcessing;
 
-		Renderer(GL_SYSTEM::GlManager& driver, CORE_SYSTEM::Core& context);
-		~Renderer();
-		RENDER::UniformBuffer& getUBO() const {
-			return *engineUBO;
-		}
-		void renderScene();
+		std::unique_ptr<RENDER::UniformBuffer>       engineUBO;
+		std::unique_ptr<RENDER::ShaderStorageBuffer> lightSSBO;
 
+		std::function<void(MATHGL::Matrix4)> modelMatrixSender;
+
+		void init();
+		void renderScene(std::shared_ptr<RESOURCES::Shader> shader);
 		void renderSkybox();
 		void renderDirShadowMap();
 		void updateEngineUBO(ECS::CameraComponent& mainCamera);
 		void updateLights(SCENE_SYSTEM::Scene& scene);
 		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
 
-		void renderScene(std::shared_ptr<RESOURCES::Shader> shader);
-
 		void drawDrawable(const Drawable& toDraw);
-		void drawDrawable(const Drawable& p_toDraw, std::shared_ptr<RESOURCES::Shader> shader);
-		void drawModelWithSingleMaterial(Model& model, Material& material, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
-		void drawModelWithMaterials(Model& model, std::vector<Material*> materials, MATHGL::Matrix4 const* modelMatrix, Material* defaultMaterial = nullptr);
-
-		//void drawGBuffer(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
-		void drawMeshWithShader(RESOURCES::Mesh& p_mesh, Material& p_material, MATHGL::Matrix4 const* p_modelMatrix, std::shared_ptr<RESOURCES::Shader> shader);
-		void drawMesh(RESOURCES::Mesh& mesh, Material& material, MATHGL::Matrix4 const* modelMatrix, bool useTexutres = true);
+		void drawDrawable(const Drawable& p_toDraw, RESOURCES::Shader& shader);
+		void drawModelWithSingleMaterial(const Model& model, Material& material, const MATHGL::Matrix4& modelMatrix, Material& defaultMaterial);
+		void drawModelWithMaterials(const Model& model, std::vector<std::shared_ptr<Material>> materials, const MATHGL::Matrix4& modelMatrix, Material& defaultMaterial);
+		void drawMeshWithShader(const RESOURCES::Mesh& p_mesh, const Material& p_material, const MATHGL::Matrix4& p_modelMatrix, const RESOURCES::Shader& shader);
+		void drawMesh(const RESOURCES::Mesh& mesh, Material& material, const MATHGL::Matrix4& modelMatrix, bool useTexutres=true, bool sendModel=true);
 		void registerModelMatrixSender(std::function<void(MATHGL::Matrix4)> modelMatrixSender);
-		void clear() const;
+
 		void clearDepth() const;
-		void flush() const {
-			glFlush();
+		void flush() const;
+		void useColorMask(bool r, bool g, bool b, bool a) const;
 
-		}
-		void useColorMask(bool r, bool g, bool b, bool a) {
-			glColorMask(r, g, b, a);
-		}
-
-
-		void setdBounseDataToShader(Material& material, std::shared_ptr<ECS::Skeletal> animator, RESOURCES::Shader& shader);
+		void sendBounseDataToShader(Material& material, ECS::Skeletal& animator, RESOURCES::Shader& shader);
 		void sendShadowDirData(RESOURCES::Shader& shader);
 		void sendShadowPointData(RESOURCES::Shader& shader);
 		void sendShadowSpotData(RESOURCES::Shader& shader);
 		void sendFogData(RESOURCES::Shader& shader);
-		void Renderer::sendIBLData(RESOURCES::Shader& shader);
-		void Renderer::sendSSAOData(RESOURCES::Shader& shader);
+		void sendIBLData(RESOURCES::Shader& shader);
+		void sendSSAOData(RESOURCES::Shader& shader);
 
 		void prepareDirLightShadowMap();
 		void prepareSpotLightShadowMap();
 		void preparePointLightShadowMap();
-
 		void prepareTexturesForPostprocessing();
+
 		void applyBloom();
 		void applyGoodRays();
 		void applyMotionBlur();
@@ -242,62 +240,16 @@ namespace KUMA::RENDER {
 		void applySSAO();
 		void applyDeferred();
 		void applyDeferredPbr();
+		void configurePostProcessing();
 
-		void configuratePostProcessing();
-
-		void setPostProcessing(PostProcessing type, bool isEnable) {
-			if (isEnable == postProcessingState[static_cast<unsigned>(type)]) {
-				return;
-			}
-			postProcessingState[static_cast<unsigned>(type)] = isEnable;
-			configuratePostProcessing();
-		}
-
-		void init();
-		MATHGL::Vector2f getShadowMapResolution();
-
-		struct CustomPostProcessing {
-			std::string name;
-			std::shared_ptr<Material> material;
-			bool isEnabled = true;
-		};
-
-		void addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled = true);
+		[[nodiscard]] MATHGL::Vector2f getShadowMapResolution() const;
 	public:
-		void initShaders();
 		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;
-
-		enum class PipelineRenderShaderType {
-			POINT_SHADOW,
-			DIR_SHADOW
-		};
-		std::function<void(MATHGL::Matrix4)> modelMatrixSender;
-		std::shared_ptr<RESOURCES::Texture> emptyTexture;
-
-
-		std::unique_ptr<RENDER::UniformBuffer>       engineUBO;
-		std::unique_ptr<RENDER::ShaderStorageBuffer> lightSSBO;
-
-
-		std::shared_ptr<Material> emptyMaterial;
-
+		
+		//TODO: remove it
 		CORE_SYSTEM::Core& context;
 
-		bool currentSwapBuffer = 0;
-		std::array<FrameBuffer, 2> swapBuffers;
-		std::array<std::shared_ptr<RESOURCES::Texture>, 2> swapTextures;
-
-		//RESOURCES::Texture textureForGodRays;
 		//move later to component
 		//Game::World* world;
-
-		std::shared_ptr<RENDER::Model> sphere;
-
-
-		std::vector<bool> postProcessingState = std::vector<bool>(5, true);
-		std::vector<std::function<void()>> postProcessingFuncs;
-
-		std::vector<CustomPostProcessing> customPostProcessing;
-		
 	};
 }

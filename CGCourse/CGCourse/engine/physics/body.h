@@ -50,7 +50,7 @@ namespace KUMA {
             void calculateDerivedData();
 
             
-            void integrate(float duration);
+            bool integrate(float duration);
 
              
             void setMass(const float mass);

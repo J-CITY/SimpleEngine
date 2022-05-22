@@ -706,7 +706,7 @@ int main() {
 
 
 		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto body = new KUMA::PHYSICS::RigidBody();
+		auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
 		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
@@ -727,20 +727,21 @@ int main() {
 		body->setAwake();
 
 		body->calculateDerivedData();
-		auto colider = new KUMA::PHYSICS::CollisionBox();
+		auto colider = std::make_unique<KUMA::PHYSICS::CollisionBox>();
 		colider->halfSize = {30.0f, 1.0f, 30.0f} * 0.5f;
 		//colider->transform = obj->transform->getLocalMatrix();
-		colider->body = body;
+		colider->body = body.get();
 		colider->calculateInternals();
 
-		//pc->body = b;
-		//pc->collider = std::move(colider);
-		//pc->boundingSphere = bs;
-		//pc->collisionType = KUMA::ECS::CollisionType::OBB;
+		auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
+		pc->body = body;
+		pc->collider = std::move(colider);
+		pc->boundingSphere = bs;
+		pc->collisionType = KUMA::ECS::CollisionType::OBB;
 
-		app.getCore().physicsManger->bodies.push_back(body);
-		app.getCore().physicsManger->bodiesCollide.push_back(colider);
-		//app.getCore().physicsManger->objectsList.push_back(pc);
+		//app.getCore().physicsManger->bodies.push_back(body);
+		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
+		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
 
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
 			//if (pc->body)
@@ -813,8 +814,8 @@ int main() {
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 
-		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto body = new KUMA::PHYSICS::RigidBody();
+		auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
+		auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
 		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
@@ -837,22 +838,19 @@ int main() {
 
 		body->calculateDerivedData();
 
-		auto colider = new KUMA::PHYSICS::CollisionBox();
+		auto colider =  std::make_unique<KUMA::PHYSICS::CollisionBox>();
 		colider->halfSize = KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
 		//colider->transform = obj->transform->getLocalMatrix();
-		colider->body = body;
+		colider->body = body.get();
 		colider->calculateInternals();
-		//colider->transform.data[3]  += 10.5f * 0.5;
-		//colider->transform.data[7]  += 10.5f * 0.5;
-		//colider->transform.data[11] += 10.5f * 0.5;
-		//colider->body = ;
-		//pc->body = body;
-		//pc->collider = std::move(colider);
-		//pc->boundingSphere = bs;
-		//pc->collisionType = KUMA::ECS::CollisionType::OBB;
+		pc->body = body;
+		pc->collider = std::move(colider);
+		pc->boundingSphere = bs;
+		pc->collisionType = KUMA::ECS::CollisionType::OBB;
 
-		app.getCore().physicsManger->bodies.push_back(body);
-		app.getCore().physicsManger->bodiesCollide.push_back(colider);
+		//app.getCore().physicsManger->bodies.push_back(body);
+		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
+		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
 
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
 			//if (pc->body)
@@ -937,8 +935,8 @@ int main() {
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 
-		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
-		auto body = new KUMA::PHYSICS::RigidBody();
+		auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
+		auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
 		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
@@ -961,25 +959,22 @@ int main() {
 
 		body->calculateDerivedData();
 
-		auto colider = new KUMA::PHYSICS::CollisionBox();
+		auto colider = std::make_unique<KUMA::PHYSICS::CollisionBox>();
 		colider->halfSize = KUMA::MATHGL::Vector3{10.5f, 10.5f, 10.5f} *0.5f;
 		//colider->transform = obj->transform->getLocalMatrix();
-		colider->body = body;
+		colider->body = body.get();
 
 		colider->calculateInternals();
-		//colider->transform.data[3]	+= 10.5f * 0.5;
-	//colider->transform.data[7]	+= 10.5f * 0.5;
-	//colider->transform.data[11] += 10.5f * 0.5;
-	//colider->body = b;
-	//pc->body = body;
-	//pc->collider = std::move(colider);
-	//pc->boundingSphere = bs;
-	//pc->collisionType = KUMA::ECS::CollisionType::OBB;
+
+		pc->body = body;
+		pc->collider = std::move(colider);
+		pc->boundingSphere = bs;
+		pc->collisionType = KUMA::ECS::CollisionType::OBB;
 
 
-		app.getCore().physicsManger->bodies.push_back(body);
-		app.getCore().physicsManger->bodiesCollide.push_back(colider);
-
+		//app.getCore().physicsManger->bodies.push_back(body);
+		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
+		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
 			//if (pc->body)
 			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));

@@ -29,10 +29,10 @@ namespace KUMA::ECS {
 		int GetDirty() const { return m_dirtyFlag; }
 		void SetDirty(bool dirtyFlag) { m_dirtyFlag = dirtyFlag; }
 		void ResetDirty() { m_dirtyFlag = false; }
-		//std::shared_ptr<PHYSICS::RigidBody> body;
+		std::shared_ptr<PHYSICS::RigidBody> body;
 		KUMA::RENDER::BoundingSphere boundingSphere;
 
-		//std::unique_ptr<PHYSICS::CollisionPrimitive> collider;
+		std::unique_ptr<PHYSICS::CollisionPrimitive> collider;
 
 		CollisionType collisionType = CollisionType::NONE;
 	private:

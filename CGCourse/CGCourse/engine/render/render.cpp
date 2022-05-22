@@ -201,28 +201,14 @@ void BaseRender::clearFrameInfo() {
 	frameInfo.instanceCount = 0;
 	frameInfo.polyCount = 0;
 }
-float __time = 0.0f;
-void BaseRender::draw(RESOURCES::Mesh& mesh, Material& material, PrimitiveMode primitiveMode, uint32_t instances) {
+
+void BaseRender::draw(const RESOURCES::Mesh& mesh, PrimitiveMode primitiveMode, uint32_t instances) {
 	if (instances > 0) {
 		frameInfo.batchCount++;
 		frameInfo.instanceCount += instances;
 		frameInfo.polyCount += (mesh.getIndexCount() / 3) * instances;
 
 		mesh.bind();
-
-		/*if (mesh.m_pScene) {
-			std::vector<MATHGL::Matrix4> Transforms;
-			__time += KUMA::TIME::Timer::instance()->getDeltaTime();
-			mesh.boneTransform(__time / 10.0f, Transforms);
-		
-			material.getShader()->setUniformInt("u_UseBone", Transforms.empty() ? 0 : 1);
-			for (unsigned i = 0; i < Transforms.size(); i++) {
-				auto s = "gBones[" + std::to_string(i) + "]";
-				glUniformMatrix4fv(material.getShader()->getUniformLocation(s), 1, GL_TRUE, &Transforms[i].data[0]);
-			}
-		}*/
-		
-
 		
 		if (mesh.getIndexCount() > 0) {
 			// EBO
@@ -242,37 +228,6 @@ void BaseRender::draw(RESOURCES::Mesh& mesh, Material& material, PrimitiveMode p
 				glDrawArraysInstanced(static_cast<GLenum>(primitiveMode), 0, mesh.getVertexCount(), instances);
 			}
 		}
-
-		mesh.unbind();
-	}
-}
-
-
-void BaseRender::draw(RESOURCES::Mesh& mesh, PrimitiveMode primitiveMode, uint32_t instances) {
-	if (instances > 0) {
-		frameInfo.batchCount++;
-		frameInfo.instanceCount += instances;
-		frameInfo.polyCount += (mesh.getIndexCount() / 3) * instances;
-
-		mesh.bind();
-
-		if (mesh.getIndexCount() > 0) {
-			if (instances == 1) {
-				glDrawElements(static_cast<GLenum>(primitiveMode), mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr);
-			}
-			else {
-				glDrawElementsInstanced(static_cast<GLenum>(primitiveMode), mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr, instances);
-			}
-		}
-		else {
-			if (instances == 1) {
-				glDrawArrays(static_cast<GLenum>(primitiveMode), 0, mesh.getVertexCount());
-			}
-			else {
-				glDrawArraysInstanced(static_cast<GLenum>(primitiveMode), 0, mesh.getVertexCount(), instances);
-			}
-		}
-
 		mesh.unbind();
 	}
 }
