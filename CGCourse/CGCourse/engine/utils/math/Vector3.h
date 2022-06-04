@@ -27,6 +27,9 @@ namespace KUMA {
 			Vector3 operator-(const Vector3 & p_other) const;
 			Vector3& operator-=(const Vector3 & p_other);
 			Vector3 operator*(float p_scalar) const;
+			Vector3 operator*(const Vector3& vec) const {
+				return Vector3(x * vec.x, y * vec.y, z * vec.z);
+			}
 			Vector3& operator*=(float p_scalar);
 			Vector3 operator/(float p_scalar) const;
 			Vector3& operator/=(float p_scalar);

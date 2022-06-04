@@ -1,63 +1,230 @@
+#define NOMINMAX
 #include "spriteComponent.h"
 #include "../guiObject.h"
+#include "../../render/Material.h"
+#include "../../resourceManager/shaderManager.h"
 
 using namespace KUMA;
 using namespace KUMA::GUI;
-
-void ComponentGui::_calculateOwnPos(float w, float h) {
-
-	if (pos.haligh == EAlign::LEFT) {
-		posGlobal.pos.x = obj.transform->posGlobal.x + pos.pos.x;
-	}
-	else if (pos.haligh == EAlign::CENTER) {
-		posGlobal.pos.x = obj.transform->posGlobal.x + obj.getWidht() / 2.0f + pos.pos.x - w / 2.0f;
-	}
-	else if (pos.haligh == EAlign::RIGHT) {
-		posGlobal.pos.x = obj.transform->posGlobal.x + obj.getWidht() + pos.pos.x - w;
-	}
-	if (pos.valigh == EAlign::TOP) {
-		posGlobal.pos.y = obj.transform->posGlobal.y + pos.pos.y;
-	}
-	else if (pos.valigh == EAlign::CENTER) {
-		posGlobal.pos.y = obj.transform->posGlobal.y + obj.getHeight() / 2.0f + pos.pos.y - h / 2.0f;
-	}
-	else if (pos.valigh == EAlign::BOTTOM) {
-		posGlobal.pos.y = obj.transform->posGlobal.y + obj.getHeight() + pos.pos.y - h;
-	}
-
-	posGlobal.scale.x = obj.transform->scaleGlobal.x * pos.scale.x;
-	posGlobal.scale.y = obj.transform->scaleGlobal.y * pos.scale.y;
-	posGlobal.rotation = obj.transform->rotateGlobal + pos.rotation;
-}
 
 TransformComponentGui::TransformComponentGui(GuiObject& obj) : ComponentGui(obj) {
 
 }
 
-SpriteComponentGui::SpriteComponentGui(GuiObject& obj, std::string path) : ComponentGui(obj) {
-	this->path = path;
-	if (texture.loadFromFile(KUMA::Config::ROOT + Config::USER_ASSETS_PATH + path)) {
-		sprite.setTexture(texture);
+void TransformComponentGui::calculate() {
+	if (!isDirty) {
 		return;
 	}
-	//err
+	auto screenSz = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	auto parentSize = obj.parent ? obj.parent->transform->size : MATHGL::Vector2f(screenSz.x, screenSz.y);
+
+	model = MATHGL::Matrix4();
+	model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(parentSize.x * anchor.x, parentSize.y * anchor.y, 0.0f));
+	model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(size.x * -pivot.x * scale.x,
+		size.y * -pivot.y * scale.y, 0.0f));
+	model *= MATHGL::Matrix4::Translation(position);
+	model *= MATHGL::Matrix4::Translation({size.x * pivot.x * scale.x, size.y * pivot.y * scale.y, 0.0f});
+	model *= MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(rotation));
+	model *= MATHGL::Matrix4::Translation({size.x * -pivot.x * scale.x, size.y * -pivot.y * scale.y, 0.0f});
+	model *= MATHGL::Matrix4::Scaling(scale /** MATHGL::Vector3(size.x, size.y, 1.0f)*/);
+
+	globalModel = obj.parent ? obj.parent->transform->globalModel * model : model;
 }
 
-void SpriteComponentGui::draw(KUMA::WINDOW_SYSTEM::Window& win) {
+SpriteComponentGui::SpriteComponentGui(GuiObject& obj, std::shared_ptr<RENDER::Material> material): ComponentGui(obj), material(material) {
+	//auto shader = material->getShader();
+	auto texture = std::get<std::shared_ptr<RESOURCES::Texture>>(material->getUniformsData()["image"]);
+	obj.transform->size = { static_cast<float>(texture->width), static_cast<float>(texture->height)};
+	shader = RESOURCES::ShaderLoader::CreateFromFile("Shaders/gui/sprite.glsl");
+	MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
+	shader->bind();
+	shader->setUniformMat4("u_engine_projection", projection);
+	shader->setUniformInt("image", 0);
+	shader->unbind();
+	unsigned int VBO;
+	float vertices [] = {
+		0.0f, 1.0f, 0.0f, 1.0f,
+		1.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 0.0f,
+
+		0.0f, 1.0f, 0.0f, 1.0f,
+		1.0f, 1.0f, 1.0f, 1.0f,
+		1.0f, 0.0f, 1.0f, 0.0f
+	};
+
+	glGenVertexArrays(1, &quadVAO);
+	glGenBuffers(1, &VBO);
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24, vertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+}
+
+void SpriteComponentGui::draw() {
 	if (isEnabled) {
-		win.getSFMLContext()->draw(sprite);
+		//auto shader = material->getShader();
+		glDisable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		shader->bind();
+
+		//auto model = MATHGL::Matrix4();
+		//model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(800 * anchor.x, 600 * anchor.y, 0.0f));
+		//model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(texture->getWidth() * -pivot.x * scale.x,
+		//	texture->getHeight() * -pivot.y * scale.y, 0.0f));
+		//model *= MATHGL::Matrix4::Translation(position);
+		//model *= MATHGL::Matrix4::Translation({texture->getWidth() * pivot.x * scale.x, texture->getHeight() * pivot.y * scale.y, 0.0f});
+		//model *= MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(rotation));
+		//model *= MATHGL::Matrix4::Translation({texture->getWidth() * -pivot.x * scale.x, texture->getHeight() * -pivot.y * scale.y, 0.0f});
+		//model *= MATHGL::Matrix4::Scaling(scale * MATHGL::Vector3(texture->getWidth(), texture->getHeight(), 1.0f)); // последним выполняется масштабирование
+
+		shader->setUniformMat4("u_engine_model", obj.transform->globalModel * 
+			MATHGL::Matrix4::Scaling( MATHGL::Vector3(obj.transform->size.x, obj.transform->size.y, 1.0f)));
+
+		// Рендерим текстурированный прямоугольник
+		shader->setUniformVec4("spriteColor", color);
+
+		//glActiveTexture(GL_TEXTURE0);
+		//material->bind(nullptr, true);
+		auto texture = std::get<std::shared_ptr<RESOURCES::Texture>>(material->getUniformsData()["image"]);
+		texture->bind(0);
+
+		glBindVertexArray(this->quadVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+		glEnable(GL_DEPTH_TEST);
 	}
 }
 
 
-InteractionComponentGui::InteractionComponentGui(GuiObject& obj, sf::FloatRect rect) : ComponentGui(obj) {
-	this->rect = rect;
+LabelComponentGui::LabelComponentGui(GuiObject& obj, std::string label, std::shared_ptr<Font> font, std::shared_ptr<RENDER::Material> material) :
+	ComponentGui(obj), font(font), material(material) {
+	this->label = label;
+
+	float width = 0;
+	float height = 0;
+	for (auto c : label) {
+		Character ch = font->Characters[c];
+		width += (ch.Advance >> 6);
+		height = std::max(height, static_cast<float>(ch.Size.y));
+	}
+	obj.transform->size = {width, height};
+
+	auto shader = material->getShader();
+	//shader = RESOURCES::ShaderLoader::CreateFromFile("Shaders/gui/text.glsl");
+	MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, 0, 1);
+	shader->bind();
+	shader->setUniformInt("u_engine_text", 0);
+	shader->setUniformMat4("u_engine_projection", projection);
+
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glBindVertexArray(VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+}
+
+void LabelComponentGui::draw() {
+	if (!isEnabled) {
+		return;
+	}
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	// Активируем соответствующее состояние рендеринга
+	auto shader = material->getShader();
+	shader->bind();
+	shader->setUniformVec3("textColor", {color.x, color.y, color.z});
+
+	glBindVertexArray(VAO);
+
+	glBindTexture(GL_TEXTURE_2D, font->texture);
+	// Перебираем все символы
+	std::string::const_iterator c;
+
+	
+	//auto model = MATHGL::Matrix4();
+	//model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(800 * anchor.x, 600 * anchor.y, 0.0f));
+	//model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(width * -pivot.x * scale.x,
+	//	height * -pivot.y * scale.y, 0.0f));
+	//model *= MATHGL::Matrix4::Translation(position);
+	//
+	//model *= MATHGL::Matrix4::Translation({width * pivot.x * scale.x, height * pivot.y * scale.y, 0.0f});
+	//model *= MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(rotation));
+	//model *= MATHGL::Matrix4::Translation({width * -pivot.x * scale.x, height * -pivot.y * scale.y, 0.0f});
+	//model *= MATHGL::Matrix4::Scaling(scale);
+	shader->setUniformMat4("u_engine_model", obj.transform->globalModel);
+
+	float x = 0;//model(0, 3);
+	float y = 0;//model(1, 3);
+	for (auto c : label) {
+		Character ch = font->Characters[c];
+
+		float xpos = x + ch.Bearing.x * obj.transform->globalScale.x;
+		float ypos = y - (ch.Size.y - ch.Bearing.y) * obj.transform->globalScale.y;
+
+		float w = ch.Size.x * obj.transform->globalScale.x;
+		float h = ch.Size.y * obj.transform->globalScale.y;
+
+
+		// Обновляем VBO для каждого символа
+		float vertices[6][4] = {
+			{ xpos,     ypos + h, ch.Start.x / 1024.0,               (ch.Start.y + ch.Size.y) / 1024.0 },
+			{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0,  ch.Start.y / 1024.0},
+			{ xpos,     ypos,     ch.Start.x / 1024.0,               ch.Start.y / 1024.0 },
+			{ xpos,     ypos + h, ch.Start.x / 1024.0,               (ch.Start.y + ch.Size.y) / 1024.0  },
+			{ xpos + w, ypos + h, (ch.Start.x + ch.Size.x) / 1024.0, (ch.Start.y + ch.Size.y) / 1024.0 },
+			{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0, ch.Start.y / 1024.0 }
+		};
+		//float vertices[6][4] = {
+		//	{ 0,     600,   0.0f, 0.0f },
+		//	{ 0,     0,       0.0f, 1.0f },
+		//	{ 800, 0,       1.0f, 1.0f },
+		//
+		//	{ 0,     600,   0.0f, 0.0f },
+		//	{ 800, 0,       1.0f, 1.0f },
+		//	{ 800, 600,   1.0f, 0.0f }
+		//};
+
+		// Визуализируем текстуру глифа поверх прямоугольника
+		//glBindTexture(GL_TEXTURE_2D, ch.textureID);
+
+		// Обновляем содержимое памяти VBO
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// Рендерим прямоугольник
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		// Теперь производим смещение для отображения следующего глифа (обратите внимание, что данное смещение измеряется в единицах, составляющих 1/64 пикселя)
+		x += (ch.Advance >> 6) * obj.transform->globalScale.x; // побитовый сдвиг на 6, чтобы получить значение в пикселях (2^6 = 64)
+	}
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+InteractionComponentGui::InteractionComponentGui(GuiObject& obj, MATHGL::Vector2f size) : ComponentGui(obj) {
+	obj.transform->size = size;
 }
 bool InteractionComponentGui::contains(float x, float y) const {
-	float minX = std::min(rect.left, (rect.left + rect.width));
-	float maxX = std::max(rect.left, (rect.left + rect.width));
-	float minY = std::min(rect.top, (rect.top + rect.height));
-	float maxY = std::max(rect.top, (rect.top + rect.height));
+	auto left = obj.transform->globalModel(0, 3) + globalX;
+	auto top = obj.transform->globalModel(1, 3) + globalY;
+	auto width = obj.transform->size.x * obj.transform->globalModel(0, 0);
+	auto height = obj.transform->size.y * obj.transform->globalModel(1, 1);
+	float minX = std::min(left, (left + width));
+	float maxX = std::max(left, (left + width));
+	float minY = std::min(top, (top + height));
+	float maxY = std::max(top, (top + height));
 
 	return (x >= minX) && (x < maxX) && (y >= minY) && (y < maxY);
 }
@@ -79,38 +246,13 @@ void InteractionComponentGui::onUpdate(float dt) {
 	}
 }
 
-LabelComponentGui::LabelComponentGui(GuiObject& obj, std::string label) : ComponentGui(obj) {
-	this->label = label;
-
-	if (!font.loadFromFile(KUMA::Config::ROOT + Config::USER_ASSETS_PATH + "fonts\\arcade.TTF")) {
-		// error
-	}
-	text.setFont(font);
-	text.setString(label);
-	text.setCharacterSize(24);
-	text.setFillColor(sf::Color::Red);
-	text.setStyle(sf::Text::Bold | sf::Text::Underlined);
+ClipComponentGui::ClipComponentGui(GuiObject& obj, float w, float h) : ComponentGui(obj),
+width(w), height(h) {
+	obj.transform->size = {w, h};
 }
 
-void LabelComponentGui::draw(KUMA::WINDOW_SYSTEM::Window& win) {
-	if (isEnabled) {
-		win.getSFMLContext()->draw(text);
-	}
-}
-
-void ClipComponentGui::draw(KUMA::WINDOW_SYSTEM::Window& win) {
+void ClipComponentGui::draw() {
 	
 }
-void ClipComponentGui::calculateOwnPos() {
-	sf::FloatRect rect(obj.transform->posGlobal.x, obj.transform->posGlobal.y, obj.getWidht(), obj.getHeight());
-	_calculateOwnPos(rect.width, rect.height);
-	rect.left = posGlobal.pos.x;
-	rect.top = posGlobal.pos.y;
-	rect.width = rect.width * posGlobal.scale.x;
-	rect.height = rect.height * posGlobal.scale.y;
-	view = sf::View(rect);
 
-	auto windowSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
-	view.setViewport(sf::FloatRect(rect.left / (float)windowSize.x, rect.top / (float)windowSize.y, 
-		rect.width / (float)windowSize.x, rect.height / (float)windowSize.y));
-}
+

@@ -1,50 +1,38 @@
 #pragma once
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Graphics/Texture.hpp>
 
 #include "../../config.h"
 #include "../../inputManager/inputManager.h"
 #include "../../resourceManager/ServiceManager.h"
-#include "../../window/window.h"
+//#include "../../window/window.h"
 
 namespace KUMA
 {
-	namespace GUI
+	namespace RESOURCES
 	{
-		/*
-		 * Progress
-		 * Text edit
-		 *
-		 * primitive component
-		 * 
-		 * serealize/deserealize
-		 */
+		class Shader;
+	}
+}
+
+namespace KUMA
+{
+	namespace RENDER
+	{
+		class Material;
+	}
+}
+
+namespace KUMA {
+	namespace GUI {
+		struct Font;
 		class GuiObject;
 
-		enum class EAlign {
-			LEFT,
-			RIGHT,
-			TOP,
-			BOTTOM,
-			CENTER
-		};
-		
 		class ComponentGui {
 		public:
-
-			class Position {
-			public:
-				EAlign haligh = EAlign::CENTER;
-				EAlign valigh = EAlign::CENTER;
-
-				sf::Vector2f pos;
-				sf::Vector2f scale = {1.0f, 1.0f};
-				float rotation = 0.0f;
-			};
+			virtual ~ComponentGui() = default;
 			ComponentGui(GuiObject& obj) : obj(obj) {}
 			
 			bool isEnabled = true;
-			virtual void draw(KUMA::WINDOW_SYSTEM::Window& win) {}
+			virtual void draw() {}
 
 			virtual void onCreate() {
 				isEnabled = true;
@@ -57,98 +45,77 @@ namespace KUMA
 				isEnabled = false;
 			}
 			virtual void onUpdate(float) {}
-
-			virtual void calculateOwnPos() = 0;
-			
-			void _calculateOwnPos(float w, float h);
 			
 			GuiObject& obj;
-			Position pos;
-			Position posGlobal;
 		};
 
 		class TransformComponentGui : public ComponentGui {
 		public:
 			bool isDirty = true;
-
-			EAlign haligh = EAlign::LEFT;
-			EAlign valigh = EAlign::TOP;
 			
-			sf::Vector2f pos;
-			sf::Vector2f scale = {1.0f, 1.0f};
-			float rotate = 0.0f;
+			MATHGL::Vector3  position = {0, 0, 0};
+			MATHGL::Vector3  scale = {1, 1, 1};
+			MATHGL::Vector3  rotation = {0, 0, 0};
+			MATHGL::Vector4  color = {1, 1, 1, 1};
+			MATHGL::Vector2f anchor;
+			MATHGL::Vector2f pivot;
 
-			sf::Vector2f posGlobal;
-			sf::Vector2f scaleGlobal = {1.0f, 1.0f};;
-			float rotateGlobal = 0.0f;
+			MATHGL::Vector3  globalPosition = {0, 0, 0};
+			MATHGL::Vector3  globalScale = {1, 1, 1};
+			MATHGL::Vector3  globalRotation = {0, 0, 0};
+			MATHGL::Vector2f globalAnchor;
+			MATHGL::Vector2f globalPivot;
+
+			MATHGL::Vector2f size;
+
 			TransformComponentGui(GuiObject& obj);
 
-			void calculateOwnPos() {}
+			void calculate();
+			MATHGL::Matrix4 model;
+			MATHGL::Matrix4 globalModel;
 		};
 
 		class SpriteComponentGui : public ComponentGui {
 		public:
-			sf::Texture texture;
-			sf::Sprite sprite;
-			std::string path;
-
-			SpriteComponentGui(GuiObject& obj, std::string path);
-			void draw(KUMA::WINDOW_SYSTEM::Window& win) override;
-
-			void calculateOwnPos() override {
-				_calculateOwnPos(sprite.getGlobalBounds().width, sprite.getGlobalBounds().height);
-				sprite.setPosition(posGlobal.pos);
-				sprite.setScale(posGlobal.scale);
-				sprite.setRotation(posGlobal.rotation);
-			}
+			SpriteComponentGui(GuiObject& obj, std::shared_ptr<RENDER::Material> material);
+			void draw() override;
+			std::shared_ptr<RESOURCES::Shader> shader;
+		//private:
+			MATHGL::Vector4 color = {1, 1, 1, 1};
+			unsigned int quadVAO;
+			std::shared_ptr<RENDER::Material> material;
 		};
+		class LabelComponentGui : public ComponentGui {
+		public:
+			std::string label;
+			std::shared_ptr<Font> font;
+			std::shared_ptr<RENDER::Material> material;
+			unsigned int VAO, VBO;
 
+			MATHGL::Vector4 color = {1, 1, 1, 1};
+
+			LabelComponentGui(GuiObject& obj, std::string label, std::shared_ptr<Font> font, std::shared_ptr<RENDER::Material> material);
+			void draw() override;
+
+		};
 		class InteractionComponentGui : public ComponentGui {
 		public:
-
-			sf::FloatRect rect;
-			InteractionComponentGui(GuiObject& obj, sf::FloatRect rect);
+			float globalX = 0.0f;
+			float globalY = 0.0f;
+			InteractionComponentGui(GuiObject& obj, MATHGL::Vector2f size);
 			void onUpdate(float dt) override;
-
-			void calculateOwnPos() override {
-				_calculateOwnPos(rect.width, rect.height);
-				rect.left = posGlobal.pos.x;
-				rect.top = posGlobal.pos.y;
-				rect.width = rect.width * posGlobal.scale.x;
-				rect.height = rect.height * posGlobal.scale.y;
-			}
 		private:
 			bool contains(float x, float y) const;
 		};
 
-		class LabelComponentGui : public ComponentGui {
-		public:
-			std::string label;
-
-			sf::Text text;
-			sf::Font font;
-			LabelComponentGui(GuiObject& obj, std::string label);
-			void draw(KUMA::WINDOW_SYSTEM::Window& win) override;
-
-			void calculateOwnPos() override {
-				_calculateOwnPos(text.getGlobalBounds().width, text.getGlobalBounds().height);
-				text.setPosition(posGlobal.pos);
-				text.setScale(posGlobal.scale);
-				text.setRotation(posGlobal.rotation);
-			}
-		};
+		
 
 		class ClipComponentGui : public ComponentGui {
 		public:
-			sf::View view;
-			
 			float width = 0.0f;
 			float height = 0.0f;
-			ClipComponentGui(GuiObject& obj, float w, float h): ComponentGui(obj),
-				width(w), height(h), view(sf::FloatRect(0.f, 0.f, 10.f, 10.f)) {}
-			void draw(KUMA::WINDOW_SYSTEM::Window& win) override;
-
-			void calculateOwnPos() override;
+			ClipComponentGui(GuiObject& obj, float w, float h);
+			void draw() override;
 		};
 
 		class ScrollComponentGui : public ComponentGui {
@@ -166,11 +133,9 @@ namespace KUMA
 			ScrollComponentGui(GuiObject& obj, float w, float h) : ComponentGui(obj),
 				width(w), height(h) {
 			}
-
-			//todo:
-			void calculateOwnPos() override {}
+			
 		};
-
+		
 		
 
 		

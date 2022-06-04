@@ -6,6 +6,14 @@
 #include "../ecs/object.h"
 #include "../render/drawable.h"
 
+namespace KUMA
+{
+	namespace GUI
+	{
+		class GuiObject;
+	}
+}
+
 namespace KUMA::RENDER {
 	enum class CullingOptions;
 	struct LightOGL;
@@ -106,6 +114,7 @@ namespace KUMA::SCENE_SYSTEM {
 		std::vector<RENDER::LightOGL> findLightDataInFrustum(const RENDER::Frustum& frustum);
 
 
+		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;
 	private:
 		IdGenerator idGenerator;
 		

@@ -1,16 +1,24 @@
 #include "window.h"
 
 #include <fstream>
-#include <SFML/Window/Event.hpp>
+//#include <SFML/Window/Event.hpp>
 #include "../utils/debug/logger.h"
 
 #include "../config.h"
-#include "imgui/imgui-SFML.h"
+//#include "imgui/imgui-SFML.h"
 #include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
 #include "../core/core.h"
-#include "imgui/imgui_internal.h"
+//#include "imgui/imgui-SFML.h"
+#include "imgui/imgui_internal.h"=
 
+using namespace KUMA;
 using namespace KUMA::WINDOW_SYSTEM;
+
+static void glfwErrorCallback(int error, const char* description) {
+	LOG_ERROR("Glfw Error " + std::to_string(error) + " " + description);
+}
 
 Window::Window(const WindowSettings& p_windowSettings): windowSettings(p_windowSettings) {
 	nlohmann::json j;
@@ -21,44 +29,47 @@ Window::Window(const WindowSettings& p_windowSettings): windowSettings(p_windowS
 }
 
 Window::~Window() {
-	window->close();
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+	glfwTerminate();
 }
 
 void Window::setSize(unsigned int w, unsigned int h) {
-	window->setSize(sf::Vector2u(w, h));
+	glfwSetWindowSize(window.get(), w, h);
 }
 
 void Window::setPosition(int x, int y) {
-	window->setPosition(sf::Vector2i(x, y));
+	glfwSetWindowPos(window.get(), x, y);
 }
 
 void Window::hide() const {
-	window->setVisible(false);
+	glfwHideWindow(window.get());
 }
 
 void Window::show() const {
-	window->setVisible(true);
+	glfwShowWindow(window.get());
 }
 
 void Window::focus() const {
-	window->requestFocus();
+	glfwFocusWindow(window.get());
 }
 
 bool Window::hasFocus() const {
-	return window->hasFocus();
+	return glfwGetWindowAttrib(window.get(), GLFW_FOCUSED);
 }
 
 void Window::setFullscreen(bool val) {
 	isFullscreen = val;
-	if (isFullscreen) {
-		window->create(sf::VideoMode(window->getSize().x, window->getSize().y, 32),
-			title, sf::Style::Fullscreen);
-	}
-	else {
-		window->create(sf::VideoMode(window->getSize().x, window->getSize().y, 32),
-			title, sf::Style::Default);
-	}
-
+	glfwSetWindowMonitor(
+		window.get(),
+		val ? glfwGetPrimaryMonitor() : nullptr,
+		position.first,
+		position.second,
+		size.first,
+		size.second,
+		refreshRate
+	);
 }
 
 void Window::toggleFullscreen() {
@@ -71,120 +82,112 @@ bool Window::getIsFullscreen() const {
 
 void Window::setTitle(const std::string& _title) {
 	title = _title;
-	window->setTitle(title);
+	glfwSetWindowTitle(window.get(), title.c_str());
 }
 
 std::string Window::getTitle() const {
 	return title;
 }
 
+void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (action == GLFW_PRESS) {
+		keyPressedEvent.run(key);
+	}
+	else if (action == GLFW_RELEASE) {
+		keyReleasedEvent.run(key);
+	}
+}
+
+void Window::mouseCallback(GLFWwindow* window, int button, int action, int mods) {
+	if (action == GLFW_PRESS) {
+		mouseButtonPressedEvent.run(button);
+	}
+	else if (action == GLFW_RELEASE) {
+		mouseButtonReleasedEvent.run(button);
+	}
+}
+
 void Window::create() {
-	window = std::make_unique<sf::RenderWindow>();
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, windowSettings.majorVersion);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, windowSettings.minorVersion);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	auto settings = window->getSettings();
-	settings.depthBits = windowSettings.depthBits;
-	settings.stencilBits = windowSettings.stencilBits;
-	settings.antialiasingLevel = windowSettings.antialiasingLevel;
-	settings.majorVersion = windowSettings.majorVersion;
-	settings.minorVersion = windowSettings.minorVersion;
-	//settings.attributeFlags = sf::ContextSettings::Core;
+	window = std::unique_ptr<GLFWwindow, DestroyglfwWin>(glfwCreateWindow(size.first, size.second, title.c_str(), NULL, NULL));
 
-	auto mask = sf::Style::Titlebar | sf::Style::Close;
-	if (windowSettings.isFullscreen) {
-		mask |= sf::Style::Fullscreen;
+
+	glfwMakeContextCurrent(window.get());
+	glfwSwapInterval(1); //vsync
+	//auto settings = window->getSettings();
+	//settings.depthBits = windowSettings.depthBits;
+	//settings.stencilBits = windowSettings.stencilBits;
+	//settings.antialiasingLevel = windowSettings.antialiasingLevel;
+	//settings.majorVersion = windowSettings.majorVersion;
+	//settings.minorVersion = windowSettings.minorVersion;
+	glfwWindowHint(GLFW_REFRESH_RATE, 60);
+
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+	//io.ConfigViewportsNoAutoMerge = true;
+	//io.ConfigViewportsNoTaskBarIcon = true;
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsClassic();
+
+	// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
+	ImGuiStyle& style = ImGui::GetStyle();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+		style.WindowRounding = 0.0f;
+		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
 
-	window->create(sf::VideoMode(size.first, size.second, 32),
-		sf::String(title.c_str()), mask, settings);
-	window->setFramerateLimit(60);
-	window->setActive();
-	ImGui::SFML::Init(*window);
+	// Setup Platform/Renderer backends
+	ImGui_ImplGlfw_InitForOpenGL(window.get(), true);
+	const char* glsl_version = "#version 330";
+	ImGui_ImplOpenGL3_Init(glsl_version);
+
 
 	if (!window) {
+		glfwTerminate();
 		throw std::runtime_error("Failed to create GLFW window");
 	}
 	else {
-
-		auto [x, y] = window->getPosition();
+		int x, y;
+		glfwGetWindowPos(window.get(), &x, &y);
 		position.first = x;
 		position.second = y;
 	}
 
-	GamepadMgr::Instance().Initialize();
-}
+	INPUT::GamepadMgr::Instance();
 
-struct GamepadData {
-	int id = 0;
-	std::list<Gamepad::GAMEPAD_BUTTON> pressedButtons;
-	float leftSticX = 0.0f;
-	float leftSticY = 0.0f;
-	float rightSticX = 0.0f;
-	float rightSticY = 0.0f;
-	float leftTrigger = 0.0f;
-	float rightTrigger = 0.0f;
-};
+	glfwSetErrorCallback(glfwErrorCallback);
+	glfwSetKeyCallback(window.get(), [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+		ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().keyCallback(window, key, scancode, action, mods);
+	});
+	
+	glfwSetMouseButtonCallback(window.get(), [](GLFWwindow* window, int button, int action, int mods) {
+		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().mouseCallback(window, button, action, mods);
+	});
+}
 
 void Window::update() {
-	sf::Event event;
-	while (window->pollEvent(event)) {
-		ImGui::SFML::ProcessEvent(event);
-		if (event.type == sf::Event::Closed) {
-			LOG_INFO("Window close: " + title);
-			isClosed = true;
-		}
-		else if (event.type == sf::Event::KeyPressed) {
-			keyPressedEvent.run(event.key.code);
-		}
-		else if (event.type == sf::Event::KeyReleased) {
-			keyReleasedEvent.run(event.key.code);
-		}
-		else if (event.type == sf::Event::MouseButtonPressed) {
-			mouseButtonPressedEvent.run(event.mouseButton.button);
-		}
-		else if (event.type == sf::Event::MouseButtonReleased) {
-			mouseButtonReleasedEvent.run(event.mouseButton.button);
-		}
-	}
-	auto g0 = GamepadMgr::Instance().GamepadOne();
-	auto g1 = GamepadMgr::Instance().GamepadTwo();
-	std::array btns = {Gamepad::btn_a, Gamepad::btn_b, Gamepad::btn_x, Gamepad::btn_y,
-		Gamepad::btn_leftStick, Gamepad::btn_rightStick, Gamepad::btn_back, Gamepad::btn_start,
-		Gamepad::btn_lb, Gamepad::btn_rb, Gamepad::dpad_up, Gamepad::dpad_down, Gamepad::dpad_left, Gamepad::dpad_right};
-	if (g0) {
-		GamepadData gd;
-		gd.id = 0;
-		gd.leftSticX    = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_X);
-		gd.leftSticY    = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_Y);
-		gd.rightSticX   = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
-		gd.rightSticY   = g0->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
-		gd.leftTrigger  = g0->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
-		gd.rightTrigger = g0->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
-		for (auto& btn : btns) {
-			if (g0->isButtonPressed(btn)) {
-				gd.pressedButtons.push_back(btn);
-			}
-		}
-		gamepadEvent.run(gd);
-	}
-	if (g1) {
-		GamepadData gd;
-		gd.id = 1;
-		gd.leftSticX =    g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_X);
-		gd.leftSticY =    g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::leftStick_Y);
-		gd.rightSticX =   g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
-		gd.rightSticY =   g1->getAxisPosition(Gamepad::GAMEPAD_AXIS::rightStick_X);
-		gd.leftTrigger =  g1->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
-		gd.rightTrigger = g1->getTriggerValue(Gamepad::GAMEPAD_TRIGGER::leftTrigger);
-		for (auto& btn : btns) {
-			if (g1->isButtonPressed(btn)) {
-				gd.pressedButtons.push_back(btn);
-			}
-		}
-		gamepadEvent.run(gd);
-	}
+	INPUT::GamepadMgr::Instance().update([this](INPUT::Gamepad::GamepadData& data) {
+		gamepadEvent.run(data);
+	});
 }
+
 int uniqueNodeId = 0;
 std::shared_ptr<KUMA::ECS::Object> selectObj;
+std::shared_ptr<KUMA::GUI::GuiObject> selectObjGui;
 
 std::shared_ptr<KUMA::ECS::Object> recursiveDraw(KUMA::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<KUMA::ECS::Object> parentEntity) {
 	std::shared_ptr<KUMA::ECS::Object> selectedNode;
@@ -299,13 +302,129 @@ void drawNodeTree(KUMA::CORE_SYSTEM::Core& core) {
 	}
 }
 
-sf::Clock deltaClock;
-void Window::drawDebug(CORE_SYSTEM::Core& core) {
 
-	window->pushGLStates();
+std::shared_ptr<KUMA::GUI::GuiObject> recursiveDrawGui(KUMA::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<KUMA::GUI::GuiObject> parentEntity) {
+	std::shared_ptr<KUMA::GUI::GuiObject> selectedNode;
+
+	std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> nodeList;
+
+	if (parentEntity) {
+		nodeList = parentEntity->childs;
+	}
+	else {
+		nodeList = activeScene.guiObjs;
+	}
+	auto i = 0u;
+	for (auto node : nodeList) {
+		ImGui::PushID(("node_" + std::to_string(i)).c_str());
+		ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_Selected;
+
+		bool isParent = node->childs.size();
+
+		if (!isParent) {
+			nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+		}
+		else {
+			nodeFlags |= ImGuiTreeNodeFlags_DefaultOpen;
+		}
+		const auto name = node->name;
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0.0f, 0.0f});
+		bool nodeIsOpen = ImGui::TreeNodeBehavior(ImGui::GetCurrentWindow()->GetID(node->name.c_str()), nodeFlags, name.c_str());
+		ImGui::PopStyleVar();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5.0f, 5.0f});
+		if (ImGui::BeginPopupContextItem("__SCENE_TREE_CONTEXTMENU__")) {
+			if (ImGui::MenuItem("Create new")) {
+
+			}
+			if (ImGui::MenuItem("Delete")) {
+
+			}
+
+			ImGui::EndPopup();
+		}
+		ImGui::PopStyleVar();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{10.0f, 10.0f});
+		if (ImGui::BeginDragDropSource()) {
+			ImGui::SetDragDropPayload("__SCENE_NODE_DRAG__", &node, sizeof(KUMA::ECS::Object*));
+			ImGui::TextUnformatted(name.c_str());
+			ImGui::EndDragDropSource();
+		}
+		ImGui::PopStyleVar();
+
+		if (ImGui::BeginDragDropTarget()) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG__")) {
+				auto other = *static_cast<KUMA::GUI::GuiObject**>(payload->Data);
+
+				//change node parent
+				auto parent = other->parent;
+				if (parent) {
+					//parent->removeChild(other);
+					//other->setParent(nullptr);
+				}
+				//node.second->addChild(other);
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (ImGui::IsItemClicked()) {
+			selectedNode = node;
+		}
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0.0f, 0.0f});
+		ImGui::InvisibleButton("__NODE_ORDER_SET__", {-1, 5});
+		ImGui::PopStyleVar();
+
+		if (ImGui::BeginDragDropTarget()) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG__")) {
+				auto other = *static_cast<KUMA::GUI::GuiObject**>(payload->Data);
+				if (node.get() != other && node->parent) {
+					auto parent = other->parent;
+					if (parent) {
+						//parent->removeChild(other);
+						//other->setParent(nullptr);
+					}
+					//node.second->getParent()->addChild(other->getID(), other, i + 1);
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (isParent && nodeIsOpen) {
+			auto childClickedEntity = recursiveDrawGui(activeScene, node);
+			if (!selectedNode) {
+				selectedNode = childClickedEntity;
+			}
+			ImGui::TreePop();
+		}
+		i++;
+		ImGui::PopID();
+	}
+	return selectedNode;
+}
+void drawNodeTreeGui(KUMA::CORE_SYSTEM::Core& core) {
+	static bool isobjTreeOpen = true;
+	if (auto scene = core.sceneManager->getCurrentScene()) {
+		if (ImGui::Begin("Scene Hierarchy", &isobjTreeOpen)) {
+			uniqueNodeId = 0;
+			auto _selectNode = recursiveDrawGui(*scene, nullptr);
+			if (_selectNode) {
+				selectObjGui = _selectNode;
+			}
+		}
+		ImGui::End();
+	}
+}
+
+void Window::drawDebug(CORE_SYSTEM::Core& core) {
+	glfwPollEvents();
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	//window->pushGLStates();
 	{//Debug
-		ImGui::SFML::Update(*window, deltaClock.restart());
-	
+		//ImGui::SFML::Update(*window, deltaClock.restart());
+
 		ImGui::Begin("Render pipeline");
 
 		static bool isBloom = true;
@@ -323,19 +442,114 @@ void Window::drawDebug(CORE_SYSTEM::Core& core) {
 		static bool isFXAA = true;
 		ImGui::Checkbox("FXAA", &isFXAA);
 		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::FXAA, isFXAA);
+		if (selectObjGui) {
+			{
+				ImGui::DragFloat("PivotX", &selectObjGui->transform->pivot.x, 0.1f, 0.0f, 1.0f);
+				ImGui::DragFloat("PivotY", &selectObjGui->transform->pivot.y, 0.1f, 0.0f, 1.0f);
+			}
+			{
+				ImGui::DragFloat("AnchorX", &selectObjGui->transform->anchor.x, 0.1f, 0.0f, 1.0f);
+				ImGui::DragFloat("AnchorY", &selectObjGui->transform->anchor.y, 0.1f, 0.0f, 1.0f);
+			}
+			{
+				ImGui::DragFloat("PoxX", &selectObjGui->transform->position.x, 1.0f);;
+				ImGui::DragFloat("PosY", &selectObjGui->transform->position.y, 1.0f);
+			}
+			{
+				ImGui::DragFloat("ScaleX", &selectObjGui->transform->scale.x, 1.0f);
+				ImGui::DragFloat("ScaleY", &selectObjGui->transform->scale.y, 1.0f);
+			}
+			{
+				ImGui::DragFloat("RotX", &selectObjGui->transform->rotation.x, 1.0f);
+				ImGui::DragFloat("RotY", &selectObjGui->transform->rotation.z, 1.0f);
+			}
+		}
 
+		/* {
+			static float a = 0.00f;
+			ImGui::DragFloat("PivotX", &a, 0.1f, 0.0f, 1.0f);
+			static float b = 0.00f;
+			ImGui::DragFloat("PivotY", &b, 0.1f, 0.0f, 1.0f);
+			core.renderer->f.pivot = MATHGL::Vector2f(a, b);
+		}
+		{
+			static float a = 0.00f;
+			ImGui::DragFloat("AnchorX", &a, 0.1f, 0.0f, 1.0f);
+			static float b = 0.00f;
+			ImGui::DragFloat("AnchorY", &b, 0.1f, 0.0f, 1.0f);
+			core.renderer->f.anchor = MATHGL::Vector2f(a, b);
+		}
+		{
+			static float a = 0.00f;
+			ImGui::DragFloat("PoxX", &a, 1.0f);
+			static float b = 0.00f;
+			ImGui::DragFloat("PosY", &b, 1.0f);
+			core.renderer->f.position = MATHGL::Vector3(a, b, 0.0f);
+		}
+		{
+			static float a = 1.00f;
+			ImGui::DragFloat("ScaleX", &a, 1.0f);
+			static float b = 1.00f;
+			ImGui::DragFloat("ScaleY", &b, 1.0f);
+			core.renderer->f.scale = MATHGL::Vector3(a, b, 1.0f);
+		}
+		{
+			static float a = 0.00f;
+			ImGui::DragFloat("RotX", &a, 1.0f);
+			static float b = 0.00f;
+			ImGui::DragFloat("RotY", &b, 1.0f);
+			core.renderer->f.rotation = MATHGL::Vector3(a, 0.0f, b);
+		}*/
+
+		auto& im = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>();
+		if (im.isGamepadExist(0)) {
+			for (auto e : im.getGamepad(0).buttons) {
+				ImGui::LabelText(("Btn" + std::to_string(static_cast<int>(e.first))).c_str(), std::to_string(e.second).c_str());
+			}
+			ImGui::LabelText("LStick", (std::to_string(im.getGamepad(0).leftSticX) + " " + std::to_string(im.getGamepad(0).leftSticY)).c_str());
+			ImGui::LabelText("RStick", (std::to_string(im.getGamepad(0).rightSticX) + " " + std::to_string(im.getGamepad(0).rightSticX)).c_str());
+			ImGui::LabelText("Triggers", (std::to_string(im.getGamepad(0).leftTrigger) + " " + std::to_string(im.getGamepad(0).rightTrigger)).c_str());
+		}
 		ImGui::End();
 	}
 	{
 		drawNodeTree(core);
+		drawNodeTreeGui(core);
 	}
-	ImGui::SFML::Render(*window);
-	window->popGLStates();
+	{
+		ImGui::Begin("Scene Window");
+		ImVec2 pos = ImGui::GetCursorScreenPos();
+		ImGui::GetWindowDrawList()->AddImage(
+			(void*)core.renderer->getResultTexture().getId(),
+			ImVec2(ImGui::GetCursorScreenPos()),
+			ImVec2(ImGui::GetCursorScreenPos().x + size.first / 2,
+				ImGui::GetCursorScreenPos().y + size.second / 2), ImVec2(0, 1), ImVec2(1, 0));
+		ImGui::End();
+	}
+	//ImGui::SFML::Render(*window);
+	
+	ImGui::Render();
+
+	//
+
+
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+		GLFWwindow* backup_current_context = glfwGetCurrentContext();
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+		glfwMakeContextCurrent(backup_current_context);
+	}
+	//window->popGLStates();
 	
 }
 
 void Window::draw() {
-	window->display();
+	
+	if (!glfwWindowShouldClose(window.get())) {
+		glfwSwapBuffers(window.get());
+		//glfwPollEvents();
+	}
 }
 
 void Window::onSerialize(nlohmann::json& j) {
@@ -356,4 +570,16 @@ void Window::onDeserialize(nlohmann::json& j) {
 	windowSettings.minorVersion = j["window"]["minorVersion"];
 	windowSettings.isFullscreen = j["window"]["isFillscreen"];
 	windowSettings.appName = j["window"]["appName"];
+}
+
+MATHGL::Vector2i Window::getMousePos() {
+	double x, y;
+	glfwGetCursorPos(window.get(), &x, &y);
+	return MATHGL::Vector2i(static_cast<unsigned>(x), static_cast<unsigned>(y));
+}
+MATHGL::Vector2u Window::getSize() const {
+	auto width = 0;
+	auto height = 0;
+	glfwGetWindowSize(window.get(), &width, &height);
+	return MATHGL::Vector2u(width, height);
 }

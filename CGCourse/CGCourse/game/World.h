@@ -17,8 +17,11 @@
 #include "Renderer.h"
 #include "WorldGeneratorType.h"
 #include "WorldGenerator.h"
-#include "../engine/window/window.h"
-
+//#include "../engine/window/window.h"
+namespace KUMA::WINDOW_SYSTEM
+{
+	class Window;
+}
 namespace Game
 {
 	enum CurrentSunCycle : uint8_t

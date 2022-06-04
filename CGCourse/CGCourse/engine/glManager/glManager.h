@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <GL/glew.h>
 
 namespace KUMA::GL_SYSTEM {
 	struct DriverSettings {

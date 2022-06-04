@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <string>
-
 #include "../glManager/glManager.h"
 #include "../inputManager/inputManager.h"
 #include "../render/gameRenderer.h"

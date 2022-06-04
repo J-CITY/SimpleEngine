@@ -26,32 +26,32 @@ namespace KUMA::INPUT_SYSTEM {
 		KEY_9 = 57,
 		KEY_SEMICOLON = 59,
 		KEY_EQUAL = 61,
-		KEY_A = 0,
-		KEY_B = 1,
-		KEY_C = 2,
-		KEY_D = 3,
-		KEY_E = 4,
-		KEY_F = 5,
-		KEY_G = 6,
-		KEY_H = 7,
-		KEY_I = 8,
-		KEY_J = 9,
-		KEY_K = 10,
-		KEY_L = 11,
-		KEY_M = 12,
-		KEY_N = 13,
-		KEY_O = 14,
-		KEY_P = 15,
-		KEY_Q = 16,
-		KEY_R = 17,
-		KEY_S = 18,
-		KEY_T = 19,
-		KEY_U = 20,
-		KEY_V = 21,
-		KEY_W = 22,
-		KEY_X = 23,
-		KEY_Y = 24,
-		KEY_Z = 25,
+		KEY_A = 65,
+		KEY_B = 66,
+		KEY_C = 67,
+		KEY_D = 68,
+		KEY_E = 69,
+		KEY_F = 70,
+		KEY_G = 71,
+		KEY_H = 72,
+		KEY_I = 73,
+		KEY_J = 74,
+		KEY_K = 75,
+		KEY_L = 76,
+		KEY_M = 77,
+		KEY_N = 78,
+		KEY_O = 79,
+		KEY_P = 80,
+		KEY_Q = 81,
+		KEY_R = 82,
+		KEY_S = 83,
+		KEY_T = 84,
+		KEY_U = 85,
+		KEY_V = 86,
+		KEY_W = 87,
+		KEY_X = 88,
+		KEY_Y = 89,
+		KEY_Z = 90,
 		KEY_LEFT_BRACKET = 91,
 		KEY_BACKSLASH = 92,
 		KEY_RIGHT_BRACKET = 93,
@@ -159,8 +159,8 @@ namespace KUMA::INPUT_SYSTEM {
 		bool isKeyReleased(EKey p_key) const;
 		bool isMouseButtonPressed(EMouseButton p_button) const;
 		bool isMouseButtonReleased(EMouseButton p_button);
-		KUMA::WINDOW_SYSTEM::Window::GamepadData InputManager::getGamepad(int id);
-
+		KUMA::INPUT::Gamepad::GamepadData getGamepad(int id);
+		bool isGamepadExist(int id) const;
 		MATHGL::Vector2i getMousePosition() const;
 		void clearEvents();
 
@@ -169,7 +169,7 @@ namespace KUMA::INPUT_SYSTEM {
 		void onKeyReleased(int val);
 		void onMouseButtonPressed(int val);
 		void onMouseButtonReleased(int val);
-		void onGamepad(WINDOW_SYSTEM::Window::GamepadData gd);
+		void onGamepad(KUMA::INPUT::Gamepad::GamepadData gd);
 
 		WINDOW_SYSTEM::Window& window;
 
@@ -181,6 +181,6 @@ namespace KUMA::INPUT_SYSTEM {
 
 		std::unordered_map<EKey, EKeyState> keyEvents;
 		std::unordered_map<EMouseButton, EMouseButtonState>	mouseButtonEvents;
-		WINDOW_SYSTEM::Window::GamepadData g0, g1;
+		std::unordered_map<int, KUMA::INPUT::Gamepad::GamepadData> gamepads;
 	};
 }

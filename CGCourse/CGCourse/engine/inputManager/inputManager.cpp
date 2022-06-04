@@ -62,18 +62,18 @@ void InputManager::onMouseButtonReleased(int p_button) {
 	mouseButtonEvents[static_cast<EMouseButton>(p_button)] = EMouseButtonState::MOUSE_UP;
 }
 
-void InputManager::onGamepad(WINDOW_SYSTEM::Window::GamepadData gd) {
-	if (gd.id == 0) {
-		g0 = gd;
-		return;
-	}
-	g1 = gd;
+void InputManager::onGamepad(INPUT::Gamepad::GamepadData gd) {
+	gamepads[gd.id] = gd;
 }
 
-KUMA::WINDOW_SYSTEM::Window::GamepadData InputManager::getGamepad(int id) {
-	if (id == 0) {
-		return g0;
+bool InputManager::isGamepadExist(int id) const {
+	return gamepads.count(id);
+}
+
+KUMA::INPUT::Gamepad::GamepadData InputManager::getGamepad(int id) {
+	if (!gamepads.count(id)) {
+		throw std::invalid_argument("Wrong gamepad id " + std::to_string(id));
 	}
-	return g1;
+	return gamepads[id];
 }
 

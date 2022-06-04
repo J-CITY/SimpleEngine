@@ -1,6 +1,5 @@
 #include "glManager.h"
 #include <string>
-#include <GL/glew.h>
 #include "../utils/debug/logger.h"
 
 using namespace KUMA::GL_SYSTEM;

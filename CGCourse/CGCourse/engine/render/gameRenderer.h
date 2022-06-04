@@ -168,6 +168,7 @@ namespace KUMA::RENDER {
 		void setPostProcessing(PostProcessing type, bool isEnable);
 		void addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled = true);
 		void setCustomPostRocessing(std::string name, bool isEnabled);
+		const RESOURCES::Texture& getResultTexture();
 	private:
 		RenderPipeline pipeline;
 		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shaderStorage;
@@ -244,11 +245,12 @@ namespace KUMA::RENDER {
 
 		[[nodiscard]] MATHGL::Vector2f getShadowMapResolution() const;
 	public:
-		std::vector<std::shared_ptr<KUMA::GUI::GuiObject>> guiObjs;
 		
 		//TODO: remove it
 		CORE_SYSTEM::Core& context;
 
+		//KUMA::GUI::Font f;
+		//std::shared_ptr<KUMA::GUI::Sprite> s;
 		//move later to component
 		//Game::World* world;
 	};
