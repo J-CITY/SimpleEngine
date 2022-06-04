@@ -9,8 +9,6 @@
 #include "../resourceManager/ServiceManager.h"
 #include "../resourceManager/shaderManager.h"
 #include "../resourceManager/textureManager.h"
-#include "../utils/math/Matrix4.h"
-#include "../utils/math/Vector3.h"
 #include "../audioManager/audioManager.h"
 #include "../physics/PhysicWorld.h"
 

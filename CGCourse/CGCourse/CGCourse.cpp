@@ -17,7 +17,8 @@
 #include "engine/physics/PhysicWorld.h"
 #include "engine/resourceManager/resource/bone.h"
 #include "engine/utils/meshGenerator.h"
-#include "game/World.h"
+//#include "game/World.h"
+
 using namespace std;
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
@@ -118,7 +119,7 @@ int main() {
 			}
 
 			auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
-			LOG_INFO(std::to_string(pos.x) + " " + std::to_string(pos.y) + " " + std::to_string(pos.z) + "\n");
+			//LOG_INFO(std::to_string(pos.x) + " " + std::to_string(pos.y) + " " + std::to_string(pos.z) + "\n");
 		});
 		}
 	}
@@ -1599,6 +1600,117 @@ int main() {
 	//
 	//	app.getCore().renderer->addCustomPostRocessing("BlackWhite", _m);
 	//}
+
+
+	auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
+	auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+	_m->setShader(s);
+	//_m->setBlendable(false);
+	//_m->setBackfaceCulling(true);
+	//_m->setFrontfaceCulling(false);
+	//_m->setDepthTest(true);
+	_m->setDepthWriting(true);
+	_m->setColorWriting(true);
+	_m->setGPUInstances(1);
+	auto& data = _m->getUniformsData();
+	auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\gui\\btn.png");
+	data["image"] = tex1;
+	data["spriteColor"] = KUMA::MATHGL::Vector4{1, 1, 1, 1};
+
+	auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
+
+	scene->guiObjs.push_back(sprite);
+
+	{
+		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+		_m->setShader(s);
+		//_m->setBlendable(false);
+		//_m->setBackfaceCulling(true);
+		//_m->setFrontfaceCulling(false);
+		//_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\gui\\btn.png");
+		data["image"] = tex1;
+		data["spriteColor"] = KUMA::MATHGL::Vector4{1, 1, 1, 1};
+
+		auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
+
+		scene->guiObjs.push_back(sprite);
+	}
+	{
+		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+		_m->setShader(s);
+		//_m->setBlendable(false);
+		//_m->setBackfaceCulling(true);
+		//_m->setFrontfaceCulling(false);
+		//_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\gui\\btn.png");
+		data["image"] = tex1;
+		data["spriteColor"] = KUMA::MATHGL::Vector4{1, 1, 1, 1};
+
+		auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
+
+		scene->guiObjs[0]->addChild(sprite);
+	}
+
+	{
+		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\text.glsl");
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+		_m->setShader(s);
+		//_m->setBlendable(false);
+		//_m->setBackfaceCulling(true);
+		//_m->setFrontfaceCulling(false);
+		//_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["textColor"] = KUMA::MATHGL::Vector4{1, 1, 1, 1};
+
+		auto f = std::make_shared<KUMA::GUI::Font>("C:/Projects/SimpleEngine/CGCourse/CGCourse/Assets/Engine/Fonts/a_AlternaSw.TTF", 42);
+
+		auto text = std::make_shared<KUMA::GUI::GuiLabel>("HELLOW WORLD!", f, _m);
+
+		scene->guiObjs[0]->addChild(text);
+	}
+	{
+		auto btn = std::make_shared<KUMA::GUI::GuiButton>();
+		scene->guiObjs.push_back(btn);
+	}
+	{
+		auto l = std::make_shared<KUMA::GUI::GuiLayout>();
+		for (int i = 0; i < 5; i++) {
+			auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
+			auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+			_m->setShader(s);
+			auto& data = _m->getUniformsData();
+			auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\gui\\btn.png");
+			data["image"] = tex1;
+			data["spriteColor"] = KUMA::MATHGL::Vector4{1, 1, 1, 1};
+			auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
+			l->addChild(sprite);
+			sprite->setProjection(320.0f, 70.0f);
+		}
+		//l->calculateTransform();
+
+		auto scroll = std::make_shared<KUMA::GUI::GuiScroll>(500 * 1.5f, 100.0f);
+		scroll->scroll->isScrollVertical = false;
+		scroll->addChild(l);
+		auto clip = std::make_shared<KUMA::GUI::GuiClip>(320.0f, 70.0f);
+		clip->addChild(scroll);
+		scene->guiObjs.push_back(clip);
+
+	}
+
 
 	app.run();
 }

@@ -5,10 +5,6 @@
 #include <GL/glew.h>
 
 
-#include "../../resourceManager/ServiceManager.h"
-#include "../../utils/debug/logger.h"
-#include "../../window/window.h"
-
 using namespace KUMA;
 using namespace KUMA::RENDER;
 

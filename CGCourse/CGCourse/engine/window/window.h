@@ -2,16 +2,19 @@
 #include <string>
 #include <unordered_map>
 
-#include <SFML/Graphics/RenderWindow.hpp>
-#include <SFML/Graphics.hpp>
+//#include <SFML/Graphics/RenderWindow.hpp>
+//#include <SFML/Graphics.hpp>
 //#include <SFML/Graphics.hpp>
 //#include <SFML/System.hpp>
+
+
 #include "../utils/event.h"
 #include "../utils/pointers/objPtr.h"
 
 #include "../utils/gamepad/GamepadMgr.h"
 #include "../resourceManager/serializerInterface.h"
-
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 namespace KUMA
 {
 	namespace CORE_SYSTEM
@@ -35,40 +38,21 @@ namespace KUMA::WINDOW_SYSTEM {
 
 	class Window : public KUMA::RESOURCES::Serializable {
 	public:
-		struct GamepadData {
-			int id = 0;
-			std::list<Gamepad::GAMEPAD_BUTTON> pressedButtons;
-			float leftSticX = 0.0f;
-			float leftSticY = 0.0f;
-			float rightSticX = 0.0f;
-			float rightSticY = 0.0f;
-			float leftTrigger = 0.0f;
-			float rightTrigger = 0.0f;
-		};
+		
 
 		EVENT::Event<int> keyPressedEvent;
 		EVENT::Event<int> keyReleasedEvent;
 		EVENT::Event<int> mouseButtonPressedEvent;
 		EVENT::Event<int> mouseButtonReleasedEvent;
-		EVENT::Event<GamepadData> gamepadEvent;
+		EVENT::Event<INPUT::Gamepad::GamepadData> gamepadEvent;
 
-		MATHGL::Vector2i getMousePos() {
-			auto p = sf::Mouse::getPosition(*window);
-			return MATHGL::Vector2i(p.x, p.y);
-		}
-
-		MATHGL::Vector2i getMousePosGlobal() {
-			auto p = sf::Mouse::getPosition();
-			return MATHGL::Vector2i(p.x, p.y);
-		}
+		MATHGL::Vector2i getMousePos();
+		
 		Window(const WindowSettings& p_windowSettings);
 		~Window();
 		
 		void setSize(unsigned int width, unsigned int height);
-		MATHGL::Vector2u getSize() const {
-			auto sz = window->getSize();
-			return MATHGL::Vector2u(sz.x, sz.y);
-		}
+		MATHGL::Vector2u getSize() const;
 		void setPosition(int x, int y);
 		
 		void restore() const;
@@ -91,22 +75,31 @@ namespace KUMA::WINDOW_SYSTEM {
 		void drawDebug(CORE_SYSTEM::Core& core);
 		void draw();
 
-		std::unique_ptr<sf::RenderWindow>& getSFMLContext() {
-			return window;
+		GLFWwindow& getContext() {
+			return *window;
 		}
 
 		virtual void onSerialize(nlohmann::json& j) override;
 		virtual void onDeserialize(nlohmann::json& j) override;
 	private:
 		void create();
-		
+		void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+		void mouseCallback(GLFWwindow* window, int button, int action, int mods);
+
 		WindowSettings windowSettings;
-		std::unique_ptr<sf::RenderWindow> window;
+
+		struct DestroyglfwWin {
+			void operator()(GLFWwindow* ptr) {
+				glfwDestroyWindow(ptr);
+			}
+		};
+		std::unique_ptr<GLFWwindow, DestroyglfwWin> window;
 		std::string winId = "";		
 
 		std::string title;
 		std::pair<int, int> size = std::make_pair(800, 600);
 		std::pair<int, int> position;
 		bool isFullscreen;
+		int refreshRate = 60;
 	};
 }

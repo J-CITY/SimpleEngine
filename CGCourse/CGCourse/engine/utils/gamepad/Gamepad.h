@@ -1,59 +1,74 @@
 #pragma once
 
-#include "SFML\Window.hpp"
+#include <map>
+#include <string>
 
-class Gamepad
-{
-	private:
-		struct GamePadAxis {
-			sf::Joystick::Axis Axis;
-			bool inverted; // inverted: from 0 to -100
-		};
-		struct Trigger {
-			bool isAxis;
-			GamePadAxis Axis;
-			int button;
-		};
+namespace KUMA::INPUT {
+	class Gamepad {
 	public:
-		Gamepad(int number, bool XInput);
+		Gamepad(int number);
 		~Gamepad() {}
 
-		enum GAMEPAD_BUTTON { btn_a, btn_b, btn_x, btn_y, btn_leftStick, btn_rightStick, btn_back, btn_start, btn_lb, btn_rb, dpad_up, dpad_down , dpad_left, dpad_right };
-		enum GAMEPAD_AXIS { leftStick_X, leftStick_Y, rightStick_X, rightStick_Y };
-		enum GAMEPAD_TRIGGER { leftTrigger, rightTrigger };
-		
-		bool isButtonPressed(GAMEPAD_BUTTON btn);
-		float getAxisPosition(GAMEPAD_AXIS axis);
-		float getTriggerValue(GAMEPAD_TRIGGER tgr);
+		enum class GAMEPAD_BUTTON {
+			btn_a = 0,
+			btn_b = 1,
+			btn_x = 2,
+			btn_y = 3,
+			btn_leftStick = 4,
+			btn_rightStick = 5,
+			btn_back = 6,
+			btn_start = 7,
+			btn_lb = 8,
+			btn_rb = 9,
+			dpad_up = 11,
+			dpad_down = 12,
+			dpad_left = 13,
+			dpad_right = 14
+		};
+		enum class GAMEPAD_AXIS {
+			leftStick_X = 0,
+			leftStick_Y = 1,
+			rightStick_X = 2,
+			rightStick_Y = 3
+		};
+		enum class GAMEPAD_TRIGGER {
+			leftTrigger = 4,
+			rightTrigger = 5
+		};
+		struct GamepadData {
+			int id = 0;
+			std::map<GAMEPAD_BUTTON, bool> buttons = {
+				{ GAMEPAD_BUTTON::btn_a, false },
+				{ GAMEPAD_BUTTON::btn_b, false },
+				{ GAMEPAD_BUTTON::btn_x, false },
+				{ GAMEPAD_BUTTON::btn_y, false },
+				{ GAMEPAD_BUTTON::btn_leftStick, false },
+				{ GAMEPAD_BUTTON::btn_rightStick, false },
+				{ GAMEPAD_BUTTON::btn_back, false },
+				{ GAMEPAD_BUTTON::btn_start, false },
+				{ GAMEPAD_BUTTON::btn_lb, false },
+				{ GAMEPAD_BUTTON::btn_rb, false },
+				{ GAMEPAD_BUTTON::dpad_up, false },
+				{ GAMEPAD_BUTTON::dpad_down, false },
+				{ GAMEPAD_BUTTON::dpad_left, false },
+				{ GAMEPAD_BUTTON::dpad_right, false }
+			};
+			float leftSticX = 0.0f;
+			float leftSticY = 0.0f;
+			float rightSticX = 0.0f;
+			float rightSticY = 0.0f;
+			float leftTrigger = 0.0f;
+			float rightTrigger = 0.0f;
+			bool operator!=(const GamepadData& gamepad_data) const;
+		};
+		bool isButtonPressed(GAMEPAD_BUTTON btn) const;
+		float getAxisPosition(GAMEPAD_AXIS axis) const;
+		float getTriggerValue(GAMEPAD_TRIGGER tgr) const;
+		GamepadData getData() const;
+		bool updateData();
 	private:
 		int gamepadNumber;
-		bool isXInput;
-
-		void LoadData(std::string line);
-		bool assignButton(std::string n, std::string d);
-		bool assignAxis(std::string n, std::string d);
-		sf::Joystick::Axis extractAxis(int axisNumber);
-	
-		int getButtonNumber(GAMEPAD_BUTTON btn);
-	
-		float shrinkValue(float f, bool trigger);
-
-		GamePadAxis LSTICK_X;
-		GamePadAxis LSTICK_Y;
-		int LSTICK;
-		GamePadAxis RSTICK_X;
-		GamePadAxis RSTICK_Y;
-		int RSTICK;
-		GamePadAxis POV_X;
-		GamePadAxis POV_Y;
-		Trigger LTRIGGER;
-		Trigger RTRIGGER;
-		int LB;
-		int RB;
-		int BACK;
-		int START;
-		int A;
-		int B;
-		int X;
-		int Y;
-};
+		std::string name;
+		GamepadData data;
+	};
+}

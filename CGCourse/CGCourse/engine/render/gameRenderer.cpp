@@ -20,6 +20,7 @@
 using namespace KUMA;
 using namespace KUMA::RENDER;
 
+
 void renderQuad();
 void renderCube();
 
@@ -155,6 +156,8 @@ void Renderer::init() {
 		engineUBO->setSubData(MATHGL::Matrix4::Transpose(p_modelMatrix), 0);
 	});
 
+	//s = std::make_shared<GUI::Sprite>(KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\gui\\btn.png"));
+	/*
 	//GUI test (remove later)
 	guiObjs.push_back(std::make_shared<GUI::GuiButton>());
 	auto l = std::make_shared<GUI::GuiLayout>();
@@ -179,7 +182,7 @@ void Renderer::init() {
 	guiObjs.push_back(clip);
 	clip->calculateTransform();
 	//GUI test end
-
+	*/
 	initShaders();
 
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
@@ -720,6 +723,9 @@ void Renderer::applyFXAA() {
 	swapBuffers[currentSwapBuffer].unbind();
 	currentSwapBuffer = !currentSwapBuffer;
 }
+const RESOURCES::Texture& Renderer::getResultTexture() {
+	return *swapTextures[!currentSwapBuffer];
+}
 
 void Renderer::applyHDR() {
 	BaseRender::clear(true, true, false);
@@ -732,9 +738,11 @@ void Renderer::applyHDR() {
 	shaderStorage["hdr"]->setUniformInt("u_UseHDR", pipeline.hdr.isEnabled);
 	shaderStorage["hdr"]->setUniformFloat("u_Exposure", pipeline.hdr.exposure);
 	shaderStorage["hdr"]->setUniformFloat("u_Gamma", pipeline.hdr.gamma);
-	//hdrShader->setUniformVec3("sunPos", {-20.0f, 40.0f, 10.0f});
 	renderQuad();
 	shaderStorage["hdr"]->unbind();
+
+	//set to default
+	//currentSwapBuffer = 0;
 }
 
 void Renderer::applySSAO() {
@@ -947,12 +955,20 @@ void Renderer::renderScene() {
 				f();
 			}
 
+
+			for (auto& e : currentScene->guiObjs) {
+				e->onPreUpdate(0.1f);
+				e->onUpdate(0.1f);
+			}
+			//applyHDR();
+			//s->draw();
+			//f.RenderText("HELLOW  WORLD!!!", 25.0f, 25.0f, 1.0f, {0.5, 0.8f, 0.2f});
 			
 			//applyBloom();
 			//applyGoodRays();
 			//applyMotionBlur();
 			//applyFXAA();
-			//applyHDR();
+			
 
 			applyStateMask(glState);
 		}

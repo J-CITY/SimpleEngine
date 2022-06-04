@@ -1,6 +1,8 @@
 #include "World.h"
 #include "../engine/ecs/components/cameraComponent.h"
 #include "../engine/ecs/object.h"
+
+//#include "../engine/window/window.h"
 namespace Game
 {
 	// The amount of chunks that gets rendered around the player
