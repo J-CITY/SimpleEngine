@@ -3,6 +3,7 @@
 #include "../guiObject.h"
 #include "../../render/Material.h"
 #include "../../resourceManager/shaderManager.h"
+#include "../../core/core.h"
 
 using namespace KUMA;
 using namespace KUMA::GUI;
@@ -81,7 +82,7 @@ void SpriteComponentGui::draw() {
 		//model *= MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(rotation));
 		//model *= MATHGL::Matrix4::Translation({texture->getWidth() * -pivot.x * scale.x, texture->getHeight() * -pivot.y * scale.y, 0.0f});
 		//model *= MATHGL::Matrix4::Scaling(scale * MATHGL::Vector3(texture->getWidth(), texture->getHeight(), 1.0f)); // последним выполняется масштабирование
-
+		shader->setUniformMat4("u_engine_projection", RENDER::Renderer::guiProjection);
 		shader->setUniformMat4("u_engine_model", obj.transform->globalModel * 
 			MATHGL::Matrix4::Scaling( MATHGL::Vector3(obj.transform->size.x, obj.transform->size.y, 1.0f)));
 
@@ -150,18 +151,7 @@ void LabelComponentGui::draw() {
 	glBindTexture(GL_TEXTURE_2D, font->texture);
 	// Перебираем все символы
 	std::string::const_iterator c;
-
 	
-	//auto model = MATHGL::Matrix4();
-	//model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(800 * anchor.x, 600 * anchor.y, 0.0f));
-	//model *= MATHGL::Matrix4::Translation(MATHGL::Vector3(width * -pivot.x * scale.x,
-	//	height * -pivot.y * scale.y, 0.0f));
-	//model *= MATHGL::Matrix4::Translation(position);
-	//
-	//model *= MATHGL::Matrix4::Translation({width * pivot.x * scale.x, height * pivot.y * scale.y, 0.0f});
-	//model *= MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(rotation));
-	//model *= MATHGL::Matrix4::Translation({width * -pivot.x * scale.x, height * -pivot.y * scale.y, 0.0f});
-	//model *= MATHGL::Matrix4::Scaling(scale);
 	shader->setUniformMat4("u_engine_model", obj.transform->globalModel);
 
 	float x = 0;//model(0, 3);
@@ -185,15 +175,6 @@ void LabelComponentGui::draw() {
 			{ xpos + w, ypos + h, (ch.Start.x + ch.Size.x) / 1024.0, (ch.Start.y + ch.Size.y) / 1024.0 },
 			{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0, ch.Start.y / 1024.0 }
 		};
-		//float vertices[6][4] = {
-		//	{ 0,     600,   0.0f, 0.0f },
-		//	{ 0,     0,       0.0f, 1.0f },
-		//	{ 800, 0,       1.0f, 1.0f },
-		//
-		//	{ 0,     600,   0.0f, 0.0f },
-		//	{ 800, 0,       1.0f, 1.0f },
-		//	{ 800, 600,   1.0f, 0.0f }
-		//};
 
 		// Визуализируем текстуру глифа поверх прямоугольника
 		//glBindTexture(GL_TEXTURE_2D, ch.textureID);
@@ -229,22 +210,47 @@ bool InteractionComponentGui::contains(float x, float y) const {
 	return (x >= minX) && (x < maxX) && (y >= minY) && (y < maxY);
 }
 void InteractionComponentGui::onUpdate(float dt) {
+	auto ev = GuiEventType::NONE;
 	auto mpos = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().getMousePosition();
 	if (contains(mpos.x, mpos.y)) {
 		if (RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().isMouseButtonPressed(INPUT_SYSTEM::EMouseButton::MOUSE_BUTTON_1)) {
-			obj.onEvent(GuiEventType::PRESS);
+			ev = GuiEventType::PRESS;
 		}
 		else if (RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().isMouseButtonReleased(INPUT_SYSTEM::EMouseButton::MOUSE_BUTTON_1)) {
-			obj.onEvent(GuiEventType::RELEASE);
+			ev = GuiEventType::RELEASE;
 		}
 		else {
-			obj.onEvent(GuiEventType::HOVER);
+			ev = GuiEventType::COVER;
 		}
 	}
 	else {
-		obj.onEvent(GuiEventType::UNHOVER);
+		ev = GuiEventType::UNCOVER;
+	}
+
+	if (cur == ev && (cur == GuiEventType::PRESS || cur == GuiEventType::PRESS_CONTINUE)) {
+		if (onPressContinue) onPressContinue();
+	}
+
+	if (cur == ev) {
+		return;
+	}
+	cur = ev;
+	switch (ev) {
+	case GuiEventType::COVER: if (onCover) onCover();  break;
+	case GuiEventType::PRESS: if (onPress) onPress();  break;
+	case GuiEventType::RELEASE: if (onRelease) onRelease();  break;
+	case GuiEventType::UNCOVER: if (onUncover) onUncover();  break;
+	default: break;
 	}
 }
+
+void InteractionComponentGui::onPreUpdate(float dt) {
+	obj.transform->calculate();
+	if (obj.parent) {
+		globalX = obj.parent->childOffsetX;
+		globalY = obj.parent->childOffsetY;
+	}
+};
 
 ClipComponentGui::ClipComponentGui(GuiObject& obj, float w, float h) : ComponentGui(obj),
 width(w), height(h) {
@@ -254,5 +260,16 @@ width(w), height(h) {
 void ClipComponentGui::draw() {
 	
 }
+
+void ClipComponentGui::onPreUpdate(float dt) {
+	obj.transform->calculate();
+	globalX = obj.transform->globalModel(0, 3);
+	globalY = obj.transform->globalModel(1, 3);
+	obj.childOffsetX = globalX;
+	obj.childOffsetY = globalY;
+	obj.transform->globalModel(0, 3) = 0;
+	obj.transform->globalModel(1, 3) = 0;
+}
+
 
 
