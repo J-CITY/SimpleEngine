@@ -24,6 +24,8 @@ using namespace KUMA::RENDER;
 void renderQuad();
 void renderCube();
 
+MATHGL::Matrix4 Renderer::guiProjection;
+
 MATHGL::Vector2f Renderer::getShadowMapResolution() const {
 	switch (pipeline.shadowLightData.resolution) {
 		case ShadowMapResolution::LOW: return MATHGL::Vector2f(512, 512);
@@ -955,10 +957,12 @@ void Renderer::renderScene() {
 				f();
 			}
 
+			guiProjection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(screenRes.x), static_cast<float>(screenRes.y), 0.0f, -1, 1);
 
 			for (auto& e : currentScene->guiObjs) {
 				e->onPreUpdate(0.1f);
 				e->onUpdate(0.1f);
+				e->onPostUpdate(0.1f);
 			}
 			//applyHDR();
 			//s->draw();

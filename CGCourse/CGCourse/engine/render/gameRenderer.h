@@ -249,6 +249,8 @@ namespace KUMA::RENDER {
 		//TODO: remove it
 		CORE_SYSTEM::Core& context;
 
+		static MATHGL::Matrix4 guiProjection;
+
 		//KUMA::GUI::Font f;
 		//std::shared_ptr<KUMA::GUI::Sprite> s;
 		//move later to component

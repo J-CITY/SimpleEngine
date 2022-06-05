@@ -44,7 +44,9 @@ namespace KUMA {
 			virtual void onDisable() {
 				isEnabled = false;
 			}
+			virtual void onPreUpdate(float) {}
 			virtual void onUpdate(float) {}
+			virtual void onPostUpdate(float) {}
 			
 			GuiObject& obj;
 		};
@@ -98,12 +100,31 @@ namespace KUMA {
 			void draw() override;
 
 		};
+
+		enum class GuiEventType {
+			NONE,
+			COVER,
+			PRESS,
+			PRESS_CONTINUE,
+			RELEASE,
+			UNCOVER
+		};
 		class InteractionComponentGui : public ComponentGui {
 		public:
+			GuiEventType cur = GuiEventType::NONE;
+
+			std::function<void()> onPress;
+			std::function<void()> onPressContinue;
+			std::function<void()> onRelease;
+			std::function<void()> onCover;
+			std::function<void()> onUncover;
+
 			float globalX = 0.0f;
 			float globalY = 0.0f;
 			InteractionComponentGui(GuiObject& obj, MATHGL::Vector2f size);
 			void onUpdate(float dt) override;
+			void onPreUpdate(float dt) override;
+			
 		private:
 			bool contains(float x, float y) const;
 		};
@@ -112,16 +133,20 @@ namespace KUMA {
 
 		class ClipComponentGui : public ComponentGui {
 		public:
+			float globalX = 0.0f;
+			float globalY = 0.0f;
+
 			float width = 0.0f;
 			float height = 0.0f;
 			ClipComponentGui(GuiObject& obj, float w, float h);
 			void draw() override;
+			void onPreUpdate(float dt) override;
 		};
 
 		class ScrollComponentGui : public ComponentGui {
 		public:
 			bool isScrollHorizontal = true;
-			bool isScrollVertical = true;
+			bool isScrollVertical = false;
 			float width = 0.0f;
 			float height = 0.0f;
 
@@ -134,6 +159,22 @@ namespace KUMA {
 				width(w), height(h) {
 			}
 			
+		};
+
+		enum class Type {
+			HORIZONTAL,
+			VERTICAL
+		};
+		class LayoutComponentGui : public ComponentGui {
+		public:
+			Type type = Type::HORIZONTAL;
+
+			float hOffset = 0.0f;
+			float vOffset = 0.0f;
+
+			LayoutComponentGui(GuiObject& obj) : ComponentGui(obj) {
+			}
+
 		};
 		
 		
