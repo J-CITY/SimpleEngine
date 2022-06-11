@@ -24,9 +24,9 @@ namespace KUMA::ECS {
 		virtual void onEnable() override;
 		virtual void onDisable() override;
 		virtual void onDestroy() override;
-		virtual void onUpdate(float dt) override;
-		virtual void onFixedUpdate(float dt) override;
-		virtual void onLateUpdate(float dt) override;
+		virtual void onUpdate(std::chrono::duration<double> dt) override;
+		virtual void onFixedUpdate(std::chrono::duration<double> dt) override;
+		virtual void onLateUpdate(std::chrono::duration<double> dt) override;
 
 		static KUMA::EVENT::Event<Script*> createdEvent;
 		static KUMA::EVENT::Event<Script*> destroyedEvent;

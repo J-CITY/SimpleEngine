@@ -9,16 +9,15 @@ App::App() {
 	core.sceneManager->getCurrentScene()->go();
 }
 
-App::~App() {
-}
+App::~App() = default;
 
 void App::run() {
 	while (isRunning()) {
 		preUpdate();
-		update(TIME::Timer::instance()->getDeltaTime());
+		update(TIME::Timer::GetInstance().getDeltaTime());
 		postUpdate();
 		core.window->update();
-		TIME::Timer::instance()->update();
+		TIME::Timer::GetInstance().update();
 	}
 	
 }
@@ -30,10 +29,9 @@ bool App::isRunning() const {
 void App::preUpdate() {
 }
 
-void App::update(float dt) {
-	delta += dt;
-
-	core.renderer->getUBO().setSubData(delta, 3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
+void App::update(std::chrono::duration<double> dt) {
+	core.renderer->getUBO().setSubData(static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count()), 
+		3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
 
 	if (auto currentScene = core.sceneManager->getCurrentScene()) {
 		currentScene->fixedUpdate(dt);
@@ -46,10 +44,11 @@ void App::update(float dt) {
 	}
 
 	core.physicsManger->startFrame();
-	float duration = TIME::Timer::instance()->getDeltaTime();
-	if (duration <= 0.0f) return;
-	core.physicsManger->runPhysics(duration);
-
+	auto duration = static_cast<float>(TIME::Timer::GetInstance().getDeltaTime().count());
+	if (duration > 0.0f) {
+		core.physicsManger->runPhysics(duration);
+	}
+	
 	core.sceneManager->update();
 }
 

@@ -20,8 +20,8 @@ Skeletal::Skeletal(const ECS::Object& obj, const std::string& path, const std::o
 	}
 }
 
-void Skeletal::onUpdate(float dt) {
-	animator->UpdateAnimation(dt);
+void Skeletal::onUpdate(std::chrono::duration<double> dt) {
+	animator->UpdateAnimation(static_cast<float>(dt.count()));
 }
 
 void Skeletal::setAnimation(const std::string& id) {

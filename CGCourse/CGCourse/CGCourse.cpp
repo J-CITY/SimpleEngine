@@ -83,7 +83,7 @@ int main() {
 			obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 			obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
 
-			auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app](float dt) {
+			auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app](std::chrono::duration<double> dt) {
 			auto& core = app.getCore();
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_K)) {
 				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
@@ -744,7 +744,7 @@ int main() {
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
 		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
 
-		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
+		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
 			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
 			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
@@ -853,7 +853,7 @@ int main() {
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
 		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
 
-		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
+		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
 			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
 			//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
@@ -867,7 +867,7 @@ int main() {
 			//if (pc->obj.transform->getLocalPosition().y < -500.0f) {
 			//	pc->obj.transform->setLocalPosition(KUMA::MATHGL::Vector3(obj->transform->getLocalPosition().x, 500.0f, obj->transform->getLocalPosition().z));
 			//}
-			liveTime -= dt;
+			liveTime -= dt.count();
 			if (liveTime < 0) {
 				liveTime = 20.0f;
 				body->setPosition(0.0f, 55.0f, 0.0f);
@@ -976,7 +976,7 @@ int main() {
 		//app.getCore().physicsManger->bodies.push_back(body);
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
 		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
-		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](float dt) {
+		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
 			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
 			//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
@@ -989,7 +989,7 @@ int main() {
 			//if (pc->obj.transform->getLocalPosition().y < -500.0f) {
 			//	pc->obj.transform->setLocalPosition(KUMA::MATHGL::Vector3(obj->transform->getLocalPosition().x, 500.0f, obj->transform->getLocalPosition().z));
 			//}
-			liveTime2 -= dt;
+			liveTime2 -= dt.count();
 			if (liveTime2 < 0) {
 				liveTime2 = 20.0f;
 				body->setPosition(7.0f, 155.0f, 0.0f);
@@ -1545,7 +1545,7 @@ int main() {
 		auto& data = _m->getUniformsData();
 
 
-		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app, &data, s](float dt) {
+		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app, &data, s](std::chrono::duration<double> dt) {
 			//auto currentScene = app.getCore().sceneManager->getCurrentScene();
 			//auto mainCameraComponent = currentScene->findMainCamera();
 			//data["camUp"] = mainCameraComponent->obj.transform->getLocalRotation() * KUMA::MATHGL::Vector3::Up;
@@ -1698,12 +1698,12 @@ int main() {
 			data["spriteColor"] = KUMA::MATHGL::Vector4{1, 1, 1, 1};
 			auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
 			l->addChild(sprite);
-			sprite->setProjection(320.0f, 70.0f);
+			//sprite->setProjection(320.0f, 70.0f);
 		}
 		//l->calculateTransform();
 
 		auto scroll = std::make_shared<KUMA::GUI::GuiScroll>(500 * 1.5f, 100.0f);
-		scroll->scroll->isScrollVertical = false;
+		//scroll->scroll->isScrollVertical = false;
 		scroll->addChild(l);
 		auto clip = std::make_shared<KUMA::GUI::GuiClip>(320.0f, 70.0f);
 		clip->addChild(scroll);

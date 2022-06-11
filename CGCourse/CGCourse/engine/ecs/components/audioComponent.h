@@ -11,7 +11,7 @@ namespace KUMA::ECS {
 	public:
 		AudioComponent(const ECS::Object& obj, AUDIO::Sound3d sound);
 
-		virtual void onLateUpdate(float dt) override;
+		virtual void onLateUpdate(std::chrono::duration<double> dt) override;
 		AUDIO::Sound3d sound;
 	};
 }

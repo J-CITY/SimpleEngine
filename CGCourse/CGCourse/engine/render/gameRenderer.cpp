@@ -899,7 +899,7 @@ void Renderer::renderScene() {
 		//grass
 		auto grass = currentScene->findObjectByName("Grass");
 		auto m = grass->getComponent<KUMA::ECS::MaterialRenderer>();
-		m->getMaterials()[0]->getUniformsData()["fTimePassed"] = KUMA::TIME::Timer::instance()->getTimeSinceStart();
+		m->getMaterials()[0]->getUniformsData()["fTimePassed"] = static_cast<float>(KUMA::TIME::Timer::GetInstance().getTimeSinceStart().count());
 
 		if (auto mainCameraComponent = currentScene->findMainCamera()) {
 			auto& camera = mainCameraComponent->getCamera();

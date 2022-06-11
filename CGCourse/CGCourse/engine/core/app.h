@@ -14,12 +14,11 @@ namespace KUMA {
 			void run();
 			bool isRunning() const;
 			void preUpdate();
-			void update(float dt);
+			void update(std::chrono::duration<double> dt);
 			void postUpdate();
 			Core& getCore() { return core; }
 		protected:
 			Core core;
-			float delta = 0.0f;
 		};
 	}
 }
