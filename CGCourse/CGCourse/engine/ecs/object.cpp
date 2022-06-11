@@ -164,7 +164,7 @@ void Object::onDestroy() {
 	std::for_each(components.begin(), components.end(), [](auto element) { element->onDestroy(); });
 }
 
-void Object::onUpdate(float dt) {
+void Object::onUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
 		std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
 		std::for_each(ComponentManager::getInstance()->scriptComponents[id].begin(), 
@@ -172,13 +172,13 @@ void Object::onUpdate(float dt) {
 	}
 }
 
-void Object::onFixedUpdate(float dt) {
+void Object::onFixedUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
 		std::for_each(components.begin(), components.end(), [&](auto element) { element->onFixedUpdate(dt); });
 	}
 }
 
-void Object::onLateUpdate(float dt) {
+void Object::onLateUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
 		std::for_each(components.begin(), components.end(), [&](auto element) { element->onLateUpdate(dt); });
 	}
@@ -239,7 +239,7 @@ void Object::onDeserialize(nlohmann::json& j) {
 			_c->onDeserialize(c);
 		}
 		else if (c["type"] == "Input") {
-			auto _c = addComponent<InputComponent>([](float){});
+			auto _c = addComponent<InputComponent>([](std::chrono::duration<double>){});
 			_c->onDeserialize(c);
 		}
 		else if (c["type"] == "DirectionalLight") {

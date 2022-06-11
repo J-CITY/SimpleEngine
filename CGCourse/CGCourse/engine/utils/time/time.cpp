@@ -3,50 +3,43 @@
 
 using namespace KUMA::TIME;
 
-Timer* Timer::singleton = nullptr;
-
-float Timer::getFPS() {
-	return 1.0f / (dt);
+Timer::Timer() {
+	init();
 }
 
-float Timer::getDeltaTime() {
+double Timer::getFPS() const {
+	return 1.0 / (dt.count());
+}
+
+std::chrono::duration<double> Timer::getDeltaTime() const {
 	return dt * scale;
 }
 
-float Timer::getDeltaTimeUnscaled() {
+std::chrono::duration<double> Timer::getDeltaTimeUnscaled() const {
 	return dt;
 }
 
-float Timer::getTimeSinceStart() {
+std::chrono::duration<double> Timer::getTimeSinceStart() const {
 	return allTime;
 }
 
-float Timer::getTimeScale() {
+double Timer::getTimeScale() const {
 	return scale;
 }
 
-void Timer::setScale(float s) {
+void Timer::setScale(double s) {
 	scale = s;
 }
 
 void Timer::init() {
-	dt = 0.0f;
 	start = std::chrono::steady_clock::now();
 	current = start;
 	last = start;
-	isInit = true;
 }
 
 void Timer::update() {
 	last = current;
 	current = std::chrono::steady_clock::now();
-	eps = current - last;
-
-	if (isInit) {
-		dt = eps.count() > 0.1 ? 0.1f : static_cast<float>(eps.count());
-		allTime += dt * scale;
-	}
-	else {
-		init();
-	}
+	dt = current - last;
+	allTime += dt * scale;
 }

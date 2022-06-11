@@ -59,11 +59,11 @@ namespace KUMA::ECS {
 
 		void onDestroy();
 
-		void onUpdate(float dt);
+		void onUpdate(std::chrono::duration<double> dt);
 
-		void onFixedUpdate(float dt);
+		void onFixedUpdate(std::chrono::duration<double> dt);
 
-		void onLateUpdate(float dt);
+		void onLateUpdate(std::chrono::duration<double> dt);
 
 		//TODO: refactor to addComponent
 		std::shared_ptr<Script> addScript(const std::string& name);

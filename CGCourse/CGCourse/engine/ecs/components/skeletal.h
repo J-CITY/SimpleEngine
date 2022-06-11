@@ -20,7 +20,7 @@ namespace KUMA::ECS {
 
 		}
 
-		void onUpdate(float dt) override;
+		void onUpdate(std::chrono::duration<double> dt) override;
 		void setAnimation(const std::string& id);
 		//void setAnimation(int id);
 

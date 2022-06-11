@@ -14,9 +14,9 @@ namespace KUMA::ECS {
 		std::function<void()> _onEnable = [] {};
 		std::function<void()> _onDisable = [] {};
 		std::function<void()> _onDestroy = []{};
-		std::function<void(float)> _onUpdate = [](float) {};
-		std::function<void(float)> _onFixedUpdate = [](float) {};
-		std::function<void(float)> _onLateUpdate = [](float) {};
+		std::function<void(std::chrono::duration<double>)> _onUpdate = [](std::chrono::duration<double>) {};
+		std::function<void(std::chrono::duration<double>)> _onFixedUpdate = [](std::chrono::duration<double>) {};
+		std::function<void(std::chrono::duration<double>)> _onLateUpdate = [](std::chrono::duration<double>) {};
 	public:
 		LogicComponent(const ECS::Object& obj, std::function<void(float)> inputEventFun);
 
@@ -35,13 +35,13 @@ namespace KUMA::ECS {
 		virtual void onDestroy() override {
 			_onDestroy();
 		};
-		virtual void onUpdate(float dt) override {
+		virtual void onUpdate(std::chrono::duration<double> dt) override {
 			_onUpdate(dt);
 		};
-		virtual void onFixedUpdate(float dt) override {
+		virtual void onFixedUpdate(std::chrono::duration<double> dt) override {
 			_onFixedUpdate(dt);
 		};
-		virtual void onLateUpdate(float dt) override {
+		virtual void onLateUpdate(std::chrono::duration<double> dt) override {
 			_onLateUpdate(dt);
 		};
 		

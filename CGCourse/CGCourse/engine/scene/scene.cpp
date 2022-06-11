@@ -85,19 +85,19 @@ bool Scene::getIsExecute() const {
 	return isExecute;
 }
 
-void Scene::update(float dt) {
+void Scene::update(std::chrono::duration<double> dt) {
 	for (auto& o : objects) {
 		o->onUpdate(dt);
 	}
 }
 
-void Scene::fixedUpdate(float dt) {
+void Scene::fixedUpdate(std::chrono::duration<double> dt) {
 	for (auto& o : objects) {
 		o->onFixedUpdate(dt);
 	}
 }
 
-void Scene::lateUpdate(float dt) {
+void Scene::lateUpdate(std::chrono::duration<double> dt) {
 	for (auto& o : objects) {
 		o->onLateUpdate(dt);
 	}

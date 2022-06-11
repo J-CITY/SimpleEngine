@@ -70,15 +70,15 @@ void Script::onDestroy() {
 	luaCall("OnDestroy");
 }
 
-void Script::onUpdate(float dt) {
-	luaCall("OnUpdate", dt);
+void Script::onUpdate(std::chrono::duration<double> dt) {
+	luaCall("OnUpdate", static_cast<float>(dt.count()));
 }
 
-void Script::onFixedUpdate(float dt)
+void Script::onFixedUpdate(std::chrono::duration<double> dt)
 {
-	luaCall("OnFixedUpdate", dt);
+	luaCall("OnFixedUpdate", static_cast<float>(dt.count()));
 }
 
-void Script::onLateUpdate(float dt) {
-	luaCall("OnLateUpdate", dt);
+void Script::onLateUpdate(std::chrono::duration<double> dt) {
+	luaCall("OnLateUpdate", static_cast<float>(dt.count()));
 }

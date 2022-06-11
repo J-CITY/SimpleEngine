@@ -32,9 +32,9 @@ namespace KUMA::SCENE_SYSTEM {
 		void go();
 		[[nodiscard]] bool getIsExecute() const;
 		
-		void update(float dt);
-		void fixedUpdate(float dt);
-		void lateUpdate(float dt);
+		void update(std::chrono::duration<double> dt);
+		void fixedUpdate(std::chrono::duration<double> dt);
+		void lateUpdate(std::chrono::duration<double> dt);
 
 		std::shared_ptr<ECS::Object> createObject();
 		std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");

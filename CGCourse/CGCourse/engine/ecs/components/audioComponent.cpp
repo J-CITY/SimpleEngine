@@ -14,7 +14,7 @@ AudioComponent::AudioComponent(const ECS::Object& obj, AUDIO::Sound3d sound): Co
 	am.play3d(sound, true);
 }
 
-void AudioComponent::onLateUpdate(float dt) {
+void AudioComponent::onLateUpdate(std::chrono::duration<double> dt) {
 	Component::onLateUpdate(dt);
 
 	//TODO: update pos

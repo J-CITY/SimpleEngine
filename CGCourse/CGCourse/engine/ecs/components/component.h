@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <string>
 
 #include "../../resourceManager/serializerInterface.h"
@@ -20,9 +21,9 @@ namespace KUMA::ECS {
 
 		virtual void onDestroy() {}
 
-		virtual void onUpdate(float dt) {}
-		virtual void onFixedUpdate(float dt) {}
-		virtual void onLateUpdate(float dt) {}
+		virtual void onUpdate(std::chrono::duration<double> dt) {}
+		virtual void onFixedUpdate(std::chrono::duration<double> dt) {}
+		virtual void onLateUpdate(std::chrono::duration<double> dt) {}
 
 		virtual std::string getName();
 
