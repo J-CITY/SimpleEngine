@@ -29,13 +29,13 @@ void ShaderLoader::Destroy(std::shared_ptr<Shader> res) {
 	}
 }
 int ln = 1;
-std::array<std::string, 3> ShaderLoader::ParseShader(const std::string& filePath) {
+std::array<std::string, 5> ShaderLoader::ParseShader(const std::string& filePath) {
 	std::ifstream stream(filePath);
 	if (!stream) {
 		LOG_ERROR("Can not open file " + filePath);
 		return {"", "", ""};
 	}
-	enum class ShaderType { NONE = -1, VERTEX = 0, FRAGMENT = 1, GEOMETRY };
+	enum class ShaderType { NONE = -1, VERTEX = 0, FRAGMENT = 1, GEOMETRY = 2, TESS_CONTROL = 3, TESS_EVALUATION = 4 };
 
 	std::string line;
 	std::stringstream ss[3];
@@ -78,6 +78,8 @@ std::array<std::string, 3> ShaderLoader::ParseShader(const std::string& filePath
 			if (line.find("vertex") != std::string::npos) { type = ShaderType::VERTEX; ln = 1; }
 			else if (line.find("fragment") != std::string::npos) { type = ShaderType::FRAGMENT; ln = 1; }
 			else if (line.find("geometry") != std::string::npos) { type = ShaderType::GEOMETRY; ln = 1; }
+			else if (line.find("tessControl") != std::string::npos) { type = ShaderType::TESS_CONTROL; ln = 1; }
+			else if (line.find("tessEvaluation") != std::string::npos) { type = ShaderType::TESS_EVALUATION; ln = 1; }
 		}
 		else if (line.find("#include") != std::string::npos) {
 			makeIncludePath(ss[static_cast<int>(type)], line, filePath);
@@ -95,15 +97,24 @@ std::array<std::string, 3> ShaderLoader::ParseShader(const std::string& filePath
 	};
 }
 
-uint32_t ShaderLoader::CreateProgram(const std::string& vertexShader, const std::string& fragmentShader, const std::string& geometryShader) {
+uint32_t ShaderLoader::CreateProgram(const std::string& vertexShader, const std::string& fragmentShader, 
+	const std::string& geometryShader, const std::string& tessCompShader, const std::string& tessEvoluationShader) {
 	const uint32_t program = glCreateProgram();
 
 	const uint32_t vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
 	const uint32_t fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
 	uint32_t gs = 0;
-	if (!geometryShader.empty())
+	uint32_t tcs = 0;
+	uint32_t tes = 0;
+	if (!geometryShader.empty()) {
 		gs = CompileShader(GL_GEOMETRY_SHADER, geometryShader);
-
+	}
+	if (!tessCompShader.empty()) {
+		tcs = CompileShader(GL_TESS_CONTROL_SHADER, geometryShader);
+	}
+	if (!tessEvoluationShader.empty()) {
+		tes = CompileShader(GL_TESS_EVALUATION_SHADER, geometryShader);
+	}
 	if (vs == 0 || fs == 0)
 		return 0;
 
@@ -111,6 +122,10 @@ uint32_t ShaderLoader::CreateProgram(const std::string& vertexShader, const std:
 	glAttachShader(program, fs);
 	if (gs != 0)
 		glAttachShader(program, gs);
+	if (tcs != 0)
+		glAttachShader(program, tcs);
+	if (tes != 0)
+		glAttachShader(program, tes);
 	glLinkProgram(program);
 
 	GLint linkStatus;
@@ -135,6 +150,10 @@ uint32_t ShaderLoader::CreateProgram(const std::string& vertexShader, const std:
 	glDeleteShader(fs);
 	if (gs != 0)
 		glDeleteShader(gs);
+	if (tcs != 0)
+		glDeleteShader(tcs);
+	if (tes != 0)
+		glDeleteShader(tes);
 
 	return program;
 }
@@ -175,9 +194,9 @@ uint32_t ShaderLoader::CompileShader(uint32_t p_type, const std::string& p_sourc
 std::shared_ptr<Shader> ShaderLoader::Create(const std::string& filePath) {
 	FILE_PATH = filePath;
 
-	std::array<std::string, 3> source = ParseShader(filePath);
+	std::array<std::string, 5> source = ParseShader(filePath);
 
-	uint32_t programID = CreateProgram(source[0], source[1], source[2]);
+	uint32_t programID = CreateProgram(source[0], source[1], source[2], source[3], source[4]);
 
 	if (programID) {
 		return std::make_shared<Shader>(filePath, programID);
@@ -185,8 +204,9 @@ std::shared_ptr<Shader> ShaderLoader::Create(const std::string& filePath) {
 	return nullptr;
 }
 
-std::shared_ptr<Shader> ShaderLoader::CreateFromSource(const std::string& vertexShader, const std::string& fragmentShader, const std::string& geometryShader) {
-	uint32_t programID = CreateProgram(vertexShader, fragmentShader, geometryShader);
+std::shared_ptr<Shader> ShaderLoader::CreateFromSource(const std::string& vertexShader, const std::string& fragmentShader, 
+	const std::string& geometryShader, const std::string& tessCompShader, const std::string& tessEvoluationShader) {
+	uint32_t programID = CreateProgram(vertexShader, fragmentShader, geometryShader, tessCompShader, tessEvoluationShader);
 
 	if (programID) {
 		return std::make_shared<Shader>("", programID);
@@ -197,10 +217,10 @@ std::shared_ptr<Shader> ShaderLoader::CreateFromSource(const std::string& vertex
 void	ShaderLoader::Recompile(Shader& shader, const std::string& filePath) {
 	FILE_PATH = filePath;
 
-	std::array<std::string, 3> source = ParseShader(filePath);
+	std::array<std::string, 5> source = ParseShader(filePath);
 
 	/* Create the new program */
-	uint32_t newProgram = CreateProgram(source[0], source[1], source[2]);
+	uint32_t newProgram = CreateProgram(source[0], source[1], source[2], source[3], source[4]);
 
 	if (newProgram) {
 		/* Pointer to the shaderID (const data member, tricks to access it) */

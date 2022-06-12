@@ -1585,6 +1585,53 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 
+	{
+		auto& obj = scene->createObject("Water");
+
+		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = {0.0f, 0.0f, 0.0f};
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj->transform->setLocalPosition({300.0f, 50.0f, -300.0f});
+		obj->transform->setLocalRotation({2 * 3.1415f, 0.0, 0.0f, 1.0f});
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj->transform->setLocalScale({300.0f, 300.0f, 0.01f});
+
+		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\sea.glsl");
+
+		auto mat = obj->addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(false);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+
+
+		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app, &data, s](std::chrono::duration<double> dt) {
+			s->bind();
+			auto mpos = app.getCore().inputManager->getMousePosition();
+			s->setUniformVec2("iMouse", KUMA::MATHGL::Vector2f(mpos.x, mpos.y));
+			s->unbind();
+		});
+
+		mat->fillWithMaterial(_m);
+	}
+
 	//{
 	//
 	//	auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\BW.glsl");
