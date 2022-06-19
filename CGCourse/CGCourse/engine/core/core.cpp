@@ -11,6 +11,7 @@
 #include "../resourceManager/textureManager.h"
 #include "../audioManager/audioManager.h"
 #include "../physics/PhysicWorld.h"
+#include "../tasks/taskSystem.h"
 
 using namespace KUMA;
 using namespace KUMA::CORE_SYSTEM;
@@ -31,6 +32,8 @@ Core::Core() {
 	scriptInterpreter = std::make_unique<SCRIPTING::ScriptInterpreter>(Config::ROOT + Config::USER_ASSETS_PATH + "scripts\\");
 	audioManager = std::make_unique<AUDIO::AudioManager>();
 	physicsManger = std::make_unique<PHYSICS::PhysicWorld>(256);
+	taskManger = std::make_unique<TASK::TaskSystem>();
+	taskManger->setup();
 	
 	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(modelManager);
 	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(textureManager);
@@ -40,6 +43,7 @@ Core::Core() {
 	RESOURCES::ServiceManager::Set<WINDOW_SYSTEM::Window>(*window);
 	RESOURCES::ServiceManager::Set<SCENE_SYSTEM::SceneManager>(*sceneManager);
 	RESOURCES::ServiceManager::Set<AUDIO::AudioManager>(*audioManager);
+	RESOURCES::ServiceManager::Set<TASK::TaskSystem>(*taskManger);
 
 	renderer = std::make_unique<RENDER::Renderer>(*driver, *this);
 	renderer->setCapability(RENDER::RenderingCapability::MULTISAMPLE, true);

@@ -17,6 +17,14 @@
 
 namespace KUMA
 {
+	namespace TASK
+	{
+		class TaskSystem;
+	}
+}
+
+namespace KUMA
+{
 	namespace PHYSICS
 	{
 		class PhysicWorld;
@@ -47,6 +55,7 @@ namespace KUMA {
 			std::unique_ptr<AUDIO::AudioManager>          audioManager;
 
 			std::unique_ptr<PHYSICS::PhysicWorld>         physicsManger;
+			std::unique_ptr<TASK::TaskSystem>             taskManger;
 
 
 			RESOURCES::ModelLoader    modelManager;
