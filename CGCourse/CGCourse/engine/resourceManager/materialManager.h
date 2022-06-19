@@ -2,6 +2,7 @@
 #include <string>
 
 #include "resourceManager.h"
+#include "ServiceManager.h"
 #include "../render/Material.h"
 #include <fstream>
 
@@ -9,27 +10,20 @@ namespace KUMA {
 	namespace RESOURCES {
 		class MaterialLoader : public ResourceManager<RENDER::Material> {
 		public:
-			static bool Destroy(std::shared_ptr<RENDER::Material> material) {
-				if (material) {
-					material.reset();
-					return true;
-				}
-				return false;
-			}
-			static std::shared_ptr<RENDER::Material> CreateFromFile(const std::string& path) {
-				std::string realPath = getRealPath(path);
-
-				std::shared_ptr<RENDER::Material> material = MaterialLoader::Create(realPath);
+			static ResourcePtr<RENDER::Material> CreateFromFile(const std::string& path) {
+				const std::string realPath = getRealPath(path);
+				auto material = Create(realPath);
 				if (material) {
 					material->path = path;
 				}
-
 				return material;
 			}
 
 			//move to private
-			static std::shared_ptr<RENDER::Material> Create(const std::string& path) {
-				std::shared_ptr<RENDER::Material> material = std::make_shared<RENDER::Material>();
+			static ResourcePtr<RENDER::Material> Create(const std::string& path) {
+				auto material = ResourcePtr<RENDER::Material>(new RENDER::Material(), [](RENDER::Material* m) {
+					ServiceManager::Get<MaterialLoader>().unloadResource<MaterialLoader>(m->path);
+				});
 				if (!path.empty()) {
 					std::ifstream ifs(path);
 					auto root = nlohmann::json::parse(ifs);
@@ -38,13 +32,8 @@ namespace KUMA {
 				return material;
 			}
 		protected:
-			
-			virtual std::shared_ptr<RENDER::Material> createResource(const std::string& path) override {
+			virtual ResourcePtr<RENDER::Material> createResource(const std::string& path) override {
 				return CreateFromFile(path);
-			}
-
-			virtual void destroyResource(std::shared_ptr<RENDER::Material> res) override {
-				Destroy(res);
 			}
 		};
 	}

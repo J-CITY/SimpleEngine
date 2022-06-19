@@ -1,6 +1,7 @@
 #include "textureManager.h"
 #include "resource/texture.h"
 #define STB_IMAGE_IMPLEMENTATION
+#include "ServiceManager.h"
 #include "../../3rd/stb/stb_image.h"
 
 using namespace KUMA;
@@ -18,7 +19,7 @@ void RESOURCES::stbiImageFree(float* data) {
 	stbi_image_free(data);
 }
 
-std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+ResourcePtr<Texture> TextureLoader::Create(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	//GLuint textureID;
 	int textureWidth;
 	int textureHeight;
@@ -40,7 +41,7 @@ std::shared_ptr<Texture> TextureLoader::Create(const std::string& filepath, Text
 	}
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateFloat(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+ResourcePtr<Texture> TextureLoader::CreateFloat(const std::string& filepath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	//GLuint textureID;
 	int textureWidth;
 	int textureHeight;
@@ -62,12 +63,12 @@ std::shared_ptr<Texture> TextureLoader::CreateFloat(const std::string& filepath,
 	}
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+ResourcePtr<Texture> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	uint8_t buffer [] = {r, g, b, 255};
 	return CreateFromMemory(&buffer[0], 1, 1, firstFilter, secondFilter, generateMipmap);
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateColor(uint32_t data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+ResourcePtr<Texture> TextureLoader::CreateColor(uint32_t data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	unsigned char bytes[4];
 	bytes[0] = (data >> 24) & 0xFF;
 	bytes[1] = (data >> 16) & 0xFF;
@@ -84,7 +85,7 @@ std::shared_ptr<CubeMap> TextureLoader::CreateColorCM(uint8_t r, uint8_t g, uint
 	return cubemap;
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+ResourcePtr<Texture> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	GLuint textureID;
 	glGenTextures(1, &textureID);
 	glBindTexture(GL_TEXTURE_2D, textureID);
@@ -102,10 +103,12 @@ std::shared_ptr<Texture> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	return std::make_shared<Texture>("", textureID, width, height, 32, firstFilter, secondFilter, generateMipmap);
+	return ResourcePtr<Texture>(new Texture("", textureID, width, height, 32, firstFilter, secondFilter, generateMipmap), [](Texture* m) {
+		ServiceManager::Get<TextureLoader>().unloadResource<TextureLoader>(m->path);
+	});
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateFromMemoryFloat(float* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+ResourcePtr<Texture> TextureLoader::CreateFromMemoryFloat(float* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	GLuint textureID;
 	glGenTextures(1, &textureID);
 	glBindTexture(GL_TEXTURE_2D, textureID);
@@ -189,63 +192,37 @@ std::shared_ptr<CubeMap> TextureLoader::CreateCubeMap(const int width, const int
 	return cm;
 }
 
-void TextureLoader::Reload(Texture& texture, const std::string& filePath, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
-	std::shared_ptr<Texture> newTexture = Create(filePath, firstFilter, secondFilter, generateMipmap);
-
-	if (newTexture) {
-		glDeleteTextures(1, &texture.id);
-
-		*const_cast<uint32_t*>(&texture.id) = newTexture->id;
-		*const_cast<uint32_t*>(&texture.width) = newTexture->width;
-		*const_cast<uint32_t*>(&texture.height) = newTexture->height;
-		*const_cast<uint32_t*>(&texture.bitsPerPixel) = newTexture->bitsPerPixel;
-		*const_cast<TextureFiltering*>(&texture.firstFilter) = newTexture->firstFilter;
-		*const_cast<TextureFiltering*>(&texture.secondFilter) = newTexture->secondFilter;
-		*const_cast<bool*>(&texture.isMimapped) = newTexture->isMimapped;
-	}
-}
-
-void TextureLoader::Destroy(std::shared_ptr<Texture> textureInstance) {
-	if (textureInstance) {
-		textureInstance.reset();
-	}
-}
-
-std::shared_ptr<Texture> TextureLoader::createResource(const std::string& path) {
+ResourcePtr<Texture> TextureLoader::createResource(const std::string& path) {
 	return CreateFromFile(path);
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateFromFile(const std::string& path) {
+ResourcePtr<Texture> TextureLoader::CreateFromFile(const std::string& path) {
 	std::string realPath = getRealPath(path);
 
 	auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
 		TextureFiltering::LINEAR_MIPMAP_LINEAR, TextureFiltering::LINEAR, true};
 
-	std::shared_ptr<Texture> texture = Create(realPath, min, mag, mipmap);
+	ResourcePtr<Texture> texture = Create(realPath, min, mag, mipmap);
 	if (texture) {
 		texture->path = path;
 	}
 	return texture;
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateFromFileFloat(const std::string& path) {
+ResourcePtr<Texture> TextureLoader::CreateFromFileFloat(const std::string& path) {
 	std::string realPath = getRealPath(path);
 
 	auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
 		TextureFiltering::LINEAR, TextureFiltering::LINEAR, false};
 
-	std::shared_ptr<Texture> texture = CreateFloat(realPath, min, mag, mipmap);
+	ResourcePtr<Texture> texture = CreateFloat(realPath, min, mag, mipmap);
 	if (texture) {
 		texture->path = path;
 	}
 	return texture;
 }
 
-void TextureLoader::destroyResource(std::shared_ptr<Texture> res) {
-	Destroy(res);
-}
-
-std::shared_ptr<Texture> TextureLoader::createColor(const std::string& name, uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
+ResourcePtr<Texture> TextureLoader::createColor(const std::string& name, uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
 	if (auto resource = getResource<Texture>(name)) {
 		return resource;
 	}
@@ -260,7 +237,7 @@ std::shared_ptr<Texture> TextureLoader::createColor(const std::string& name, uin
 	}
 }
 
-std::shared_ptr<Texture> TextureLoader::CreateEmpty(uint32_t width, uint32_t height, bool isFloating, int channels, TextureFormat format) {
+ResourcePtr<Texture> TextureLoader::CreateEmpty(uint32_t width, uint32_t height, bool isFloating, int channels, TextureFormat format) {
 	auto res = std::make_shared<Texture>();
 	res->path = "";
 	res->width = width;

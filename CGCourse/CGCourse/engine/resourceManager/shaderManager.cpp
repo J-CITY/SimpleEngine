@@ -1,15 +1,17 @@
 #include "shaderManager.h"
 
+#include "ServiceManager.h"
+
 using namespace KUMA;
 using namespace KUMA::RESOURCES;
 
 std::string KUMA::RESOURCES::ShaderLoader::FILE_PATH = "";
 
-std::shared_ptr<Shader> ShaderLoader::createResource(const std::string& path) {
+ResourcePtr<Shader> ShaderLoader::createResource(const std::string& path) {
 	return CreateFromFile(path);
 }
 
-std::shared_ptr<Shader> ShaderLoader::CreateFromFile(const std::string& path) {
+ResourcePtr<Shader> ShaderLoader::CreateFromFile(const std::string& path) {
 	std::string realPath = getRealPath(path);
 	auto shader = Create(realPath);
 	if (shader) {
@@ -18,16 +20,6 @@ std::shared_ptr<Shader> ShaderLoader::CreateFromFile(const std::string& path) {
 	return shader;
 }
 
-void ShaderLoader::destroyResource(std::shared_ptr<Shader> res) {
-	Destroy(res);
-}
-
-
-void ShaderLoader::Destroy(std::shared_ptr<Shader> res) {
-	if (res) {
-		res.reset();
-	}
-}
 int ln = 1;
 std::array<std::string, 5> ShaderLoader::ParseShader(const std::string& filePath) {
 	std::ifstream stream(filePath);
@@ -191,7 +183,7 @@ uint32_t ShaderLoader::CompileShader(uint32_t p_type, const std::string& p_sourc
 	return id;
 }
 
-std::shared_ptr<Shader> ShaderLoader::Create(const std::string& filePath) {
+ResourcePtr<Shader> ShaderLoader::Create(const std::string& filePath) {
 	FILE_PATH = filePath;
 
 	std::array<std::string, 5> source = ParseShader(filePath);
@@ -199,22 +191,26 @@ std::shared_ptr<Shader> ShaderLoader::Create(const std::string& filePath) {
 	uint32_t programID = CreateProgram(source[0], source[1], source[2], source[3], source[4]);
 
 	if (programID) {
-		return std::make_shared<Shader>(filePath, programID);
+		return ResourcePtr<Shader>(new Shader(filePath, programID), [](Shader* m) {
+			ServiceManager::Get<ShaderLoader>().unloadResource<ShaderLoader>(m->path);
+		});
 	}
 	return nullptr;
 }
 
-std::shared_ptr<Shader> ShaderLoader::CreateFromSource(const std::string& vertexShader, const std::string& fragmentShader, 
+ResourcePtr<Shader> ShaderLoader::CreateFromSource(const std::string& vertexShader, const std::string& fragmentShader,
 	const std::string& geometryShader, const std::string& tessCompShader, const std::string& tessEvoluationShader) {
 	uint32_t programID = CreateProgram(vertexShader, fragmentShader, geometryShader, tessCompShader, tessEvoluationShader);
 
 	if (programID) {
-		return std::make_shared<Shader>("", programID);
+		return ResourcePtr<Shader>(new Shader("", programID), [](Shader* m) {
+			ServiceManager::Get<ShaderLoader>().unloadResource<ShaderLoader>(m->path);
+		});
 	}
 	return nullptr;
 }
 
-void	ShaderLoader::Recompile(Shader& shader, const std::string& filePath) {
+void ShaderLoader::Recompile(Shader& shader, const std::string& filePath) {
 	FILE_PATH = filePath;
 
 	std::array<std::string, 5> source = ParseShader(filePath);

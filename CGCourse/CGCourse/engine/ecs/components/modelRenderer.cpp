@@ -41,9 +41,6 @@ void ModelRenderer::onDeserialize(nlohmann::json& j) {
 	customBoundingSphere.position = dump;
 	customBoundingSphere.radius = j["data"]["customBoundingSphere"]["radius"];
 	frustumBehaviour = j["data"]["frustumBehaviour"];
-	if (model) {
-		RESOURCES::ModelLoader().Destroy(model);
-	}
 	model = RESOURCES::ModelLoader().CreateFromFile(j["data"]["model"]["path"]);
 }
 void ModelRenderer::onSerialize(nlohmann::json& j) {

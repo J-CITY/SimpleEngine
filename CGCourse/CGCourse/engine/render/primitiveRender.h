@@ -34,8 +34,6 @@ namespace KUMA {
 			}
 
 			~PrimitiveRender() {
-				RESOURCES::ShaderLoader::Destroy(lineShader);
-				RESOURCES::ShaderLoader::Destroy(gridShader);
 			}
 
 			void setViewProjection(const MATHGL::Matrix4& p_viewProjection) {
