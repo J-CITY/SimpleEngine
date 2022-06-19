@@ -91,7 +91,7 @@ void TaskExecutor::waitSync() {
 		}
 	}
 
-	LOG_INFO("TaskExecutor: Reached synchronization point");
+	//LOG_INFO("TaskExecutor: Reached synchronization point\n");
 }
 
 std::shared_ptr<ITask> TaskExecutor::addTask(std::unique_ptr<ITask>&& task, int32_t threadID) {
