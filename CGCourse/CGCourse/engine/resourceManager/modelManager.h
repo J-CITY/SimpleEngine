@@ -2,6 +2,7 @@
 #include <string>
 
 #include "resourceManager.h"
+#include "ServiceManager.h"
 #include "../render/Model.h"
 #include "parser/assimpParser.h"
 
@@ -18,12 +19,7 @@ namespace KUMA {
 					newModel->meshes.clear();
 				}
 			}
-			static void Destroy(std::shared_ptr<RENDER::Model> res) {
-				if (res) {
-					res.reset();
-				}
-			}
-			static std::shared_ptr<RENDER::Model> CreateFromFile(const std::string& path) {
+			static ResourcePtr<RENDER::Model> CreateFromFile(const std::string& path) {
 				std::string realPath = getRealPath(path);
 				auto model = Create(realPath, getAssetMetadata(realPath));
 				if (model)
@@ -31,7 +27,7 @@ namespace KUMA {
 
 				return model;
 			}
-			static std::shared_ptr<RENDER::Model> CreateFromFile(const std::string& path, ModelParserFlags parserFlags) {
+			static ResourcePtr<RENDER::Model> CreateFromFile(const std::string& path, ModelParserFlags parserFlags) {
 				std::string realPath = getRealPath(path);
 				auto model = Create(realPath, parserFlags);
 				if (model)
@@ -41,8 +37,10 @@ namespace KUMA {
 			}
 
 			//move to private
-			static std::shared_ptr<RENDER::Model> Create(const std::string& filepath, ModelParserFlags parserFlags = ModelParserFlags::NONE) {
-				std::shared_ptr<RENDER::Model> result = std::make_shared<RENDER::Model>(filepath);
+			static ResourcePtr<RENDER::Model> Create(const std::string& filepath, ModelParserFlags parserFlags = ModelParserFlags::NONE) {
+				auto result = ResourcePtr<RENDER::Model>(new RENDER::Model(filepath), [](RENDER::Model* m) {
+					ServiceManager::Get<ModelLoader>().unloadResource<ModelLoader>(m->path);
+				});
 
 				if (_ASSIMP.LoadModel(filepath, result, parserFlags)) {
 					result->computeBoundingSphere();
@@ -91,17 +89,13 @@ namespace KUMA {
 
 			
 
-			virtual std::shared_ptr<RENDER::Model> createResource(const std::string& path) override {
+			virtual ResourcePtr<RENDER::Model> createResource(const std::string& path) override {
 				std::string realPath = getRealPath(path);
 				auto model = Create(realPath, getAssetMetadata(realPath));
 				if (model)
 					model->path = path;
 
 				return model;
-			}
-
-			virtual void destroyResource(std::shared_ptr<RENDER::Model> res) override {
-				Destroy(res);
 			}
 		};
 	

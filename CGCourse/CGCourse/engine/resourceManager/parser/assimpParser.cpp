@@ -17,7 +17,7 @@ using namespace KUMA::RESOURCES;
 unsigned int ID=0;
 
 bool AssimpParser::LoadModel(const std::string& fileName, 
-	std::shared_ptr<RENDER::Model> model,  ModelParserFlags parserFlags) {
+	RESOURCES::ResourcePtr<RENDER::Model> model,  ModelParserFlags parserFlags) {
 	
 	Assimp::Importer* import = new Assimp::Importer();
 	auto scene = import->ReadFile(fileName, static_cast<int>(parserFlags));
@@ -51,7 +51,7 @@ void AssimpParser::processMaterials(const aiScene* scene, std::vector<std::strin
 	}
 }
 
-void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* scene, std::shared_ptr<RENDER::Model> model) {
+void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* scene, ResourcePtr<RENDER::Model> model) {
 	aiMatrix4x4 nodeTransformation = *reinterpret_cast<aiMatrix4x4*>(transform) * node->mTransformation;
 
 	auto boneSz = 0;
@@ -138,7 +138,7 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 	}
 }
 
-void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, std::shared_ptr<RENDER::Model> model) {
+void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::Model> model) {
 	for (int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
 		int boneID = -1;
 		std::string boneName = mesh->mBones[boneIndex]->mName.C_Str();

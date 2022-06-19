@@ -259,9 +259,6 @@ std::map<std::string, ShaderUniform>& Material::getUniformsData() {
 }
 
 void Material::onDeserialize(nlohmann::json& j) {
-	if (shader) {
-		RESOURCES::ShaderLoader::Destroy(shader);
-	}
 	shader = RESOURCES::ShaderLoader::CreateFromFile(j.value("shader", "Shaders/Unlit.glsl"));
 	blendable = j.value("blendable", false);
 	backfaceCulling = j.value("backfaceCulling", true);

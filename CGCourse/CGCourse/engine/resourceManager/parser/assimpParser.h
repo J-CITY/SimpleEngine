@@ -5,6 +5,7 @@
 #include "../../utils/math/Matrix4.h"
 #include "../../utils/math/Quaternion.h"
 #include "../resource/mesh.h"
+#include "../resourceManager.h"
 
 namespace KUMA {
 	namespace RENDER {
@@ -74,14 +75,14 @@ namespace KUMA {
 		class AssimpParser {
 		public:
 			bool LoadModel(const std::string& fileName,
-				std::shared_ptr<RENDER::Model> model, ModelParserFlags parserFlags);
+				RESOURCES::ResourcePtr<RENDER::Model> model, ModelParserFlags parserFlags);
 
 		private:
 			const unsigned int MAX_BONE_WEIGHTS = 4;
 			void processMaterials(const struct aiScene* scene, std::vector<std::string>& materials);;
-			void processNode(void* transform, struct aiNode* node, const struct aiScene* scene, std::shared_ptr<RENDER::Model> model);
+			void processNode(void* transform, struct aiNode* node, const struct aiScene* scene, ResourcePtr<RENDER::Model> model);
 			void processMesh(void* transform, struct aiMesh* mesh, const struct aiScene* scene, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
-			void loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, std::shared_ptr<RENDER::Model> model);
+			void loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::Model> model);
 			void setVertexBoneData(Vertex& vertex, int boneID, float weight);
 		};
 	}
