@@ -1,8 +1,9 @@
 #include "matrix3.h"
-
 #include <stdexcept>
 #include <string>
-#include "cmath"
+#include <cmath>
+
+import glmath;
 
 using namespace KUMA;
 using namespace KUMA::MATHGL;

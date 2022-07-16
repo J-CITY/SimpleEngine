@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include "engine/utils/math/Vector3.h"
 
 class Ray;

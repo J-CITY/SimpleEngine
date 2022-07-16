@@ -2,8 +2,8 @@
 
 
 #include "TextureAtlas.h"
-#include "../engine/utils/math/Vector2.h"
-
+//#include "../engine/utils/math/Vector2.h"
+import glmath;
 using namespace KUMA::MATHGL;
 
 namespace Game {

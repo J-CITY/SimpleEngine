@@ -13,7 +13,7 @@ Font::Font(std::string fontPath, int size) {
 		return;
 	}
 
-	std::vector<unsigned char[1024]> textureData(1024);
+	std::vector<std::array<unsigned char, 1024>> textureData(1024);
 	int curMaxHeight = 0;
 	int curX = 0, curY = 0;
 

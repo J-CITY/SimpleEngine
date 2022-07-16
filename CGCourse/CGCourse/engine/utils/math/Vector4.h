@@ -5,6 +5,8 @@
 
 #include "vector3.h"
 
+import glmath;
+
 namespace KUMA {
 	namespace MATHGL {
 		struct Matrix4;

@@ -1,7 +1,7 @@
 ﻿#pragma once
-#include "engine/utils/math/vector2.h"
+//#include "engine/utils/math/vector2.h"
 #include "engine/utils/math/Vector3.h"
-
+import glmath;
 namespace KUMA {
 	namespace MATHGL {
 	}

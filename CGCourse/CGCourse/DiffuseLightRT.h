@@ -2,7 +2,8 @@
 #include "MathRT.h"
 #include "SceneRT.h"
 #include "TextureRT.h"
-#include "engine/utils/math/Vector2.h"
+//#include "engine/utils/math/Vector2.h"
+import glmath;
 
 struct HitRecord;
 class Ray;

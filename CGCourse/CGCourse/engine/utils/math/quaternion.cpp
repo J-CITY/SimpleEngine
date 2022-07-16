@@ -1,4 +1,3 @@
-
 #include "quaternion.h"
 
 using namespace KUMA;

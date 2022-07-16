@@ -5,8 +5,8 @@
 #include "../utils/math/Vector3.h"
 #include "../utils/math/vector4.h"
 #include "../utils/math/Quaternion.h"
-#include "../utils/math/Vector2.h"
-
+//#include "../utils/math/Vector2.h"
+import glmath;
 namespace KUMA {
 	namespace RESOURCES {
 		inline void SerializeVec4(nlohmann::json& j, const MATHGL::Vector4& vec) {
