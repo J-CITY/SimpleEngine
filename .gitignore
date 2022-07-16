@@ -773,3 +773,8 @@ CGCourse/.vs/CGCourse/v16/Solution.VC.db
 CGCourse/.vs/CGCourse/v16/Solution.VC.db
 CGCourse/.vs/CGCourse/v16/Solution.VC.db-shm
 CGCourse/CGCourse/CGCourse.vcxproj.filters
+*.filters
+*.VC.db
+*.pdb
+*.idb
+*.tlog
