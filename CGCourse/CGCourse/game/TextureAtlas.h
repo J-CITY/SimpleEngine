@@ -5,10 +5,10 @@
 #include <array>
 #include <GL/glew.h>
 
-#include "../engine/utils/math/Vector2.h"
+//#include "../engine/utils/math/Vector2.h"
 #include "../engine/resourceManager/ServiceManager.h"
 #include "../engine/resourceManager/textureManager.h"
-
+import glmath;
 namespace KUMA
 {
 	namespace RESOURCES

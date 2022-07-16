@@ -17,9 +17,8 @@ namespace KUMA {
 			void bind(std::shared_ptr<RESOURCES::Shader> _shader, std::shared_ptr<RESOURCES::Texture> emptyTexture, bool useTextures);
 			void bind(std::shared_ptr<RESOURCES::Texture> _texture, bool useTextures);
 			void unbind();
-
-			template<typename T>
-			inline void set(const std::string key, const T& val) {
+			
+			inline void set(const std::string key, const ShaderUniform& val) {
 				if (hasShader()) {
 					if (uniformsData.find(key) != uniformsData.end())
 						uniformsData[key] = val;

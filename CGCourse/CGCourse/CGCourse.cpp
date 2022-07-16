@@ -1,5 +1,4 @@
-﻿
-#include "CameraRT.h"
+﻿#include "CameraRT.h"
 //#include "DiffuseLightRT.h"
 #include "ObjectRT.h"
 #include "RenderRT.h"

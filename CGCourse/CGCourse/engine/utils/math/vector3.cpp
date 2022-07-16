@@ -17,7 +17,6 @@ const Vector3 Vector3::Up(0.0f, 1.0f, 0.0f);
 
 Vector3::Vector3(float x, float y, float z) : x(x), y(y), z(z) {
 }
-
 Vector3::Vector3(const Vector3& toCopy) : x(toCopy.x), y(toCopy.y), z(toCopy.z) {
 }
 Vector3::Vector3(const Vector4& toCopy) : x(toCopy.x), y(toCopy.y), z(toCopy.z) {

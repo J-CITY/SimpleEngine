@@ -144,7 +144,7 @@ void Renderer::init() {
 	emptyMaterial = std::make_shared<RENDER::Material>();
 	emptyMaterial->setShader(context.shaderManager.CreateFromFile("Shaders\\Unlit.glsl"));
 	emptyMaterial->set("u_Diffuse", MATHGL::Vector3(1.f, 0.f, 1.f));
-	emptyMaterial->set<RESOURCES::Texture*>("u_DiffuseMap", nullptr);
+	emptyMaterial->set("u_DiffuseMap", nullptr);
 
 	KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
 	flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;

@@ -1,6 +1,6 @@
 #pragma once
-#include "math/Vector2.h"
-
+//#include "math/Vector2.h"
+import glmath;
 #define MAX_BONE_INFLUENCE 4
 namespace KUMA {
     class Vertex {

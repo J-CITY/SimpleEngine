@@ -1,6 +1,5 @@
 #include "matrix4.h"
 
-#include "vector3.h"
 #include <string>
 
 using namespace KUMA;
