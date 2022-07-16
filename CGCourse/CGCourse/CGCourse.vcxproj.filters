@@ -115,9 +115,6 @@
     <ClCompile Include="3rd\imgui\imgui_widgets.cpp">
       <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="3rd\imgui\imgui-SFML.cpp">
-      <Filter>Исходные файлы\3rd\imgui</Filter>
-    </ClCompile>
     <ClCompile Include="engine\config.cpp">
       <Filter>Исходные файлы\engine</Filter>
     </ClCompile>
@@ -337,9 +334,6 @@
     <ClCompile Include="engine\utils\math\vector4.cpp">
       <Filter>Исходные файлы\engine\utils\math</Filter>
     </ClCompile>
-    <ClCompile Include="engine\utils\math\vector2.cpp">
-      <Filter>Исходные файлы\engine\utils\math</Filter>
-    </ClCompile>
     <ClCompile Include="engine\utils\math\matrix4.cpp">
       <Filter>Исходные файлы\engine\utils\math</Filter>
     </ClCompile>
@@ -394,6 +388,24 @@
     <ClCompile Include="engine\ecs\components\skeletal.cpp">
       <Filter>Исходные файлы\engine\ecs\components</Filter>
     </ClCompile>
+    <ClCompile Include="3rd\imgui\imgui_tables.cpp">
+      <Filter>Исходные файлы\3rd\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rd\imgui\imgui_impl_glfw.cpp">
+      <Filter>Исходные файлы\3rd\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rd\imgui\imgui_impl_opengl3.cpp">
+      <Filter>Исходные файлы\3rd\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="glmath-Vec3.ixx">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="glmath.ixx">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
+    <ClCompile Include="glmath-Vector2.ixx">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rd\imgui\imconfig.h">
@@ -403,12 +415,6 @@
       <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imgui_internal.h">
-      <Filter>Исходные файлы\3rd\imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="3rd\imgui\imgui-SFML.h">
-      <Filter>Исходные файлы\3rd\imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="3rd\imgui\imgui-SFML_export.h">
       <Filter>Исходные файлы\3rd\imgui</Filter>
     </ClInclude>
     <ClInclude Include="3rd\imgui\imstb_rectpack.h">
@@ -747,12 +753,6 @@
     <ClInclude Include="engine\utils\math\quaternion.h">
       <Filter>Исходные файлы\engine\utils\math</Filter>
     </ClInclude>
-    <ClInclude Include="engine\utils\math\vector2.h">
-      <Filter>Исходные файлы\engine\utils\math</Filter>
-    </ClInclude>
-    <ClInclude Include="engine\utils\math\vector3.h">
-      <Filter>Исходные файлы\engine\utils\math</Filter>
-    </ClInclude>
     <ClInclude Include="engine\utils\math\vector4.h">
       <Filter>Исходные файлы\engine\utils\math</Filter>
     </ClInclude>
@@ -811,6 +811,18 @@
       <Filter>Исходные файлы\engine\ecs\components</Filter>
     </ClInclude>
     <ClInclude Include="engine\utils\math\constant.h">
+      <Filter>Исходные файлы\engine\utils\math</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\imgui\imgui_impl_glfw.h">
+      <Filter>Исходные файлы\3rd\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\imgui\imgui_impl_opengl3.h">
+      <Filter>Исходные файлы\3rd\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rd\imgui\imgui_impl_opengl3_loader.h">
+      <Filter>Исходные файлы\3rd\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\utils\math\vector3.h">
       <Filter>Исходные файлы\engine\utils\math</Filter>
     </ClInclude>
   </ItemGroup>
