@@ -1,6 +1,7 @@
 export;
 
 #include <cmath>
+#include <stdexcept>
 
 export module glmath:Vector2;
 
