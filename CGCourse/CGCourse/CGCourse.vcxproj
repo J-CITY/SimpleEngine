@@ -21,13 +21,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -45,7 +45,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>C:\Projects\SimpleEngine\CGCourse\Build\lua\Debug;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\libs\glfw-3.3.7\build\src\Debug;C:\Projects\SimpleEngine\CGCourse\Build\lua\Debug;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;$(LibraryPath)</LibraryPath>
     <IncludePath>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -61,17 +61,17 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\irrKlang\include;C:\libs\glm;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\include;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\include;F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <EnableModules>false</EnableModules>
+      <AdditionalIncludeDirectories>C:\libs\freetype-2.12.1\include;C:\libs\glfw-3.3.7\include;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\irrKlang\include;C:\libs\glm;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\include;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\include;F:\Projects\CGCourse\CGCourse\CGCourse\3rd\imgui;C:\libs\SFML\include;C:\libs\glew\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <EnableModules>true</EnableModules>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\irrKlang\lib\Winx64-visualStudio;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\lib;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-main-d.lib;sfml-graphics-d.lib;sfml-system-d.lib;sfml-window-d.lib;Lua.lib;assimp.lib;irrKlang.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\libs\freetype-2.12.1\objs\x64\Debug\freetype.tlog;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\irrKlang\lib\Winx64-visualStudio;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\lua\lib;C:\Projects\SimpleEngine\CGCourse\CGCourse\3rd\Assimp\lib\x64;C:\libs\glew\lib\Release\x64;C:\libs\glfw-3.3.7\include;C:\libs\SFML\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-main-d.lib;sfml-graphics-d.lib;sfml-system-d.lib;sfml-window-d.lib;Lua.lib;assimp.lib;irrKlang.lib;glfw3.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -94,15 +94,17 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\libs\SFML\lib;C:\libs\glew\lib\Release\x64;C:\libs\glfw-3.3.7\include;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glew32.lib;sfml-graphics.lib;sfml-system.lib;sfml-window.lib;Lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="3rd\imgui\imgui-SFML.cpp" />
     <ClCompile Include="3rd\imgui\imgui.cpp" />
     <ClCompile Include="3rd\imgui\imgui_demo.cpp" />
     <ClCompile Include="3rd\imgui\imgui_draw.cpp" />
+    <ClCompile Include="3rd\imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="3rd\imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="3rd\imgui\imgui_tables.cpp" />
     <ClCompile Include="3rd\imgui\imgui_widgets.cpp" />
     <ClCompile Include="3rd\stb\stb_vorbis.c" />
     <ClCompile Include="CameraRT.cpp" />
@@ -174,7 +176,6 @@
     <ClCompile Include="engine\utils\math\matrix3.cpp" />
     <ClCompile Include="engine\utils\math\matrix4.cpp" />
     <ClCompile Include="engine\utils\math\quaternion.cpp" />
-    <ClCompile Include="engine\utils\math\vector2.cpp" />
     <ClCompile Include="engine\utils\math\vector3.cpp" />
     <ClCompile Include="engine\utils\math\vector4.cpp" />
     <ClCompile Include="engine\utils\meshGenerator.cpp" />
@@ -192,17 +193,21 @@
     <ClCompile Include="game\TextureAtlas.cpp" />
     <ClCompile Include="game\World.cpp" />
     <ClCompile Include="game\WorldGenerator.cpp" />
+    <ClCompile Include="glmath-Vector2.ixx" />
+    <ClCompile Include="glmath.ixx" />
     <ClCompile Include="MathRT.cpp" />
     <ClCompile Include="ObjectRT.cpp" />
     <ClCompile Include="RenderRT.cpp" />
     <ClCompile Include="SceneRT.cpp" />
     <ClCompile Include="TextureRT.cpp" />
+    <ClCompile Include="glmath-Vec3.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rd\imgui\imconfig.h" />
-    <ClInclude Include="3rd\imgui\imgui-SFML.h" />
-    <ClInclude Include="3rd\imgui\imgui-SFML_export.h" />
     <ClInclude Include="3rd\imgui\imgui.h" />
+    <ClInclude Include="3rd\imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="3rd\imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="3rd\imgui\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="3rd\imgui\imgui_internal.h" />
     <ClInclude Include="3rd\imgui\imstb_rectpack.h" />
     <ClInclude Include="3rd\imgui\imstb_textedit.h" />
@@ -310,7 +315,6 @@
     <ClInclude Include="engine\utils\math\matrix3.h" />
     <ClInclude Include="engine\utils\math\matrix4.h" />
     <ClInclude Include="engine\utils\math\quaternion.h" />
-    <ClInclude Include="engine\utils\math\vector2.h" />
     <ClInclude Include="engine\utils\math\vector3.h" />
     <ClInclude Include="engine\utils\math\vector4.h" />
     <ClInclude Include="engine\utils\meshGenerator.h" />
