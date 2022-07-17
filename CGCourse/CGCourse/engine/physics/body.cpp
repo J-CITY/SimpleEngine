@@ -1,8 +1,9 @@
 #include "body.h"
 #include <memory.h>
+#include <cmath>
 #include <assert.h>
 #include "../utils/math/constant.h"
-
+#include <array>
 using namespace KUMA;
 using namespace KUMA::PHYSICS;
 using namespace KUMA::MATHGL;
@@ -137,8 +138,8 @@ bool RigidBody::integrate(float duration)
     rotation.addScaledVector(angularAcceleration, duration);
 
     // Impose drag.
-    velocity *= pow(linearDamping, duration);
-    rotation *= pow(angularDamping, duration);
+    velocity *= std::pow(linearDamping, duration);
+    rotation *= std::pow(angularDamping, duration);
 
     // Adjust positions
     // Update linear position.
@@ -332,23 +333,35 @@ Quaternion RigidBody::getOrientation() const
 
 void RigidBody::getOrientation(Matrix3 *matrix) const
 {
-    getOrientation(matrix->data);
-}
-
-void RigidBody::getOrientation(std::array<float, 9> matrix) const
-{
+    //getOrientation(matrix->data);
     matrix[0] = transformMatrix.data[0];
     matrix[1] = transformMatrix.data[1];
     matrix[2] = transformMatrix.data[2];
-
+    
     matrix[3] = transformMatrix.data[4];
     matrix[4] = transformMatrix.data[5];
     matrix[5] = transformMatrix.data[6];
-
+    
     matrix[6] = transformMatrix.data[8];
     matrix[7] = transformMatrix.data[9];
     matrix[8] = transformMatrix.data[10];
+    
 }
+
+//void RigidBody::getOrientation(std::array<float, 9> matrix) const
+//{
+//    matrix[0] = transformMatrix.data[0];
+//    matrix[1] = transformMatrix.data[1];
+//    matrix[2] = transformMatrix.data[2];
+//
+//    matrix[3] = transformMatrix.data[4];
+//    matrix[4] = transformMatrix.data[5];
+//    matrix[5] = transformMatrix.data[6];
+//
+//    matrix[6] = transformMatrix.data[8];
+//    matrix[7] = transformMatrix.data[9];
+//    matrix[8] = transformMatrix.data[10];
+//}
 
 void RigidBody::getTransform(Matrix4 *transform)
 {

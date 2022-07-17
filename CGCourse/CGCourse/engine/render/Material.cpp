@@ -2,9 +2,7 @@
 
 
 #include "../resourceManager/shaderManager.h"
-//#include "../utils/math/Vector2.h"
-#include "../utils/math/Vector3.h"
-#include "../utils/math/vector4.h"
+
 #include "buffers/uniformBuffer.h"
 #include "buffers/uniformTypes.h"
 import glmath;

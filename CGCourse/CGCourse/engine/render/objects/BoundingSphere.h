@@ -1,5 +1,5 @@
 #pragma once
-#include "../../utils/math/Vector3.h"
+import glmath;
 
 namespace KUMA {
 	namespace RENDER {

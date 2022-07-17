@@ -1,5 +1,5 @@
 #include "Chunk.h"
-#include "../engine/utils/math/Vector3.h"
+import glmath;
 
 using namespace Game;
 using namespace KUMA::MATHGL;

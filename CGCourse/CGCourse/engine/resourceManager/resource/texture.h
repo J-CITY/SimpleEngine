@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <map>
 #include <GL/glew.h>
 #include <string>
 #include <vector>

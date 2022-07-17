@@ -1,11 +1,8 @@
 #pragma once
 
 #include "component.h"
-#include "../../utils/math/Matrix4.h"
-#include "../../utils/math/Vector3.h"
-#include "../../utils/math/Quaternion.h"
+import glmath;
 #include <functional>
-
 #include "../../resourceManager/serializerInterface.h"
 
 namespace KUMA::ECS { class Object; }

@@ -2,10 +2,8 @@
 #include "Chunk.h"
 #include "ModelGame.h"
 #include "../engine/render/buffers/indexBuffer.h"
-#include "../engine/utils/math/Vector3.h"
-#include "../engine/utils/math/Matrix4.h"
+import glmath;
 #include "Vertex.h"
-
 using namespace KUMA::MATHGL;
 
 namespace Game {

@@ -3,8 +3,7 @@
 #include <vector>
 
 #include "../../render/Model.h"
-#include "../../utils/math/Quaternion.h"
-#include "../../utils/math/Vector3.h"
+import glmath;
 #include <glm/gtx/quaternion.hpp>
 #include <glm/glm.hpp>
 

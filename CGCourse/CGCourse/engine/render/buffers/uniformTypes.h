@@ -3,8 +3,7 @@
 #include <variant>
 #include <memory>
 //#include "../../utils/math/vector2.h"
-#include "../../utils/math/vector3.h"
-#include "../../utils/math/vector4.h"
+
 #include "../../resourceManager/resource/texture.h"
 import glmath;
 

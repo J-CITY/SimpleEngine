@@ -1,7 +1,7 @@
 ﻿#include "CameraRT.h"
 
 #include "MathRT.h"
-#include "engine/utils/math/Quaternion.h"
+import glmath;
 
 
 CameraRT::CameraRT() {}

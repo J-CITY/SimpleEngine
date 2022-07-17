@@ -2,10 +2,7 @@
 
 #include "../3rd/json.hpp"
 
-#include "../utils/math/Vector3.h"
-#include "../utils/math/vector4.h"
-#include "../utils/math/Quaternion.h"
-//#include "../utils/math/Vector2.h"
+
 import glmath;
 namespace KUMA {
 	namespace RESOURCES {

@@ -1,6 +1,8 @@
 
 #include "contacts.h"
 #include <assert.h>
+#include <cmath>
+#include <array>
 
 using namespace KUMA;
 using namespace KUMA::PHYSICS;
@@ -49,10 +51,10 @@ void Contact::calculateContactBasis()
     Vector3 contactTangent[2];
 
     // Check whether the Z-axis is nearer to the X or Y axis
-    if (abs(contactNormal.x) > abs(contactNormal.y))
+    if (std::abs(contactNormal.x) > std::abs(contactNormal.y))
     {
         // Scaling factor to ensure the results are normalised
-        const float s = 1.0f/sqrt(contactNormal.z*contactNormal.z +
+        const float s = 1.0f / std::sqrt(contactNormal.z*contactNormal.z +
             contactNormal.x*contactNormal.x);
 
         // The new X-axis is at right angles to the world Y-axis
@@ -69,7 +71,7 @@ void Contact::calculateContactBasis()
     else
     {
         // Scaling factor to ensure the results are normalised
-        const float s = 1.0f/sqrt(contactNormal.z*contactNormal.z +
+        const float s = 1.0f / std::sqrt(contactNormal.z*contactNormal.z +
             contactNormal.y*contactNormal.y);
 
         // The new X-axis is at right angles to the world X-axis

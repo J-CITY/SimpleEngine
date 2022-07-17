@@ -1,4 +1,14 @@
-#include "quaternion.h"
+module;
+
+#include <cmath>
+#include <stdexcept>
+#include <array>
+
+module glmath:Quaternion;
+
+import :Constants;
+import :Matrix4;
+import :Matrix3;
 
 using namespace KUMA;
 using namespace KUMA::MATHGL;

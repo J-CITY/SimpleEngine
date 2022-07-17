@@ -5,8 +5,7 @@
 #include "DiffuseLightRT.h"
 #include "MathRT.h"
 #include "SceneRT.h"
-#include "engine/utils/math/Quaternion.h"
-#include "engine/utils/math/Vector3.h"
+import glmath;
 
 
 #define CULLING true

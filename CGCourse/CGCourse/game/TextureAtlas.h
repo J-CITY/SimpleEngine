@@ -2,7 +2,6 @@
 
 #include <vector>
 #include <string>
-#include <array>
 #include <GL/glew.h>
 
 //#include "../engine/utils/math/Vector2.h"

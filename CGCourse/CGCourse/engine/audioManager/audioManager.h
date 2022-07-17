@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <string>
 #include <irrKlang.h>
-#include "../utils/math/vector3.h"
+import glmath;
 
 namespace KUMA {
 	namespace AUDIO

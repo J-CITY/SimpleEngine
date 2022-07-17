@@ -28,7 +28,7 @@ namespace KUMA::TIME {
 		std::chrono::steady_clock::time_point last;
 		std::chrono::steady_clock::time_point current;
 
-		double scale = 1.0f;
+		double scale = 1.0;
 		std::chrono::duration<double> dt{};
 		std::chrono::duration<double> allTime{};
 	};

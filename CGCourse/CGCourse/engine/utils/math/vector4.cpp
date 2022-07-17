@@ -1,6 +1,10 @@
+module;
 
+#include <cmath>
+#include <stdexcept>
 
-#include "vector4.h"
+module glmath:Vector4;
+
 using namespace KUMA;
 using namespace KUMA::MATHGL;
 
