@@ -1,5 +1,5 @@
 #include "joint.h"
-
+#include <cmath>
 using namespace KUMA;
 using namespace KUMA::PHYSICS;
 using namespace KUMA::MATHGL;
@@ -17,7 +17,7 @@ unsigned Joint::addContact(Contact *contact, unsigned limit) const
     float length = a_to_b.magnitude();
 
     // Check if it is violated
-    if (abs(length) > error)
+    if (std::abs(length) > error)
     {
         contact->body[0] = body[0];
         contact->body[1] = body[1];

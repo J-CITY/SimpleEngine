@@ -2,7 +2,7 @@
 #include "lightComponent.h"
 #include "../../render/buffers/depthBuffer.h"
 
-#include "../engine/utils/math/vector3.h"
+import glmath;
 
 namespace KUMA::ECS { class Object; }
 

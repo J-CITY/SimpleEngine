@@ -1,9 +1,5 @@
 #pragma once;
-
-#include "../utils/math/vector3.h"
-#include "../utils/math/matrix3.h"
-#include "../utils/math/matrix4.h"
-#include "../utils/math/quaternion.h"
+import glmath;
 
 namespace KUMA {
     namespace PHYSICS {
@@ -141,7 +137,7 @@ namespace KUMA {
             void getOrientation(MATHGL::Matrix3* matrix) const;
 
             
-            void getOrientation(std::array<float, 9> matrix) const;
+            //void getOrientation(Array<float, 9> matrix) const;
 
             
             void getTransform(MATHGL::Matrix4* transform);

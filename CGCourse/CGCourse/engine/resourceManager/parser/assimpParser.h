@@ -2,11 +2,9 @@
 #include <map>
 #include <vector>
 #include <assimp/scene.h>
-#include "../../utils/math/Matrix4.h"
-#include "../../utils/math/Quaternion.h"
+import glmath;
 #include "../resource/mesh.h"
 #include "../resourceManager.h"
-
 namespace KUMA {
 	namespace RENDER {
 		class Model;

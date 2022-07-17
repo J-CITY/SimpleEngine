@@ -5,7 +5,7 @@
 #include "drawable.h"
 #include "Material.h"
 #include "primitiveRender.h"
-#include "../utils/math/matrix4.h"
+import glmath;
 #include "Model.h"
 #include "../../game/World.h"
 #include "../gui/guiObject.h"

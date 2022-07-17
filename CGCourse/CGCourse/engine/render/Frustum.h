@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include <array>
+//#include <array>
 #include "../ecs/components/transform.h"
-#include "../utils/math/Matrix4.h"
+import glmath;
 #include "objects/BoundingSphere.h"
 
 namespace KUMA {

@@ -15,7 +15,7 @@
 #include "../../render/buffers/vertexBuffer.h"
 #include "../../render/objects/BoundingSphere.h"
 #include "../../utils/vertex.h"
-#include "../../utils/math/Matrix4.h"
+import glmath;
 
 
 #include <glm/vec2.hpp>

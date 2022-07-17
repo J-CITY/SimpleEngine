@@ -1,7 +1,7 @@
 #pragma once
 
 #include <map>
-#include "../utils/math/Matrix4.h"
+import glmath;
 
 namespace KUMA
 {

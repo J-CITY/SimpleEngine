@@ -1,8 +1,8 @@
 #pragma once
 
-#include <array>
 
-#include "../engine/utils/math/Vector3.h"
+import glmath;
+#include <array>
 
 
 namespace KUMA {

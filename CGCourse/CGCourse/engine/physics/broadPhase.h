@@ -2,9 +2,7 @@
 
 #include <stack>
 
-#include "../utils/math/Vector3.h"
-#include "../utils/math/Matrix3.h"
-#include "../utils/math/quaternion.h"
+import glmath;
 
 namespace KUMA
 {

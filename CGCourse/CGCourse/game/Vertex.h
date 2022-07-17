@@ -2,8 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
-#include "../engine/utils/math/Vector3.h"
-#include "../engine/utils/math/vector4.h"
+import glmath;
 
 namespace  Game 
 {

@@ -1,6 +1,6 @@
 #include "cameraComponent.h"
 
-#include "../../utils/math/Vector3.h"
+import glmath;
 #include "../../render/Camera.h"
 
 using namespace KUMA::ECS;

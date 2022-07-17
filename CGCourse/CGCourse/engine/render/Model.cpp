@@ -1,6 +1,6 @@
 ﻿#include "Model.h"
 
-#include "../utils/math/Vector3.h"
+import glmath;
 
 using namespace KUMA;
 using namespace KUMA::RENDER;

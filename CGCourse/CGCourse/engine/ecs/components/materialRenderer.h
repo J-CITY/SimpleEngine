@@ -1,9 +1,7 @@
 #pragma once
 
-#include <array>
-
 #include "component.h"
-#include "../../utils/math/Matrix4.h"
+import glmath;
 #include "../../render/Material.h"
 #include "../../resourceManager/serializerInterface.h"
 

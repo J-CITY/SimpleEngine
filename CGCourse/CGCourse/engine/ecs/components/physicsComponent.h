@@ -1,15 +1,12 @@
 #pragma once
 
 #include "component.h"
-#include "../../utils/math/Matrix4.h"
-#include "../../utils/math/Vector3.h"
-#include "../../utils/math/Quaternion.h"
 #include <functional>
 #include "../../render/objects/BoundingSphere.h"
 #include "../../physics/body.h"
 #include "../../physics/narrowPhase.h"
 
-
+import glmath;
 
 namespace KUMA::ECS { class Object; }
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../utils/math/Matrix4.h"
+import glmath;
 #include "../ecs/components/transform.h"
 
 namespace KUMA {

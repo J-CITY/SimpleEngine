@@ -3,7 +3,7 @@
 #include <iostream>
 #include <queue>
 
-#include "../engine/utils/math/Vector3.h"
+import glmath;
 
 namespace Game
 {

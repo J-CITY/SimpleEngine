@@ -4,12 +4,11 @@
 #include <vector>
 #include <string>
 #include <queue>
-#include <array>
 #include "Biome.h"
 #include "ChunkMesh.h"
 #include "FrustumAABB.h"
 #include "../engine/ecs/components/component.h"
-#include "../engine/utils/math/Vector3.h"
+import glmath;
 #include "Block.h"
 
 namespace Game {

@@ -5,7 +5,6 @@
 
 #include <iostream>
 #include <string>
-#include <array>
 #include <map>
 #include <vector>
 #include <thread>

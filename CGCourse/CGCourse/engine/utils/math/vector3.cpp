@@ -1,9 +1,10 @@
-#include "vector3.h"
+module;
 
 #include <cmath>
 #include <stdexcept>
 
-#include "vector4.h"
+
+module glmath:Vector3;
 
 using namespace KUMA;
 using namespace KUMA::MATHGL;
@@ -19,8 +20,8 @@ Vector3::Vector3(float x, float y, float z) : x(x), y(y), z(z) {
 }
 Vector3::Vector3(const Vector3& toCopy) : x(toCopy.x), y(toCopy.y), z(toCopy.z) {
 }
-Vector3::Vector3(const Vector4& toCopy) : x(toCopy.x), y(toCopy.y), z(toCopy.z) {
-}
+//Vector3::Vector3(const Vector4& toCopy) : x(toCopy.x), y(toCopy.y), z(toCopy.z) {
+//}
 
 Vector3 Vector3::operator-() const {
 	return operator*(-1);

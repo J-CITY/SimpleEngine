@@ -9,11 +9,6 @@
 #include "texture.h"
 #include "../../render/buffers/uniformTypes.h"
 #include "../../utils/debug/logger.h"
-#include "../../utils/math/Matrix3.h"
-//#include "../../utils/math/Vector2.h"
-#include "../../utils/math/Vector3.h"
-#include "../../utils/math/vector4.h"
-#include "../../utils/math/Matrix4.h"
 
 import glmath;
 
@@ -73,11 +68,11 @@ namespace KUMA {
 			}
 
 			void setUniformMat4(const std::string& name, const MATHGL::Matrix4& mat4) {
-				glUniformMatrix4fv(getUniformLocation(name), 1, GL_TRUE, &mat4.data[0]);
+				glUniformMatrix4fv(getUniformLocation(name), 1, GL_TRUE, mat4.data._values);
 			}
 
 			void setUniformMat3(const std::string& name, const MATHGL::Matrix3& mat3) {
-				glUniformMatrix3fv(getUniformLocation(name), 1, GL_TRUE, &mat3.data[0]);
+				glUniformMatrix3fv(getUniformLocation(name), 1, GL_TRUE, mat3.data._values);
 			}
 
 			int getUniformInt(const std::string& name) {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "directionalLight.h"
-#include "../../utils/math/Vector3.h"
+import glmath;
 
 namespace KUMA::ECS { class Object; }
 

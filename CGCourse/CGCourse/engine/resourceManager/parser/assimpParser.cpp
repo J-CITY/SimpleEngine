@@ -8,7 +8,7 @@
 #include "../engine/render/Model.h"
 
 #include "../../../3rd/stb/stb.h"
-#include "../../utils/math/Matrix4.h"
+import glmath;
 #include "../resource/bone.h"
 
 using namespace KUMA;

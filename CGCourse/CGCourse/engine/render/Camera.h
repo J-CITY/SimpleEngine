@@ -2,8 +2,7 @@
 #include <cstdint>
 
 #include "Frustum.h"
-#include "../utils/math/Vector3.h"
-#include "../utils/math/Quaternion.h"
+import glmath;
 
 namespace KUMA {
 	namespace RENDER {

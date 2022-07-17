@@ -1,12 +1,156 @@
-#include "matrix4.h"
-
+module;
+#include <cmath>
+#include <stdexcept>
 #include <string>
+#include <array>
+
+module glmath:Matrix4;
+
+import :Constants;
 
 using namespace KUMA;
 using namespace KUMA::MATHGL;
 
-#define PI 3.14159265359f
-#define EPSILON 0.00001f
+Matrix4::Matrix4() {
+	data = Identity.data;
+}
+Matrix4::Matrix4(float val){
+	//for (auto& d : data) {
+	//	d = val;
+	//}
+	//data = { val, 0.f, 0.f, 0.f,
+	//	0.f, val, 0.f, 0.f,
+	//	0.f, 0.f, val, 0.f,
+	//	0.f, 0.f, 0.f, val
+	//};
+	data[0] = data[5] = data[10] = data[15] = val;
+}
+
+Matrix4::Matrix4(float element1, float element2, float element3, float element4,
+	float element5, float element6, float element7, float element8,
+	float element9, float element10, float element11, float element12,
+	float element13, float element14, float element15, float element16) {
+	data[0] = element1;
+	data[1] = element2;
+	data[2] = element3;
+	data[3] = element4;
+	data[4] = element5;
+	data[5] = element6;
+	data[6] = element7;
+	data[7] = element8;
+	data[8] = element9;
+	data[9] = element10;
+	data[10] = element11;
+	data[11] = element12;
+	data[12] = element13;
+	data[13] = element14;
+	data[14] = element15;
+	data[15] = element16;
+}
+
+//Matrix4::Matrix4(std::array<float, 16>&& in) {
+//	data = in;
+//}
+
+Matrix4::Matrix4(const Matrix4& in) {
+	*this = in;
+}
+															
+Matrix4 Matrix4::MakeBiasMatrix() {
+	Matrix4 Result(
+		0.5f, 0.0f, 0.0f, 0.0f,
+		0.0f, 0.5f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.5f, 0.0f,
+		0.5f, 0.5f, 0.5f, 1.0f
+	);
+	return Result;
+}
+
+Vector3 Matrix4::transformInverseDirection(const Vector3& vector) const {
+	return Vector3(
+		vector.x * data[0] +
+		vector.y * data[4] +
+		vector.z * data[8],
+
+		vector.x * data[1] +
+		vector.y * data[5] +
+		vector.z * data[9],
+
+		vector.x * data[2] +
+		vector.y * data[6] +
+		vector.z * data[10]
+	);
+}
+
+Vector3 Matrix4::transform(const Vector3& vector) const {
+	return Vector3(
+		vector.x * data[0] +
+		vector.y * data[1] +
+		vector.z * data[2] + data[3],
+
+		vector.x * data[4] +
+		vector.y * data[5] +
+		vector.z * data[6] + data[7],
+
+		vector.x * data[8] +
+		vector.y * data[9] +
+		vector.z * data[10] + data[11]
+	);
+}
+
+Vector3 Matrix4::transformInverse(const Vector3& vector) const {
+	Vector3 tmp = vector;
+	tmp.x -= data[3];
+	tmp.y -= data[7];
+	tmp.z -= data[11];
+	return Vector3(
+		tmp.x * data[0] +
+		tmp.y * data[4] +
+		tmp.z * data[8],
+
+		tmp.x * data[1] +
+		tmp.y * data[5] +
+		tmp.z * data[9],
+
+		tmp.x * data[2] +
+		tmp.y * data[6] +
+		tmp.z * data[10]
+	);
+}
+
+Vector3 Matrix4::transformDirection(const Vector3& vector) const {
+	return Vector3(
+		vector.x * data[0] +
+		vector.y * data[1] +
+		vector.z * data[2],
+
+		vector.x * data[4] +
+		vector.y * data[5] +
+		vector.z * data[6],
+
+		vector.x * data[8] +
+		vector.y * data[9] +
+		vector.z * data[10]
+	);
+}
+Vector3 Matrix4::getAxisVector(int i) const {
+	return Vector3(data[i], data[i + 4], data[i + 8]);
+}
+Vector3 Matrix4::operator*(const Vector3& vector) const {
+	return Vector3(
+		vector.x * data[0] +
+		vector.y * data[1] +
+		vector.z * data[2] + data[3],
+
+		vector.x * data[4] +
+		vector.y * data[5] +
+		vector.z * data[6] + data[7],
+
+		vector.x * data[8] +
+		vector.y * data[9] +
+		vector.z * data[10] + data[11]
+	);
+}
 
 const Matrix4 Matrix4::Identity = Matrix4(1.f, 0.f, 0.f, 0.f,
 	0.f, 1.f, 0.f, 0.f,
@@ -249,9 +393,10 @@ Matrix4 Matrix4::Multiply(const Matrix4& left, const Matrix4& right) {
 
 Matrix4 Matrix4::Divide(const Matrix4& left, float scalar) {
 	Matrix4 result(left);
-	for (float& element : result.data)
-		element /= scalar;
-
+	//for (float& element : result.data)
+	//	element /= scalar;
+	for (int8_t i = 0; i < 16; ++i)
+		result.data[i] /= scalar;
 	return result;
 }
 
@@ -261,7 +406,7 @@ Matrix4 Matrix4::Divide(const Matrix4& left, const Matrix4& right) {
 }
 
 bool Matrix4::IsIdentity(const Matrix4& matrix) {
-	return Identity.data == matrix.data;
+	return false;// Identity.data == matrix.data;
 }
 
 float Matrix4::GetMinor(float minor0, float minor1, float minor2, float minor3, float minor4, float minor5, float minor6, float minor7, float minor8) {

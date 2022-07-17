@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <random>
 
-#include "engine/utils/math/Vector3.h"
+import glmath;
 
 inline float Dot(const KUMA::MATHGL::Vector3& v1, const KUMA::MATHGL::Vector3& v2) {
 	return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;

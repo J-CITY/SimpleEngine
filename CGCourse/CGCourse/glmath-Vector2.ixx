@@ -1,23 +1,19 @@
 export;
-
+#pragma once
 #include <cmath>
 #include <stdexcept>
 
 export module glmath:Vector2;
 
-export namespace KUMA::MATHGL {
-	template<typename T = float>
-	struct Vector2 {
-		T x = 0.0f, y = 0.0f;
+template<class T>
+concept IsNumber = std::is_arithmetic<T>::value;
 
-		Vector2() {
-			static_assert(std::is_arithmetic<T>::value, "T is not number");
-		};
-		Vector2(const T f) : x(f), y(f) {
-			Vector2::Vector2();
-		}
-		Vector2(const T x, const T y) : x(x), y(y) {
-			Vector2::Vector2();
+export namespace KUMA::MATHGL {
+	template<IsNumber T=float>
+	struct Vector2 {
+		T x = 0.0, y = 0.0;
+
+		Vector2(const T x = 0.0, const T y = 0.0) : x(x), y(y) {
 		}
 
 		T& operator[](const int index) {

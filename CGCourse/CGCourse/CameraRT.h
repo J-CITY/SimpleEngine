@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "engine/utils/math/Vector3.h"
+import glmath;
 
 class Ray;
 
