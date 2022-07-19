@@ -1,6 +1,6 @@
 #include "LuaGlobalsBinder.h"
 
-#include "../utils/debug//logger.h"
+import logger;
 #include "../ecs/object.h"
 #include "../scene/sceneManager.h"
 #include "../resourceManager/modelManager.h"

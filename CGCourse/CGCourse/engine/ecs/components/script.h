@@ -3,8 +3,9 @@
 #include <sol/sol.hpp>
 
 #include "component.h"
-#include "../../utils/debug/logger.h"
 #include "../../utils/event.h"
+
+import logger;
 
 namespace KUMA::ECS { class Object; }
 

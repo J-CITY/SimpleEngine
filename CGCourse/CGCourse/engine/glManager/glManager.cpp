@@ -1,6 +1,6 @@
 #include "glManager.h"
 #include <string>
-#include "../utils/debug/logger.h"
+import logger;
 
 using namespace KUMA::GL_SYSTEM;
 

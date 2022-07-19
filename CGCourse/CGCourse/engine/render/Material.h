@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "../resourceManager/resource/shader.h"
 #include "../resourceManager/textureManager.h"
-#include "../utils/debug/logger.h"
+import logger;
 //TODO: move to resources
 
 #include <variant>

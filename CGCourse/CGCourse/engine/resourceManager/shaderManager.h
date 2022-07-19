@@ -6,7 +6,7 @@
 #include <fstream>
 #include <functional>
 #include "resourceManager.h"
-#include "../utils/debug/logger.h"
+import logger;
 #include "resource/shader.h"
 
 namespace KUMA {

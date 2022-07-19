@@ -1,6 +1,6 @@
 #include "task.h"
 
-#include "../utils/debug/logger.h"
+import logger;
 
 #include <random>
 #include <sstream>
