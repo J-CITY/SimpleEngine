@@ -1,23 +1,23 @@
 #include "window.h"
 
 #include <fstream>
-//#include <SFML/Window/Event.hpp>
-#include "../utils/debug/logger.h"
 
 #include "../config.h"
-//#include "imgui/imgui-SFML.h"
+#include "../utils/gamepad/GamepadMgr.h"
+//imgui
+#include "../core/core.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
-#include "../core/core.h"
-//#include "imgui/imgui-SFML.h"
-#include "imgui/imgui_internal.h"=
+#include "imgui/imgui_internal.h"
+
+import logger;
 
 using namespace KUMA;
 using namespace KUMA::WINDOW_SYSTEM;
 
 static void glfwErrorCallback(int error, const char* description) {
-	LOG_ERROR("Glfw Error " + std::to_string(error) + " " + description);
+	LOG_ERROR("Glfw Error: " + std::to_string(error) + " " + description);
 }
 
 Window::Window(const WindowSettings& p_windowSettings): windowSettings(p_windowSettings) {
@@ -32,7 +32,12 @@ Window::~Window() {
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
+
 	glfwTerminate();
+}
+
+bool Window::isClosed() const {
+	return m_isClosed;
 }
 
 void Window::setSize(unsigned int w, unsigned int h) {
@@ -107,6 +112,10 @@ void Window::mouseCallback(GLFWwindow* window, int button, int action, int mods)
 	}
 }
 
+void Window::DestroyglfwWin::operator()(GLFWwindow* ptr) const {
+	glfwDestroyWindow(ptr);
+}
+
 void Window::create() {
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, windowSettings.majorVersion);
@@ -176,6 +185,9 @@ void Window::create() {
 	glfwSetMouseButtonCallback(window.get(), [](GLFWwindow* window, int button, int action, int mods) {
 		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
 		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().mouseCallback(window, button, action, mods);
+	});
+	glfwSetWindowCloseCallback(window.get(), [](GLFWwindow* window) {
+		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().m_isClosed = true;
 	});
 }
 
@@ -545,11 +557,14 @@ void Window::drawDebug(CORE_SYSTEM::Core& core) {
 }
 
 void Window::draw() {
-	
 	if (!glfwWindowShouldClose(window.get())) {
 		glfwSwapBuffers(window.get());
 		//glfwPollEvents();
 	}
+}
+
+GLFWwindow& Window::getContext() const {
+	return *window;
 }
 
 void Window::onSerialize(nlohmann::json& j) {

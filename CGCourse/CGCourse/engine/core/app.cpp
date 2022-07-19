@@ -24,7 +24,7 @@ void App::run() {
 }
 
 bool App::isRunning() const {
-	return !core.window->isClosed;
+	return !core.window->isClosed();
 }
 
 void App::preUpdate() {

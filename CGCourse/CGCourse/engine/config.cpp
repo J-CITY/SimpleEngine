@@ -1,9 +1,12 @@
-
-#pragma once
-
 #include "config.h"
 
+#include <filesystem>
+
 using namespace KUMA;
+
+void Config::Init() {
+	ROOT = std::filesystem::current_path().string() + "\\";
+}
 
 std::string Config::ROOT;
 const std::string Config::ASSETS_PATH = "Assets/";

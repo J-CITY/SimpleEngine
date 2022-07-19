@@ -1,4 +1,4 @@
-#include "../utils/debug/logger.h"
+import logger;
 
 #include "LuaBinder.h"
 #include "ScriptInterpreter.h"

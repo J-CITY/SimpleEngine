@@ -8,7 +8,7 @@
 
 #include "texture.h"
 #include "../../render/buffers/uniformTypes.h"
-#include "../../utils/debug/logger.h"
+import logger;
 
 import glmath;
 

@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-#include "debug/logger.h"
+import logger;
 
 
 using namespace KUMA;
