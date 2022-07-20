@@ -2,7 +2,6 @@
 #include <memory.h>
 #include <cmath>
 #include <assert.h>
-#include "../utils/math/constant.h"
 #include <array>
 using namespace KUMA;
 using namespace KUMA::PHYSICS;

@@ -1,6 +1,9 @@
 #include "LuaMathsBinder.h"
 
 import glmath;
+
+#include <sol/sol.hpp>
+
 using namespace KUMA::SCRIPTING;
 
 void LuaMathsBinder::BindMaths(sol::state & p_luaState) {

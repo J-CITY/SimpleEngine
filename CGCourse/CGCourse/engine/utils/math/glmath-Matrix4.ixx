@@ -1,7 +1,5 @@
 export;
-#include <cmath>
 #include <stdexcept>
-#include <array>
 
 export module glmath:Matrix4;
 
@@ -11,7 +9,6 @@ import customarray;
 
 export namespace KUMA::MATHGL {
 	struct Matrix4 {
-		//std::array<float, 16> data;
 		Array<float, 16> data;
 
 		Matrix4();
@@ -20,22 +17,22 @@ export namespace KUMA::MATHGL {
 			float element5, float element6, float element7, float element8,
 			float element9, float element10, float element11, float element12,
 			float element13, float element14, float element15, float element16);
-		Matrix4(Array<float, 16>&& in) {
-			data = in;
-		};
+		Matrix4(Array<float, 16>&& in);
 		Matrix4(const Matrix4& in);
 		~Matrix4() = default;
 
-		static Matrix4 MakeBiasMatrix();
 		Vector3 transformInverseDirection(const Vector3& vector) const;
 		Vector3 transform(const Vector3& vector) const;
 		Vector3 transformInverse(const Vector3& vector) const;
 		Vector3 transformDirection(const Vector3& vector) const;
 		Vector3 getAxisVector(int i) const;
+		void setRow(uint8_t row, const Vector4& vec);
+		void setCol(uint8_t row, const Vector4& vec);
+		Vector4 getRow(uint8_t row);
+		Vector4 getCol(uint8_t row);
+
 		Vector3 operator*(const Vector3& vector) const;
-
 		Matrix4& operator=(const Matrix4& other);
-
 		bool operator==(const Matrix4& other);
 		Matrix4 operator+(const Matrix4& other) const;
 		Matrix4& operator+=(const Matrix4& other);
@@ -45,23 +42,15 @@ export namespace KUMA::MATHGL {
 		Matrix4 operator*(float scalar) const;
 		Matrix4& operator*=(float scalar);
 		Vector4 operator*(const Vector4& vector) const;
-
 		Matrix4 operator*(const Matrix4& other) const;
 		Matrix4& operator*=(const Matrix4& other);
 		Matrix4 operator/(float scalar) const;
-
 		Matrix4& operator/=(float scalar);
 		Matrix4 operator/(const Matrix4& other) const;
-
 		Matrix4& operator/=(const Matrix4& other);
 		float& operator()(uint8_t row, uint8_t column);
 
-		void setRow(uint8_t row, const Vector4& vec);
-		void setCol(uint8_t row, const Vector4& vec);
-		Vector4 getRow(uint8_t row);
-		Vector4 getCol(uint8_t row);
-		//Vector4 operator()(uint8_t row);
-
+		static Matrix4 MakeBiasMatrix();
 		static Matrix4 Scaling(const Vector3& scale);
 		static Matrix4 Translation(const Vector3& translation);
 		static bool AreEquals(const Matrix4& left, const Matrix4& right);
@@ -90,4 +79,7 @@ export namespace KUMA::MATHGL {
 
 		static const Matrix4 Identity;
 	};
+
+	Matrix4 operator*(const float f, const Matrix4& V);
+	Matrix4 operator/(const float f, const Matrix4& V);
 }

@@ -2,7 +2,6 @@ module;
 #include <cmath>
 #include <stdexcept>
 #include <string>
-#include <array>
 
 module glmath:Matrix3;
 
@@ -55,10 +54,9 @@ Matrix3::Matrix3(Vector3 a, Vector3 b, Vector3 c) {
 	data[8] = c.z;
 }
 
-
-//Matrix3::Matrix3(Array<float, 9>&& in) {
-//	data = in;
-//}
+Matrix3::Matrix3(Array<float, 9>&& in) {
+	data = in;
+};
 
 Matrix3::Matrix3(const Matrix3& in) {
 	*this = in;
@@ -442,4 +440,12 @@ Vector3 Matrix3::GetColumn(const Matrix3& matrix, unsigned column) {
 		throw std::out_of_range("Invalid index : " + std::to_string(column) + " is out of range");
 
 	return Vector3(matrix.data[column + 6], matrix.data[column + 3], matrix.data[column]);
+}
+
+Matrix3 KUMA::MATHGL::operator*(const float f, const Matrix3& V) {
+	return V * f;
+}
+
+Matrix3 KUMA::MATHGL::operator/(const float f, const Matrix3& V) {
+	return V / f;
 }

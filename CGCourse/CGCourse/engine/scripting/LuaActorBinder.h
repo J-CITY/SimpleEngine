@@ -1,6 +1,8 @@
 #pragma once
 
-#include <sol/sol.hpp>
+namespace sol {
+	class state;
+}
 
 namespace KUMA::SCRIPTING {
 	class LuaActorBinder {

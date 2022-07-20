@@ -1,4 +1,7 @@
 #include "LuaComponentBinder.h"
+
+#include <sol/sol.hpp>
+
 #include "../ecs/Object.h"
 #include "../ecs/components/Transform.h"
 #include "../ecs/components/cameraComponent.h"

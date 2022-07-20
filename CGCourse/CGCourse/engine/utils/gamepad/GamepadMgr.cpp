@@ -8,6 +8,11 @@ GamepadMgr::GamepadMgr() {
 	initialize();
 }
 
+GamepadMgr& GamepadMgr::Instance() {
+	static GamepadMgr theGamepadMgr;
+	return theGamepadMgr;
+}
+
 void GamepadMgr::initialize() {
 	gamepads.clear();
 	for (auto i = GLFW_JOYSTICK_1; i < GLFW_JOYSTICK_1 + 15; i++) {

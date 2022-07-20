@@ -2,7 +2,6 @@ module;
 #include <cmath>
 #include <stdexcept>
 #include <string>
-#include <array>
 
 module glmath:Matrix4;
 
@@ -25,6 +24,10 @@ Matrix4::Matrix4(float val){
 	//};
 	data[0] = data[5] = data[10] = data[15] = val;
 }
+
+Matrix4::Matrix4(Array<float, 16>&& in) {
+	data = in;
+};
 
 Matrix4::Matrix4(float element1, float element2, float element3, float element4,
 	float element5, float element6, float element7, float element8,
@@ -627,5 +630,13 @@ Matrix4 Matrix4::CreateFrustum(const float left, const float right, const float 
 	Frustum.data[15] = 0.0f;
 
 	return Frustum;
+}
+
+Matrix4 KUMA::MATHGL::operator*(const float f, const Matrix4& V) {
+	return V * f;
+}
+
+Matrix4 KUMA::MATHGL::operator/(const float f, const Matrix4& V) {
+	return V / f;
 }
 

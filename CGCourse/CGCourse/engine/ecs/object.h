@@ -66,16 +66,16 @@ namespace KUMA::ECS {
 		void onLateUpdate(std::chrono::duration<double> dt);
 
 		//TODO: refactor to addComponent
-		std::shared_ptr<Script> addScript(const std::string& name);
-		bool removeScript(std::shared_ptr<Script> script);
+		std::shared_ptr<ScriptComponent> addScript(const std::string& name);
+		bool removeScript(std::shared_ptr<ScriptComponent> script);
 		bool removeScript(const std::string& name);
-		std::shared_ptr<Script> getScript(const std::string& name);
-		std::unordered_map<std::string, std::shared_ptr<Script>>& getScripts();
+		std::shared_ptr<ScriptComponent> getScript(const std::string& name);
+		std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>& getScripts();
     	
     	template<typename T, typename ...Args>
 		inline std::shared_ptr<T> addComponent(Args&& ...args) {
 			static_assert(std::is_base_of<Component, T>::value, "T should derive from Component");
-    		static_assert(!std::is_same<Script, T>::value, "Use addScript()");
+    		static_assert(!std::is_same<ScriptComponent, T>::value, "Use addScript()");
 
 			if (auto found = getComponent<T>(); !found) {
 				components.insert(components.begin(), std::make_shared<T>(*this, args...));
@@ -114,9 +114,9 @@ namespace KUMA::ECS {
 		}
 
 		template<>
-		inline bool removeComponent<Script>() {
+		inline bool removeComponent<ScriptComponent>() {
 			if (ComponentManager::getInstance()->scriptComponents.count(id)) {
-				ComponentManager::getInstance()->removeComponents<Script>(getID());
+				ComponentManager::getInstance()->removeComponents<ScriptComponent>(getID());
 				return true;
 			}
 			return false;
@@ -125,7 +125,7 @@ namespace KUMA::ECS {
 		template<typename T>
 		inline std::shared_ptr<T> getComponent() const {
 			static_assert(std::is_base_of<Component, T>::value, "T should derive from Component");
-			static_assert(!std::is_same<Script, T>::value, "Use getScripts()");
+			static_assert(!std::is_same<ScriptComponent, T>::value, "Use getScripts()");
 			
 			std::shared_ptr<T> result(nullptr);
 			for (auto it = components.begin(); it != components.end(); ++it) {

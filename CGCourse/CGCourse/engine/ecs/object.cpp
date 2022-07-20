@@ -222,7 +222,7 @@ void Object::onDeserialize(nlohmann::json& j) {
 			auto _c = addComponent<SpotLight>();
 			_c->onDeserialize(c);
 		}
-		else if (c["type"] == "Script") {
+		else if (c["type"] == "ScriptComponent") {
 			auto _c = addScript(c["data"]["name"]);
 			_c->onDeserialize(c);
 		}
@@ -279,9 +279,10 @@ void Object::onSerialize(nlohmann::json& j) {
 }
 
 //TODO: refactor to addComponent
-std::shared_ptr<Script> Object::addScript(const std::string& name) {
-	auto newInstance = std::make_shared<Script>(*this, name);
-	ComponentManager::getInstance()->addComponent<Script>(getID(), newInstance);
+std::shared_ptr<ScriptComponent> Object::addScript(const std::string& name) {
+	auto newInstance = std::make_shared<ScriptComponent>(*this, name);
+	ScriptComponent::createdEvent.run(newInstance);
+	ComponentManager::getInstance()->addComponent<ScriptComponent>(getID(), newInstance);
 	if (getIsActive()) {
 		newInstance->onAwake();
 		newInstance->onEnable();
@@ -291,7 +292,7 @@ std::shared_ptr<Script> Object::addScript(const std::string& name) {
 }
 
 //TODO: удалять и из off контейнеров, тк объект может быть выключен
-bool Object::removeScript(std::shared_ptr<Script> script) {
+bool Object::removeScript(std::shared_ptr<ScriptComponent> script) {
 	bool found = false;
 	for (auto& [name, behaviour] : ComponentManager::getInstance()->scriptComponents[id]) {
 		if (behaviour.get() == script.get()) {
@@ -301,7 +302,8 @@ bool Object::removeScript(std::shared_ptr<Script> script) {
 	}
 
 	if (found) {
-		return removeScript(script->name);
+		ScriptComponent::destroyedEvent.run(script);
+		return removeScript(script->getName());
 	}
 	return false;
 }
@@ -315,7 +317,7 @@ bool Object::removeScript(const std::string& name) {
 	return false;
 }
 
-std::shared_ptr<Script> Object::getScript(const std::string& name) {
+std::shared_ptr<ScriptComponent> Object::getScript(const std::string& name) {
 	auto result = ComponentManager::getInstance()->scriptComponents[id].find(name);
 	if (result != ComponentManager::getInstance()->scriptComponents[id].end())
 		return result->second;
@@ -323,6 +325,6 @@ std::shared_ptr<Script> Object::getScript(const std::string& name) {
 		return nullptr;
 }
 
-std::unordered_map<std::string, std::shared_ptr<Script>>& Object::getScripts() {
+std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>& Object::getScripts() {
 	return ComponentManager::getInstance()->scriptComponents[id];
 }
