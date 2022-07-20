@@ -1,8 +1,3 @@
-export;
-#pragma once
-#include <cmath>
-#include <stdexcept>
-
 export module glmath:Vector3;
 
 
@@ -14,14 +9,23 @@ export namespace KUMA::MATHGL {
 		static const Vector3 Right;
 		static const Vector3 Up;
 
-		float x;
-		float y;
-		float z;
+		float x = 0.0f;
+		float y = 0.0f;
+		float z = 0.0f;
 
 		Vector3(float p_x = 0.0f, float p_y = 0.0f, float p_z = 0.0f);
 		Vector3(const Vector3& p_toCopy);
-		//Vector3(const Vector4& p_toCopy);
 		Vector3(Vector3&& toMove) noexcept = default;
+
+		void clear();
+		void addScaledVector(const Vector3& vector, float scale);
+		float dot(const Vector3& vector) const;
+		Vector3 componentProduct(const Vector3& vector) const;
+		Vector3 cross(const Vector3& vector) const;
+		float magnitude() const;
+		float squareMagnitude() const;
+		void normalise();
+		void componentProductUpdate(const Vector3& vector);
 
 		Vector3 operator-() const;
 		Vector3 operator=(const Vector3& p_other);
@@ -30,71 +34,20 @@ export namespace KUMA::MATHGL {
 		Vector3 operator-(const Vector3& p_other) const;
 		Vector3& operator-=(const Vector3& p_other);
 		Vector3 operator*(float p_scalar) const;
-		Vector3 operator*(const Vector3& vec) const {
-			return Vector3(x * vec.x, y * vec.y, z * vec.z);
-		}
+		Vector3 operator*(const Vector3& vec) const;
 		Vector3& operator*=(float p_scalar);
 		Vector3 operator/(float p_scalar) const;
 		Vector3& operator/=(float p_scalar);
 		bool operator==(const Vector3& p_other);
 		bool operator!=(const Vector3& p_other);
-
-		void clear() {
-			x = y = z = 0.0f;
-		}
-
-		float& operator[](unsigned i) {
-			if (i == 0) {
-				return x;
-			}
-			if (i == 1) {
-				return y;
-			}
-			return z;
-
-		}
-		float operator[](unsigned i) const {
-			if (i == 0) return x;
-			if (i == 1) return y;
-			return z;
-		}
-
-		void addScaledVector(const Vector3& vector, float scale) {
-			x += vector.x * scale;
-			y += vector.y * scale;
-			z += vector.z * scale;
-		}
-		float dot(const Vector3& vector) const {
-			return Dot(*this, vector);
-		}
-		Vector3 componentProduct(const Vector3& vector) const {
-			return Vector3(x * vector.x, y * vector.y, z * vector.z);
-		}
-		Vector3 cross(const Vector3& vector) const {
-			return Cross(*this, vector);
-		}
-		float magnitude() const {
-			return sqrt(x * x + y * y + z * z);
-		}
-		float squareMagnitude() const {
-			return x * x + y * y + z * z;
-		}
-		void normalise() {
-			float l = magnitude();
-			if (l > 0) {
-				(*this) *= 1.f / l;
-			}
-		}
-		void componentProductUpdate(const Vector3& vector) {
-			x *= vector.x;
-			y *= vector.y;
-			z *= vector.z;
-		}
+		float& operator[](unsigned i);
+		float operator[](unsigned i) const;
 
 		static Vector3 Add(const Vector3& p_left, const Vector3& p_right);
 		static Vector3 Substract(const Vector3& p_left, const Vector3& p_right);
 		static Vector3 Multiply(const Vector3& p_target, float p_scalar);
 		static Vector3 Divide(const Vector3& p_left, float p_scalar);
+
 		static float Length(const Vector3& p_target);
 		static float LengthSqrt(const Vector3& p_target);
 		static float Dot(const Vector3& p_left, const Vector3& p_right);
@@ -105,4 +58,7 @@ export namespace KUMA::MATHGL {
 		static Vector3 Mix(const Vector3& x, const Vector3& y, float p_alpha);
 		static float AngleBetween(const Vector3& p_from, const Vector3& p_to);
 	};
+
+	Vector3 operator*(const float f, const Vector3& V);
+	Vector3 operator/(const float f, const Vector3& V);
 }

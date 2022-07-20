@@ -1,5 +1,4 @@
 module;
-
 #include <cmath>
 #include <stdexcept>
 
@@ -7,6 +6,12 @@ module glmath:Vector4;
 
 using namespace KUMA;
 using namespace KUMA::MATHGL;
+
+Vector4::Vector4() = default;
+Vector4::Vector4(const float f) : x(f), y(f), z(f), w(f) {}
+Vector4::Vector4(const Vector3& vec, const float f) : x(vec.x), y(vec.y), z(vec.z), w(f) {}
+Vector4::Vector4(const float x, const float y, const float z, const float w) : x(x), y(y), z(z), w(w) {}
+
 
 Vector4& Vector4::operator=(const Vector4& right) {
 	if (this == &right) {
@@ -64,4 +69,58 @@ float Vector4::Length(const Vector4& V) {
 
 Vector4 Vector4::Normalize(const Vector4& V) {
 	return V / Length(V);
+}
+
+bool Vector4::operator==(const Vector4& V2) {
+	return x == V2.x && y == V2.y && z == V2.z && w == V2.w;
+}
+
+bool Vector4::operator!=(const Vector4& V2) {
+	return !operator==(V2);
+}
+
+Vector4 Vector4::operator-() {
+	return Vector4(-x, -y, -z, -w);
+}
+
+void Vector4::operator+=(const Vector4& V2) {
+	x += V2.x;
+	y += V2.y;
+	z += V2.z;
+	w += V2.w;
+}
+
+void Vector4::operator-=(const Vector4& V2) {
+	x -= V2.x;
+	y -= V2.y;
+	z -= V2.z;
+	w -= V2.w;
+}
+
+Vector4 Vector4::operator+(const Vector4& V2) {
+	return Vector4(x + V2.x, y + V2.y, z + V2.z, w + V2.w);
+}
+
+Vector4 Vector4::operator-(const Vector4& V2) {
+	return Vector4(x - V2.x, y - V2.y, z - V2.z, w - V2.w);
+}
+
+Vector4 Vector4::operator*(const Vector4& V2) {
+	return Vector4(x * V2.x, y * V2.y, z * V2.z, w * V2.w);
+}
+
+Vector4 Vector4::operator*(const float f) const {
+	return Vector4(x * f, y * f, z * f, w * f);
+}
+
+Vector4 Vector4::operator/(const float f) const {
+	return Vector4(x / f, y / f, z / f, w / f);
+}
+
+Vector4 KUMA::MATHGL::operator*(const float f, const Vector4& V) {
+	return V * f;
+}
+
+Vector4 KUMA::MATHGL::operator/(const float f, const Vector4& V) {
+	return V / f;
 }

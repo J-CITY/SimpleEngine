@@ -1,10 +1,12 @@
+#include "ScriptInterpreter.h"
+
+#include <string>
+#include <sol/sol.hpp>
+
 import logger;
 
 #include "LuaBinder.h"
-#include "ScriptInterpreter.h"
-
-#include "../ecs/components/script.h"
-#include <string>
+#include "../ecs/components/ScriptComponent.h"
 
 using namespace KUMA;
 using namespace KUMA::SCRIPTING;
@@ -13,8 +15,8 @@ ScriptInterpreter::ScriptInterpreter(const std::string& scriptRootFolder) :
 	scriptRootFolder(scriptRootFolder) {
 	createLuaContextAndBindGlobals();
 
-	KUMA::ECS::Script::createdEvent.add(std::bind(&ScriptInterpreter::consider, this, std::placeholders::_1));
-	KUMA::ECS::Script::destroyedEvent.add(std::bind(&ScriptInterpreter::unconsider, this, std::placeholders::_1));
+	KUMA::ECS::ScriptComponent::createdEvent.add(std::bind(&ScriptInterpreter::consider, this, std::placeholders::_1));
+	KUMA::ECS::ScriptComponent::destroyedEvent.add(std::bind(&ScriptInterpreter::unconsider, this, std::placeholders::_1));
 }
 
 ScriptInterpreter::~ScriptInterpreter() {
@@ -27,31 +29,31 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 		luaState->open_libraries(sol::lib::base, sol::lib::math);
 		LuaBinder::CallBinders(*luaState);
 		checkOk = true;
-
-		std::for_each(scripts.begin(), scripts.end(), [this](ECS::Script* s) {
+		
+		for (const auto& s : scripts) {
 			if (!s->registerToLuaContext(*luaState, scriptRootFolder)) {
 				checkOk = false;
 			}
-		});
+		}
 
 		if (!checkOk) {
-			LOG_ERROR("Script interpreter failed to register scripts. Check your lua scripts");
+			LOG_ERROR("ScriptComponent interpreter failed to register scripts. Check your lua scripts");
 		}
 	}
 }
 
 void ScriptInterpreter::destroyLuaContext() {
 	if (luaState) {
-		std::for_each(scripts.begin(), scripts.end(), [this](ECS::Script* behaviour) {
-			behaviour->unregisterFromLuaContext();
-		});
+		for (const auto& s : scripts) {
+			s->unregisterFromLuaContext();
+		}
 
 		luaState.reset();
 		checkOk = false;
 	}
 }
 
-void ScriptInterpreter::consider(KUMA::ECS::Script* s) {
+void ScriptInterpreter::consider(std::shared_ptr<KUMA::ECS::ScriptComponent> s) {
 	if (luaState) {
 		scripts.push_back(s);
 
@@ -61,11 +63,11 @@ void ScriptInterpreter::consider(KUMA::ECS::Script* s) {
 	}
 }
 
-void ScriptInterpreter::unconsider(KUMA::ECS::Script* p_toUnconsider) {
+void ScriptInterpreter::unconsider(std::shared_ptr<KUMA::ECS::ScriptComponent> p_toUnconsider) {
 	if (luaState) {
 		p_toUnconsider->unregisterFromLuaContext();
 	}
-	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](ECS::Script* s) {
+	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](std::shared_ptr<KUMA::ECS::ScriptComponent> s) {
 		return p_toUnconsider == s;
 	}));
 

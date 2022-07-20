@@ -1,8 +1,6 @@
 module;
-
 #include <cmath>
 #include <stdexcept>
-
 
 module glmath:Vector3;
 
@@ -55,6 +53,10 @@ Vector3& Vector3::operator-=(const Vector3& other) {
 
 Vector3 Vector3::operator*(float scalar) const {
 	return Multiply(*this, scalar);
+}
+
+Vector3 Vector3::operator*(const Vector3& vec) const {
+	return Vector3(x * vec.x, y * vec.y, z * vec.z);
 }
 
 Vector3& Vector3::operator*=(float scalar) {
@@ -190,3 +192,64 @@ float Vector3::AngleBetween(const Vector3& from, const Vector3& to) {
 
 	return 0.0f;
 }
+
+void Vector3::clear() {
+	x = y = z = 0.0f;
+}
+
+float& Vector3::operator[](unsigned i) {
+	if (i == 0) {
+		return x;
+	}
+	if (i == 1) {
+		return y;
+	}
+	return z;
+
+}
+float Vector3::operator[](unsigned i) const {
+	if (i == 0) return x;
+	if (i == 1) return y;
+	return z;
+}
+
+void Vector3::addScaledVector(const Vector3& vector, float scale) {
+	x += vector.x * scale;
+	y += vector.y * scale;
+	z += vector.z * scale;
+}
+float Vector3::dot(const Vector3& vector) const {
+	return Dot(*this, vector);
+}
+Vector3 Vector3::componentProduct(const Vector3& vector) const {
+	return Vector3(x * vector.x, y * vector.y, z * vector.z);
+}
+Vector3 Vector3::cross(const Vector3& vector) const {
+	return Cross(*this, vector);
+}
+float Vector3::magnitude() const {
+	return sqrt(x * x + y * y + z * z);
+}
+float Vector3::squareMagnitude() const {
+	return x * x + y * y + z * z;
+}
+void Vector3::normalise() {
+	float l = magnitude();
+	if (l > 0) {
+		(*this) *= 1.f / l;
+	}
+}
+void Vector3::componentProductUpdate(const Vector3& vector) {
+	x *= vector.x;
+	y *= vector.y;
+	z *= vector.z;
+}
+
+Vector3 KUMA::MATHGL::operator*(const float f, const Vector3& V) {
+	return V * f;
+}
+
+Vector3 KUMA::MATHGL::operator/(const float f, const Vector3& V) {
+	return V / f;
+}
+

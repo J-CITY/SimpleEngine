@@ -1,11 +1,11 @@
 #include "LuaGlobalsBinder.h"
 
+#include <sol/sol.hpp>
+
 import logger;
 #include "../ecs/object.h"
 #include "../scene/sceneManager.h"
 #include "../resourceManager/modelManager.h"
-#include "../resourceManager/shaderManager.h"
-#include "../resourceManager/textureManager.h"
 #include "../resourceManager/materialManager.h"
 #include "../inputManager/inputManager.h"
 #include "../resourceManager/ServiceManager.h"

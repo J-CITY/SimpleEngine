@@ -9,17 +9,14 @@ namespace KUMA::TIME {
 		Timer& operator=(Timer const&) = delete;
 
 		void update();
-		double getFPS() const;
-		std::chrono::duration<double> getDeltaTime() const;
-		std::chrono::duration<double> getDeltaTimeUnscaled() const;
-		std::chrono::duration<double> getTimeSinceStart() const;
-		double getTimeScale() const;
+		[[nodiscard]] double getFPS() const;
+		[[nodiscard]] std::chrono::duration<double> getDeltaTime() const;
+		[[nodiscard]] std::chrono::duration<double> getDeltaTimeUnscaled() const;
+		[[nodiscard]] std::chrono::duration<double> getTimeSinceStart() const;
+		[[nodiscard]] double getTimeScale() const;
 		void setScale(double s);
 
-		static Timer& GetInstance() {
-			static Timer singleton;
-			return singleton;
-		}
+		static Timer& GetInstance();
 	private:
 		Timer();
 		void init();

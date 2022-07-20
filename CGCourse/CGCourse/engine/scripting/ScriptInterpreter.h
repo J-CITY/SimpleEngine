@@ -1,11 +1,16 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
-#include <sol/sol.hpp>
+namespace sol {
+	class state;
+}
 
-#include "../ecs/components/script.h"
+namespace KUMA::ECS {
+	class ScriptComponent;
+}
 
 namespace KUMA::SCRIPTING {
 	class ScriptInterpreter {
@@ -15,15 +20,14 @@ namespace KUMA::SCRIPTING {
 
 		void createLuaContextAndBindGlobals();
 		void destroyLuaContext();
-		void consider(KUMA::ECS::Script* toConsider);
-		void unconsider(KUMA::ECS::Script* toUnconsider);
+		void consider(std::shared_ptr<KUMA::ECS::ScriptComponent> toConsider);
+		void unconsider(std::shared_ptr<KUMA::ECS::ScriptComponent> toUnconsider);
 		void refreshAll();
 		bool isOk() const;
-
 	private:
 		std::unique_ptr<sol::state> luaState;
 		std::string scriptRootFolder;
-		std::vector<KUMA::ECS::Script*> scripts;
+		std::vector<std::shared_ptr<KUMA::ECS::ScriptComponent>> scripts;
 		bool checkOk;
 	};
 }

@@ -1,7 +1,8 @@
 #include "LuaActorBinder.h"
 
-#include "../ecs/object.h"
+#include <sol/sol.hpp>
 
+#include "../ecs/object.h"
 #include "../ecs/components/transform.h"
 #include "../ecs/components/cameraComponent.h"
 #include "../ecs/components/directionalLight.h"
@@ -80,7 +81,7 @@ void KUMA::SCRIPTING::LuaActorBinder::BindActor(sol::state & p_luaState) {
 		"AddBehaviour", &Object::addScript,
 		"RemoveBehaviour", sol::overload
 		(
-			//sol::resolve<bool(Script&)>(&Object::removeScript),
+			//sol::resolve<bool(ScriptComponent&)>(&Object::removeScript),
 			sol::resolve<bool(const std::string&)>(&Object::removeScript)
 		)
 	);

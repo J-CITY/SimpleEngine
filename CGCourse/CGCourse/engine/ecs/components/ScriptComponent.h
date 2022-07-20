@@ -10,11 +10,11 @@ import logger;
 namespace KUMA::ECS { class Object; }
 
 namespace KUMA::ECS {
-	class Script : public Component {
+	class ScriptComponent : public Component {
 	public:
-		Script(const ECS::Object& obj, const std::string& name);
+		ScriptComponent(const ECS::Object& obj, const std::string& name);
 
-		~Script();
+		~ScriptComponent();
 		bool registerToLuaContext(sol::state& luaState, const std::string& scriptFolder);
 		void unregisterFromLuaContext();
 		template<typename... Args>
@@ -29,8 +29,8 @@ namespace KUMA::ECS {
 		virtual void onFixedUpdate(std::chrono::duration<double> dt) override;
 		virtual void onLateUpdate(std::chrono::duration<double> dt) override;
 
-		static KUMA::EVENT::Event<Script*> createdEvent;
-		static KUMA::EVENT::Event<Script*> destroyedEvent;
+		static KUMA::EVENT::Event<std::shared_ptr<KUMA::ECS::ScriptComponent>> createdEvent;
+		static KUMA::EVENT::Event<std::shared_ptr<KUMA::ECS::ScriptComponent>> destroyedEvent;
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			name = j["data"]["name"];
@@ -38,15 +38,14 @@ namespace KUMA::ECS {
 		virtual void onSerialize(nlohmann::json& j) override {
 			j["data"]["name"] = name;
 		}
-	public:
-		std::string name;
-
+		std::string getName() const;
 	private:
+		std::string name;
 		sol::table object = sol::nil;
 	};
 
 	template<typename ...Args>
-	inline void ECS::Script::luaCall(const std::string& functionName, Args&& ...args) {
+	inline void ECS::ScriptComponent::luaCall(const std::string& functionName, Args&& ...args) {
 		if (object.valid()) {
 			if (object[functionName].valid()) {
 				sol::protected_function pfr = object[functionName];

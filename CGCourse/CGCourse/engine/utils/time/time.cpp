@@ -1,4 +1,3 @@
-
 #include "time.h"
 
 using namespace KUMA::TIME;
@@ -29,6 +28,11 @@ double Timer::getTimeScale() const {
 
 void Timer::setScale(double s) {
 	scale = s;
+}
+
+Timer& Timer::GetInstance() {
+	static Timer singleton;
+	return singleton;
 }
 
 void Timer::init() {

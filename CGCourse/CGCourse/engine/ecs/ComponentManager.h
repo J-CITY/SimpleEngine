@@ -11,7 +11,7 @@
 #include "components/modelRenderer.h"
 #include "components/materialRenderer.h"
 #include "components/pointLight.h"
-#include "components/script.h"
+#include "components/ScriptComponent.h"
 #include "components/skeletal.h"
 #include "components/spotLight.h"
 
@@ -67,9 +67,9 @@ namespace KUMA::ECS {
 			materialComponents[id] = component;
 		}
 		template <>
-		void addComponent<Script>(ObjectId<Object> id, std::shared_ptr<Script> component) {
+		void addComponent<ScriptComponent>(ObjectId<Object> id, std::shared_ptr<ScriptComponent> component) {
 			if (!scriptComponents.count(id)) {
-				scriptComponents[id] = std::unordered_map<std::string, std::shared_ptr<Script>>();
+				scriptComponents[id] = std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>();
 			}
 			scriptComponents[id][component->getName()] = component;
 		}
@@ -107,7 +107,7 @@ namespace KUMA::ECS {
 			materialComponents.erase(id);
 		}
 		template <>
-		void removeComponents<Script>(ObjectId<Object> id) {
+		void removeComponents<ScriptComponent>(ObjectId<Object> id) {
 			scriptComponents.erase(id);
 		}
 		template <>
@@ -259,7 +259,7 @@ namespace KUMA::ECS {
 		std::map<ObjectId<Object>, std::shared_ptr<LightComponent>> lightComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<ModelRenderer>> modelComponents;
 		std::map<ObjectId<Object>, std::shared_ptr<MaterialRenderer>> materialComponents;
-		std::map<ObjectId<Object>, std::unordered_map<std::string, std::shared_ptr<Script>>> scriptComponents;
+		std::map<ObjectId<Object>, std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>> scriptComponents;
 
 		std::map<ObjectId<Object>, std::shared_ptr<TransformComponent>> transformComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<AudioComponent>> audioComponentsOff;
@@ -268,6 +268,6 @@ namespace KUMA::ECS {
 		std::map<ObjectId<Object>, std::shared_ptr<LightComponent>> lightComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<ModelRenderer>> modelComponentsOff;
 		std::map<ObjectId<Object>, std::shared_ptr<MaterialRenderer>> materialComponentsOff;
-		std::map<ObjectId<Object>, std::unordered_map<std::string, std::shared_ptr<Script>>> scriptComponentsOff;
+		std::map<ObjectId<Object>, std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>> scriptComponentsOff;
 	};
 }

@@ -1,5 +1,4 @@
 module;
-
 #include <cmath>
 #include <stdexcept>
 #include <array>
@@ -14,6 +13,11 @@ using namespace KUMA;
 using namespace KUMA::MATHGL;
 
 const Quaternion Quaternion::Identity = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+
+Quaternion::Quaternion() = default;
+Quaternion::Quaternion(float in) : w(in) {}
+Quaternion::Quaternion(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {};
+Quaternion::Quaternion(const Quaternion& in) : x(in.x), y(in.y), z(in.z), w(in.w) {}
 
 Quaternion::Quaternion(const Matrix3& rotationMatrix) {
 	float trace = rotationMatrix.data[0] + rotationMatrix.data[4] + rotationMatrix.data[8];
@@ -389,3 +393,74 @@ Quaternion Quaternion::LookAt(const Vector3& forward, const Vector3& up) {
 	quaternion.w = (m01 - m10) * num2;
 	return quaternion;
 }
+
+void Quaternion::normalise() {
+	*this = Normalize(*this);
+}
+void Quaternion::addScaledVector(const Vector3& vector, float scale) {
+	Quaternion q(
+		vector.x * scale,
+		vector.y * scale,
+		vector.z * scale,
+		0
+	);
+	q *= *this;
+	w += q.w * 0.5f;
+	x += q.x * 0.5f;
+	y += q.y * 0.5f;
+	z += q.z * 0.5f;
+}
+
+float Quaternion::Dot(const Quaternion& V1, const Quaternion& V2) {
+	return V1.x * V2.x + V1.y * V2.y + V1.z * V2.z + V1.w * V2.w;
+}
+Quaternion Quaternion::Slerp(Quaternion& x, Quaternion& y, float a) {
+	Quaternion z = y;
+
+	float cosTheta = Quaternion::Dot(x, y);
+
+	// If cosTheta < 0, the interpolation will take the long way around the sphere.
+	// To fix this, one quat must be negated.
+	if (cosTheta < 0.0f) {
+		z = y * -1.0f;
+		cosTheta = -cosTheta;
+	}
+	auto mix = [](float x, float y, float a) {
+		return x * (1.0f - a) + y * a;
+	};
+	// Perform a linear interpolation when cosTheta is close to 1 to avoid side effect of sin(angle) becoming a zero denominator
+	if (cosTheta > 1.0f - std::numeric_limits<float>::epsilon()) {
+		// Linear interpolation
+		return Quaternion(
+			mix(x.x, z.x, a),
+			mix(x.y, z.y, a),
+			mix(x.z, z.z, a),
+			mix(x.w, z.w, a)
+		);
+	}
+	else {
+		// Essential Mathematics, page 467
+		auto angle = acos(cosTheta);
+
+		auto sin1 = sin((1.0f - a) * angle);
+		auto sin2 = sin(a * angle);
+		auto s = sin(angle);
+
+		auto xsin1 = x * sin1;
+		auto zsin2 = z * sin2;
+
+		auto res = xsin1 + zsin2;
+		auto res2 = res / s;
+
+		return ((x * sin((1.0f - a) * angle)) + (z * sin(a * angle))) / sin(angle);
+	}
+}
+
+Quaternion KUMA::MATHGL::operator*(const float f, const Quaternion& V) {
+	return V * f;
+}
+
+Quaternion KUMA::MATHGL::operator/(const float f, const Quaternion& V) {
+	return V / f;
+}
+

@@ -6,16 +6,13 @@
 namespace KUMA::INPUT {
 	class GamepadMgr {
 	public:
-		static GamepadMgr& Instance() {
-			static GamepadMgr theGamepadMgr;
-			return theGamepadMgr;
-		}
+		static GamepadMgr& Instance();
 
 		void initialize();
 		void update(std::function<void(Gamepad::GamepadData&)> cb);
 	private:
 		GamepadMgr();
-		~GamepadMgr() {}
+		~GamepadMgr() = default;
 
 		std::vector<Gamepad> gamepads;
 	};

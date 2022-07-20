@@ -6,8 +6,9 @@
 namespace KUMA::INPUT {
 	class Gamepad {
 	public:
+		Gamepad() = delete;
 		Gamepad(int number);
-		~Gamepad() {}
+		~Gamepad() = default;
 
 		enum class GAMEPAD_BUTTON {
 			btn_a = 0,
@@ -67,7 +68,7 @@ namespace KUMA::INPUT {
 		GamepadData getData() const;
 		bool updateData();
 	private:
-		int gamepadNumber;
+		int gamepadNumber = 0;
 		std::string name;
 		GamepadData data;
 	};
