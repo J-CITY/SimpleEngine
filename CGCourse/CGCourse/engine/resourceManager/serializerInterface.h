@@ -1,9 +1,8 @@
 #pragma once
 
 #include "../3rd/json.hpp"
-
-
 import glmath;
+
 namespace KUMA {
 	namespace RESOURCES {
 		inline void SerializeVec4(nlohmann::json& j, const MATHGL::Vector4& vec) {

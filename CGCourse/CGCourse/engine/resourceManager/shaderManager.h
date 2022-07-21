@@ -1,12 +1,7 @@
 #pragma once
 
-#include <sstream>
 #include <string>
-#include <GL/glew.h>
-#include <fstream>
-#include <functional>
 #include "resourceManager.h"
-import logger;
 #include "resource/shader.h"
 
 namespace KUMA {

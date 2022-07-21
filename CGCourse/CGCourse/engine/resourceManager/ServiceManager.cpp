@@ -4,4 +4,4 @@
 using namespace KUMA;
 using namespace KUMA::RESOURCES;
 
-std::unordered_map<size_t, std::any> ServiceManager::SERVICES;
+std::unordered_map<size_t, ServiceType> ServiceManager::SERVICES;

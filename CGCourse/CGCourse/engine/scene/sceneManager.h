@@ -15,8 +15,8 @@ namespace KUMA::SCENE_SYSTEM {
 		void loadDefaultScene();
 		void unloadCurrentScene();
 		bool hasCurrentScene() const;
-		Scene* getCurrentScene();
-		std::string getCurrentSceneSourcePath() const;
+		Scene& getCurrentScene();
+		[[nodiscard]] std::string getCurrentSceneSourcePath() const;
 
 	public:
 		EVENT::Event<> sceneLoadEvent;
@@ -25,10 +25,9 @@ namespace KUMA::SCENE_SYSTEM {
 
 	private:
 		const std::string m_sceneRootFolder;
-		Scene* m_currentScene = nullptr;
+		std::unique_ptr<Scene> m_currentScene = nullptr;
 
-		std::string m_currentSceneSourcePath = "";
-
+		std::string m_currentSceneSourcePath;
 		std::function<void()> m_delayedLoadCall;
 	};
 }

@@ -557,8 +557,8 @@ void Renderer::init() {
 
 void Renderer::renderSkybox() {
 	//SKYBOX
-	auto currentScene = context.sceneManager->getCurrentScene();
-	auto& skyboxObj = currentScene->getSkybox();
+	auto& currentScene = context.sceneManager->getCurrentScene();
+	auto& skyboxObj = currentScene.getSkybox();
 
 	auto skyboxMat = skyboxObj.getComponent<ECS::MaterialRenderer>()->getMaterials()[0];
 	skyboxMat->getShader()->bind();
@@ -569,7 +569,7 @@ void Renderer::renderSkybox() {
 	glCullFace(GL_FRONT);
 	glDepthFunc(GL_LEQUAL);
 
-	auto mainCameraComponent = currentScene->findMainCamera();
+	auto mainCameraComponent = currentScene.findMainCamera();
 	auto& camera = mainCameraComponent->getCamera();
 	auto v = camera.getViewMatrix();
 	auto p = camera.getProjectionMatrix();
@@ -583,7 +583,7 @@ void Renderer::renderSkybox() {
 	skyboxMat->getShader()->setUniformMat4("gWVP", p * v * m);
 	//currentScene->getSkyboxTexture().bind(GL_TEXTURE0);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, currentScene->getSkyboxTexture().id);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, currentScene.getSkyboxTexture().id);
 
 	auto mr = skyboxObj.getComponent<ECS::ModelRenderer>();
 	auto mm = mr->getModel()->getMeshes();
@@ -895,19 +895,20 @@ void Renderer::applyDeferredPbr() {
 
 void Renderer::renderScene() {
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
-	if (auto currentScene = context.sceneManager->getCurrentScene()) {
+	if (context.sceneManager->hasCurrentScene()) {
+		auto& currentScene = context.sceneManager->getCurrentScene();
 		//grass
-		auto grass = currentScene->findObjectByName("Grass");
+		auto grass = currentScene.findObjectByName("Grass");
 		auto m = grass->getComponent<KUMA::ECS::MaterialRenderer>();
 		m->getMaterials()[0]->getUniformsData()["fTimePassed"] = static_cast<float>(KUMA::TIME::Timer::GetInstance().getTimeSinceStart().count());
 
-		if (auto mainCameraComponent = currentScene->findMainCamera()) {
+		if (auto mainCameraComponent = currentScene.findMainCamera()) {
 			auto& camera = mainCameraComponent->getCamera();
 			if (mainCameraComponent->isFrustumLightCulling()) {
-				updateLightsInFrustum(*currentScene, mainCameraComponent->getCamera().getFrustum());
+				updateLightsInFrustum(currentScene, mainCameraComponent->getCamera().getFrustum());
 			}
 			else {
-				updateLights(*currentScene);
+				updateLights(currentScene);
 			}
 
 			auto [winWidth, winHeight] = context.window->getSize();
@@ -919,7 +920,7 @@ void Renderer::renderScene() {
 
 			BaseRender::clear(true, true, false);
 			std::tie(opaqueMeshesForward, transparentMeshesForward, opaqueMeshesDeferred, transparentMeshesDeferred) =
-				currentScene->findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
+				currentScene.findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
 
 			prepareDirLightShadowMap();
 			prepareSpotLightShadowMap();
@@ -959,7 +960,7 @@ void Renderer::renderScene() {
 
 			guiProjection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(screenRes.x), static_cast<float>(screenRes.y), 0.0f, -1, 1);
 
-			for (auto& e : currentScene->guiObjs) {
+			for (auto& e : currentScene.guiObjs) {
 				e->onPreUpdate(0.1f);
 				e->onUpdate(0.1f);
 				e->onPostUpdate(0.1f);

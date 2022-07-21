@@ -19,8 +19,9 @@ void AudioComponent::onLateUpdate(std::chrono::duration<double> dt) {
 
 	//TODO: update pos
 	auto& sceneManager = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	if (auto currentScene = sceneManager.getCurrentScene()) {
-		if (auto mainCameraComponent = currentScene->findMainCamera()) {
+	if (sceneManager.hasCurrentScene()) {
+		auto& currentScene = sceneManager.getCurrentScene();
+		if (auto mainCameraComponent = currentScene.findMainCamera()) {
 			RESOURCES::ServiceManager::Get<AUDIO::AudioManager>().setListenerPos(
 				mainCameraComponent->obj.transform->getWorldPosition(),
 				mainCameraComponent->obj.transform->getWorldRotation() * -MATHGL::Vector3::Forward

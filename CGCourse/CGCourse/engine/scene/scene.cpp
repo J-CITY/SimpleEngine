@@ -235,6 +235,14 @@ std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::
 	return result;
 }
 
+KUMA::ECS::Object& Scene::getSkybox() const {
+	return *skyboxObject;
+}
+
+KUMA::RESOURCES::CubeMap& Scene::getSkyboxTexture() const {
+	return *skyboxTexture;
+}
+
 std::vector<std::reference_wrapper<KUMA::RESOURCES::Mesh>> Scene::getMeshesInFrustum(
 	const RENDER::Model& model,
 	const RENDER::BoundingSphere& modelBoundingSphere,
