@@ -57,7 +57,7 @@ namespace Game {
 int main() {
 	KUMA::CORE_SYSTEM::App app;
 
-	auto scene = app.getCore().sceneManager->getCurrentScene();
+	auto& scene = app.getCore().sceneManager->getCurrentScene();
 
 	{
 		auto rpos = []() {
@@ -71,7 +71,7 @@ int main() {
 			return  255.0f * (LO + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (HI - LO))));
 		};
 		for (int i = 0; i < 1; i++) {
-			auto obj = scene->createObject("PointLight");
+			auto obj = scene.createObject("PointLight");
 			auto light = obj->addComponent<KUMA::ECS::PointLight>();
 			light->setIntensity(0.90f);
 			light->setQuadratic(0.90f);
@@ -85,39 +85,39 @@ int main() {
 			auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app](std::chrono::duration<double> dt) {
 			auto& core = app.getCore();
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_K)) {
-				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
 				pos.z += 1.0f;
-				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
 			}
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_I)) {
-				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
 				pos.z -= 1.0f;
-				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
 			}
 
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_J)) {
-				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
 				pos.x -= 1.0f;
-				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
 			}
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_L)) {
-				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
 				pos.x += 1.0f;
-				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
 			}
 
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_U)) {
-				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
 				pos.y -= 1.0f;
-				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
 			}
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_O)) {
-				auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
 				pos.y += 1.0f;
-				core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->setLocalPosition(pos);
+				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
 			}
 
-			auto pos = core.sceneManager->getCurrentScene()->findObjectByName("PointLight")->transform->getLocalPosition();
+			auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
 			//LOG_INFO(std::to_string(pos.x) + " " + std::to_string(pos.y) + " " + std::to_string(pos.z) + "\n");
 		});
 		}
@@ -127,7 +127,7 @@ int main() {
 
 
 		for (auto i = 0; i < 1; i++) {
-			auto& obj = scene->createObject("DirLight");
+			auto& obj = scene.createObject("DirLight");
 			auto light = obj->addComponent<KUMA::ECS::DirectionalLight>();
 			//light->shadowRes = 2048;
 			light->orthoBoxSize = 100;
@@ -147,7 +147,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Point2Light");
+		auto& obj = scene.createObject("Point2Light");
 		auto light = obj->addComponent<KUMA::ECS::PointLight>();
 		//light->shadowRes = 2048;
 		//light->zNear = 1.0f;
@@ -164,7 +164,7 @@ int main() {
 		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
 	{
-		auto& obj = scene->createObject("Point3Light");
+		auto& obj = scene.createObject("Point3Light");
 		auto light = obj->addComponent<KUMA::ECS::PointLight>();
 		//light->shadowRes = 2048;
 		//light->zNear = 1.0f;
@@ -181,7 +181,7 @@ int main() {
 		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
 	{
-		auto& obj = scene->createObject("Point3Light");
+		auto& obj = scene.createObject("Point3Light");
 		auto light = obj->addComponent<KUMA::ECS::PointLight>();
 		//light->shadowRes = 2048;
 		//light->zNear = 1.0f;
@@ -199,7 +199,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("AmbLight");
+		auto& obj = scene.createObject("AmbLight");
 
 		nlohmann::json j;
 		obj->transform->onSerialize(j);
@@ -215,7 +215,7 @@ int main() {
 		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
 	{
-		auto& obj = scene->createObject("Camera");
+		auto& obj = scene.createObject("Camera");
 		auto cam = obj->addComponent<KUMA::ECS::CameraComponent>();
 		cam->setFov(45.0f);
 		cam->setSize(5.0f);
@@ -566,7 +566,7 @@ int main() {
 		}
 	}*/
 	{
-		auto& obj = scene->createObject("AAA");
+		auto& obj = scene.createObject("AAA");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -647,7 +647,7 @@ int main() {
 
 
 	{
-		auto& obj = scene->createObject("Plane");
+		auto& obj = scene.createObject("Plane");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -758,7 +758,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Box1");
+		auto& obj = scene.createObject("Box1");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -879,7 +879,7 @@ int main() {
 
 
 	{
-		auto& obj = scene->createObject("BoxN");
+		auto& obj = scene.createObject("BoxN");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1000,7 +1000,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Box2");
+		auto& obj = scene.createObject("Box2");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1055,7 +1055,7 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 	{
-		auto& obj = scene->createObject("Box3");
+		auto& obj = scene.createObject("Box3");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1114,7 +1114,7 @@ int main() {
 
 
 	{
-		auto& obj = scene->createObject("BoxDirLight");
+		auto& obj = scene.createObject("BoxDirLight");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1172,7 +1172,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Center");
+		auto& obj = scene.createObject("Center");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1229,7 +1229,7 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 	/*{
-		auto& obj = scene->createObject("Start");
+		auto& obj = scene.createObject("Start");
 
 		auto model = obj.addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1283,7 +1283,7 @@ int main() {
 	}*/
 
 	{
-		auto& obj = scene->createObject("Smoke");
+		auto& obj = scene.createObject("Smoke");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1347,7 +1347,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Water");
+		auto& obj = scene.createObject("Water");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1409,7 +1409,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Grass");
+		auto& obj = scene.createObject("Grass");
 
 		auto audio = obj->addComponent<KUMA::ECS::AudioComponent>(KUMA::AUDIO::Sound3d{
 			"C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Audio\\test.mp3",
@@ -1460,7 +1460,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Terrain");
+		auto& obj = scene.createObject("Terrain");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 
@@ -1508,7 +1508,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Clouds");
+		auto& obj = scene.createObject("Clouds");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1585,7 +1585,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene->createObject("Water");
+		auto& obj = scene.createObject("Water");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1665,7 +1665,7 @@ int main() {
 
 	auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
 
-	scene->guiObjs.push_back(sprite);
+	scene.guiObjs.push_back(sprite);
 
 	{
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
@@ -1685,7 +1685,7 @@ int main() {
 
 		auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
 
-		scene->guiObjs.push_back(sprite);
+		scene.guiObjs.push_back(sprite);
 	}
 	{
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
@@ -1705,7 +1705,7 @@ int main() {
 
 		auto sprite = std::make_shared<KUMA::GUI::GuiImage>(_m);
 
-		scene->guiObjs[0]->addChild(sprite);
+		scene.guiObjs[0]->addChild(sprite);
 	}
 
 	{
@@ -1726,11 +1726,11 @@ int main() {
 
 		auto text = std::make_shared<KUMA::GUI::GuiLabel>("HELLOW WORLD!", f, _m);
 
-		scene->guiObjs[0]->addChild(text);
+		scene.guiObjs[0]->addChild(text);
 	}
 	{
 		auto btn = std::make_shared<KUMA::GUI::GuiButton>();
-		scene->guiObjs.push_back(btn);
+		scene.guiObjs.push_back(btn);
 	}
 	{
 		auto l = std::make_shared<KUMA::GUI::GuiLayout>();
@@ -1753,7 +1753,7 @@ int main() {
 		scroll->addChild(l);
 		auto clip = std::make_shared<KUMA::GUI::GuiClip>(320.0f, 70.0f);
 		clip->addChild(scroll);
-		scene->guiObjs.push_back(clip);
+		scene.guiObjs.push_back(clip);
 
 	}
 

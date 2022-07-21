@@ -7,7 +7,7 @@ using namespace SE;
 using namespace KUMA::CORE_SYSTEM;
 
 App::App() {
-	core.sceneManager->getCurrentScene()->go();
+	core.sceneManager->getCurrentScene().go();
 }
 
 App::~App() = default;
@@ -42,10 +42,11 @@ void App::update(std::chrono::duration<double> dt) {
 		}
 	});
 
-	if (auto currentScene = core.sceneManager->getCurrentScene()) {
-		currentScene->fixedUpdate(dt);
-		currentScene->update(dt);
-		currentScene->lateUpdate(dt);
+	if (core.sceneManager->hasCurrentScene()) {
+		auto& currentScene = core.sceneManager->getCurrentScene();
+		currentScene.fixedUpdate(dt);
+		currentScene.update(dt);
+		currentScene.lateUpdate(dt);
 		core.renderer->renderScene();
 
 		//core.renderer->setClearColor(1.0f, 0.0f, 0.0f);

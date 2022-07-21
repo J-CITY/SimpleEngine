@@ -6,12 +6,8 @@
 #include "../ecs/object.h"
 #include "../render/drawable.h"
 
-namespace KUMA
-{
-	namespace GUI
-	{
-		class GuiObject;
-	}
+namespace KUMA::GUI {
+	class GuiObject;
 }
 
 namespace KUMA::RENDER {
@@ -48,7 +44,7 @@ namespace KUMA::SCENE_SYSTEM {
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByName(const std::string& p_name);
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByTag(const std::string& p_tag);
 
-		const std::vector<std::shared_ptr<ECS::Object>>& getObjects() const;
+		[[nodiscard]] const std::vector<std::shared_ptr<ECS::Object>>& getObjects() const;
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			for (auto& oj : j["objects"]) {
@@ -67,13 +63,8 @@ namespace KUMA::SCENE_SYSTEM {
 			}
 		}
 
-		ECS::Object& getSkybox() {
-			return *skyboxObject;
-		}
-
-		RESOURCES::CubeMap& getSkyboxTexture() {
-			return *skyboxTexture;
-		}
+		[[nodiscard]] ECS::Object& getSkybox() const;
+		[[nodiscard]] RESOURCES::CubeMap& getSkyboxTexture() const;
 
 		std::vector<std::reference_wrapper<KUMA::RESOURCES::Mesh>> Scene::getMeshesInFrustum(
 			const RENDER::Model& model,

@@ -6,7 +6,6 @@
 using namespace KUMA;
 using namespace KUMA::SCENE_SYSTEM;
 
-
 SceneManager::SceneManager(const std::string& p_sceneRootFolder) : m_sceneRootFolder(p_sceneRootFolder) {
 	loadEmptyScene();
 }
@@ -25,7 +24,7 @@ void SceneManager::update() {
 void SceneManager::loadEmptyScene() {
 	unloadCurrentScene();
 
-	m_currentScene = new Scene();
+	m_currentScene = std::make_unique<Scene>();
 
 	sceneLoadEvent.run();
 }
@@ -33,7 +32,7 @@ void SceneManager::loadEmptyScene() {
 void SceneManager::loadDefaultScene() {
 	unloadCurrentScene();
 
-	m_currentScene = new Scene();
+	m_currentScene = std::make_unique<Scene>();
 
 	sceneLoadEvent.run();
 
@@ -54,7 +53,7 @@ void SceneManager::loadDefaultScene() {
 
 void SceneManager::unloadCurrentScene() {
 	if (m_currentScene) {
-		delete m_currentScene;
+		m_currentScene.release();
 		m_currentScene = nullptr;
 		sceneUnloadEvent.run();
 	}
@@ -62,11 +61,11 @@ void SceneManager::unloadCurrentScene() {
 }
 
 bool SceneManager::hasCurrentScene() const {
-	return m_currentScene;
+	return m_currentScene != nullptr;
 }
 
-Scene* SceneManager::getCurrentScene() {
-	return m_currentScene;
+Scene& SceneManager::getCurrentScene() {
+	return *m_currentScene;
 }
 
 std::string SceneManager::getCurrentSceneSourcePath() const {

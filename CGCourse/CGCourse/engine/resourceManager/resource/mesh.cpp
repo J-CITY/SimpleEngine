@@ -4,6 +4,42 @@ using namespace KUMA;
 using namespace KUMA::RESOURCES;
 
 
+Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex):
+	vertexCount(static_cast<unsigned>(vertices.size())),
+	indicesCount(static_cast<unsigned>(indices.size())),
+	materialIndex(materialIndex) {
+	createBuffers(vertices, indices);
+	computeBoundingSphere(vertices);
+}
+
+Mesh::~Mesh() = default;
+
+void Mesh::bind() const {
+	//indexBuffer->Bind();
+	vertexArray.bind();
+}
+
+void Mesh::unbind() const {
+	//indexBuffer->Unbind();
+	vertexArray.unbind();
+}
+
+unsigned Mesh::getVertexCount() const {
+	return vertexCount;
+}
+
+unsigned Mesh::getIndexCount() const {
+	return indicesCount;
+}
+
+uint32_t Mesh::getMaterialIndex() const {
+	return materialIndex;
+}
+
+const RENDER::BoundingSphere& Mesh::getBoundingSphere() const {
+	return boundingSphere;
+}
+
 void Mesh::createBuffers(const std::vector<Vertex>& p_vertices, const std::vector<uint32_t>& p_indices) {
 	std::vector<V> vertexData;
 

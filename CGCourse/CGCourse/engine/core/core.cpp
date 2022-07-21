@@ -49,7 +49,7 @@ Core::Core() {
 	renderer->setCapability(RENDER::RenderingCapability::MULTISAMPLE, true);
 	RESOURCES::ServiceManager::Set<RENDER::Renderer>(*renderer);
 
-	sceneManager->getCurrentScene()->init();
+	sceneManager->getCurrentScene().init();
 	
 	
 }

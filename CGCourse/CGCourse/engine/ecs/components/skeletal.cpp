@@ -2,6 +2,7 @@
 #include <string>
 #include "../ComponentManager.h"
 #include "../object.h"
+#include "../../resourceManager/resource/bone.h"
 using namespace KUMA;
 using namespace KUMA::ECS;
 

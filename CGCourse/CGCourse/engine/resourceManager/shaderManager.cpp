@@ -1,5 +1,7 @@
 #include "shaderManager.h"
 
+#include <fstream>
+#include <functional>
 #include "ServiceManager.h"
 
 using namespace KUMA;

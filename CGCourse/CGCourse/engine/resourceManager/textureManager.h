@@ -2,7 +2,6 @@
 #include <memory>
 #include <string>
 #include "resourceManager.h"
-
 #include "./resource/texture.h"
 
 namespace KUMA {
@@ -10,10 +9,7 @@ namespace KUMA {
 		void stbiSetFlipVerticallyOnLoad(bool b);
 		float* stbiLoadf(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels);
 		void stbiImageFree(float*);
-
-		class Texture;
-		class CubeMap;
-
+		
 		class TextureLoader : public ResourceManager<Texture> {
 		public:
 			//without cache
@@ -38,6 +34,5 @@ namespace KUMA {
 
 			virtual ResourcePtr<Texture> createResource(const std::string& path) override;
 		};
-
 	}
 }

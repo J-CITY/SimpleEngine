@@ -2,9 +2,12 @@
 #include <optional>
 
 #include "component.h"
-#include "../../render/buffers/depthBuffer.h"
 
-#include "../../resourceManager/resource/bone.h"
+
+namespace KUMA::RESOURCES {
+	class Animator;
+	class Animation;
+}
 
 namespace KUMA::ECS { class Object; }
 

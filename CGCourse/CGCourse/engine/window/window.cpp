@@ -302,10 +302,11 @@ std::shared_ptr<KUMA::ECS::Object> recursiveDraw(KUMA::SCENE_SYSTEM::Scene& acti
 }
 void drawNodeTree(KUMA::CORE_SYSTEM::Core& core) {
 	static bool isobjTreeOpen = true;
-	if (auto scene = core.sceneManager->getCurrentScene()) {
+	if (core.sceneManager->hasCurrentScene()) {
+		auto& scene = core.sceneManager->getCurrentScene();
 		if (ImGui::Begin("Scene Hierarchy", &isobjTreeOpen)) {
 			uniqueNodeId = 0;
-			auto _selectNode = recursiveDraw(*scene, nullptr);
+			auto _selectNode = recursiveDraw(scene, nullptr);
 			if (_selectNode) {
 				selectObj = _selectNode;
 			}
@@ -416,10 +417,11 @@ std::shared_ptr<KUMA::GUI::GuiObject> recursiveDrawGui(KUMA::SCENE_SYSTEM::Scene
 }
 void drawNodeTreeGui(KUMA::CORE_SYSTEM::Core& core) {
 	static bool isobjTreeOpen = true;
-	if (auto scene = core.sceneManager->getCurrentScene()) {
+	if (core.sceneManager->hasCurrentScene()) {
+		auto& scene = core.sceneManager->getCurrentScene();
 		if (ImGui::Begin("Scene Hierarchy", &isobjTreeOpen)) {
 			uniqueNodeId = 0;
-			auto _selectNode = recursiveDrawGui(*scene, nullptr);
+			auto _selectNode = recursiveDrawGui(scene, nullptr);
 			if (_selectNode) {
 				selectObjGui = _selectNode;
 			}

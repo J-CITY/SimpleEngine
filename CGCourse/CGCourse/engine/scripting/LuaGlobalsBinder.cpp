@@ -198,7 +198,7 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 		return Vector3(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
 	};
 
-	p_luaState["Scenes"]["GetCurrentScene"] = []() -> Scene& { return *KUMA::RESOURCES::ServiceManager::Get<SceneManager>().getCurrentScene(); };
+	p_luaState["Scenes"]["GetCurrentScene"] = []() -> Scene& { return KUMA::RESOURCES::ServiceManager::Get<SceneManager>().getCurrentScene(); };
 
 	p_luaState["Resources"]["GetModel"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::ModelLoader>().CreateFromFile(p_resPath); };
 	//p_luaState["Resources"]["GetShader"] = [](const std::string& p_resPath) { return KUMA::RESOURCES::ServiceManager::Get<KUMA::RESOURCES::ShaderLoader>().CreateFromFile(p_resPath); };

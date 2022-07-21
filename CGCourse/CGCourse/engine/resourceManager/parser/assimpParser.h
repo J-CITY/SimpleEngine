@@ -1,5 +1,4 @@
 #pragma once
-#include <map>
 #include <vector>
 #include <assimp/scene.h>
 import glmath;
