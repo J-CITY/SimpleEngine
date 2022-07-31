@@ -23,9 +23,9 @@ namespace KUMA {
 			enum class Type { NONE, POINT, DIRECTIONAL, SPOT, AMBIENT_BOX, AMBIENT_SPHERE, INPUT };
 
 			Light(ECS::Transform& p_tranform, Type p_type = Type::NONE);
-			LightOGL generateOGLStruct() const;
-			float getEffectRange() const;
-			const ECS::Transform& getTransform() const;
+			[[nodiscard]] LightOGL generateOGLStruct() const;
+			[[nodiscard]] float getEffectRange() const;
+			[[nodiscard]] const ECS::Transform& getTransform() const;
 
 			MATHGL::Vector3	color = {1.f, 1.f, 1.f};
 			float intensity = 1.f;

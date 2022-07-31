@@ -583,7 +583,7 @@ void Renderer::renderSkybox() {
 	skyboxMat->getShader()->setUniformMat4("gWVP", p * v * m);
 	//currentScene->getSkyboxTexture().bind(GL_TEXTURE0);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, currentScene.getSkyboxTexture().id);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, currentScene.getSkyboxTexture().getId());
 
 	auto mr = skyboxObj.getComponent<ECS::ModelRenderer>();
 	auto mm = mr->getModel()->getMeshes();
@@ -1182,7 +1182,7 @@ void Renderer::preparePointLightShadowMap() {
 			//drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shaderStorage["pointShadowShader"]);
 		}
 		
-		pipeline.pointLightsData.data[pipeline.pointLightsData.size] = PointInfo{light->obj.transform->getWorldPosition(), light->DepthMap->id};
+		pipeline.pointLightsData.data[pipeline.pointLightsData.size] = PointInfo{light->obj.transform->getWorldPosition(), light->DepthMap->getId()};
 		pipeline.pointLightsData.size++;
 		if (pipeline.pointLightsData.size == 4) {
 			pipeline.depthMapFBO.unbind();
@@ -1240,9 +1240,9 @@ void Renderer::renderDirShadowMap() {
 		if (drawable.material->getUniformsData().count("castShadow") && !std::get<bool>(drawable.material->getUniformsData()["castShadow"])) {
 			continue;
 		}
-		if (drawable.animator) {
+		//if (drawable.animator) {
 			sendBounseDataToShader(*drawable.material, *drawable.animator, *shaderStorage["simpleDepthShader"]);
-		}
+		//}
 		drawMeshWithShader(*drawable.mesh, *drawable.material, drawable.world, *shaderStorage["simpleDepthShader"]);
 		//drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shaderStorage["simpleDepthShader"]);
 	}
@@ -1253,9 +1253,9 @@ void Renderer::renderDirShadowMap() {
 		if (drawable.material->getUniformsData().count("castShadow") && !std::get<bool>(drawable.material->getUniformsData()["castShadow"])) {
 			continue;
 		}
-		if (drawable.animator) {
+		//if (drawable.animator) {
 			sendBounseDataToShader(*drawable.material, *drawable.animator, *shaderStorage["simpleDepthShader"]);
-		}
+		//}
 		drawMeshWithShader(*drawable.mesh, *drawable.material, drawable.world, *shaderStorage["simpleDepthShader"]);
 		//drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shaderStorage["simpleDepthShader"]);
 	}

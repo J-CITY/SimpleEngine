@@ -35,7 +35,7 @@ void TransformComponentGui::calculate() {
 SpriteComponentGui::SpriteComponentGui(GuiObject& obj, std::shared_ptr<RENDER::Material> material): ComponentGui(obj), material(material) {
 	//auto shader = material->getShader();
 	auto texture = std::get<std::shared_ptr<RESOURCES::Texture>>(material->getUniformsData()["image"]);
-	obj.transform->size = { static_cast<float>(texture->width), static_cast<float>(texture->height)};
+	obj.transform->size = { static_cast<float>(texture->getWidth()), static_cast<float>(texture->getHeight())};
 	shader = RESOURCES::ShaderLoader::CreateFromFile("Shaders/gui/sprite.glsl");
 	MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
 	shader->bind();

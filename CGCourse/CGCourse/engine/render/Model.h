@@ -27,9 +27,9 @@ namespace KUMA {
 			friend class RESOURCES::AssimpParser;
 
 		public:
-			const std::vector<RESOURCES::Mesh*>& getMeshes() const;
-			const std::vector<std::string>& getMaterialNames() const;
-			const BoundingSphere& getBoundingSphere() const;
+			[[nodiscard]] const std::vector<RESOURCES::Mesh*>& getMeshes() const;
+			[[nodiscard]] const std::vector<std::string>& getMaterialNames() const;
+			[[nodiscard]] const BoundingSphere& getBoundingSphere() const;
 
 		//private:
 			Model(const std::string& p_path);
@@ -47,12 +47,9 @@ namespace KUMA {
 			std::vector<std::string> materialNames;
 
 			BoundingSphere boundingSphere;
-
-			std::map<std::string, BoneInfo> m_BoneInfoMap; //
+			std::map<std::string, BoneInfo> m_BoneInfoMap;
 			int m_BoneCounter = 0;
-            const int MAX_BONE_WEIGHTS = 4;
-            
-
+			const int MAX_BONE_WEIGHTS = 4;
 		};
 	}
 }

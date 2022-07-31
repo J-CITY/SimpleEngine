@@ -20,25 +20,25 @@ namespace  Assimp {
 
 namespace KUMA {
 	namespace RESOURCES {
-		struct V {
-			// position
-			glm::vec3 Position;
-			// normal
-			glm::vec3 Normal;
-			// texCoords
-			glm::vec2 TexCoords;
-
-			// tangent
-			glm::vec3 Tangent;
-			// bitangent
-			glm::vec3 Bitangent;
-
-			//bone indexes which will influence this vertex
-			int m_BoneIDs[MAX_BONE_INFLUENCE];
-			//weights from each bone
-			float m_Weights[MAX_BONE_INFLUENCE];
-
-		};
+		//struct V {
+		//	// position
+		//	glm::vec3 Position;
+		//	// normal
+		//	glm::vec3 Normal;
+		//	// texCoords
+		//	glm::vec2 TexCoords;
+		//
+		//	// tangent
+		//	glm::vec3 Tangent;
+		//	// bitangent
+		//	glm::vec3 Bitangent;
+		//
+		//	//bone indexes which will influence this vertex
+		//	int m_BoneIDs[MAX_BONE_INFLUENCE];
+		//	//weights from each bone
+		//	float m_Weights[MAX_BONE_INFLUENCE];
+		//
+		//};
 		class Mesh {
 		public:
 			Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex);
@@ -58,7 +58,8 @@ namespace KUMA {
 			const unsigned int materialIndex;
 
 			RENDER::VertexArray vertexArray;
-			std::unique_ptr<RENDER::VertexBuffer<V>> vertexBuffer;
+			//std::unique_ptr<RENDER::VertexBuffer<V>> vertexBuffer;
+			std::unique_ptr<RENDER::VertexBuffer<Vertex>> vertexBuffer;
 			std::unique_ptr<RENDER::IndexBuffer> indexBuffer;
 			RENDER::BoundingSphere boundingSphere;
 		};

@@ -3,8 +3,8 @@
 
 #include "../../render/Model.h"
 import glmath;
-#include <glm/gtx/quaternion.hpp>
-#include <glm/glm.hpp>
+//#include <glm/gtx/quaternion.hpp>
+//#include <glm/glm.hpp>
 
 struct aiNodeAnim;
 
@@ -19,24 +19,21 @@ namespace KUMA {
             int childrenCount;
             std::vector<AssimpNodeData> children;
         };
-        class AssimpGLMHelpers {
-        public:
-            static inline MATHGL::Matrix4 ConvertMatrixToGLMFormat(const aiMatrix4x4& from) {
-                MATHGL::Matrix4 to;
-                //the a,b,c,d in assimp is the row ; the 1,2,3,4 is the column
-                to(0,0) = from.a1; to(1,0) = from.b1; to(2,0) = from.c1; to(3,0) = from.d1;
-                to(0,1) = from.a2; to(1,1) = from.b2; to(2,1) = from.c2; to(3,1) = from.d2;
-                to(0,2) = from.a3; to(1,2) = from.b3; to(2,2) = from.c3; to(3,2) = from.d3;
-                to(0,3) = from.a4; to(1,3) = from.b4; to(2,3) = from.c4; to(3,3) = from.d4;
-                return to;
-            }
-            static inline MATHGL::Vector3 GetGLMVec(const aiVector3D& vec) {
-                return MATHGL::Vector3(vec.x, vec.y, vec.z);
-            }
-            static inline MATHGL::Quaternion GetGLMQuat(const aiQuaternion& pOrientation) {
-                return MATHGL::Quaternion(pOrientation.x, pOrientation.y, pOrientation.z, pOrientation.w);
-            }
-        };
+        static MATHGL::Matrix4 ConvertMatrix4x4(const aiMatrix4x4& from) {
+            MATHGL::Matrix4 to;
+            //the a,b,c,d in assimp is the row ; the 1,2,3,4 is the column
+            to(0, 0) = from.a1; to(1, 0) = from.b1; to(2, 0) = from.c1; to(3, 0) = from.d1;
+            to(0, 1) = from.a2; to(1, 1) = from.b2; to(2, 1) = from.c2; to(3, 1) = from.d2;
+            to(0, 2) = from.a3; to(1, 2) = from.b3; to(2, 2) = from.c3; to(3, 2) = from.d3;
+            to(0, 3) = from.a4; to(1, 3) = from.b4; to(2, 3) = from.c4; to(3, 3) = from.d4;
+            return to;
+        }
+        static MATHGL::Vector3 ConvertVector3(const aiVector3D& vec) {
+            return MATHGL::Vector3(vec.x, vec.y, vec.z);
+        }
+        static MATHGL::Quaternion ConvertQuaternion(const aiQuaternion& pOrientation) {
+            return MATHGL::Quaternion(pOrientation.x, pOrientation.y, pOrientation.z, pOrientation.w);
+        }
 
         struct KeyPosition {
             MATHGL::Vector3 position;

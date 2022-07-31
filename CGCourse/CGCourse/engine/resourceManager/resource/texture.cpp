@@ -69,6 +69,7 @@ void Texture::bindWithoutAttach() const {
 
 
 void Texture::unbind() const {
+	boundId = std::nullopt;
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
@@ -189,6 +190,10 @@ CubeMap::CubeMap(CubeMap& other) noexcept {
 	//other.channels = 0;
 }
 
+uint32_t CubeMap::getId() const {
+	return id;
+}
+
 uint32_t CubeMap::getWidth() const {
 	return width;
 }
@@ -200,7 +205,7 @@ uint32_t CubeMap::getHeight() const {
 void CubeMap::bind(uint32_t slot) const {
 	glActiveTexture(GL_TEXTURE0 + slot);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, id);
-	BoundId = slot;
+	boundId = slot;
 }
 
 void CubeMap::bindWithoutAttach() const {
@@ -208,6 +213,7 @@ void CubeMap::bindWithoutAttach() const {
 }
 
 void CubeMap::unbind() const {
+	boundId = std::nullopt;
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 

@@ -571,29 +571,10 @@ int main() {
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
 		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
-
-		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INSTANCES;
+		
 		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::JOIN_IDENTICAL_VERTICES;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::DEBONE;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::FIND_INVALID_DATA;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::IMPROVE_CACHE_LOCALITY;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
-		//flags |= KUMA::RESOURCES::ModelParserFlags::PRE_TRANSFORM_VERTICES;
-
-		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\guard\\boblampclean.md5mesh", flags);
 		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", flags);
-
-		//danceAnimation = std::make_shared<KUMA::RESOURCES::Animation>("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Game\\textures\\dancing_vampire.dae", m.get());
-		//animator = std::make_shared<KUMA::RESOURCES::Animator>(danceAnimation.get());
-		//KUMA::RENDER::BaseRender::animator = animator;
-		//obj->addComponent<KUMA::ECS::InputComponent>([](float dt) {
-		//	if (animator)
-		//		animator->UpdateAnimation(dt);
-		//});
+		
 		model->setModel(m);
 		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
 		auto bs = KUMA::RENDER::BoundingSphere();
@@ -614,35 +595,7 @@ int main() {
 
 		auto mm = KUMA::RESOURCES::MaterialLoader::CreateFromFile("Materials/vampire.mat");
 		mat->fillWithMaterial(mm);
-		//auto _m = KUMA::RESOURCES::MaterialLoader::Create("Materials/vampire.mat");
-		//_m->setShader(s);
-		//_m->setBlendable(false);
-		//_m->setBackfaceCulling(true);
-		//_m->setFrontfaceCulling(false);
-		//_m->setDepthTest(true);
-		//_m->setDepthWriting(true);
-		//_m->setColorWriting(true);
-		//_m->setGPUInstances(1);
-		//auto& data = _m->getUniformsData();
-		//data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
-		//
-		//auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\Vampire_diffuse.png");
-		//data["u_DiffuseMap"] = tex1;
-		//
-		//data["u_EnableNormalMapping"] = true;
-		//data["u_HeightScale"] = 0.0f;
-		//
-		//auto tex2 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\Vampire_normal.png");
-		//data["u_NormalMap"] = tex2;
-		//auto tex3 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\noiseTexture.png");
-		//data["u_Noise"] = tex3;
-		//data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
-		//data["u_Shininess"] = 100;
-		//data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
-		//data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
-		//data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
-		//data["u_UseBone"] = true;
-		//mat->fillWithMaterial(_m);
+		
 	}
 
 

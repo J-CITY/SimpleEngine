@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include <array>
 
 import glmath;
 
@@ -15,9 +15,9 @@ namespace KUMA {
 		MATHGL::Vector3 bitangent;
 
 		//bone indexes which will influence this vertex
-		std::vector<int> m_BoneIDs = {-1,-1,-1,-1};
+		std::array<int, 4> m_BoneIDs = {-1,-1,-1,-1};
 		//weights from each bone
-		std::vector<float> m_Weights = {0.0f,0.0f,0.0f,0.0f};
+		std::array<float, 4> m_Weights = {0.0f,0.0f,0.0f,0.0f};
 
 		Vertex() = default;
 		

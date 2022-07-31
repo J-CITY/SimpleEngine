@@ -162,7 +162,7 @@ namespace KUMA::RENDER {
 
 		Renderer(GL_SYSTEM::GlManager& driver, CORE_SYSTEM::Core& context);
 		~Renderer();
-		RENDER::UniformBuffer& getUBO() const;
+		[[nodiscard]] RENDER::UniformBuffer& getUBO() const;
 		void renderScene();
 		void initShaders();
 		void setPostProcessing(PostProcessing type, bool isEnable);

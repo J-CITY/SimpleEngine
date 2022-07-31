@@ -1,10 +1,6 @@
 #include "bone.h"
-
-
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-
-
 #include "../../render/Model.h"
 #include "../engine/resourceManager/parser/assimpParser.h"
 
@@ -22,7 +18,7 @@ Bone::Bone(const std::string& name, int ID, const aiNodeAnim* channel):
 		aiVector3D aiPosition = channel->mPositionKeys[positionIndex].mValue;
 		float timeStamp = channel->mPositionKeys[positionIndex].mTime;
 		KeyPosition data;
-		data.position = AssimpGLMHelpers::GetGLMVec(aiPosition);
+		data.position = ConvertVector3(aiPosition);
 		data.timeStamp = timeStamp;
 		m_Positions.push_back(data);
 	}
@@ -32,7 +28,7 @@ Bone::Bone(const std::string& name, int ID, const aiNodeAnim* channel):
 		aiQuaternion aiOrientation = channel->mRotationKeys[rotationIndex].mValue;
 		float timeStamp = channel->mRotationKeys[rotationIndex].mTime;
 		KeyRotation data;
-		data.orientation = AssimpGLMHelpers::GetGLMQuat(aiOrientation);
+		data.orientation = ConvertQuaternion(aiOrientation);
 		data.timeStamp = timeStamp;
 		m_Rotations.push_back(data);
 	}
@@ -42,7 +38,7 @@ Bone::Bone(const std::string& name, int ID, const aiNodeAnim* channel):
 		aiVector3D scale = channel->mScalingKeys[keyIndex].mValue;
 		float timeStamp = channel->mScalingKeys[keyIndex].mTime;
 		KeyScale data;
-		data.scale = AssimpGLMHelpers::GetGLMVec(scale);
+		data.scale = ConvertVector3(scale);
 		data.timeStamp = timeStamp;
 		m_Scales.push_back(data);
 	}
@@ -95,27 +91,19 @@ float Bone::GetScaleFactor(float lastTimeStamp, float nextTimeStamp, float anima
 
 MATHGL::Matrix4 Bone::InterpolatePosition(float animationTime) {
     if (1 == m_NumPositions) {
-        return MATHGL::Matrix4::Translation(m_Positions[0].position);// glm::translate(glm::mat4(1.0f), m_Positions[0].position);
+        return MATHGL::Matrix4::Translation(m_Positions[0].position);
     }
     int p0Index = GetPositionIndex(animationTime);
     int p1Index = p0Index + 1;
     float scaleFactor = GetScaleFactor(m_Positions[p0Index].timeStamp,
         m_Positions[p1Index].timeStamp, animationTime);
-    auto finalPosition = MATHGL::Vector3::Mix(m_Positions[p0Index].position, m_Positions[p1Index].position, scaleFactor); // glm::mix(m_Positions[p0Index].position, m_Positions[p1Index].position, scaleFactor);
-    return MATHGL::Matrix4::Translation(finalPosition); //glm::translate(glm::mat4(1.0f), finalPosition);
+    auto finalPosition = MATHGL::Vector3::Mix(m_Positions[p0Index].position, m_Positions[p1Index].position, scaleFactor);
+	return MATHGL::Matrix4::Translation(finalPosition);
 }
 
 MATHGL::Matrix4 Bone::InterpolateRotation(float animationTime) {
     if (1 == m_NumRotations) {
         return MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(m_Rotations[0].orientation));
-        auto rotation = glm::normalize(glm::quat(m_Rotations[0].orientation.w, m_Rotations[0].orientation.x, m_Rotations[0].orientation.y, m_Rotations[0].orientation.z));
-        auto res = glm::toMat4(rotation);
-        return MATHGL::Matrix4(
-            res[0][0], res[1][0], res[2][0], res[3][0],
-            res[0][1], res[1][1], res[2][1], res[3][1],
-            res[0][2], res[1][2], res[2][2], res[3][2],
-            res[0][3], res[1][3], res[2][3], res[3][3]
-        );
     }
 
     int p0Index = GetRotationIndex(animationTime);
@@ -127,7 +115,7 @@ MATHGL::Matrix4 Bone::InterpolateRotation(float animationTime) {
 
 MATHGL::Matrix4 Bone::Bone::InterpolateScaling(float animationTime) {
     if (1 == m_NumScalings)
-        return MATHGL::Matrix4::Scaling(m_Scales[0].scale);// glm::scale(glm::mat4(1.0f), m_Scales[0].scale);
+        return MATHGL::Matrix4::Scaling(m_Scales[0].scale);
 
     int p0Index = GetScaleIndex(animationTime);
     int p1Index = p0Index + 1;
@@ -189,7 +177,7 @@ void Animation::ReadHeirarchyData(AssimpNodeData& dest, const aiNode* src) {
 	assert(src);
 
 	dest.name = src->mName.data;
-	dest.transformation = AssimpGLMHelpers::ConvertMatrixToGLMFormat(src->mTransformation);
+	dest.transformation = ConvertMatrix4x4(src->mTransformation);
 	dest.childrenCount = src->mNumChildren;
 
 	for (int i = 0; i < src->mNumChildren; i++) {

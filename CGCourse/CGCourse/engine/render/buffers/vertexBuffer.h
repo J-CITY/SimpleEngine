@@ -50,7 +50,7 @@ namespace KUMA {
 			}
 
 			template<class T>
-			inline VertexBuffer(std::vector<T>& data) : VertexBuffer(data.data(), data.size()) {}
+			inline VertexBuffer(const std::vector<T>& data) : VertexBuffer(data.data(), data.size()) {}
 
 			inline ~VertexBuffer() {
 				glDeleteBuffers(1, &ID);

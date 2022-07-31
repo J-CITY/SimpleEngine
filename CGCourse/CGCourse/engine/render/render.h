@@ -203,12 +203,9 @@ namespace KUMA {
 			uint8_t fetchGLState();
 			void applyStateMask(uint8_t mask);
 			void setState(uint8_t state);
-			const FrameInfo& getFrameInfo() const;
+			[[nodiscard]] const FrameInfo& getFrameInfo() const;
 
-			void useDepthBufferMask(bool value) {
-				glDepthMask(value);
-				
-			}
+			void useDepthBufferMask(bool value);
 			void useBlendFactors(BlendFactor src, BlendFactor dist);
 
 			void useReversedDepth(bool value) {
