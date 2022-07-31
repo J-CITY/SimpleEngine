@@ -73,7 +73,7 @@ namespace KUMA {
             }
 
             void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId, unsigned mip) {
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.id, mip);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.getId(), mip);
             }
         };
 
@@ -119,12 +119,12 @@ namespace KUMA {
             }
 
             void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId) {
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.id, 0);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.getId(), 0);
             }
 
             void attachCubeMap(RESOURCES::CubeMap& cubemap, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
                 GLenum mode = attachmentTable[int(attachment)];
-                GLint cubemapId = cubemap.id;//cubemap.getNativeHandle();
+                GLint cubemapId = cubemap.getId();//cubemap.getNativeHandle();
                 bind();
                 glFramebufferTexture(GL_FRAMEBUFFER, mode, cubemapId, 0);
             }

@@ -7,6 +7,7 @@
 #include "render.h"
 #include "../utils/vertex.h"
 #include "../resourceManager/shaderManager.h"
+
 namespace KUMA {
 	namespace RENDER {
 		class PrimitiveRender {

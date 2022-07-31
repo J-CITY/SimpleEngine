@@ -279,3 +279,7 @@ void BaseRender::setState(uint8_t state) {
 const BaseRender::FrameInfo& BaseRender::getFrameInfo() const {
 	return frameInfo;
 }
+
+void BaseRender::useDepthBufferMask(bool value) {
+	glDepthMask(value);
+}

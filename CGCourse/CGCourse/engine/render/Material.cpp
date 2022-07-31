@@ -174,6 +174,16 @@ void Material::unbind() {
 		shader->unbind();
 }
 
+void Material::set(const std::string& key, const ShaderUniform& val) {
+	if (hasShader()) {
+		if (uniformsData.find(key) != uniformsData.end())
+			uniformsData[key] = val;
+	}
+	else {
+		LOG_ERROR("Material Set failed: No attached shader");
+	}
+}
+
 std::shared_ptr<RESOURCES::Shader> Material::getShader() {
 	return shader;
 }

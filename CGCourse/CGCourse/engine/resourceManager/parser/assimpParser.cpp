@@ -145,8 +145,7 @@ void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const 
 		if (model->m_BoneInfoMap.find(boneName) == model->m_BoneInfoMap.end()) {
 			RENDER::BoneInfo newBoneInfo;
 			newBoneInfo.id = model->m_BoneCounter;
-			newBoneInfo.offset = AssimpGLMHelpers::ConvertMatrixToGLMFormat(
-				mesh->mBones[boneIndex]->mOffsetMatrix);
+			newBoneInfo.offset = ConvertMatrix4x4(mesh->mBones[boneIndex]->mOffsetMatrix);
 			model->m_BoneInfoMap[boneName] = newBoneInfo;
 			boneID = model->m_BoneCounter;
 			model->m_BoneCounter++;

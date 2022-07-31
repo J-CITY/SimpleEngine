@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <GL/glew.h>
 #include <string>
 #include <vector>
@@ -95,7 +96,7 @@ namespace KUMA {
 			uint32_t getHeight() const;
 			uint32_t getType() const;
 			std::string getPath() const;
-		public:
+		private:
 			uint32_t id = -1;
 			uint32_t width = 0;
 			uint32_t height = 0;
@@ -106,12 +107,12 @@ namespace KUMA {
 			bool isMimapped = false;
 			TextureFormat format;
 			unsigned int textureType = 0;
-			mutable uint32_t boundId = 0;
+			mutable std::optional<uint32_t> boundId = std::nullopt;
 		};
 
 		class CubeMap {
 			friend class TextureLoader;
-		public:
+		private:
 			const std::vector<GLenum> types = {GL_TEXTURE_CUBE_MAP_POSITIVE_X,
 								  GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
 								  GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
@@ -119,7 +120,6 @@ namespace KUMA {
 								  GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
 								  GL_TEXTURE_CUBE_MAP_NEGATIVE_Z};
 		public:
-			mutable uint32_t BoundId = 0;
 			CubeMap();
 
 			CubeMap(const std::string path);
@@ -127,6 +127,7 @@ namespace KUMA {
 			CubeMap(CubeMap& other) noexcept;
 			~CubeMap() = default;
 
+			uint32_t getId() const;
 			uint32_t getWidth() const;
 			uint32_t getHeight() const;
 			void bind(uint32_t slot = 0) const;
@@ -135,12 +136,13 @@ namespace KUMA {
 			void LoadDepth(int width, int height);
 			void generateMipmaps() const;
 			void Load(const std::array<uint8_t*, 6>& data, size_t width, size_t height);
-		public:
+		private:
 			uint32_t id = 0;
 			int channels = 1;
 			std::string path;
 			uint32_t width = 0;
 			uint32_t height = 0;
+			mutable std::optional<uint32_t> boundId = std::nullopt;
 		};
 
 
