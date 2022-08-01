@@ -1,7 +1,7 @@
 #include "cameraComponent.h"
 
 import glmath;
-#include "../../render/Camera.h"
+#include "../../render/camera.h"
 
 using namespace KUMA::ECS;
 

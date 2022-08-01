@@ -1,7 +1,7 @@
 #define NOMINMAX
 #include "spriteComponent.h"
 #include "../guiObject.h"
-#include "../../render/Material.h"
+#include "../../render/material.h"
 #include "../../resourceManager/shaderManager.h"
 #include "../../core/core.h"
 

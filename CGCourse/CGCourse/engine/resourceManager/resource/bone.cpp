@@ -1,7 +1,7 @@
 #include "bone.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-#include "../../render/Model.h"
+#include "../../render/model.h"
 #include "../engine/resourceManager/parser/assimpParser.h"
 
 using namespace KUMA;

@@ -1,4 +1,4 @@
-#include "LuaComponentBinder.h"
+#include "luaComponentBinder.h"
 
 #include <sol/sol.hpp>
 

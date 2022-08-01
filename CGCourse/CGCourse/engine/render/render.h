@@ -1,11 +1,10 @@
 #pragma once
-#include "../resourceManager/resource/mesh.h"
+#include <string>
 #include "../glManager/glManager.h"
-#include "../ecs/components/transform.h"
 
 namespace KUMA {
-	namespace RESOURCES
-	{
+	namespace RESOURCES {
+		class Mesh;
 		class Animator;
 	}
 	namespace RENDER {
@@ -157,14 +156,12 @@ namespace KUMA {
 		
 		class BaseRender {
 		public:
-			//static std::shared_ptr<KUMA::RESOURCES::Animator> animator;
 			struct FrameInfo {
 				uint64_t batchCount = 0;
 				uint64_t instanceCount = 0;
 				uint64_t polyCount = 0;
 			};
 
-			
 			BaseRender(GL_SYSTEM::GlManager& driver);
 			~BaseRender() = default;
 			void setClearColor(float red, float green, float blue, float alpha = 1.0f);
@@ -172,7 +169,7 @@ namespace KUMA {
 			void setRasterizationLinesWidth(float width);
 			void setRasterizationMode(RasterizationMode rasterizationMode);
 			void setCapability(RenderingCapability capability, bool value);
-			bool getCapability(RenderingCapability capability) const;
+			[[nodiscard]] bool getCapability(RenderingCapability capability) const;
 			void setStencilAlgorithm(ComparaisonAlgorithm algorithm, int32_t reference, uint32_t mask);
 			void setDepthAlgorithm(ComparaisonAlgorithm algorithm);
 			void setStencilMask(uint32_t mask);
@@ -197,91 +194,23 @@ namespace KUMA {
 			std::string getString(GLenum parameter);
 			std::string getString(GLenum parameter, uint32_t index);
 			void clearFrameInfo();
-
 			void draw(const RESOURCES::Mesh & mesh, PrimitiveMode primitiveMode = PrimitiveMode::TRIANGLES, uint32_t instances = 1);
-			
 			uint8_t fetchGLState();
 			void applyStateMask(uint8_t mask);
 			void setState(uint8_t state);
 			[[nodiscard]] const FrameInfo& getFrameInfo() const;
-
 			void useDepthBufferMask(bool value);
 			void useBlendFactors(BlendFactor src, BlendFactor dist);
-
-			void useReversedDepth(bool value) {
-				if (value) {
-					glClearDepth(0.0f);
-					glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-					useDepthFunction(DepthFunction::GREATER_EQUAL);
-				}
-				else {
-					glClearDepth(1.0f);
-					glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
-					useDepthFunction(DepthFunction::LESS);
-				}
-			}
-
+			void useReversedDepth(bool value);
 			void useDepthFunction(DepthFunction function);
-			void useCulling(bool value, bool counterClockWise, bool cullBack) {
-				// culling 
-				if (value) {
-					glEnable(GL_CULL_FACE);
-				}
-				else {
-					glDisable(GL_CULL_FACE);
-				}
-
-				// point order
-				if (counterClockWise) {
-					glFrontFace(GL_CCW);
-				}
-				else {
-					glFrontFace(GL_CW);
-				}
-
-				// back / front culling
-				if (cullBack) {
-					glCullFace(GL_BACK);
-				}
-				else {
-					glCullFace(GL_FRONT);
-				}
-			}
-			void DrawIndices(PrimitiveMode primitive, size_t indexCount, size_t indexOffset) {
-				glDrawElements(
-					static_cast<GLenum>(primitive),
-					indexCount,
-					GL_UNSIGNED_INT,
-					(const void*)(indexOffset * sizeof(int))
-				);
-			}
-
-			void DrawIndicesBaseVertex(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex) {
-				glDrawElementsBaseVertex(
-					static_cast<GLenum>(primitive),
-					indexCount,
-					GL_UNSIGNED_INT,
-					(void*)(indexOffset * sizeof(unsigned)),
-					baseVertex
-				);
-			}
-
-			void DrawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex, size_t instanceCount, size_t baseInstance) {
-				glDrawElementsInstancedBaseVertexBaseInstance(
-					static_cast<GLenum>(primitive),
-					indexCount,
-					GL_UNSIGNED_INT,
-					(void*)(indexOffset * sizeof(unsigned)),
-					instanceCount,
-					baseVertex,
-					baseInstance
-				);
-			}
+			void useCulling(bool value, bool counterClockWise, bool cullBack);
+			void drawIndices(PrimitiveMode primitive, size_t indexCount, size_t indexOffset);
+			void drawIndicesBaseVertex(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex);
+			void drawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex, size_t instanceCount, size_t baseInstance);
 		private:
 			GL_SYSTEM::GlManager& driver;
 			FrameInfo frameInfo;
 			uint8_t state;
 		};
-		;
 	}
 }

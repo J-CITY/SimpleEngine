@@ -60,7 +60,7 @@ namespace KUMA
 
 		template <typename BoundingVolumeClass, typename RigidBody>
 		bool BVHNode<BoundingVolumeClass, RigidBody>::Overlaps(const BVHNode<BoundingVolumeClass, RigidBody>* other) const {
-			return (m_volume.Intersect(other->m_volume) > COLLISION::OUTSIDE);
+			return (m_volume.intersect(other->m_volume) > COLLISION::OUTSIDE);
 		}
 
 		template <typename BoundingVolumeClass, typename RigidBody>
@@ -84,7 +84,7 @@ namespace KUMA
 				return 1;
 			}
 
-			if (other->IsLeaf() || ((IsLeaf() == false) && m_volume.GetSize() >= other->m_volume.GetSize())) {
+			if (other->IsLeaf() || ((IsLeaf() == false) && m_volume.getSize() >= other->m_volume.getSize())) {
 				unsigned int count = m_children[0]->GetPotentialContactsWith(m_children[1], contacts, limit);
 
 				if (limit > count) {
@@ -124,8 +124,8 @@ namespace KUMA
 				RecalculateBoundingVolume();
 			}
 			else {
-				float growth1 = m_children[0]->m_volume.CalcGrowth(volume);
-				float growth2 = m_children[1]->m_volume.CalcGrowth(volume);
+				float growth1 = m_children[0]->m_volume.calcGrowth(volume);
+				float growth2 = m_children[1]->m_volume.calcGrowth(volume);
 
 				if (growth1 == 0.f) {
 					growth1 = FLT_MAX;
@@ -200,7 +200,7 @@ namespace KUMA
 			}
 
 			m_volume = BoundingVolumeClass();
-			m_volume.createFtomTwo(m_children[0]->m_volume, m_children[1]->m_volume);
+			m_volume.createFromTwo(m_children[0]->m_volume, m_children[1]->m_volume);
 			if (m_parent) {
 				m_parent->RecalculateBoundingVolume();
 			}

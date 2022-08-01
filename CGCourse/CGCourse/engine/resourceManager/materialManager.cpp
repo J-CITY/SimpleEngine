@@ -1,7 +1,7 @@
 #include "materialManager.h"
 #include <fstream>
 #include "ServiceManager.h"
-#include "../render/Material.h"
+#include "../render/material.h"
 
 KUMA::RESOURCES::ResourcePtr<KUMA::RENDER::Material> KUMA::RESOURCES::MaterialLoader::CreateFromFile(const std::string& path) {
 	const std::string realPath = getRealPath(path);

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <cstdint>
 
-#include "Frustum.h"
+#include "frustum.h"
 import glmath;
 
 namespace KUMA {

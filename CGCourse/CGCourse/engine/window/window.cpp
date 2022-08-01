@@ -3,7 +3,7 @@
 #include <fstream>
 
 #include "../config.h"
-#include "../utils/gamepad/GamepadMgr.h"
+#include "../utils/gamepad/gamepadManager.h"
 //imgui
 #include "../core/core.h"
 #include "imgui/imgui.h"
@@ -174,7 +174,7 @@ void Window::create() {
 		position.second = y;
 	}
 
-	INPUT::GamepadMgr::Instance();
+	INPUT::GamepadManager::Instance();
 
 	glfwSetErrorCallback(glfwErrorCallback);
 	glfwSetKeyCallback(window.get(), [](GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -192,7 +192,7 @@ void Window::create() {
 }
 
 void Window::update() {
-	INPUT::GamepadMgr::Instance().update([this](INPUT::Gamepad::GamepadData& data) {
+	INPUT::GamepadManager::Instance().update([this](INPUT::Gamepad::GamepadData& data) {
 		gamepadEvent.run(data);
 	});
 }

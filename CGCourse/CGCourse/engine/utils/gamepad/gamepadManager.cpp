@@ -1,19 +1,19 @@
-#include "GamepadMgr.h"
+#include "gamepadManager.h"
 
 #include <GLFW/glfw3.h>
 
 using namespace KUMA::INPUT;
 
-GamepadMgr::GamepadMgr() {
+GamepadManager::GamepadManager() {
 	initialize();
 }
 
-GamepadMgr& GamepadMgr::Instance() {
-	static GamepadMgr theGamepadMgr;
+GamepadManager& GamepadManager::Instance() {
+	static GamepadManager theGamepadMgr;
 	return theGamepadMgr;
 }
 
-void GamepadMgr::initialize() {
+void GamepadManager::initialize() {
 	gamepads.clear();
 	for (auto i = GLFW_JOYSTICK_1; i < GLFW_JOYSTICK_1 + 15; i++) {
 		if (glfwJoystickPresent(i) && glfwJoystickIsGamepad(i)) {
@@ -22,7 +22,7 @@ void GamepadMgr::initialize() {
 	}
 }
 
-void GamepadMgr::update(std::function<void(Gamepad::GamepadData&)> cb) {
+void GamepadManager::update(std::function<void(Gamepad::GamepadData&)> cb) {
 	for (auto& g : gamepads) {
 		if (g.updateData()) {
 			cb(g.getData());

@@ -1,7 +1,7 @@
 
 #include "../object.h"
 #include "ScriptComponent.h"
-#include "../../scripting/LuaBinder.h"
+#include "../../scripting/luaBinder.h"
 
 using namespace KUMA;
 using namespace KUMA::ECS;

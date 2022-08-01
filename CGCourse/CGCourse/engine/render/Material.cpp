@@ -1,4 +1,4 @@
-﻿#include "Material.h"
+﻿#include "material.h"
 
 
 #include "../resourceManager/shaderManager.h"

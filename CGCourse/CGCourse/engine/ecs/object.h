@@ -7,7 +7,7 @@
 
 #include "ComponentManager.h"
 #include "components/transform.h"
-#include "../scripting/ScriptInterpreter.h"
+#include "../scripting/scriptInterpreter.h"
 #include "../utils/idObject.h"
 #include "../utils/event.h"
 

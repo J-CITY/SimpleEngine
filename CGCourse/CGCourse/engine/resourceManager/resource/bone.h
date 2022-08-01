@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-#include "../../render/Model.h"
+#include "../../render/model.h"
 import glmath;
 //#include <glm/gtx/quaternion.hpp>
 //#include <glm/glm.hpp>

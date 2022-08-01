@@ -1,4 +1,4 @@
-#include "LuaGlobalsBinder.h"
+#include "luaGlobalsBinder.h"
 
 #include <sol/sol.hpp>
 

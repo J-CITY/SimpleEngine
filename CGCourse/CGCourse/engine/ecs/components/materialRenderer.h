@@ -2,7 +2,7 @@
 
 #include "component.h"
 import glmath;
-#include "../../render/Material.h"
+#include "../../render/material.h"
 #include "../../resourceManager/serializerInterface.h"
 
 #define MAX_MATERIAL_COUNT 255

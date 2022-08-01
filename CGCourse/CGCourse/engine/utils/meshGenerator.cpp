@@ -1,6 +1,6 @@
 #include "meshGenerator.h"
 #include "../resourceManager/textureManager.h"
-#include "../render/Model.h"
+#include "../render/model.h"
 
 #include <iostream>
 
