@@ -155,15 +155,14 @@ namespace KUMA::INPUT_SYSTEM {
 		InputManager(WINDOW_SYSTEM::Window& p_window);
 		~InputManager();
 
-		bool isKeyPressed(EKey p_key) const;
-		bool isKeyReleased(EKey p_key) const;
-		bool isMouseButtonPressed(EMouseButton p_button) const;
-		bool isMouseButtonReleased(EMouseButton p_button);
-		KUMA::INPUT::Gamepad::GamepadData getGamepad(int id);
-		bool isGamepadExist(int id) const;
-		MATHGL::Vector2i getMousePosition() const;
+		[[nodiscard]] bool isKeyPressed(EKey p_key) const;
+		[[nodiscard]] bool isKeyReleased(EKey p_key) const;
+		[[nodiscard]] bool isMouseButtonPressed(EMouseButton p_button) const;
+		[[nodiscard]] bool isMouseButtonReleased(EMouseButton p_button);
+		[[nodiscard]] KUMA::INPUT::Gamepad::GamepadData getGamepad(int id);
+		[[nodiscard]] bool isGamepadExist(int id) const;
+		[[nodiscard]] MATHGL::Vector2i getMousePosition() const;
 		void clearEvents();
-
 	private:
 		void onKeyPressed(int val);
 		void onKeyReleased(int val);

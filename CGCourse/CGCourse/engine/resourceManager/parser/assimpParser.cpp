@@ -4,8 +4,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/matrix4x4.h>
-#include <assimp/postprocess.h>
-#include "../engine/render/Model.h"
+#include "../engine/render/model.h"
 
 #include "../../../3rd/stb/stb.h"
 import glmath;

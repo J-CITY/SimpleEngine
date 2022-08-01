@@ -1,12 +1,12 @@
 #pragma once
 
 #include <map>
-#include "Camera.h"
+#include "camera.h"
 #include "drawable.h"
-#include "Material.h"
+#include "material.h"
 #include "primitiveRender.h"
 import glmath;
-#include "Model.h"
+#include "model.h"
 #include "../../game/World.h"
 #include "../gui/guiObject.h"
 #include "buffers/depthBuffer.h"

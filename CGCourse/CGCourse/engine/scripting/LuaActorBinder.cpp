@@ -1,4 +1,4 @@
-#include "LuaActorBinder.h"
+#include "luaActorBinder.h"
 
 #include <sol/sol.hpp>
 

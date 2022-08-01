@@ -1,7 +1,7 @@
 #pragma once
 
 #include "component.h"
-#include "../../render/Camera.h"
+#include "../../render/camera.h"
 
 namespace KUMA::ECS { class Object; }
 

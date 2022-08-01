@@ -1,13 +1,9 @@
 #include "render.h"
-#include "Frustum.h"
-#include "Camera.h"
-#include "Model.h"
+#include "frustum.h"
 #include <GL/glew.h>
+#include "../resourceManager/resource/mesh.h"
+#include "material.h"
 
-
-#include "Material.h"
-#include "../utils/time/time.h"
-#include "../resourceManager/resource/bone.h"
 using namespace KUMA;
 using namespace KUMA::RENDER;
 
@@ -43,6 +39,64 @@ void BaseRender::useDepthFunction(DepthFunction function) {
 	glDepthFunc(depthFuncTable[(size_t)function]);
 }
 
+void BaseRender::useCulling(bool value, bool counterClockWise, bool cullBack) {
+	// culling 
+	if (value) {
+		glEnable(GL_CULL_FACE);
+	}
+	else {
+		glDisable(GL_CULL_FACE);
+	}
+
+	// point order
+	if (counterClockWise) {
+		glFrontFace(GL_CCW);
+	}
+	else {
+		glFrontFace(GL_CW);
+	}
+
+	// back / front culling
+	if (cullBack) {
+		glCullFace(GL_BACK);
+	}
+	else {
+		glCullFace(GL_FRONT);
+	}
+}
+
+void BaseRender::drawIndices(PrimitiveMode primitive, size_t indexCount, size_t indexOffset) {
+	glDrawElements(
+		static_cast<GLenum>(primitive),
+		indexCount,
+		GL_UNSIGNED_INT,
+		(const void*)(indexOffset * sizeof(int))
+	);
+}
+
+void BaseRender::drawIndicesBaseVertex(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex) {
+	glDrawElementsBaseVertex(
+		static_cast<GLenum>(primitive),
+		indexCount,
+		GL_UNSIGNED_INT,
+		(void*)(indexOffset * sizeof(unsigned)),
+		baseVertex
+	);
+}
+
+void BaseRender::drawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t indexCount, size_t indexOffset,
+                                                size_t baseVertex, size_t instanceCount, size_t baseInstance) {
+	glDrawElementsInstancedBaseVertexBaseInstance(
+		static_cast<GLenum>(primitive),
+		indexCount,
+		GL_UNSIGNED_INT,
+		(void*)(indexOffset * sizeof(unsigned)),
+		instanceCount,
+		baseVertex,
+		baseInstance
+	);
+}
+
 void BaseRender::useBlendFactors(BlendFactor src, BlendFactor dist) {
 	if (src == BlendFactor::NONE || dist == BlendFactor::NONE) {
 		glDisable(GL_BLEND);
@@ -50,6 +104,19 @@ void BaseRender::useBlendFactors(BlendFactor src, BlendFactor dist) {
 	else {
 		glEnable(GL_BLEND);
 		glBlendFunc(BlendTable[(size_t)src], BlendTable[(size_t)dist]);
+	}
+}
+
+void BaseRender::useReversedDepth(bool value) {
+	if (value) {
+		glClearDepth(0.0f);
+		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+		useDepthFunction(DepthFunction::GREATER_EQUAL);
+	}
+	else {
+		glClearDepth(1.0f);
+		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+		useDepthFunction(DepthFunction::LESS);
 	}
 }
 

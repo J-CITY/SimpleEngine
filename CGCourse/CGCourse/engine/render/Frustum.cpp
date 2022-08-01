@@ -1,4 +1,4 @@
-﻿#include "Frustum.h"
+﻿#include "frustum.h"
 
 using namespace KUMA;
 using namespace KUMA::RENDER;

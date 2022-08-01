@@ -6,13 +6,9 @@
 #include "../../render/buffers/indexBuffer.h"
 #include "../../render/buffers/vertexArray.h"
 #include "../../render/buffers/vertexBuffer.h"
-#include "../../render/objects/BoundingSphere.h"
+#include "../../render/objects/boundingSphere.h"
 #include "../../utils/vertex.h"
 import glmath;
-
-
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
 
 namespace  Assimp {
 	class Importer;

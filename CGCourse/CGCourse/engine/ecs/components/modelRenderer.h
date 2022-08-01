@@ -1,6 +1,6 @@
 #pragma once
 #include "component.h"
-#include "../../render/Model.h"
+#include "../../render/model.h"
 #include "../../resourceManager/serializerInterface.h"
 #include "../../utils/event.h"
 

@@ -1,11 +1,11 @@
-#include "LuaBinder.h"
+#include "luaBinder.h"
 
 #include <sol/sol.hpp>
 
-#include "LuaMathsBinder.h"
-#include "LuaActorBinder.h"
-#include "LuaComponentBinder.h"
-#include "LuaGlobalsBinder.h"
+#include "luaMathsBinder.h"
+#include "luaActorBinder.h"
+#include "luaComponentBinder.h"
+#include "luaGlobalsBinder.h"
 
 using namespace KUMA::SCRIPTING;
 

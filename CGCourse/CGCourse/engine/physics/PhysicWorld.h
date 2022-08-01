@@ -7,7 +7,7 @@
 #include "broadPhase.h"
 #include "contacts.h"
 #include "narrowPhase.h"
-#include "../render/objects/BoundingSphere.h"
+#include "../render/objects/boundingSphere.h"
 
 namespace KUMA
 {

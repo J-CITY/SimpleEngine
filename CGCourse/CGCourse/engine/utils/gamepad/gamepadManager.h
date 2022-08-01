@@ -4,15 +4,15 @@
 #include "Gamepad.h"
 
 namespace KUMA::INPUT {
-	class GamepadMgr {
+	class GamepadManager {
 	public:
-		static GamepadMgr& Instance();
+		static GamepadManager& Instance();
 
 		void initialize();
 		void update(std::function<void(Gamepad::GamepadData&)> cb);
 	private:
-		GamepadMgr();
-		~GamepadMgr() = default;
+		GamepadManager();
+		~GamepadManager() = default;
 
 		std::vector<Gamepad> gamepads;
 	};

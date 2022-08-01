@@ -1,11 +1,11 @@
-#include "ScriptInterpreter.h"
+#include "scriptInterpreter.h"
 
 #include <string>
 #include <sol/sol.hpp>
 
 import logger;
 
-#include "LuaBinder.h"
+#include "luaBinder.h"
 #include "../ecs/components/ScriptComponent.h"
 
 using namespace KUMA;

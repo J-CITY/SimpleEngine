@@ -1,8 +1,5 @@
 ﻿#pragma once
 #include <vector>
-#include <glm/glm.hpp>
-
-
 #include "../resourceManager/serializerInterface.h"
 #include "../resourceManager/resource/mesh.h"
 #include "objects/BoundingSphere.h"

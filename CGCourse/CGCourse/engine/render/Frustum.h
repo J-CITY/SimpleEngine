@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "../ecs/components/transform.h"
 import glmath;
-#include "objects/BoundingSphere.h"
+#include "objects/boundingSphere.h"
 
 namespace KUMA::MATHGL {
 	class Matrix4;

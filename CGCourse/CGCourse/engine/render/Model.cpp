@@ -1,4 +1,4 @@
-﻿#include "Model.h"
+﻿#include "model.h"
 
 import glmath;
 

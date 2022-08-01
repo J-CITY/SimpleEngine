@@ -1,6 +1,6 @@
 #include "modelManager.h"
 #include "ServiceManager.h"
-#include "../render/Model.h"
+#include "../render/model.h"
 
 using namespace KUMA::RESOURCES;
 

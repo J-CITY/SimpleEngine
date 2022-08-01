@@ -1,4 +1,4 @@
-#include "LuaMathsBinder.h"
+#include "luaMathsBinder.h"
 
 import glmath;
 
