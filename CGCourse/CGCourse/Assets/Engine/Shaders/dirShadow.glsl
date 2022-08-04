@@ -16,6 +16,7 @@ layout (std140) uniform EngineUBO
     mat4    ubo_Projection;
     vec3    ubo_ViewPos;
     float   ubo_Time;
+    vec2    ubo_ViewportSize;
 };
 
 const int MAX_BONES = 100;

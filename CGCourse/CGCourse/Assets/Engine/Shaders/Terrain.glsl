@@ -20,6 +20,7 @@ layout (std140) uniform EngineUBO {
     mat4    ubo_Projection;
     vec3    ubo_ViewPos;
     float   ubo_Time;
+    vec2    ubo_ViewportSize;
 };
 
 /* Information passed to the fragment shader */
@@ -65,6 +66,7 @@ layout (std140) uniform EngineUBO {
     mat4    ubo_Projection;
     vec3    ubo_ViewPos;
     float   ubo_Time;
+    vec2    ubo_ViewportSize;
 };
 
 /* Information passed from the fragment shader */

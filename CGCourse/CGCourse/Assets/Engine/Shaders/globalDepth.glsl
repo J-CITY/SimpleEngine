@@ -14,7 +14,6 @@ const int MAX_BONE_INFLUENCE = 4;
 
 uniform mat4 u_engine_FinalBonesMatrices[MAX_BONES];
 uniform bool u_UseBone;
-uniform vec3 u_Color;
 
 /* Global information sent by the engine */
 
@@ -28,7 +27,7 @@ layout (std140) uniform EngineUBO {
 };
 
 out VS_OUT {
-	vec3 color;
+	vec3 FragPos;
 } vs_out;
 
 void main() {
@@ -52,7 +51,7 @@ void main() {
 	else {
 		FragPos = vec3(ubo_Model * vec4(geo_Pos, 1.0));
 	}
-	vs_out.color = u_Color;
+	vs_out.FragPos = FragPos;
 	gl_Position = ubo_Projection * (ubo_View * vec4(FragPos, 1.0));
 }
 
@@ -72,11 +71,11 @@ layout (std140) uniform EngineUBO
 
 /* Information passed from the fragment shader */
 in VS_OUT {
-	vec3 color;
+	vec3 FragPos;
 } fs_in;
 
 out vec4 FRAGMENT_COLOR;
 
 void main() {
-	FRAGMENT_COLOR = vec4(fs_in.color, 1.0);
+	FRAGMENT_COLOR = vec4(fs_in.FragPos, 1.0);
 }

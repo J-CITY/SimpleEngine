@@ -29,37 +29,15 @@ namespace KUMA {
 				GL_DYNAMIC_READ,
 				GL_DYNAMIC_COPY
 			};
-			IndexBuffer() {
-			}
-			IndexBuffer(const std::vector<unsigned>& data) {
-				glGenBuffers(1, &m_bufferID);
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_bufferID);
-				glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.size() * sizeof(unsigned int), data.data(), GL_STATIC_DRAW);
-			}
-
-			IndexBuffer(const std::vector<unsigned>& data, UsageType type) {
-				glGenBuffers(1, &m_bufferID);
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_bufferID);
-				glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.size() * sizeof(unsigned int), data.data(), UsageTypeToEnum[static_cast<int>(type)]);
-			}
-			
-			~IndexBuffer() {
-				glDeleteBuffers(1, &m_bufferID);
-			}
-
-			void bind() const {
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_bufferID);
-			}
-			void unbind() {
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-			}
-			unsigned getID() {
-				return m_bufferID;
-			}
-
-
+			//IndexBuffer() = default;
+			IndexBuffer(const std::vector<unsigned>& data);
+			IndexBuffer(const std::vector<unsigned>& data, UsageType type);
+			~IndexBuffer();
+			void bind() const;
+			void unbind() const;
+			[[nodiscard]] unsigned getID() const;
 		private:
-			uint32_t m_bufferID;
+			uint32_t m_bufferID = 0;
 		};
 	}
 }

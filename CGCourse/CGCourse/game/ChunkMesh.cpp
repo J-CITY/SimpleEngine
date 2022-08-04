@@ -7,7 +7,7 @@ import glmath;
 using namespace KUMA::MATHGL;
 
 namespace Game {
-	KUMA::RENDER::IndexBuffer ChunkMesh::StaticIBO;
+	std::unique_ptr<KUMA::RENDER::IndexBuffer> ChunkMesh::StaticIBO;
 	ChunkMesh::ChunkMesh() {
 		static bool IndexBufferInitialized = false;
 
@@ -32,13 +32,13 @@ namespace Game {
 				index_offset = index_offset + 4;
 			}
 
-			StaticIBO = KUMA::RENDER::IndexBuffer(IndexBuffer);
+			StaticIBO = std::make_unique<KUMA::RENDER::IndexBuffer>(KUMA::RENDER::IndexBuffer(IndexBuffer));
 			isize = IndexBuffer.size();
 		}
 		
 		p_VAO.bind();
 		m_VBO.bind();
-		StaticIBO.bind();
+		StaticIBO->bind();
 		m_VBO.bindAttribute(0, 3, GL_UNSIGNED_BYTE, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, position));
 		m_VBO.bindAttribute(1, 2, GL_UNSIGNED_SHORT, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, texCoord));
 		m_VBO.bindAttribute(2, 1, GL_UNSIGNED_BYTE, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, lighting_level));
@@ -47,7 +47,7 @@ namespace Game {
 
 		p_TransparentVAO.bind();
 		m_TransparentVBO.bind();
-		StaticIBO.bind();
+		StaticIBO->bind();
 		m_TransparentVBO.bindAttribute(0, 3, GL_UNSIGNED_BYTE, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, position));
 		m_TransparentVBO.bindAttribute(1, 2, GL_UNSIGNED_SHORT, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, texCoord));
 		m_TransparentVBO.bindAttribute(2, 1, GL_UNSIGNED_BYTE, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, lighting_level));
@@ -56,7 +56,7 @@ namespace Game {
 
 		p_ModelVAO.bind();
 		m_ModelVBO.bind();
-		StaticIBO.bind();
+		StaticIBO->bind();
 		m_ModelVBO.bindAttribute(0, 3, GL_UNSIGNED_BYTE, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, position));
 		m_ModelVBO.bindAttribute(1, 2, GL_UNSIGNED_SHORT, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, texCoord));
 		m_ModelVBO.bindAttribute(2, 1, GL_UNSIGNED_BYTE, sizeof(Game::Vertex), (void*)offsetof(Game::Vertex, lighting_level));

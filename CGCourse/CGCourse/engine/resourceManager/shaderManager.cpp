@@ -32,7 +32,7 @@ std::array<std::string, 5> ShaderLoader::ParseShader(const std::string& filePath
 	enum class ShaderType { NONE = -1, VERTEX = 0, FRAGMENT = 1, GEOMETRY = 2, TESS_CONTROL = 3, TESS_EVALUATION = 4 };
 
 	std::string line;
-	std::stringstream ss[3];
+	std::stringstream ss[5];
 	ShaderType type = ShaderType::NONE;
 
 	std::function<void(std::stringstream& ss, std::string&, const std::string&)> makeIncludePath;
@@ -87,7 +87,9 @@ std::array<std::string, 5> ShaderLoader::ParseShader(const std::string& filePath
 	return {
 		ss[static_cast<int>(ShaderType::VERTEX)].str(),
 		ss[static_cast<int>(ShaderType::FRAGMENT)].str(),
-		ss[static_cast<int>(ShaderType::GEOMETRY)].str()
+		ss[static_cast<int>(ShaderType::GEOMETRY)].str(),
+		ss[static_cast<int>(ShaderType::TESS_CONTROL)].str(),
+		ss[static_cast<int>(ShaderType::TESS_EVALUATION)].str()
 	};
 }
 
@@ -104,10 +106,10 @@ uint32_t ShaderLoader::CreateProgram(const std::string& vertexShader, const std:
 		gs = CompileShader(GL_GEOMETRY_SHADER, geometryShader);
 	}
 	if (!tessCompShader.empty()) {
-		tcs = CompileShader(GL_TESS_CONTROL_SHADER, geometryShader);
+		tcs = CompileShader(GL_TESS_CONTROL_SHADER, tessCompShader);
 	}
 	if (!tessEvoluationShader.empty()) {
-		tes = CompileShader(GL_TESS_EVALUATION_SHADER, geometryShader);
+		tes = CompileShader(GL_TESS_EVALUATION_SHADER, tessEvoluationShader);
 	}
 	if (vs == 0 || fs == 0)
 		return 0;
@@ -174,6 +176,8 @@ uint32_t ShaderLoader::CompileShader(uint32_t p_type, const std::string& p_sourc
 		std::string shaderTypeString = "VERTEX SHADER";
 		if (p_type == GL_FRAGMENT_SHADER) shaderTypeString = "FRAGMENT SHADER";
 		if (p_type == GL_GEOMETRY_SHADER) shaderTypeString = "GEOMETRY SHADER";
+		if (p_type == GL_TESS_CONTROL_SHADER) shaderTypeString = "TESS_CONTROL SHADER";
+		if (p_type == GL_TESS_EVALUATION_SHADER) shaderTypeString = "TESS_EVALUATION SHADER";
 		std::string errorHeader = "[" + shaderTypeString + "] \"";
 		LOG_ERROR(errorHeader + FILE_PATH + "\":\n" + errorLog);
 

@@ -38,43 +38,23 @@ namespace KUMA {
             FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS = 0x8DA8
         };
 
-        class DepthBuffer
-        {
+        class DepthBuffer {
             using BindableId = unsigned int;
             BindableId id;
 
         public:
-
             enum class Format {
                 DEPTH_COMPONENT = 0x1902,
                 DEPTH_COMPONENT16 = 0x81A5,
                 DEPTH_COMPONENT24 = 0x81A6,
                 DEPTH_COMPONENT32 = 0x81A7
             };
-            DepthBuffer(unsigned w, unsigned h, Format format= Format::DEPTH_COMPONENT) {
-                glGenRenderbuffers(1, &id);
-                bind();
-                glRenderbufferStorage(GL_RENDERBUFFER, static_cast<GLenum>(format), w, h);
-            }
-
-            void init(unsigned w, unsigned h, Format format = Format::DEPTH_COMPONENT) {
-                bind();
-                glRenderbufferStorage(GL_RENDERBUFFER, static_cast<GLenum>(format), w, h);
-            }
-
-            void bind() {
-                glBindRenderbuffer(GL_RENDERBUFFER, id);
-            }
-            void unbind() {
-                glBindRenderbuffer(GL_RENDERBUFFER, 0);
-            }
-            BindableId getId() {
-                return id;
-            }
-
-            void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId, unsigned mip) {
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.getId(), mip);
-            }
+            DepthBuffer(unsigned w, unsigned h, Format format= Format::DEPTH_COMPONENT);
+            void init(unsigned w, unsigned h, Format format = Format::DEPTH_COMPONENT);
+            void bind() const;
+            void unbind() const;
+            [[nodiscard]] BindableId getId() const;
+            void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId, unsigned mip);
         };
 
         class FrameBuffer {
@@ -85,9 +65,7 @@ namespace KUMA {
             };
 
             using BindableId = unsigned int;
-
             AttachmentType currentAttachment = AttachmentType::NONE;
-            
         public:
             BindableId id = 0;
             FrameBuffer();
@@ -97,42 +75,18 @@ namespace KUMA {
             FrameBuffer& operator=(const FrameBuffer&) = delete;
             FrameBuffer& operator=(FrameBuffer&&) noexcept;
 
-
-
             size_t getWidth() const;
             size_t getHeight() const;
             void bind() const;
             void unbind() const;
+            [[nodiscard]] BindableId getId() const;
 
-            BindableId GetNativeHandle() const;
-
-            FrameBufferStatus getStatus() {
-                return static_cast<FrameBufferStatus>(glCheckNamedFramebufferStatus(id, GL_FRAMEBUFFER));
-            }
-
-            void attachTexture(RESOURCES::Texture& texture, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
-                currentAttachment = AttachmentType::TEXTURE;
-                GLenum mode = attachmentTable[int(attachment)];
-                GLint textureId = texture.getId();
-                bind();
-                glFramebufferTexture2D(GL_FRAMEBUFFER, mode, GL_TEXTURE_2D, textureId, 0);
-            }
-
-            void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId) {
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + sideId, cubemap.getId(), 0);
-            }
-
-            void attachCubeMap(RESOURCES::CubeMap& cubemap, Attachment attachment = Attachment::COLOR_ATTACHMENT0) {
-                GLenum mode = attachmentTable[int(attachment)];
-                GLint cubemapId = cubemap.getId();//cubemap.getNativeHandle();
-                bind();
-                glFramebufferTexture(GL_FRAMEBUFFER, mode, cubemapId, 0);
-            }
-
-            void attachDepth(DepthBuffer& rboDepth) {
-                bind();
-                glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth.getId());
-            }
+            FrameBufferStatus getStatus() const;
+            void attachTexture(RESOURCES::Texture& texture, Attachment attachment = Attachment::COLOR_ATTACHMENT0);
+            void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId);
+            void attachCubeMap(RESOURCES::CubeMap& cubemap, Attachment attachment = Attachment::COLOR_ATTACHMENT0);
+            void attachDepth(DepthBuffer& rboDepth);
+            void setOupbutBuffers(const std::vector<Attachment>& outBuffers) const;;
 
             std::vector<GLenum> attachmentTable {
                 GL_COLOR_ATTACHMENT0,
@@ -153,24 +107,8 @@ namespace KUMA {
                 GL_STENCIL_ATTACHMENT,
                 GL_DEPTH_STENCIL_ATTACHMENT,
             };
-
-            void setOupbutBuffers(const std::vector<Attachment>& outBuffers) {
-                std::vector<GLenum> buffers;
-                for (auto e : outBuffers) {
-                    buffers.push_back(attachmentTable[int(e)]);
-                }
-                glDrawBuffers(buffers.size(), buffers.data());
-            };
-
-            static void Unbind() {
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            }
-
-            static void CopyDepth(const FrameBuffer& from, const FrameBuffer& to, unsigned w, unsigned h) {
-                glBindFramebuffer(GL_READ_FRAMEBUFFER, from.id);
-                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, to.id); // пишем в заданный по умолчанию фреймбуфер
-                glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-            }
+            static void Unbind();
+            static void CopyDepth(const FrameBuffer& from, const FrameBuffer& to, unsigned w, unsigned h);
         };
 	}
 }

@@ -37,6 +37,12 @@ namespace KUMA {
 			void setDepthWriting(bool p_depthWriting);
 			void setColorWriting(bool p_colorWriting);
 			void setGPUInstances(int p_instances);
+			void setPatchSize(int sz) {
+				patchSize = sz;
+			};
+			int getPatchSize() const {
+				return patchSize;
+			};
 			bool isBlendable() const;
 			bool hasBackfaceCulling() const;
 			bool hasFrontfaceCulling() const;
@@ -64,6 +70,7 @@ namespace KUMA {
 			bool colorWriting = true;
 			int gpuInstances = 1;
 			bool isDeferred = false;
+			int patchSize = 1;
 		};
 	}
 }

@@ -9,6 +9,7 @@
 #include "../resourceManager/textureManager.h"
 #include "../core/core.h"
 #include "light.h"
+#include "../ecs/ComponentManager.h"
 #include "../ecs/components/directionalLight.h"
 #include "../ecs/components/skeletal.h"
 #include "../ecs/components/spotLight.h"
@@ -49,14 +50,26 @@ void Renderer::configurePostProcessing() {
 	if (postProcessingState[static_cast<int>(PostProcessing::BLOOM)]) {
 		postProcessingFuncs.push_back([this]() { applyBloom(); });
 	}
+	if (postProcessingState[static_cast<int>(PostProcessing::VOLUMETRIC_LIGHT)]) {
+		postProcessingFuncs.push_back([this]() { applyVolumetricLight(); });
+	}
 	if (postProcessingState[static_cast<int>(PostProcessing::GOOD_RAYS)]) {
 		postProcessingFuncs.push_back([this]() { applyGoodRays(); });
 	}
 	if (postProcessingState[static_cast<int>(PostProcessing::MOTION_BLUR)]) {
 		postProcessingFuncs.push_back([this]() { applyMotionBlur(); });
 	}
+	if (postProcessingState[static_cast<int>(PostProcessing::COLOR_GRADING)]) {
+		postProcessingFuncs.push_back([this]() { applyColorGrading(); });
+	}
+	if (postProcessingState[static_cast<int>(PostProcessing::CHROMATIC_ABBERATION)]) {
+		postProcessingFuncs.push_back([this]() { applyChromaticAbberation(); });
+	}
 	if (postProcessingState[static_cast<int>(PostProcessing::FXAA)]) {
 		postProcessingFuncs.push_back([this]() { applyFXAA(); });
+	}
+	if (postProcessingState[static_cast<int>(PostProcessing::VIGNETTE)]) {
+		postProcessingFuncs.push_back([this]() { applyVignette(); });
 	}
 
 	auto applyEffect = [this](Material& material) {
@@ -137,6 +150,19 @@ void Renderer::initShaders() {
 
 	//hdr
 	shaderStorage["hdr"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/hdr.glsl");
+
+	//global depth
+	shaderStorage["globalDepth"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/globalDepth.glsl");
+
+	//volumetric light
+	shaderStorage["volumetricLight"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/volumetricLight.glsl");
+
+
+	shaderStorage["chromaticAbberation"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/chromaticAbberation.glsl");
+	shaderStorage["colorGrading"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/colorGrading.glsl");
+	shaderStorage["vignette"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/vignette.glsl");
+
+	shaderStorage["quad"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/quad.glsl");
 }
 
 
@@ -200,6 +226,9 @@ void Renderer::init() {
 
 		pipeline.godRays.godRaysTexture = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
 		pipeline.godRays.godRaysTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+
+		pipeline.globalDepth = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.globalDepth->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 	}
 
 	{//defered render
@@ -535,6 +564,9 @@ void Renderer::init() {
 	shaderStorage["hdr"]->setUniformInt("u_Scene", 0);
 	shaderStorage["hdr"]->unbind();
 
+	shaderStorage["quad"]->bind();
+	shaderStorage["quad"]->setUniformInt("u_Scene", 0);
+	shaderStorage["quad"]->unbind();
 
 	shaderStorage["blur"]->bind();
 	shaderStorage["blur"]->setUniformInt("image", 0);
@@ -550,6 +582,20 @@ void Renderer::init() {
 
 	shaderStorage["bright"]->bind();
 	shaderStorage["bright"]->setUniformInt("u_Scene", 0);
+
+	shaderStorage["volumetricLight"]->bind();
+	shaderStorage["volumetricLight"]->setUniformInt("u_Scene", 0);
+	shaderStorage["volumetricLight"]->setUniformInt("u_Depth", 1);
+	shaderStorage["volumetricLight"]->setUniformInt("u_ShadowMapDepthTex", 2);
+
+	shaderStorage["vignette"]->bind();
+	shaderStorage["vignette"]->setUniformInt("u_Scene", 0);
+
+	shaderStorage["chromaticAbberation"]->bind();
+	shaderStorage["chromaticAbberation"]->setUniformInt("u_Scene", 0);
+
+	shaderStorage["colorGrading"]->bind();
+	shaderStorage["colorGrading"]->setUniformInt("u_Scene", 0);
 
 
 
@@ -603,15 +649,15 @@ void Renderer::prepareTexturesForPostprocessing() {
 	pipeline.finalTextureBeforePostprocessing->bind(0);
 	renderQuad();
 	shaderStorage["bright"]->unbind();
-	swapBuffers[0].attachTexture(*swapTextures[0]);
-	swapBuffers[0].unbind();
+	//swapBuffers[0].attachTexture(*swapTextures[0]);
+	//swapBuffers[0].unbind();
 
 	//texture for god rays
-	swapBuffers[0].bind();
+	//swapBuffers[0].bind();
 	swapBuffers[0].attachTexture(*pipeline.godRays.godRaysTexture);
 	BaseRender::clear(true, true, false);
 	shaderStorage["godRaysTexture"]->bind();
-	pipeline.finalTextureBeforePostprocessing->bind(0);
+	//pipeline.finalTextureBeforePostprocessing->bind(0);
 	shaderStorage["godRaysTexture"]->setUniformVec3("u_Color", MATHGL::Vector3(0.0f, 0.0f, 0.0f));
 
 	for (const auto& [distance, drawable] : opaqueMeshesForward) {
@@ -630,6 +676,23 @@ void Renderer::prepareTexturesForPostprocessing() {
 		drawDrawable(d, *shaderStorage["godRaysTexture"]);
 	}
 	shaderStorage["godRaysTexture"]->unbind();
+
+	//all depth texture
+	//swapBuffers[0].bind();
+	swapBuffers[0].attachTexture(*pipeline.globalDepth);
+	BaseRender::clear(true, true, false);
+	shaderStorage["globalDepth"]->bind();
+	//pipeline.finalTextureBeforePostprocessing->bind(0);
+	//shaderStorage["globalDepth"]->setUniformVec3("u_Color", MATHGL::Vector3(0.0f, 0.0f, 0.0f));
+	for (const auto& [distance, drawable] : opaqueMeshesForward) {
+		drawDrawable(drawable, *shaderStorage["globalDepth"]);
+	}
+	for (const auto& [distance, drawable] : opaqueMeshesDeferred) {
+		drawDrawable(drawable, *shaderStorage["globalDepth"]);
+	}
+	shaderStorage["globalDepth"]->unbind();
+
+	//set to default
 	swapBuffers[0].attachTexture(*swapTextures[0]);
 	swapBuffers[0].unbind();
 }
@@ -725,26 +788,109 @@ void Renderer::applyFXAA() {
 	swapBuffers[currentSwapBuffer].unbind();
 	currentSwapBuffer = !currentSwapBuffer;
 }
+
+void Renderer::applyColorGrading() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["colorGrading"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+
+	shaderStorage["colorGrading"]->setUniformVec3("u_ChannelR", pipeline.colorGrading.r);
+	shaderStorage["colorGrading"]->setUniformVec3("u_ChannelG", pipeline.colorGrading.g);
+	shaderStorage["colorGrading"]->setUniformVec3("u_ChannelB", pipeline.colorGrading.b);
+	renderQuad();
+	shaderStorage["colorGrading"]->unbind();
+
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::applyVignette() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["vignette"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+
+	shaderStorage["vignette"]->setUniformFloat("u_Radius", pipeline.vignette.radius);
+	shaderStorage["vignette"]->setUniformFloat("u_Intensity", pipeline.vignette.intensity);
+	renderQuad();
+	shaderStorage["vignette"]->unbind();
+
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::applyChromaticAbberation() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["chromaticAbberation"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+
+	shaderStorage["chromaticAbberation"]->setUniformVec3("u_ChromaticAbberationParams", pipeline.chromaticAbberation.params);
+	renderQuad();
+	shaderStorage["chromaticAbberation"]->unbind();
+
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::applyVolumetricLight() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["volumetricLight"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+
+	pipeline.globalDepth->bind(1);
+	//pipeline.deferredRender.gPosition->bind(1);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, pipeline.dirLightsData[0].id);
+
+	auto& currentScene = context.sceneManager->getCurrentScene();
+	auto mainCameraComponent = currentScene.findMainCamera();
+	shaderStorage["volumetricLight"]->setUniformMat4("u_CameraTransformMatrix", mainCameraComponent->getCamera().getViewMatrix());
+	shaderStorage["volumetricLight"]->setUniformMat4("u_ShadowMapTransformMatrix", pipeline.dirLightsData[0].projMap);
+
+	renderQuad();
+	shaderStorage["volumetricLight"]->unbind();
+
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
 const RESOURCES::Texture& Renderer::getResultTexture() {
 	return *swapTextures[!currentSwapBuffer];
 }
 
 void Renderer::applyHDR() {
-	BaseRender::clear(true, true, false);
-	shaderStorage["hdr"]->bind();
+	swapBuffers[currentSwapBuffer].bind();
 
-	FrameBuffer::Unbind();
-	BaseRender::clear(true, true, false);
+	shaderStorage["hdr"]->bind();
 	swapTextures[!currentSwapBuffer]->bind();
-	//textureForGodRays.bind();
+
+	//FrameBuffer::Unbind();
+	BaseRender::clear(true, true, false);
+	//swapTextures[!currentSwapBuffer]->bind();
+
 	shaderStorage["hdr"]->setUniformInt("u_UseHDR", pipeline.hdr.isEnabled);
 	shaderStorage["hdr"]->setUniformFloat("u_Exposure", pipeline.hdr.exposure);
 	shaderStorage["hdr"]->setUniformFloat("u_Gamma", pipeline.hdr.gamma);
+
 	renderQuad();
 	shaderStorage["hdr"]->unbind();
 
 	//set to default
-	//currentSwapBuffer = 0;
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::renderResultToScreen() {
+	shaderStorage["quad"]->bind();
+	FrameBuffer::Unbind();
+	BaseRender::clear(true, true, false);
+	swapTextures[!currentSwapBuffer]->bind();
+	renderQuad();
+	shaderStorage["quad"]->unbind();
 }
 
 void Renderer::applySSAO() {
@@ -957,6 +1103,7 @@ void Renderer::renderScene() {
 			for (auto& f : postProcessingFuncs) {
 				f();
 			}
+			renderResultToScreen();
 
 			guiProjection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(screenRes.x), static_cast<float>(screenRes.y), 0.0f, -1, 1);
 
@@ -989,9 +1136,14 @@ void Renderer::updateEngineUBO(ECS::CameraComponent& p_mainCamera) {
 	size_t offset = sizeof(MATHGL::Matrix4); // We skip the model matrix (Which is a special case, modified every draw calls)
 	auto& camera = p_mainCamera.getCamera();
 
-	engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getViewMatrix()), std::ref(offset));
-	engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getProjectionMatrix()), std::ref(offset));
-	engineUBO->setSubData(p_mainCamera.obj.transform->getWorldPosition(), std::ref(offset));
+	engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getViewMatrix()), offset);
+	offset += sizeof(MATHGL::Matrix4);
+	engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getProjectionMatrix()), offset);
+	offset += sizeof(MATHGL::Matrix4);
+	engineUBO->setSubData(p_mainCamera.obj.transform->getWorldPosition(), offset);
+	offset += sizeof(MATHGL::Vector3);
+	offset += sizeof(float);
+	engineUBO->setSubData(RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize(), offset);
 }
 
 void Renderer::updateLights(SCENE_SYSTEM::Scene& scene) {
@@ -1017,7 +1169,8 @@ Renderer::Renderer(GL_SYSTEM::GlManager& _driver, CORE_SYSTEM::Core& context) :
 		sizeof(MATHGL::Matrix4) +
 		sizeof(MATHGL::Vector3) +
 		sizeof(float) +
-		sizeof(MATHGL::Matrix4),
+		sizeof(MATHGL::Matrix4) +
+		sizeof(MATHGL::Vector2i),
 		0,
 		0,
 		RENDER::AccessSpecifier::STREAM_DRAW
@@ -1310,8 +1463,9 @@ void Renderer::drawMeshWithShader(const RESOURCES::Mesh& p_mesh, const Material&
 		modelMatrixSender(p_modelMatrix);
 		uint8_t stateMask = p_material.generateStateMask();
 		applyStateMask(stateMask);
+		setPatchSize(p_material.getPatchSize());
 		shader.bind();
-		draw(p_mesh, PrimitiveMode::TRIANGLES, p_material.getGPUInstances());
+		draw(p_mesh, p_material.getPatchSize() > 1 ? PrimitiveMode::PATCHES : PrimitiveMode::TRIANGLES, p_material.getGPUInstances());
 		//shader->unbind();
 	}
 }
@@ -1322,9 +1476,9 @@ void Renderer::drawMesh(const RESOURCES::Mesh& p_mesh, Material& p_material, con
 
 		uint8_t stateMask = p_material.generateStateMask();
 		applyStateMask(stateMask);
-
+		setPatchSize(p_material.getPatchSize());
 		p_material.bind(emptyTexture, useTextures);
-		draw(p_mesh, PrimitiveMode::TRIANGLES, p_material.getGPUInstances());
+		draw(p_mesh, p_material.getPatchSize() > 1 ? PrimitiveMode::PATCHES : PrimitiveMode::TRIANGLES, p_material.getGPUInstances());
 		p_material.unbind();
 	}
 }
