@@ -1,7 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <GL/glew.h>
-
 #include "vertexBuffer.h"
 
 
@@ -24,26 +22,11 @@ namespace KUMA {
 				DOUBLE = 0x140A
 			};
 			
-			VertexArray() {
-				glGenVertexArrays(1, &ID);
-				glBindVertexArray(ID);
-			}
-
-			~VertexArray() {
-				glDeleteVertexArrays(1, &ID);
-			}
-
-			void bind() const {
-				glBindVertexArray(ID);
-			}
-
-			void unbind() const {
-				glBindVertexArray(0);
-			}
-
-			unsigned int getID() {
-				return ID;
-			}
+			VertexArray();
+			~VertexArray();
+			void bind() const;
+			void unbind() const;
+			unsigned int getID() const;
 
 			template <class T>
 			inline void bindAttribute(unsigned int attribute, VertexBuffer<T>& p_vertexBuffer, Type p_type, unsigned int count, unsigned int p_stride, intptr_t offset) {

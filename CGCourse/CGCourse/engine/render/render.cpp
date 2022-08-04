@@ -97,6 +97,10 @@ void BaseRender::drawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t 
 	);
 }
 
+void BaseRender::setPatchSize(int sz) const {
+	glPatchParameteri(GL_PATCH_VERTICES, sz);
+}
+
 void BaseRender::useBlendFactors(BlendFactor src, BlendFactor dist) {
 	if (src == BlendFactor::NONE || dist == BlendFactor::NONE) {
 		glDisable(GL_BLEND);
@@ -289,6 +293,8 @@ void BaseRender::draw(const RESOURCES::Mesh& mesh, PrimitiveMode primitiveMode, 
 		else {
 			// EBO
 			if (instances == 1) {
+				//glPatchParameteri(GL_PATCH_VERTICES, 4);
+				//glDrawArrays(GL_PATCHES, 0, 4 * 20 * 20);
 				glDrawArrays(static_cast<GLenum>(primitiveMode), 0, mesh.getVertexCount());
 			}
 			else {
@@ -339,8 +345,8 @@ void BaseRender::applyStateMask(uint8_t mask) {
 	}
 }
 
-void BaseRender::setState(uint8_t state) {
-	state = state;
+void BaseRender::setState(uint8_t st) {
+	state = st;
 }
 
 const BaseRender::FrameInfo& BaseRender::getFrameInfo() const {

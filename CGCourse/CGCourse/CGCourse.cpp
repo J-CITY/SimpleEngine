@@ -565,7 +565,7 @@ int main() {
 			mat->fillWithMaterial(_m);
 		}
 	}*/
-	{
+	/*{
 		auto& obj = scene.createObject("AAA");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
@@ -596,7 +596,7 @@ int main() {
 		auto mm = KUMA::RESOURCES::MaterialLoader::CreateFromFile("Materials/vampire.mat");
 		mat->fillWithMaterial(mm);
 		
-	}
+	}*/
 
 
 	{
@@ -1028,7 +1028,7 @@ int main() {
 		obj->transform->setLocalPosition({-10.0f, 0.0f, 20.0f});
 		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({5.25f, 5.25f, 5.25f});
+		obj->transform->setLocalScale({5.25f, 15.25f, 5.25f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\StandardPBR.glsl");
 
@@ -1061,6 +1061,64 @@ int main() {
 		data["u_Specular"] = KUMA::MATHGL::Vector3{1.0f, 1.0f, 1.0f};
 		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{0.0f, 0.0f};
 		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{1.0f, 1.0f};
+		data["u_UseBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
+
+	{
+		auto& obj = scene.createObject("Box3");
+
+		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = { 0.0f, 0.0f, 0.0f };
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj->transform->setLocalPosition({ 40.0f, 0.0f, 30.0f });
+		obj->transform->setLocalRotation({ 0.0f, 0.0f, 0.0f, 1.0f });
+		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj->transform->setLocalScale({ 5.25f, 15.25f, 5.25f });
+
+		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\StandardPBR.glsl");
+
+		auto mat = obj->addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+		_m->isDeferred = true;
+		//_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		data["u_Albedo"] = KUMA::MATHGL::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\brick_albedo.jpg");
+		data["u_AlbedoMap"] = tex1;
+
+		data["u_EnableNormalMapping"] = true;
+		data["u_HeightScale"] = 0.0f;
+
+		auto tex2 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\brick_normal.jpg");
+		data["u_NormalMap"] = tex2;
+		auto tex3 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\noiseTexture.png");
+		data["u_Noise"] = tex3;
+		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{ 1.0f, 1.0f, 1.0f };
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{ 0.0f, 0.0f };
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{ 1.0f, 1.0f };
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 	}
@@ -1299,7 +1357,7 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 
-	{
+	/* {
 		auto& obj = scene.createObject("Water");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
@@ -1359,7 +1417,7 @@ int main() {
 
 
 		mat->fillWithMaterial(_m);
-	}
+	}*/
 
 	{
 		auto& obj = scene.createObject("Grass");
@@ -1412,7 +1470,7 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 
-	{
+	/*{
 		auto& obj = scene.createObject("Terrain");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
@@ -1457,6 +1515,53 @@ int main() {
 
 		data["u_Levels"] = KUMA::MATHGL::Vector4(0.2f, 0.3f, 0.55, 0.7);
 
+		mat->fillWithMaterial(_m);
+	}*/
+
+	{
+		auto& obj = scene.createObject("TerrainTes");
+
+		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
+
+		auto m = KUMA::MeshGenerator::createSquare(20, 350, 350);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = { 0.0f, 0.0f, 0.0f };
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj->transform->setLocalPosition({ -100.0f, 50.0f, 10.0f });
+		obj->transform->setLocalRotation({ 0.0f, 0.0f, 0.0f, 1.0f });
+		obj->transform->setLocalScale({ 0.10f, 0.10f, 0.10f });
+
+		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\tess.glsl");
+
+		auto mat = obj->addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(false);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		_m->setPatchSize(4);
+		auto& data = _m->getUniformsData();
+
+		auto tex0 = KUMA::RESOURCES::TextureLoader().CreateFromFile("Textures\\tut017.png");
+		data["u_HeightMap"] = tex0;
+		data["u_Diffuse"] = KUMA::MATHGL::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+		auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\terrain.png");
+		data["u_DiffuseMap"] = tex1;
+		data["u_EnableNormalMapping"] = false;
+		data["u_HeightScale"] = 0.0f;
+		data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
+		data["u_Shininess"] = 100;
+		data["u_Specular"] = KUMA::MATHGL::Vector3{ 1.0f, 1.0f, 1.0f };
+		data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{ 0.0f, 0.0f };
+		data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{ 1.0f, 1.0f };
+		data["u_Levels"] = KUMA::MATHGL::Vector4(0.2f, 0.3f, 0.55, 0.7);
 		mat->fillWithMaterial(_m);
 	}
 

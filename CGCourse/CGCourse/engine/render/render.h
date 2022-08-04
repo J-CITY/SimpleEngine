@@ -207,6 +207,7 @@ namespace KUMA {
 			void drawIndices(PrimitiveMode primitive, size_t indexCount, size_t indexOffset);
 			void drawIndicesBaseVertex(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex);
 			void drawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex, size_t instanceCount, size_t baseInstance);
+			void setPatchSize(int sz) const;
 		private:
 			GL_SYSTEM::GlManager& driver;
 			FrameInfo frameInfo;

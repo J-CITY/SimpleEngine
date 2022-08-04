@@ -21,7 +21,7 @@ namespace Game
 			m_DefaultChunkShader->setUniformInt("u_ChunkX", chunk->p_Position.x);
 			m_DefaultChunkShader->setUniformInt("u_ChunkZ", chunk->p_Position.z);
 
-			chunk->GetChunkMesh()->StaticIBO.bind();
+			chunk->GetChunkMesh()->StaticIBO->bind();
 			chunk->GetChunkMesh()->p_VAO.bind();
 			glDrawArrays(GL_TRIANGLES, 0, chunk->GetChunkMesh()->p_VerticesCount);
 			//(glDrawElements(GL_TRIANGLES, floor(chunk->GetChunkMesh()->p_VerticesCount / 4) * 6, GL_UNSIGNED_INT, 0));

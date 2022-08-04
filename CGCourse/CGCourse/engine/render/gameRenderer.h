@@ -131,6 +131,21 @@ namespace KUMA::RENDER {
 		bool usePbr = false;
 	};
 
+	struct Vignette {
+		float radius = 0.1f;
+		float intensity = 100.0f;
+	};
+
+	struct ColorGrading {
+		MATHGL::Vector3 r = MATHGL::Vector3(1.0f, 0.0f, 0.0f);
+		MATHGL::Vector3 g = MATHGL::Vector3(0.0f, 1.0f, 0.0f);
+		MATHGL::Vector3 b = MATHGL::Vector3(0.0f, 0.0f, 1.0f);
+	};
+
+	struct ChromaticAbberation {
+		MATHGL::Vector3 params = MATHGL::Vector3(0.8f, 0.08f, 0.8f);
+	};
+
 	struct RenderPipeline {
 		Deffered deferred;
 		FrameBuffer depthMapFBO;
@@ -147,7 +162,12 @@ namespace KUMA::RENDER {
 		ScreenSpaceAmbientOcclusion ssao;
 		ImageBasedLightning ibl;
 		FrameBuffer finalFBOBeforePostprocessing;
+		Vignette vignette;
+		ColorGrading colorGrading;
+		ChromaticAbberation chromaticAbberation;
 		std::shared_ptr<RESOURCES::Texture> finalTextureBeforePostprocessing;
+
+		std::shared_ptr<RESOURCES::Texture> globalDepth;
 	};
 
 	class Renderer : public BaseRender {
@@ -157,7 +177,11 @@ namespace KUMA::RENDER {
 			GOOD_RAYS,
 			MOTION_BLUR,
 			FXAA,
-			HDR
+			HDR,
+			VIGNETTE,
+			COLOR_GRADING,
+			CHROMATIC_ABBERATION,
+			VOLUMETRIC_LIGHT
 		};
 
 		Renderer(GL_SYSTEM::GlManager& driver, CORE_SYSTEM::Core& context);
@@ -186,7 +210,7 @@ namespace KUMA::RENDER {
 		OpaqueDrawables	opaqueMeshesDeferred;
 		TransparentDrawables transparentMeshesDeferred;
 
-		std::vector<bool> postProcessingState = std::vector(5, true);
+		std::vector<bool> postProcessingState = std::vector(9, true);
 		std::vector<std::function<void()>> postProcessingFuncs;
 		struct CustomPostProcessing {
 			std::string name;
@@ -242,6 +266,11 @@ namespace KUMA::RENDER {
 		void applyDeferred();
 		void applyDeferredPbr();
 		void configurePostProcessing();
+		void applyVolumetricLight();
+		void applyColorGrading();
+		void applyVignette();
+		void applyChromaticAbberation();
+		void renderResultToScreen();
 
 		[[nodiscard]] MATHGL::Vector2f getShadowMapResolution() const;
 	public:

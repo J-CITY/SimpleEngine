@@ -1,9 +1,6 @@
 #pragma once
-#include <cstdint>
 #include <variant>
 #include <memory>
-//#include "../../utils/math/vector2.h"
-
 #include "../../resourceManager/resource/texture.h"
 import glmath;
 

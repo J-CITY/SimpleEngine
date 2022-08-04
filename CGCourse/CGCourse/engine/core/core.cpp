@@ -3,7 +3,6 @@
 
 #include "../config.h"
 #include "../render/gameRenderer.h"
-#include "../render/buffers/uniformBuffer.h"
 #include "../resourceManager/materialManager.h"
 #include "../resourceManager/modelManager.h"
 #include "../resourceManager/ServiceManager.h"
@@ -12,6 +11,8 @@
 #include "../audioManager/audioManager.h"
 #include "../physics/PhysicWorld.h"
 #include "../tasks/taskSystem.h"
+#include "../utils/loader.h"
+import logger;
 
 using namespace KUMA;
 using namespace KUMA::CORE_SYSTEM;
@@ -23,9 +24,14 @@ Core::Core() {
 	RESOURCES::ShaderLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::MaterialLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	
-	WINDOW_SYSTEM::WindowSettings windowSettings;
+	//WINDOW_SYSTEM::WindowSettings windowSettings;
 
-	window = std::make_unique<WINDOW_SYSTEM::Window>(windowSettings);
+	auto windowSettings = KUMA::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs\\app.json");
+	if (windowSettings.isErr()) {
+		LOG_ERROR(windowSettings.unwrapErr().msg);
+		throw;
+	}
+	window = std::make_unique<WINDOW_SYSTEM::Window>(windowSettings.unwrap());
 	sceneManager = std::make_unique<SCENE_SYSTEM::SceneManager>(Config::ENGINE_ASSETS_PATH);
 	inputManager = std::make_unique<INPUT_SYSTEM::InputManager>(*window);
 	driver = std::make_unique<GL_SYSTEM::GlManager>(GL_SYSTEM::DriverSettings{false});

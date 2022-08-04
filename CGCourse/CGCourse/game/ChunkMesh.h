@@ -36,7 +36,7 @@ namespace Game {
 		KUMA::RENDER::VertexArray p_ModelVAO;
 
 		int isize = 0;
-		static KUMA::RENDER::IndexBuffer StaticIBO;
+		static std::unique_ptr<KUMA::RENDER::IndexBuffer> StaticIBO;
 	private : 
 
 		void AddFace(Chunk* chunk, BlockDatabase::BlockFaceType face_type, 

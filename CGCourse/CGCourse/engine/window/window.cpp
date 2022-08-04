@@ -21,10 +21,18 @@ static void glfwErrorCallback(int error, const char* description) {
 }
 
 Window::Window(const WindowSettings& p_windowSettings): windowSettings(p_windowSettings) {
-	nlohmann::json j;
+	//nlohmann::json j;
+	//std::ifstream i(Config::ENGINE_ASSETS_PATH + "Configs\\" + "app.json");
+	//i >> j;
+	//onDeserialize(j);
+	create();
+}
+
+Window::Window() {
 	std::ifstream i(Config::ENGINE_ASSETS_PATH + "Configs\\" + "app.json");
-	i >> j;
-	onDeserialize(j);
+	std::stringstream buffer;
+	buffer << i.rdbuf();
+	windowSettings = jreflect::from_json<WindowSettings>(buffer.str());
 	create();
 }
 
@@ -456,6 +464,27 @@ void Window::drawDebug(CORE_SYSTEM::Core& core) {
 		static bool isFXAA = true;
 		ImGui::Checkbox("FXAA", &isFXAA);
 		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::FXAA, isFXAA);
+
+		static bool isHDR = true;
+		ImGui::Checkbox("HDR", &isHDR);
+		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::HDR, isHDR);
+
+		static bool isVIGNETTE = true;
+		ImGui::Checkbox("VIGNETTE", &isVIGNETTE);
+		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::VIGNETTE, isVIGNETTE);
+
+		static bool isCOLOR_GRADING = true;
+		ImGui::Checkbox("COLOR_GRADING", &isCOLOR_GRADING);
+		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::COLOR_GRADING, isCOLOR_GRADING);
+
+		static bool isCHROMATIC_ABBERATION = true;
+		ImGui::Checkbox("CHROMATIC_ABBERATION", &isCHROMATIC_ABBERATION);
+		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::CHROMATIC_ABBERATION, isCHROMATIC_ABBERATION);
+
+		static bool isVOLUMETRIC_LIGHT = true;
+		ImGui::Checkbox("VOLUMETRIC_LIGHT", &isVOLUMETRIC_LIGHT);
+		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::VOLUMETRIC_LIGHT, isVOLUMETRIC_LIGHT);
+
 		if (selectObjGui) {
 			{
 				ImGui::DragFloat("PivotX", &selectObjGui->transform->pivot.x, 0.1f, 0.0f, 1.0f);

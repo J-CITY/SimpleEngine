@@ -1,11 +1,10 @@
 #pragma once
 #include <GL/glew.h>
+#include <vector>
 
 
 namespace KUMA {
 	namespace RENDER {
-
-		
 		template <class T>
 		class VertexBuffer {
 		public:
@@ -56,62 +55,54 @@ namespace KUMA {
 				glDeleteBuffers(1, &ID);
 			}
 
-			inline void bind() {
+			inline void bind() const {
 				glBindBuffer(GL_ARRAY_BUFFER, ID);
 			}
 		
-			inline void unbind() {
+			inline void unbind() const {
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 			}
 
-			inline unsigned int getID() {
+			inline unsigned int getID() const {
 				return ID;
 			}
 
-			void bindAttribute(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* pointer) {
+			void bindAttribute(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* pointer) const {
 				bind();
 				glVertexAttribPointer(index, size, type, normalized, stride, pointer);
 				glEnableVertexAttribArray(index);
 			}
 
-			void bindAttribute(GLuint index, GLint size, GLenum type, GLsizei stride, const GLvoid* pointer) {
+			void bindAttribute(GLuint index, GLint size, GLenum type, GLsizei stride, const GLvoid* pointer) const {
 				bind();
 				glVertexAttribIPointer(index, size, type, stride, pointer);
 				glEnableVertexAttribArray(index);
 			}
 
-			void bufferData(GLsizeiptr size, void* data, GLenum usage) {
+			void bufferData(GLsizeiptr size, void* data, GLenum usage) const {
 				bind();
 				glBufferData(GL_ARRAY_BUFFER, size, data, usage);
 			}
 
-			void bufferSubData(GLintptr offset, GLsizeiptr size, void* data) {
+			void bufferSubData(GLintptr offset, GLsizeiptr size, void* data) const {
 				bind();
 				(glBufferSubData(GL_ARRAY_BUFFER, offset, size, data));
 			}
 
-			void bufferDataWithResize(const T* data, size_t sizeInScalars) {
-				//BufferBase::BufferDataWithResize((const uint8_t*)data, sizeInScalars * sizeof(T));
-
-
-				//if (this->byteSize < byteSize)
-				//	this->Load(this->type, byteData, byteSize, this->usage);
-				//else
+			void bufferDataWithResize(const T* data, size_t sizeInScalars) const {
 				bind();
 				glBufferSubData(GL_ARRAY_BUFFER, 0, sizeInScalars * sizeof(T), (const uint8_t*)data);
-					//this->BufferSubData(byteData, byteSize);
 			}
 		private:
 			unsigned int ID;
 		};
-		
-#define BONE_ID_LOCATION     10
-#define BONE_WEIGHT_LOCATION 11
-		
+
+		constexpr int BONE_ID_LOCATION     = 10;
+		constexpr int BONE_WEIGHT_LOCATION = 11;
+
 		template <class T>
 		class VertexAttribBuffer {
 		public:
-
 			template <class T>
 			inline VertexAttribBuffer(T* data, size_t elements) {
 				glGenBuffers(1, &ID);
@@ -131,15 +122,15 @@ namespace KUMA {
 				glDeleteBuffers(1, &ID);
 			}
 
-			inline void bind() {
+			inline void bind() const {
 				glBindBuffer(GL_ARRAY_BUFFER, ID);
 			}
 
-			inline void unbind() {
+			inline void unbind() const {
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 			}
 
-			inline unsigned int getID() {
+			inline unsigned int getID() const {
 				return ID;
 			}
 

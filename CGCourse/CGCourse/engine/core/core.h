@@ -6,7 +6,7 @@
 #include "../inputManager/inputManager.h"
 #include "../render/gameRenderer.h"
 #include "../render/render.h"
-#include "../render/buffers/ShaderStorageBuffer.h"
+#include "../render/buffers/shaderStorageBuffer.h"
 #include "../render/buffers/uniformBuffer.h"
 #include "../resourceManager/materialManager.h"
 #include "../resourceManager/modelManager.h"

@@ -1,6 +1,5 @@
 #pragma once
 #include <string>
-#include <unordered_map>
 
 //need for right including dependencies
 #include <GL/glew.h>
@@ -9,7 +8,7 @@
 #include "../utils/event.h"
 #include "../utils/gamepad/Gamepad.h"
 #include "../resourceManager/serializerInterface.h"
-
+#include "json_reflect.hpp"
 
 namespace KUMA::CORE_SYSTEM {
 	class Core;
@@ -25,6 +24,7 @@ namespace KUMA::WINDOW_SYSTEM {
 		int minorVersion = 3;
 		std::string appName;
 	};
+	REFLECT_NON_INTRUSIVE(WindowSettings, isFullscreen, depthBits, stencilBits, antialiasingLevel, majorVersion, minorVersion, appName);
 
 	class Window : public KUMA::RESOURCES::Serializable {
 	public:
@@ -37,6 +37,7 @@ namespace KUMA::WINDOW_SYSTEM {
 		MATHGL::Vector2i getMousePos();
 
 		explicit Window(const WindowSettings& p_windowSettings);
+		Window();
 		~Window();
 		
 		void setSize(unsigned int width, unsigned int height);
