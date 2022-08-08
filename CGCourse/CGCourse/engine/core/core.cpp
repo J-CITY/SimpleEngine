@@ -23,8 +23,6 @@ Core::Core() {
 	RESOURCES::TextureLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::ShaderLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::MaterialLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
-	
-	//WINDOW_SYSTEM::WindowSettings windowSettings;
 
 	auto windowSettings = KUMA::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs\\app.json");
 	if (windowSettings.isErr()) {

@@ -9,12 +9,21 @@
 #include "../utils/gamepad/Gamepad.h"
 #include "../resourceManager/serializerInterface.h"
 #include "json_reflect.hpp"
+#include "serdepp/include/serdepp/utility.hpp"
 
 namespace KUMA::CORE_SYSTEM {
 	class Core;
 }
 
 namespace KUMA::WINDOW_SYSTEM {
+	template<class T>
+	struct DefaultValue {
+		T val;
+	};
+
+	struct Optional {
+	};
+
 	struct WindowSettings {
 		bool isFullscreen = false;
 		int depthBits = 24;
@@ -23,8 +32,18 @@ namespace KUMA::WINDOW_SYSTEM {
 		int majorVersion = 4;
 		int minorVersion = 3;
 		std::string appName;
+
+		DERIVE_SERDE(WindowSettings,
+			(&Self::isFullscreen, "isFullscreen")
+			(&Self::depthBits, "depthBits")
+			(&Self::stencilBits, "stencilBits")
+			(&Self::antialiasingLevel, "antialiasingLevel")
+			(&Self::majorVersion, "majorVersion")
+			(&Self::minorVersion, "minorVersion")
+			(&Self::appName, "appName"))
 	};
 	REFLECT_NON_INTRUSIVE(WindowSettings, isFullscreen, depthBits, stencilBits, antialiasingLevel, majorVersion, minorVersion, appName);
+	
 
 	class Window : public KUMA::RESOURCES::Serializable {
 	public:

@@ -134,7 +134,11 @@ namespace KUMA::RENDER {
 	struct Vignette {
 		float radius = 0.1f;
 		float intensity = 100.0f;
+		DERIVE_SERDE(Vignette,
+			(&Self::radius, "radius")
+			(&Self::intensity, "intensity"))
 	};
+	REFLECT_NON_INTRUSIVE(Vignette, radius, intensity);
 
 	struct ColorGrading {
 		MATHGL::Vector3 r = MATHGL::Vector3(1.0f, 0.0f, 0.0f);
@@ -193,7 +197,7 @@ namespace KUMA::RENDER {
 		void addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled = true);
 		void setCustomPostRocessing(std::string name, bool isEnabled);
 		const RESOURCES::Texture& getResultTexture();
-	private:
+	public:
 		RenderPipeline pipeline;
 		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shaderStorage;
 		bool currentSwapBuffer = 0;

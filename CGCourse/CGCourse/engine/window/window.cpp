@@ -12,7 +12,7 @@
 #include "imgui/imgui_internal.h"
 
 import logger;
-
+#include "serdepp/include/serdepp/adaptor/reflection.hpp"
 using namespace KUMA;
 using namespace KUMA::WINDOW_SYSTEM;
 
@@ -25,6 +25,23 @@ Window::Window(const WindowSettings& p_windowSettings): windowSettings(p_windowS
 	//std::ifstream i(Config::ENGINE_ASSETS_PATH + "Configs\\" + "app.json");
 	//i >> j;
 	//onDeserialize(j);
+
+	
+	//auto a = info.member_info<0>(s);
+	//auto v = std::get<1>(to_tuple);
+	//auto member_a = info.member_info<1>(s);
+	//for (auto& name : mn.members()) {
+	//	auto& val = info.member<1>(s);
+	//}
+	
+	//auto member = reflection_reflect_member(p_windowSettings);
+	//auto me = member.elements_name();
+	//auto ma = std::get<0>(member.elements_address());
+	//using type = std::remove_reference_t<decltype(ma)>;
+	//if (typeid(type) == typeid(MATHGL::Vector3)) {
+	//	
+	//}
+
 	create();
 }
 
@@ -438,6 +455,30 @@ void drawNodeTreeGui(KUMA::CORE_SYSTEM::Core& core) {
 	}
 }
 
+
+template<class T>
+void drawWidget(std::string name, T& elem) {
+	using type = std::remove_reference_t<decltype(elem)>;
+
+	if (typeid(type) == typeid(MATHGL::Vector3)) {
+
+	}
+	else if (typeid(type) == typeid(float)) {
+		ImGui::DragFloat(name.c_str(), &elem, 0.1f, 0.1f, 500.0f);
+	}
+}
+
+template<std::size_t I = 0, typename T>
+inline std::enable_if < I == serde::tuple_size_v<T>, void>::type go(const serde::serde_struct_info<T>& t, T& val) {}
+
+template<std::size_t I = 0, typename T>
+inline std::enable_if< I < serde::tuple_size_v<T>, void>::type go(const serde::serde_struct_info<T>& t, T& val) {
+	drawWidget(std::string(t.member_info<I>(val).name()), t.member_info<I>(val).value());
+	//if constexpr (I < 2)
+	go<I + 1, T>(t, val);
+}
+
+
 void Window::drawDebug(CORE_SYSTEM::Core& core) {
 	glfwPollEvents();
 	ImGui_ImplOpenGL3_NewFrame();
@@ -484,6 +525,21 @@ void Window::drawDebug(CORE_SYSTEM::Core& core) {
 		static bool isVOLUMETRIC_LIGHT = true;
 		ImGui::Checkbox("VOLUMETRIC_LIGHT", &isVOLUMETRIC_LIGHT);
 		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::VOLUMETRIC_LIGHT, isVOLUMETRIC_LIGHT);
+
+		
+		//auto ma = std::get<0>(member.elements_address());
+		auto func = [](RENDER::Vignette& step) {
+			
+			//auto names = info.member_names().members();
+			//auto elems = serde::make_tuple(step);
+			//std::apply([names, i = 0](auto&&... args) mutable {
+			//	((drawWidget(std::string(names[i]), args), i++), ...);
+			//}, elems);
+			
+		};
+		//func(core.renderer->pipeline.vignette);
+		constexpr auto info = serde::type_info<RENDER::Vignette>;
+		go(info, core.renderer->pipeline.vignette);
 
 		if (selectObjGui) {
 			{
