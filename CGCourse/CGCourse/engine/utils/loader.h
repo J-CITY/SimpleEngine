@@ -2,7 +2,6 @@
 #include <fstream>
 #include <string>
 #include <result.h>
-#include "json_reflect.hpp"
 
 namespace KUMA::UTILS {
 
@@ -38,7 +37,7 @@ namespace KUMA::UTILS {
         }
         std::stringstream buffer;
         buffer << ifile.rdbuf();
-        return Ok(jreflect::from_json<T>(buffer.str()));
+        return Ok(serde::deserialize<T>(buffer));
 	}
 
 }

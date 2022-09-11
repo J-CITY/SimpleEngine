@@ -2,8 +2,13 @@
 #include "../utils/time/time.h"
 #include "../physics/PhysicWorld.h"
 #include "../tasks/taskSystem.h"
+#include "../resourceManager/ServiceManager.h"
+#include "../scene/sceneManager.h"
+#include "../window/window.h"
+#include "../render/gameRenderer.h"
+#include "../render/buffers/uniformBuffer.h"
+#include "../debug/debugRender.h"
 
-using namespace SE;
 using namespace KUMA::CORE_SYSTEM;
 
 App::App() {
@@ -59,6 +64,7 @@ void App::update(std::chrono::duration<double> dt) {
 }
 
 void App::postUpdate() {
-	core.window->drawDebug(core);
+	core.window->pollEvent();
+	core.debugRender->draw(core);
 	core.window->draw();
 }

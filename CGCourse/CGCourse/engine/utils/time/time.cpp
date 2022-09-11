@@ -2,7 +2,17 @@
 
 using namespace KUMA::TIME;
 
-Timer::Timer() {
+Timer::TimerGenerator tick() {
+	std::chrono::steady_clock::time_point current = std::chrono::steady_clock::now();
+	std::chrono::steady_clock::time_point prevTime = current;
+	while (true) {
+		prevTime = current;
+		current = std::chrono::steady_clock::now();
+		co_yield current - prevTime;
+	}
+}
+
+Timer::Timer(): timerGenerator(tick()) {
 	init();
 }
 
@@ -19,7 +29,7 @@ std::chrono::duration<double> Timer::getDeltaTimeUnscaled() const {
 }
 
 std::chrono::duration<double> Timer::getTimeSinceStart() const {
-	return allTime;
+	return std::chrono::steady_clock::now() - start;
 }
 
 double Timer::getTimeScale() const {
@@ -37,13 +47,9 @@ Timer& Timer::GetInstance() {
 
 void Timer::init() {
 	start = std::chrono::steady_clock::now();
-	current = start;
-	last = start;
 }
 
 void Timer::update() {
-	last = current;
-	current = std::chrono::steady_clock::now();
-	dt = current - last;
-	allTime += dt * scale;
+	dt = timerGenerator.h_.promise().value_;
+	timerGenerator.h_();
 }

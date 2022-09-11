@@ -52,7 +52,7 @@ float Shader::getUniformFloat(const std::string& name) {
 }
 
 const RENDER::UniformInfo* Shader::getUniformInfo(const std::string& name) const {
-	auto found = std::find_if(uniforms.begin(), uniforms.end(), [&name](const RENDER::UniformInfo& in) {
+	auto found = std::ranges::find_if(uniforms.begin(), uniforms.end(), [&name](const RENDER::UniformInfo& in) {
 		return name == in.name;
 	});
 

@@ -45,7 +45,7 @@ namespace KUMA {
 		//private:
 			MATHGL::Matrix4 calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const;
 			MATHGL::Matrix4 calculateViewMatrix(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const;
-
+			KUMA::MATHGL::Vector3 calculateViewVector(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const;
 		private:
 			Frustum frustum;
 			MATHGL::Matrix4 viewMatrix;

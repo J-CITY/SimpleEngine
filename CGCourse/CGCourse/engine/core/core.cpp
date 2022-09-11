@@ -1,6 +1,5 @@
 #include "core.h"
 
-
 #include "../config.h"
 #include "../render/gameRenderer.h"
 #include "../resourceManager/materialManager.h"
@@ -9,22 +8,28 @@
 #include "../resourceManager/shaderManager.h"
 #include "../resourceManager/textureManager.h"
 #include "../audioManager/audioManager.h"
+#include "../debug/debugRender.h"
 #include "../physics/PhysicWorld.h"
 #include "../tasks/taskSystem.h"
 #include "../utils/loader.h"
+#include "../glManager/glManager.h"
+#include "../inputManager/inputManager.h"
+#include "../render/render.h"
+#include "../scene/sceneManager.h"
+#include "../debug/debugRender.h"
+
 import logger;
 
 using namespace KUMA;
 using namespace KUMA::CORE_SYSTEM;
 
 Core::Core() {
-	Config::Init();
 	RESOURCES::ModelLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::TextureLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::ShaderLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::MaterialLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 
-	auto windowSettings = KUMA::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs\\app.json");
+	auto windowSettings = KUMA::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs\\window.json");
 	if (windowSettings.isErr()) {
 		LOG_ERROR(windowSettings.unwrapErr().msg);
 		throw;
@@ -52,6 +57,8 @@ Core::Core() {
 	renderer = std::make_unique<RENDER::Renderer>(*driver, *this);
 	renderer->setCapability(RENDER::RenderingCapability::MULTISAMPLE, true);
 	RESOURCES::ServiceManager::Set<RENDER::Renderer>(*renderer);
+
+	debugRender = std::make_unique<DEBUG::DebugRender>();
 
 	sceneManager->getCurrentScene().init();
 	

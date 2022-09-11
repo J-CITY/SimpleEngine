@@ -1,5 +1,7 @@
 #pragma once
 
+#include <span>
+
 #include "../../resourceManager/resource/texture.h"
 
 namespace KUMA {
@@ -86,7 +88,7 @@ namespace KUMA {
             void attachCubeMapSide(RESOURCES::CubeMap& cubemap, unsigned sideId);
             void attachCubeMap(RESOURCES::CubeMap& cubemap, Attachment attachment = Attachment::COLOR_ATTACHMENT0);
             void attachDepth(DepthBuffer& rboDepth);
-            void setOupbutBuffers(const std::vector<Attachment>& outBuffers) const;;
+            void setOutputBuffers(std::span<Attachment> outBuffers) const;;
 
             std::vector<GLenum> attachmentTable {
                 GL_COLOR_ATTACHMENT0,

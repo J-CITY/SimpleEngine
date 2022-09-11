@@ -115,6 +115,11 @@ KUMA::MATHGL::Matrix4 Camera::calculateProjectionMatrix(uint16_t p_windowWidth, 
 	}
 }
 
+KUMA::MATHGL::Vector3 Camera::calculateViewVector(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const {
+	const auto& forward = p_rotation * MATHGL::Vector3::Forward;
+	return p_position.x + forward.x, p_position.y + forward.y, p_position.z + forward.z;
+}
+
 KUMA::MATHGL::Matrix4 Camera::calculateViewMatrix(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const {
 	const auto& up = p_rotation * MATHGL::Vector3::Up;
 	const auto& forward = p_rotation * MATHGL::Vector3::Forward;

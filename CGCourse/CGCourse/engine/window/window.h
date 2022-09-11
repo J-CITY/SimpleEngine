@@ -6,24 +6,23 @@
 #include <GLFW/glfw3.h>
 
 #include "../utils/event.h"
-#include "../utils/gamepad/Gamepad.h"
+#include "../utils/gamepad/gamepad.h"
 #include "../resourceManager/serializerInterface.h"
-#include "json_reflect.hpp"
 #include "serdepp/include/serdepp/utility.hpp"
+
+namespace KUMA
+{
+	namespace DEBUG
+	{
+		class DebugRender;
+	}
+}
 
 namespace KUMA::CORE_SYSTEM {
 	class Core;
 }
 
 namespace KUMA::WINDOW_SYSTEM {
-	template<class T>
-	struct DefaultValue {
-		T val;
-	};
-
-	struct Optional {
-	};
-
 	struct WindowSettings {
 		bool isFullscreen = false;
 		int depthBits = 24;
@@ -32,6 +31,8 @@ namespace KUMA::WINDOW_SYSTEM {
 		int majorVersion = 4;
 		int minorVersion = 3;
 		std::string appName;
+		MATHGL::Vector2u size = MATHGL::Vector2u(800, 600);
+		int refreshRate = 60;
 
 		DERIVE_SERDE(WindowSettings,
 			(&Self::isFullscreen, "isFullscreen")
@@ -40,25 +41,27 @@ namespace KUMA::WINDOW_SYSTEM {
 			(&Self::antialiasingLevel, "antialiasingLevel")
 			(&Self::majorVersion, "majorVersion")
 			(&Self::minorVersion, "minorVersion")
-			(&Self::appName, "appName"))
+			(&Self::appName, "appName")
+			(&Self::size, "size")
+			(&Self::refreshRate, "refreshRate")
+		)
 	};
-	REFLECT_NON_INTRUSIVE(WindowSettings, isFullscreen, depthBits, stencilBits, antialiasingLevel, majorVersion, minorVersion, appName);
 	
 
-	class Window : public KUMA::RESOURCES::Serializable {
+	class Window {
+		friend DEBUG::DebugRender;
 	public:
 		EVENT::Event<int> keyPressedEvent;
 		EVENT::Event<int> keyReleasedEvent;
 		EVENT::Event<int> mouseButtonPressedEvent;
 		EVENT::Event<int> mouseButtonReleasedEvent;
 		EVENT::Event<INPUT::Gamepad::GamepadData> gamepadEvent;
+		
+		explicit Window(const WindowSettings& p_windowSettings);
+		Window() = delete;
+		~Window();
 
 		MATHGL::Vector2i getMousePos();
-
-		explicit Window(const WindowSettings& p_windowSettings);
-		Window();
-		~Window();
-		
 		void setSize(unsigned int width, unsigned int height);
 		MATHGL::Vector2u getSize() const;
 		void setPosition(int x, int y);
@@ -77,32 +80,30 @@ namespace KUMA::WINDOW_SYSTEM {
 		[[nodiscard]] bool getIsFullscreen() const;
 		void update();
 
-		void drawDebug(CORE_SYSTEM::Core& core);
+		void pollEvent();
 		void draw();
 
 		[[nodiscard]] GLFWwindow& getContext() const;
+		[[nodiscard]] bool isClosed() const;
 
-		virtual void onSerialize(nlohmann::json& j) override;
-		virtual void onDeserialize(nlohmann::json& j) override;
 
-		bool isClosed() const;
 	private:
-		struct DestroyglfwWin {
+		struct DestroyGLFW {
 			void operator()(GLFWwindow* ptr) const;
 		};
+
+		[[nodiscard]] WindowSettings& getSetting();;
+		void updateWindow();
 
 		void create();
 		void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 		void mouseCallback(GLFWwindow* window, int button, int action, int mods);
 
 		WindowSettings windowSettings;
-		std::unique_ptr<GLFWwindow, DestroyglfwWin> window;
+		std::unique_ptr<GLFWwindow, DestroyGLFW> window;
 		std::string winId;
-		std::string title;
-		std::pair<int, int> size = std::make_pair(800, 600);
-		std::pair<int, int> position;
-		bool isFullscreen;
-		int refreshRate = 60;
-		bool m_isClosed = false;
+		
+		MATHGL::Vector2u position;
+		bool isClose = false;
 	};
 }

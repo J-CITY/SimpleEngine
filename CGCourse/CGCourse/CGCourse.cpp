@@ -11,11 +11,15 @@
 #include "engine/ecs/components/physicsComponent.h"
 #include "engine/ecs/components/pointLight.h"
 #include "engine/ecs/components/skeletal.h"
+#include "engine/gui/guiObject.h"
+#include "engine/inputManager/inputManager.h"
 #include "engine/physics/body.h"
 #include "engine/physics/narrowPhase.h"
 #include "engine/physics/PhysicWorld.h"
 #include "engine/resourceManager/resource/bone.h"
+#include "engine/scene/sceneManager.h"
 #include "engine/utils/meshGenerator.h"
+#include "game/World.h"
 //#include "game/World.h"
 
 using namespace std;
@@ -1607,13 +1611,10 @@ int main() {
 			//auto mainCameraComponent = currentScene->findMainCamera();
 			//data["camUp"] = mainCameraComponent->obj.transform->getLocalRotation() * KUMA::MATHGL::Vector3::Up;
 			//data["camRight"] = mainCameraComponent->obj.transform->getLocalRotation() * KUMA::MATHGL::Vector3::Right;
-			s->bind();
-			//auto gp = app.getCore().renderer->gPosition;
-			//glActiveTexture(GL_TEXTURE6);
-			//glBindTexture(GL_TEXTURE_2D, gp);
-			auto mpos = app.getCore().inputManager->getMousePosition();
-			s->setUniformVec2("iMouse", KUMA::MATHGL::Vector2f(mpos.x, mpos.y));
-			s->unbind();
+			//s->bind();
+			//auto mpos = app.getCore().inputManager->getMousePosition();
+			//s->setUniformVec2("iMouse", KUMA::MATHGL::Vector2f(mpos.x, mpos.y));
+			//s->unbind();
 		});
 
 		//data["iResolution"] = KUMA::MATHGL::Vector2f(800, 600);
