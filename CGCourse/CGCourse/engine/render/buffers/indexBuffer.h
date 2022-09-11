@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <span>
 #include <vector>
 #include <GL/glew.h>
 
@@ -30,8 +31,8 @@ namespace KUMA {
 				GL_DYNAMIC_COPY
 			};
 			//IndexBuffer() = default;
-			IndexBuffer(const std::vector<unsigned>& data);
-			IndexBuffer(const std::vector<unsigned>& data, UsageType type);
+			IndexBuffer(std::span<unsigned> data);
+			IndexBuffer(std::span<unsigned> data, UsageType type);
 			~IndexBuffer();
 			void bind() const;
 			void unbind() const;

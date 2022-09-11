@@ -1,6 +1,7 @@
 #pragma once
 #include <GL/glew.h>
 #include <vector>
+#include <span>
 
 
 namespace KUMA {
@@ -49,7 +50,7 @@ namespace KUMA {
 			}
 
 			template<class T>
-			inline VertexBuffer(const std::vector<T>& data) : VertexBuffer(data.data(), data.size()) {}
+			inline VertexBuffer(std::span<T> data) : VertexBuffer(data.data(), data.size()) {}
 
 			inline ~VertexBuffer() {
 				glDeleteBuffers(1, &ID);

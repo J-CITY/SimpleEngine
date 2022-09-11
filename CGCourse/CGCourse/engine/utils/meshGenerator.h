@@ -5,8 +5,7 @@
 
 
 namespace KUMA {
-	namespace RENDER
-	{
+	namespace RENDER {
 		class Model;
 	}
 

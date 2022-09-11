@@ -1,19 +1,63 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include "../glManager/glManager.h"
-#include "../inputManager/inputManager.h"
-#include "../render/gameRenderer.h"
-#include "../render/render.h"
-#include "../render/buffers/shaderStorageBuffer.h"
-#include "../render/buffers/uniformBuffer.h"
 #include "../resourceManager/materialManager.h"
 #include "../resourceManager/modelManager.h"
 #include "../resourceManager/shaderManager.h"
 #include "../resourceManager/textureManager.h"
-#include "../scene/sceneManager.h"
 
+
+namespace KUMA
+{
+	namespace SCENE_SYSTEM
+	{
+		class SceneManager;
+	}
+}
+
+namespace KUMA
+{
+	namespace RENDER
+	{
+		class Renderer;
+	}
+}
+
+namespace KUMA
+{
+	namespace SCRIPTING
+	{
+		class ScriptInterpreter;
+	}
+}
+
+namespace KUMA
+{
+	namespace GL_SYSTEM
+	{
+		class GlManager;
+	}
+}
+
+namespace KUMA
+{
+	namespace DEBUG
+	{
+		class DebugRender;
+	}
+	namespace INPUT_SYSTEM
+	{
+		class InputManager;
+	}
+}
+
+namespace KUMA
+{
+	namespace WINDOW_SYSTEM
+	{
+		class Window;
+	}
+}
 
 namespace KUMA
 {
@@ -45,7 +89,7 @@ namespace KUMA {
 		public:
 			Core();
 			~Core();
-
+		
 			std::unique_ptr<WINDOW_SYSTEM::Window>        window;
 			std::unique_ptr<INPUT_SYSTEM::InputManager>   inputManager;
 			std::unique_ptr<GL_SYSTEM::GlManager>         driver;
@@ -53,17 +97,15 @@ namespace KUMA {
 			std::unique_ptr<RENDER::Renderer>             renderer;
 			std::unique_ptr<SCENE_SYSTEM::SceneManager>   sceneManager;
 			std::unique_ptr<AUDIO::AudioManager>          audioManager;
-
 			std::unique_ptr<PHYSICS::PhysicWorld>         physicsManger;
 			std::unique_ptr<TASK::TaskSystem>             taskManger;
 
+			std::unique_ptr<KUMA::DEBUG::DebugRender> debugRender;
 
 			RESOURCES::ModelLoader    modelManager;
 			RESOURCES::TextureLoader  textureManager;
 			RESOURCES::ShaderLoader   shaderManager;
 			RESOURCES::MaterialLoader materialManager;
-
-
 		};
 	}
 }

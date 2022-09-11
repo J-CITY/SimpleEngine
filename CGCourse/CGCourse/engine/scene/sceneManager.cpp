@@ -57,7 +57,6 @@ void SceneManager::unloadCurrentScene() {
 		m_currentScene = nullptr;
 		sceneUnloadEvent.run();
 	}
-
 }
 
 bool SceneManager::hasCurrentScene() const {

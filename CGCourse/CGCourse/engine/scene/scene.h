@@ -44,7 +44,7 @@ namespace KUMA::SCENE_SYSTEM {
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByName(const std::string& p_name);
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByTag(const std::string& p_tag);
 
-		[[nodiscard]] const std::vector<std::shared_ptr<ECS::Object>>& getObjects() const;
+		[[nodiscard]] std::span<std::shared_ptr<ECS::Object>> getObjects();
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			for (auto& oj : j["objects"]) {

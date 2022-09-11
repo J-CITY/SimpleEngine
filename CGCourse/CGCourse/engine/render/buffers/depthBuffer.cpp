@@ -102,7 +102,7 @@ void FrameBuffer::attachDepth(DepthBuffer& rboDepth) {
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth.getId());
 }
 
-void FrameBuffer::setOupbutBuffers(const std::vector<Attachment>& outBuffers) const {
+void FrameBuffer::setOutputBuffers(std::span<Attachment> outBuffers) const {
 	std::vector<GLenum> buffers;
 	for (auto e : outBuffers) {
 		buffers.push_back(attachmentTable[int(e)]);

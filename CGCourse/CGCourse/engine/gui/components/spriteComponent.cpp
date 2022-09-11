@@ -2,6 +2,7 @@
 #include "spriteComponent.h"
 #include "../guiObject.h"
 #include "../../render/material.h"
+#include "../../render/gameRenderer.h"
 #include "../../resourceManager/shaderManager.h"
 #include "../../core/core.h"
 

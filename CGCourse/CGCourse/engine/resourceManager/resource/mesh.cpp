@@ -4,7 +4,7 @@ using namespace KUMA;
 using namespace KUMA::RESOURCES;
 
 
-Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex):
+Mesh::Mesh(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned materialIndex):
 	vertexCount(static_cast<unsigned>(vertices.size())),
 	indicesCount(static_cast<unsigned>(indices.size())),
 	materialIndex(materialIndex) {
@@ -40,7 +40,7 @@ const RENDER::BoundingSphere& Mesh::getBoundingSphere() const {
 	return boundingSphere;
 }
 
-void Mesh::createBuffers(const std::vector<Vertex>& p_vertices, const std::vector<uint32_t>& p_indices) {
+void Mesh::createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices) {
 	//std::vector<V> vertexData;
 
 	//std::vector<unsigned int> rawIndices;
@@ -90,7 +90,7 @@ void Mesh::createBuffers(const std::vector<Vertex>& p_vertices, const std::vecto
 
 }
 
-void Mesh::computeBoundingSphere(const std::vector<Vertex>& vertices) {
+void Mesh::computeBoundingSphere(std::span<Vertex> vertices) {
 	boundingSphere.position = MATHGL::Vector3::Zero;
 	boundingSphere.radius = 0.0f;
 

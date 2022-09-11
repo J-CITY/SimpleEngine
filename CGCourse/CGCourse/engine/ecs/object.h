@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-
+#include <span>
 
 #include "ComponentManager.h"
 #include "components/transform.h"
@@ -45,7 +45,7 @@ namespace KUMA::ECS {
 
 		ObjectId<Object> getParentID() const;
 
-		std::vector<std::shared_ptr<Object>>& getChildren();
+		std::span<std::shared_ptr<Object>> getChildren();
 
 		void markAsDestroy();
 

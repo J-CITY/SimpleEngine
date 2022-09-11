@@ -138,7 +138,6 @@ namespace KUMA::RENDER {
 			(&Self::radius, "radius")
 			(&Self::intensity, "intensity"))
 	};
-	REFLECT_NON_INTRUSIVE(Vignette, radius, intensity);
 
 	struct ColorGrading {
 		MATHGL::Vector3 r = MATHGL::Vector3(1.0f, 0.0f, 0.0f);
@@ -170,8 +169,21 @@ namespace KUMA::RENDER {
 		ColorGrading colorGrading;
 		ChromaticAbberation chromaticAbberation;
 		std::shared_ptr<RESOURCES::Texture> finalTextureBeforePostprocessing;
+		std::shared_ptr<RESOURCES::Texture> blurTexture;
 
 		std::shared_ptr<RESOURCES::Texture> globalDepth;
+		std::shared_ptr<RESOURCES::Texture> noiseTexture;
+
+		//ssgi
+		std::shared_ptr<RESOURCES::Texture> ssgiTexture;
+		//ssr
+		std::shared_ptr<RESOURCES::Texture> ssrTexture;
+
+		//hdr skybox texture
+		std::shared_ptr<RESOURCES::Texture> hdrTexture;
+
+		//texture after deferred render
+		std::shared_ptr<RESOURCES::Texture> saveTexture;
 	};
 
 	class Renderer : public BaseRender {
@@ -260,6 +272,7 @@ namespace KUMA::RENDER {
 		void prepareSpotLightShadowMap();
 		void preparePointLightShadowMap();
 		void prepareTexturesForPostprocessing();
+		void prepareBlurTexture();
 
 		void applyBloom();
 		void applyGoodRays();
@@ -275,6 +288,16 @@ namespace KUMA::RENDER {
 		void applyVignette();
 		void applyChromaticAbberation();
 		void renderResultToScreen();
+		void applyDepthOfField();
+		void applyOutline();
+		void applyPosterize();
+		void applyPixelize();
+		void applySharpen();
+		void applyDilation();
+		void applyFilmGrain();
+
+		void applySSR();
+		void applySSGI();
 
 		[[nodiscard]] MATHGL::Vector2f getShadowMapResolution() const;
 	public:

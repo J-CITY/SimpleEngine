@@ -20,8 +20,7 @@ KUMA::RENDER::PrimitiveRender::PrimitiveRender(BaseRender& render): render(rende
 		MATHGL::Vector3{0, 0, 0},
 		MATHGL::Vector3{0, 0, 0}
 	});
-
-	lineMesh = std::shared_ptr<RESOURCES::Mesh>(new RESOURCES::Mesh(vertices, {0, 1}, 0));
+	lineMesh = std::shared_ptr<RESOURCES::Mesh>(new RESOURCES::Mesh(vertices, std::array{ 0u, 1u }, 0));
 	lineShader = RESOURCES::ShaderLoader::CreateFromSource(vertexLineShader, fragmentLineShader);
 	gridShader = RESOURCES::ShaderLoader::CreateFromSource(vertexGridShader, fragmentGridShader);
 }

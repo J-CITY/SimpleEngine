@@ -1,5 +1,7 @@
 #include "guiObject.h"
 #include "../core/core.h"
+#include "../render/material.h"
+#include "../render/gameRenderer.h"
 
 using namespace KUMA;
 using namespace KUMA::GUI;

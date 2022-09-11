@@ -10,6 +10,8 @@
 #include "../core/core.h"
 #include "light.h"
 #include "../ecs/ComponentManager.h"
+#include "../ecs/components/AmbientLight.h"
+#include "../ecs/components/AmbientLight.h"
 #include "../ecs/components/directionalLight.h"
 #include "../ecs/components/skeletal.h"
 #include "../ecs/components/spotLight.h"
@@ -17,6 +19,9 @@
 #include "../resourceManager/textureManager.h"
 #include "../utils/time/time.h"
 #include "../resourceManager/resource/bone.h"
+#include "buffers/uniformBuffer.h"
+#include "../scene/sceneManager.h"
+#include "buffers/shaderStorageBuffer.h"
 
 using namespace KUMA;
 using namespace KUMA::RENDER;
@@ -162,7 +167,22 @@ void Renderer::initShaders() {
 	shaderStorage["colorGrading"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/colorGrading.glsl");
 	shaderStorage["vignette"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/vignette.glsl");
 
+	shaderStorage["depthOfField"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/depthOfField.glsl");
+	shaderStorage["outline"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/outline.glsl");
+	shaderStorage["dilation"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/dilation.glsl");
+	shaderStorage["filmGrain"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/filmGrain.glsl");
+	shaderStorage["sharpen"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/sharpen.glsl");
+	shaderStorage["pixelize"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/pixelize.glsl");
+	shaderStorage["posterize"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/posterize.glsl");
+
 	shaderStorage["quad"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/quad.glsl");
+
+	//SSGI
+	shaderStorage["applySSGI"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/applySSGI.glsl");
+	shaderStorage["ssgi"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssgi.glsl");
+	//SSR
+	shaderStorage["applySSR"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/applySSR.glsl");
+	shaderStorage["ssr"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssr.glsl");
 }
 
 
@@ -213,6 +233,9 @@ void Renderer::init() {
 	*/
 	initShaders();
 
+	pipeline.noiseTexture = RESOURCES::TextureLoader::CreateFromFileFloat("Textures\\color-noise.png");
+
+
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 	{//create swap buffers
 		int i = 0;
@@ -256,7 +279,7 @@ void Renderer::init() {
 		pipeline.deferredRender.gBuffer.attachTexture(*pipeline.deferredRender.gRoughAO, Attachment::COLOR_ATTACHMENT3);
 
 		// Указываем OpenGL на то, в какой прикрепленный цветовой буфер (заданного фреймбуфера) мы собираемся выполнять рендеринг 
-		pipeline.deferredRender.gBuffer.setOupbutBuffers({Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1, 
+		pipeline.deferredRender.gBuffer.setOutputBuffers(std::array{Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1,
 			Attachment::COLOR_ATTACHMENT2, Attachment::COLOR_ATTACHMENT3});
 
 		// Создаем и прикрепляем буфер глубины (рендербуфер)
@@ -393,7 +416,7 @@ void Renderer::init() {
 		int width, height, nrComponents;
 		float* data = RESOURCES::stbiLoadf("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\textures\\hdr\\newport_loft.hdr", &width, &height, &nrComponents, 0);
 
-		auto hdrTexture = RESOURCES::TextureLoader::CreateFromFileFloat("textures\\hdr\\newport_loft.hdr");
+		pipeline.hdrTexture = RESOURCES::TextureLoader::CreateFromFileFloat("textures\\hdr\\newport_loft.hdr");
 
 		// PBR: настройка кубической карты для рендеринга и прикрепления к фреймбуферу
 		auto envCubemap = RESOURCES::TextureLoader::CreateCubeMap(512, 512, RESOURCES::TextureFiltering::LINEAR_MIPMAP_LINEAR, RESOURCES::TextureFiltering::LINEAR);
@@ -414,7 +437,7 @@ void Renderer::init() {
 		shaderStorage["equirectangularToCubemapShader"]->bind();
 		shaderStorage["equirectangularToCubemapShader"]->setUniformInt("equirectangularMap", 0);
 		shaderStorage["equirectangularToCubemapShader"]->setUniformMat4("projection", captureProjection);
-		hdrTexture->bind(0);
+		pipeline.hdrTexture->bind(0);
 
 		setViewPort(0, 0, 512, 512); // не забудьте настроить видовой экран в соответствии с размерами захвата
 		captureFBO.bind();
@@ -537,7 +560,7 @@ void Renderer::init() {
 	//glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
 
 	// Сообщаем OpenGL, какой прикрепленный цветовой буфер мы будем использовать для рендеринга
-	pipeline.finalFBOBeforePostprocessing.setOupbutBuffers({Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1});
+	pipeline.finalFBOBeforePostprocessing.setOutputBuffers(std::array{ Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1 });
 
 	// Проверяем готовность фреймбуфера
 	if (pipeline.finalFBOBeforePostprocessing.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
@@ -559,6 +582,7 @@ void Renderer::init() {
 		}
 	}
 
+	pipeline.blurTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y);
 
 	shaderStorage["hdr"]->bind();
 	shaderStorage["hdr"]->setUniformInt("u_Scene", 0);
@@ -597,8 +621,71 @@ void Renderer::init() {
 	shaderStorage["colorGrading"]->bind();
 	shaderStorage["colorGrading"]->setUniformInt("u_Scene", 0);
 
+	shaderStorage["depthOfField"]->bind();
+	shaderStorage["depthOfField"]->setUniformInt("u_Scene", 0);
+	shaderStorage["depthOfField"]->setUniformInt("positionTexture", 1);
+	shaderStorage["depthOfField"]->setUniformInt("noiseTexture", 2);
+	shaderStorage["depthOfField"]->setUniformInt("outOfFocusTexture", 3);
+
+	shaderStorage["outline"]->bind();
+	shaderStorage["outline"]->setUniformInt("u_Scene", 0);
+	shaderStorage["outline"]->setUniformInt("positionTexture", 1);
+	shaderStorage["outline"]->setUniformInt("noiseTexture", 2);
+
+	shaderStorage["posterize"]->bind();
+	shaderStorage["posterize"]->setUniformInt("u_Scene", 0);
+	shaderStorage["posterize"]->setUniformInt("positionTexture", 1);
+
+	shaderStorage["pixelize"]->bind();
+	shaderStorage["pixelize"]->setUniformInt("u_Scene", 0);
+	shaderStorage["pixelize"]->setUniformInt("positionTexture", 1);
+
+	shaderStorage["sharpen"]->bind();
+	shaderStorage["sharpen"]->setUniformInt("u_Scene", 0);
+
+	shaderStorage["dilation"]->bind();
+	shaderStorage["dilation"]->setUniformInt("u_Scene", 0);
 
 
+	shaderStorage["filmGrain"]->bind();
+	shaderStorage["filmGrain"]->setUniformInt("u_Scene", 0);
+
+	{//ssgi
+		pipeline.ssgiTexture = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.ssgiTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+
+		pipeline.saveTexture = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.saveTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+
+
+		shaderStorage["ssgi"]->bind();
+		shaderStorage["ssgi"]->setUniformInt("inputTex", 0);
+		shaderStorage["ssgi"]->setUniformInt("albedoTex", 1);
+		shaderStorage["ssgi"]->setUniformInt("normalTex", 2);
+		shaderStorage["ssgi"]->setUniformInt("depthTex", 3);
+
+		shaderStorage["applySSGI"]->bind();
+		shaderStorage["applySSGI"]->setUniformInt("inputTex", 0);
+		shaderStorage["applySSGI"]->setUniformInt("SSGITex", 1);
+		shaderStorage["applySSGI"]->setUniformInt("albedoTex", 2);
+	}
+	{//ssr
+		pipeline.ssrTexture = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		pipeline.ssrTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+
+		shaderStorage["ssr"]->bind();
+		shaderStorage["ssr"]->setUniformInt("albedoTex", 0);
+		shaderStorage["ssr"]->setUniformInt("normalTex", 1);
+		shaderStorage["ssr"]->setUniformInt("depthTex", 2);
+		shaderStorage["ssr"]->setUniformInt("HDRTex", 3);
+
+		shaderStorage["applySSR"]->bind();
+		shaderStorage["applySSR"]->setUniformInt("albedoTex", 0);
+		shaderStorage["applySSR"]->setUniformInt("normalTex", 1);
+		shaderStorage["applySSR"]->setUniformInt("depthTex", 2);
+		shaderStorage["applySSR"]->setUniformInt("SSRTex", 3);
+		shaderStorage["applySSR"]->setUniformInt("HDRTex", 4);
+	}
 }
 
 void Renderer::renderSkybox() {
@@ -692,6 +779,8 @@ void Renderer::prepareTexturesForPostprocessing() {
 	}
 	shaderStorage["globalDepth"]->unbind();
 
+	prepareBlurTexture();
+
 	//set to default
 	swapBuffers[0].attachTexture(*swapTextures[0]);
 	swapBuffers[0].unbind();
@@ -723,6 +812,25 @@ void Renderer::applyBloom() {
 	shaderStorage["bloom"]->unbind();
 	swapBuffers[currentSwapBuffer].unbind();
 	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::prepareBlurTexture() {
+	bool horizontal = true, firstIteration = true;
+	unsigned int amount = 10;
+	shaderStorage["blur"]->bind();
+	for (unsigned int i = 0; i < amount; i++) {
+		pipeline.bloom.pingpongFBO[horizontal].bind();
+		shaderStorage["blur"]->setUniformInt("horizontal", horizontal);
+		firstIteration ? pipeline.finalTextureBeforePostprocessing->bind(0) : pipeline.bloom.pingpongColorbuffers[!horizontal]->bind(0);
+
+		renderQuad();
+		horizontal = !horizontal;
+		if (firstIteration) {
+			firstIteration = false;
+		}
+	}
+
+	RESOURCES::Texture::CopyTexture(*pipeline.bloom.pingpongColorbuffers[!horizontal], *pipeline.blurTexture);
 }
 
 void Renderer::applyGoodRays() {
@@ -820,6 +928,48 @@ void Renderer::applyVignette() {
 	currentSwapBuffer = !currentSwapBuffer;
 }
 
+void Renderer::applyDepthOfField() {
+	auto& currentScene = context.sceneManager->getCurrentScene();
+	auto mainCameraComponent = currentScene.findMainCamera();
+
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["depthOfField"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+
+	pipeline.globalDepth->bind(1);
+	pipeline.noiseTexture->bind(2);
+	pipeline.blurTexture->bind(3);
+	shaderStorage["depthOfField"]->setUniformVec2("nearFar", MATHGL::Vector2{ mainCameraComponent->getNear(), mainCameraComponent->getFar() });
+	shaderStorage["depthOfField"]->setUniformVec3("focusPoint", 
+		MATHGL::Vector3(400.0f, 300.0f, 0.0f));
+	renderQuad();
+	shaderStorage["depthOfField"]->unbind();
+
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::applyOutline() {
+	auto& currentScene = context.sceneManager->getCurrentScene();
+	auto mainCameraComponent = currentScene.findMainCamera();
+
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["outline"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+
+	pipeline.globalDepth->bind(1);
+	pipeline.noiseTexture->bind(2);
+	shaderStorage["outline"]->setUniformVec2("nearFar", MATHGL::Vector2{ mainCameraComponent->getNear(), mainCameraComponent->getFar() });
+	shaderStorage["outline"]->setUniformVec2("gamma", MATHGL::Vector2{ 2.2f, 1.0f / 2.2f });
+	renderQuad();
+	shaderStorage["outline"]->unbind();
+
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
 void Renderer::applyChromaticAbberation() {
 	swapBuffers[currentSwapBuffer].bind();
 
@@ -884,6 +1034,81 @@ void Renderer::applyHDR() {
 	currentSwapBuffer = !currentSwapBuffer;
 }
 
+void Renderer::applyPosterize() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["posterize"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+	BaseRender::clear(true, true, false);
+	pipeline.globalDepth->bind(1);
+	renderQuad();
+	shaderStorage["posterize"]->unbind();
+
+	//set to default
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::applyPixelize() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["pixelize"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+	BaseRender::clear(true, true, false);
+	pipeline.globalDepth->bind(1);
+	shaderStorage["pixelize"]->setUniformVec2("parameters", MATHGL::Vector2{5.0f, 0.0f});
+	renderQuad();
+	shaderStorage["pixelize"]->unbind();
+
+	//set to default
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::applySharpen() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["sharpen"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+	BaseRender::clear(true, true, false);
+	renderQuad();
+	shaderStorage["sharpen"]->unbind();
+
+	//set to default
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+void Renderer::applyDilation() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["dilation"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+	BaseRender::clear(true, true, false);
+	shaderStorage["dilation"]->setUniformVec2("parameters", MATHGL::Vector2{ 4.0f, 2.0f });
+	renderQuad();
+	shaderStorage["dilation"]->unbind();
+
+	//set to default
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
+
+void Renderer::applyFilmGrain() {
+	swapBuffers[currentSwapBuffer].bind();
+
+	shaderStorage["filmGrain"]->bind();
+	swapTextures[!currentSwapBuffer]->bind();
+	BaseRender::clear(true, true, false);
+	renderQuad();
+	shaderStorage["filmGrain"]->unbind();
+
+	//set to default
+	swapBuffers[currentSwapBuffer].unbind();
+	currentSwapBuffer = !currentSwapBuffer;
+}
+
 void Renderer::renderResultToScreen() {
 	shaderStorage["quad"]->bind();
 	FrameBuffer::Unbind();
@@ -893,6 +1118,7 @@ void Renderer::renderResultToScreen() {
 	shaderStorage["quad"]->unbind();
 }
 
+//it is more prepearing for ssao
 void Renderer::applySSAO() {
 	// 2. Генерируем текстуру для SSAO
 	pipeline.ssao.ssaoFBO.bind();
@@ -915,6 +1141,88 @@ void Renderer::applySSAO() {
 	pipeline.ssao.ssaoColorBuffer->bind(0);
 	renderQuad();
 	pipeline.ssao.ssaoBlurFBO.unbind();
+}
+
+void Renderer::applySSR() {
+	pipeline.ssao.ssaoFBO.bind();
+	pipeline.ssao.ssaoFBO.attachTexture(*pipeline.ssrTexture);
+	if (pipeline.ssao.ssaoFBO.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
+		LOG_ERROR("SSAO Framebuffer not complete!");
+	}
+
+	shaderStorage["ssr"]->bind();
+
+	pipeline.deferredRender.gAlbedoSpec->bind(0);
+	pipeline.deferredRender.gNormal->bind(1);
+	pipeline.deferredRender.gPosition->bind(2);
+	pipeline.hdrTexture->bind(3);
+
+	BaseRender::clear(true, true, false);
+	renderQuad();
+	shaderStorage["ssr"]->unbind();
+
+
+	pipeline.ssao.ssaoFBO.attachTexture(*pipeline.ssao.ssaoColorBuffer);
+	if (pipeline.ssao.ssaoFBO.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
+		LOG_ERROR("SSAO Framebuffer not complete!");
+	}
+	pipeline.ssao.ssaoFBO.unbind();
+
+	//appy
+	pipeline.finalFBOBeforePostprocessing.bind();
+	shaderStorage["applySSR"]->bind();
+
+	pipeline.deferredRender.gAlbedoSpec->bind(0);
+	pipeline.deferredRender.gNormal->bind(1);
+	pipeline.deferredRender.gPosition->bind(2);
+	pipeline.ssrTexture->bind(3);
+	pipeline.hdrTexture->bind(4);
+	pipeline.deferredRender.gRoughAO->bind(5);
+	BaseRender::clear(true, true, false);
+	renderQuad();
+
+	shaderStorage["applySSR"]->unbind();
+
+}
+
+void Renderer::applySSGI() {
+	pipeline.ssao.ssaoFBO.bind();
+	pipeline.ssao.ssaoFBO.attachTexture(*pipeline.ssgiTexture);
+	if (pipeline.ssao.ssaoFBO.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
+		LOG_ERROR("SSAO Framebuffer not complete! SSGI");
+	}
+
+	shaderStorage["ssgi"]->bind();
+
+	pipeline.finalTextureBeforePostprocessing->bind(0);
+	pipeline.deferredRender.gAlbedoSpec->bind(1);
+	pipeline.deferredRender.gNormal->bind(2);
+	pipeline.deferredRender.gPosition->bind(3);
+
+	BaseRender::clear(true, true, false);
+	renderQuad();
+	shaderStorage["ssgi"]->unbind();
+
+
+	pipeline.ssao.ssaoFBO.attachTexture(*pipeline.ssao.ssaoColorBuffer);
+	if (pipeline.ssao.ssaoFBO.getStatus() != FrameBufferStatus::FRAMEBUFFER_COMPLETE) {
+		LOG_ERROR("SSAO Framebuffer not complete! SSGI");
+	}
+	pipeline.ssao.ssaoFBO.unbind();
+
+	RESOURCES::Texture::CopyTexture(*pipeline.finalTextureBeforePostprocessing, *pipeline.saveTexture);
+
+	//appy
+	pipeline.finalFBOBeforePostprocessing.bind();
+	shaderStorage["applySSGI"]->bind();
+
+	pipeline.saveTexture->bind(0);
+	pipeline.ssgiTexture->bind(1);
+	pipeline.deferredRender.gAlbedoSpec->bind(2);
+	BaseRender::clear(true, true, false);
+	renderQuad();
+
+	shaderStorage["applySSGI"]->unbind();
 }
 
 void Renderer::applyDeferred() {
@@ -1100,9 +1408,19 @@ void Renderer::renderScene() {
 			
 			prepareTexturesForPostprocessing();
 
+			//applySSR();
+			//applySSGI();
+
 			for (auto& f : postProcessingFuncs) {
 				f();
 			}
+			//applyDepthOfField();
+			//applyOutline();
+			//applyPosterize();
+			//applyPixelize();
+			//applySharpen();
+			//applyDilation();
+			//applyFilmGrain();
 			renderResultToScreen();
 
 			guiProjection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(screenRes.x), static_cast<float>(screenRes.y), 0.0f, -1, 1);

@@ -121,7 +121,7 @@ std::shared_ptr<KUMA::ECS::Object> Scene::createObject(const std::string& name, 
 }
 
 bool Scene::destroyObject(std::shared_ptr<ECS::Object> p_target) {
-	auto found = std::find_if(objects.begin(), objects.end(), [p_target](std::shared_ptr<ECS::Object> element) {
+	auto found = std::ranges::find_if(objects.begin(), objects.end(), [p_target](std::shared_ptr<ECS::Object> element) {
 		return element == p_target;
 	});
 
@@ -135,7 +135,7 @@ bool Scene::destroyObject(std::shared_ptr<ECS::Object> p_target) {
 }
 
 std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByName(const std::string& p_name) {
-	auto result = std::find_if(objects.begin(), objects.end(), [p_name](std::shared_ptr<ECS::Object>& element) {
+	auto result = std::ranges::find_if(objects.begin(), objects.end(), [p_name](std::shared_ptr<ECS::Object>& element) {
 		return element->getName() == p_name;
 	});
 
@@ -148,7 +148,7 @@ std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByName(const std::string& p_
 }
 
 std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByTag(const std::string& p_tag) {
-	auto result = std::find_if(objects.begin(), objects.end(), [p_tag](std::shared_ptr<ECS::Object>& element) {
+	auto result = std::ranges::find_if(objects.begin(), objects.end(), [p_tag](std::shared_ptr<ECS::Object>& element) {
 		return (*element).getTag() == p_tag;
 	});
 
@@ -161,7 +161,7 @@ std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByTag(const std::string& p_t
 }
 
 std::shared_ptr<KUMA::ECS::Object> Scene::findObjectByID(ObjectId<ECS::Object> p_id) {
-	auto result = std::find_if(objects.begin(), objects.end(), [p_id](std::shared_ptr<ECS::Object>& element) {
+	auto result = std::ranges::find_if(objects.begin(), objects.end(), [p_id](std::shared_ptr<ECS::Object>& element) {
 		return element->getID() == p_id;
 	});
 
@@ -193,7 +193,7 @@ std::vector<std::shared_ptr<KUMA::ECS::Object>> Scene::findObjectsByTag(const st
 	return actors;
 }
 
-const std::vector<std::shared_ptr<KUMA::ECS::Object>>& Scene::getObjects() const {
+std::span<std::shared_ptr<KUMA::ECS::Object>> Scene::getObjects() {
 	return objects;
 }
 

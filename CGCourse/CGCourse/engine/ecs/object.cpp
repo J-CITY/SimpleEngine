@@ -1,6 +1,7 @@
 #include "object.h"
 
 #include <algorithm>
+#include <execution>
 
 
 #include "ComponentManager.h"
@@ -49,8 +50,8 @@ Object::~Object() {
 
 	std::for_each(components.begin(), components.end(), [&](std::shared_ptr<Component> p_component) {
 		componentRemovedEvent.run(p_component);
-		ComponentManager::getInstance()->removeAllObjectComponents(getID());
 	});
+	ComponentManager::getInstance()->removeAllObjectComponents(getID());
 }
 
 const std::string& Object::getName() const {
@@ -130,7 +131,7 @@ ObjectId<Object> Object::getParentID() const {
 	return ObjectId<Object>(0);
 }
 
-std::vector<std::shared_ptr<Object>>& Object::getChildren() {
+std::span<std::shared_ptr<Object>> Object::getChildren() {
 	return children;
 }
 
@@ -167,7 +168,7 @@ void Object::onDestroy() {
 void Object::onUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
 		std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
-		std::for_each(ComponentManager::getInstance()->scriptComponents[id].begin(), 
+		std::for_each(ComponentManager::getInstance()->scriptComponents[id].begin(),
 			ComponentManager::getInstance()->scriptComponents[id].end(), [&](auto element) { element.second->onUpdate(dt); });
 	}
 }

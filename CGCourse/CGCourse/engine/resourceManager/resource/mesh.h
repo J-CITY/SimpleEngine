@@ -37,7 +37,7 @@ namespace KUMA {
 		//};
 		class Mesh {
 		public:
-			Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex);
+			Mesh(std::span<Vertex> p_vertices, std::span<unsigned> indices, unsigned materialIndex);
 			virtual ~Mesh();
 			virtual void bind() const;
 			virtual void unbind() const;
@@ -46,8 +46,8 @@ namespace KUMA {
 			uint32_t getMaterialIndex() const;
 			const RENDER::BoundingSphere& getBoundingSphere() const;
 		private:
-			void createBuffers(const std::vector<Vertex>& p_vertices, const std::vector<uint32_t>& p_indices);
-			void computeBoundingSphere(const std::vector<Vertex>& vertices);
+			void createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices);
+			void computeBoundingSphere(std::span<Vertex> vertices);
 		public:
 			const unsigned int vertexCount;
 			const unsigned int indicesCount;
