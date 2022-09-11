@@ -11,9 +11,7 @@
 #include "../render/gameRenderer.h"
 
 import logger;
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_opengl3.h"
-#include "serdepp/include/serdepp/adaptor/reflection.hpp"
+
 using namespace KUMA;
 using namespace KUMA::WINDOW_SYSTEM;
 
@@ -25,7 +23,6 @@ Window::Window(const WindowSettings& windowSettings): windowSettings(windowSetti
 	create();
 }
 
-
 Window::~Window() {
 	glfwTerminate();
 }
@@ -35,10 +32,12 @@ bool Window::isClosed() const {
 }
 
 void Window::setSize(unsigned int w, unsigned int h) {
+	windowSettings.size = { w, h };
 	glfwSetWindowSize(window.get(), w, h);
 }
 
 void Window::setPosition(int x, int y) {
+	position = { x, y };
 	glfwSetWindowPos(window.get(), x, y);
 }
 
@@ -75,17 +74,71 @@ void Window::toggleFullscreen() {
 	setFullscreen(!windowSettings.isFullscreen);
 }
 
+void Window::setDepthBits(int val) {
+	windowSettings.depthBits = val;
+	glfwWindowHint(GLFW_DEPTH_BITS, val);
+}
+
+int Window::getDepathBits() const {
+	return windowSettings.depthBits;
+}
+
+void Window::setStencilBits(int val) {
+	windowSettings.stencilBits = val;
+	glfwWindowHint(GLFW_STENCIL_BITS, val);
+}
+
+int Window::getStencilBits() const {
+	return windowSettings.stencilBits;
+}
+
+void Window::setMajorVersion(int val) {
+	windowSettings.majorVersion = val;
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, val);
+}
+
+int Window::getMajorVersion() const {
+	return windowSettings.majorVersion;
+}
+
+void Window::setMinorVersion(int val) {
+	windowSettings.minorVersion = val;
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, val);
+}
+
+int Window::getMinorVersion() const {
+	return windowSettings.minorVersion;
+}
+
+void Window::setAntialiasingLevel(int val) {
+	windowSettings.antialiasingLevel = val;
+	glfwWindowHint(GLFW_SAMPLES, val);
+}
+
+int Window::getAntialiasingLevel() const {
+	return windowSettings.antialiasingLevel;
+}
+
+void Window::setRefreshRate(int val) {
+	windowSettings.refreshRate = val;
+	glfwWindowHint(GLFW_REFRESH_RATE, val);
+}
+
+int Window::getRefreshRate() const {
+	return windowSettings.refreshRate;
+}
+
 bool Window::getIsFullscreen() const {
 	return windowSettings.isFullscreen;
 }
 
 void Window::setTitle(const std::string& _title) {
-	windowSettings.appName = _title;
-	glfwSetWindowTitle(window.get(), windowSettings.appName.c_str());
+	windowSettings.title = _title;
+	glfwSetWindowTitle(window.get(), windowSettings.title.c_str());
 }
 
 std::string Window::getTitle() const {
-	return windowSettings.appName;
+	return windowSettings.title;
 }
 
 void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -116,24 +169,31 @@ WindowSettings& Window::getSetting() {
 
 void Window::updateWindow() {
 	setFullscreen(windowSettings.isFullscreen);
+	setTitle(windowSettings.title);
+	setMajorVersion(windowSettings.majorVersion);
+	setMinorVersion(windowSettings.minorVersion);
+	setAntialiasingLevel(windowSettings.antialiasingLevel);
+	setDepthBits(windowSettings.depthBits);
+	setStencilBits(windowSettings.stencilBits);
 }
 
 void Window::create() {
 	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, windowSettings.majorVersion);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, windowSettings.minorVersion);
+	setMajorVersion(windowSettings.majorVersion);
+	setMinorVersion(windowSettings.minorVersion);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	setAntialiasingLevel(windowSettings.antialiasingLevel);
+	setDepthBits(windowSettings.depthBits);
+	setStencilBits(windowSettings.stencilBits);
 
 	window = std::unique_ptr<GLFWwindow, DestroyGLFW>(glfwCreateWindow(
 		windowSettings.size.x, windowSettings.size.y, 
-		windowSettings.appName.c_str(), NULL, NULL));
+		windowSettings.title.c_str(), NULL, NULL));
 
 
 	glfwMakeContextCurrent(window.get());
 	glfwSwapInterval(1); //vsync
-	glfwWindowHint(GLFW_REFRESH_RATE, 60);
-
-	
+	setRefreshRate(windowSettings.refreshRate);
 
 	if (!window) {
 		glfwTerminate();
@@ -146,16 +206,18 @@ void Window::create() {
 		position.y = y;
 	}
 
+	setFullscreen(windowSettings.isFullscreen);
+
+	//TODO mode to service
 	INPUT::GamepadManager::Instance();
 
 	glfwSetErrorCallback(glfwErrorCallback);
 	glfwSetKeyCallback(window.get(), [](GLFWwindow* window, int key, int scancode, int action, int mods) {
-		ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().keyEvent.run(window, key, scancode, action, mods);
 		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().keyCallback(window, key, scancode, action, mods);
 	});
-	
 	glfwSetMouseButtonCallback(window.get(), [](GLFWwindow* window, int button, int action, int mods) {
-		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().mouseButtonEvent.run(window, button, action, mods);
 		RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().mouseCallback(window, button, action, mods);
 	});
 	glfwSetWindowCloseCallback(window.get(), [](GLFWwindow* window) {
@@ -163,21 +225,16 @@ void Window::create() {
 	});
 }
 
-void Window::update() {
-	INPUT::GamepadManager::Instance().update([this](INPUT::Gamepad::GamepadData& data) {
+void Window::pollEvent() {
+	glfwPollEvents();
+	INPUT::GamepadManager::Instance().update([this](const INPUT::Gamepad::GamepadData& data) {
 		gamepadEvent.run(data);
 	});
 }
 
-
-void Window::pollEvent() {
-	glfwPollEvents();
-}
-
-void Window::draw() {
+void Window::draw() const {
 	if (!glfwWindowShouldClose(window.get())) {
 		glfwSwapBuffers(window.get());
-		//glfwPollEvents();
 	}
 }
 
@@ -185,7 +242,7 @@ GLFWwindow& Window::getContext() const {
 	return *window;
 }
 
-MATHGL::Vector2i Window::getMousePos() {
+MATHGL::Vector2i Window::getMousePos() const {
 	double x, y;
 	glfwGetCursorPos(window.get(), &x, &y);
 	return MATHGL::Vector2i(static_cast<unsigned>(x), static_cast<unsigned>(y));
@@ -195,4 +252,10 @@ MATHGL::Vector2u Window::getSize() const {
 	auto height = 0;
 	glfwGetWindowSize(window.get(), &width, &height);
 	return MATHGL::Vector2u(width, height);
+}
+
+MATHGL::Vector2i Window::getPosition() const {
+	int x, y;
+	glfwGetWindowPos(window.get(), &x, &y);
+	return MATHGL::Vector2i(x, y);
 }

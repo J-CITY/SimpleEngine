@@ -7,15 +7,12 @@
 
 #include "../utils/event.h"
 #include "../utils/gamepad/gamepad.h"
-#include "../resourceManager/serializerInterface.h"
 #include "serdepp/include/serdepp/utility.hpp"
 
-namespace KUMA
-{
-	namespace DEBUG
-	{
-		class DebugRender;
-	}
+import glmath;
+
+namespace KUMA::DEBUG {
+	class DebugRender;
 }
 
 namespace KUMA::CORE_SYSTEM {
@@ -30,7 +27,7 @@ namespace KUMA::WINDOW_SYSTEM {
 		int antialiasingLevel = 4;
 		int majorVersion = 4;
 		int minorVersion = 3;
-		std::string appName;
+		std::string title;
 		MATHGL::Vector2u size = MATHGL::Vector2u(800, 600);
 		int refreshRate = 60;
 
@@ -41,52 +38,58 @@ namespace KUMA::WINDOW_SYSTEM {
 			(&Self::antialiasingLevel, "antialiasingLevel")
 			(&Self::majorVersion, "majorVersion")
 			(&Self::minorVersion, "minorVersion")
-			(&Self::appName, "appName")
+			(&Self::title, "title")
 			(&Self::size, "size")
 			(&Self::refreshRate, "refreshRate")
 		)
 	};
-	
 
 	class Window {
 		friend DEBUG::DebugRender;
 	public:
 		EVENT::Event<int> keyPressedEvent;
 		EVENT::Event<int> keyReleasedEvent;
+		EVENT::Event<GLFWwindow*, int, int, int, int> keyEvent;
 		EVENT::Event<int> mouseButtonPressedEvent;
 		EVENT::Event<int> mouseButtonReleasedEvent;
+		EVENT::Event<GLFWwindow*, int, int, int> mouseButtonEvent;
 		EVENT::Event<INPUT::Gamepad::GamepadData> gamepadEvent;
 		
 		explicit Window(const WindowSettings& p_windowSettings);
 		Window() = delete;
 		~Window();
 
-		MATHGL::Vector2i getMousePos();
+		MATHGL::Vector2i getMousePos() const;
 		void setSize(unsigned int width, unsigned int height);
 		MATHGL::Vector2u getSize() const;
 		void setPosition(int x, int y);
-		
+		MATHGL::Vector2i getPosition() const;
+		void setTitle(const std::string& title);
+		[[nodiscard]] std::string getTitle() const;
+		void setDepthBits(int val);
+		[[nodiscard]] int getDepathBits() const;
+		void setStencilBits(int val);
+		[[nodiscard]] int getStencilBits() const;
+		void setMajorVersion(int val);
+		[[nodiscard]] int getMajorVersion() const;
+		void setMinorVersion(int val);
+		[[nodiscard]] int getMinorVersion() const;
+		void setAntialiasingLevel(int val);
+		[[nodiscard]] int getAntialiasingLevel() const;
+		void setRefreshRate(int val);
+		[[nodiscard]] int getRefreshRate() const;
+		void setFullscreen(bool val);
+		[[nodiscard]] bool getIsFullscreen() const;
+		void toggleFullscreen();
+
 		void hide() const;
 		void show() const;
-
 		void focus() const;
 		[[nodiscard]] bool hasFocus() const;
-
-		void setTitle(const std::string& p_title);
-		[[nodiscard]] std::string getTitle() const;
-
-		void setFullscreen(bool val);
-		void toggleFullscreen();
-		[[nodiscard]] bool getIsFullscreen() const;
-		void update();
-
 		void pollEvent();
-		void draw();
-
+		void draw() const;
 		[[nodiscard]] GLFWwindow& getContext() const;
 		[[nodiscard]] bool isClosed() const;
-
-
 	private:
 		struct DestroyGLFW {
 			void operator()(GLFWwindow* ptr) const;
@@ -101,9 +104,7 @@ namespace KUMA::WINDOW_SYSTEM {
 
 		WindowSettings windowSettings;
 		std::unique_ptr<GLFWwindow, DestroyGLFW> window;
-		std::string winId;
-		
-		MATHGL::Vector2u position;
+		MATHGL::Vector2i position{};
 		bool isClose = false;
 	};
 }

@@ -9,7 +9,7 @@ namespace KUMA::INPUT {
 		static GamepadManager& Instance();
 
 		void initialize();
-		void update(std::function<void(Gamepad::GamepadData&)> cb);
+		void update(std::function<void(const Gamepad::GamepadData&)> cb);
 	private:
 		GamepadManager();
 		~GamepadManager() = default;

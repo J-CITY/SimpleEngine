@@ -330,6 +330,13 @@ DebugRender::DebugRender() {
 	const char* glsl_version = "#version 330";
 	ImGui_ImplOpenGL3_Init(glsl_version);
 
+
+	RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().keyEvent.add([](GLFWwindow* window, int key, int scancode, int action, int mods){
+		ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+	});
+	RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().mouseButtonEvent.add([](GLFWwindow* window, int button, int action, int mods) {
+		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+	});
 }
 
 DebugRender::~DebugRender() {

@@ -22,7 +22,7 @@ void GamepadManager::initialize() {
 	}
 }
 
-void GamepadManager::update(std::function<void(Gamepad::GamepadData&)> cb) {
+void GamepadManager::update(std::function<void(const Gamepad::GamepadData&)> cb) {
 	for (auto& g : gamepads) {
 		if (g.updateData()) {
 			cb(g.getData());
