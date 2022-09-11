@@ -5,5 +5,10 @@
 	"majorVersion": 4,
 	"minorVersion": 3,
 	"isFillscreen": false,
-	"appName": "The Game"
+	"title": "The Game",
+	"refreshRate": 60,
+	"size": {
+		"x": 800,
+		"y":  600
+	}
 }

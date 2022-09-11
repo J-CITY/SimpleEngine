@@ -22,7 +22,6 @@ void App::run() {
 		preUpdate();
 		update(TIME::Timer::GetInstance().getDeltaTime());
 		postUpdate();
-		core.window->update();
 		TIME::Timer::GetInstance().update();
 	}
 	
