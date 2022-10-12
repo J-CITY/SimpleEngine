@@ -84,7 +84,7 @@ namespace KUMA::ECS {
 	
 	class TransformComponent : public Component {
 	public:
-		TransformComponent(const Object& obj, 
+		TransformComponent(Ref<ECS::Object> obj,
 			KUMA::MATHGL::Vector3 localPosition = KUMA::MATHGL::Vector3(0.0f, 0.0f, 0.0f),
 			MATHGL::Quaternion localRotation = MATHGL::Quaternion::Identity, 
 			KUMA::MATHGL::Vector3 localScale = KUMA::MATHGL::Vector3(1.0f, 1.0f, 1.0f));

@@ -23,7 +23,7 @@ namespace KUMA::ECS{
 			{EFrustumBehaviour::CULL_CUSTOM, "CULL_CUSTOM"},
 		})
 
-		ModelRenderer(const ECS::Object& obj);
+		ModelRenderer(Ref<ECS::Object> obj);
 		void setModel(std::shared_ptr<RENDER::Model> model);
 		std::shared_ptr<RENDER::Model> getModel() const;
 		void setFrustumBehaviour(EFrustumBehaviour boundingMode);

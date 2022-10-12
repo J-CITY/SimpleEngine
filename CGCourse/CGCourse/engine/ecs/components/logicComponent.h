@@ -18,7 +18,7 @@ namespace KUMA::ECS {
 		std::function<void(std::chrono::duration<double>)> _onFixedUpdate = [](std::chrono::duration<double>) {};
 		std::function<void(std::chrono::duration<double>)> _onLateUpdate = [](std::chrono::duration<double>) {};
 	public:
-		LogicComponent(const ECS::Object& obj, std::function<void(float)> inputEventFun);
+		LogicComponent(Ref<ECS::Object> obj, std::function<void(float)> inputEventFun);
 
 		virtual void onAwake() override {
 			_onAwake();

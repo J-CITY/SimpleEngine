@@ -1,13 +1,12 @@
 #pragma once
 #include "lightComponent.h"
-#include "../../render/buffers/depthBuffer.h"
 
 namespace KUMA::ECS { class Object; }
 
 namespace KUMA::ECS {
 	class SpotLight : public LightComponent {
 	public:
-		SpotLight(const ECS::Object& obj);
+		SpotLight(Ref<ECS::Object> obj);
 		float getConstant() const;
 		float getLinear() const;
 		float getQuadratic() const;
@@ -55,7 +54,7 @@ namespace KUMA::ECS {
 		float distance = 0.0f;
 		float orthoBoxSize = 3000.0f;
 
-		const float angle = TO_RADIANS(90.0f);
+		static constexpr float angle = TO_RADIANS(90.0f);
 		float aspect = 1.0f;
 
 		float maxDistance = 1000.0f;

@@ -16,5 +16,7 @@ namespace KUMA::DEBUG {
 		~DebugRender();
 
 		void draw(CORE_SYSTEM::Core& core);
+	private:
+		void drawWindowWidget(CORE_SYSTEM::Core& core);
 	};
 }

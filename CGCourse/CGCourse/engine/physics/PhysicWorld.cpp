@@ -4,14 +4,17 @@
 
 #include "broadPhase.h"
 #include "narrowPhase.h"
+#include "../ecs/object.h"
 #include "../ecs/components/physicsComponent.h"
 
 using namespace KUMA;
 using namespace KUMA::PHYSICS;
 using namespace KUMA::MATHGL;
 
-static unsigned DetectCollisionObjectAndObject(std::shared_ptr<ECS::PhysicsComponent> lhs, std::shared_ptr<ECS::PhysicsComponent> rhs, CollisionData* data) {
-    assert(lhs && rhs && data);
+static unsigned DetectCollisionObjectAndObject(std::shared_ptr<ECS::Object> _lhs, std::shared_ptr<ECS::Object> _rhs, CollisionData* data) {
+    assert(_lhs && _rhs && data);
+    auto lhs = _lhs->getComponent<ECS::PhysicsComponent>().value();
+    auto rhs = _rhs->getComponent<ECS::PhysicsComponent>().value();
     ECS::CollisionType lhsType = lhs->collisionType;
     ECS::CollisionType rhsType = rhs->collisionType;
 
@@ -82,8 +85,8 @@ void PhysicWorld::startFrame()
 
     for (auto& node : objects) {
         if (node.IsLeaf()) {
-            node.m_body->body->clearAccumulators();
-            node.m_body->body->calculateDerivedData();
+            node.m_body->getComponent<ECS::PhysicsComponent>().value()->body->clearAccumulators();
+            node.m_body->getComponent<ECS::PhysicsComponent>().value()->body->calculateDerivedData();
         }
     }
 }
@@ -94,7 +97,7 @@ unsigned PhysicWorld::generateContacts() {
     cData.restitution = 0.1f;
     cData.tolerance = 0.1f;
 
-    PotentialContact<std::shared_ptr<ECS::PhysicsComponent>> candidate[MAX_CONTACTS * 8];
+    PotentialContact<std::shared_ptr<ECS::Object>> candidate[MAX_CONTACTS * 8];
     int nPotentialContact = objects.GetPotentialContacts(candidate, MAX_CONTACTS * 8);
     
     for (int i = 0; i < nPotentialContact; ++i) {
@@ -107,7 +110,8 @@ unsigned PhysicWorld::generateContacts() {
     	//}
     
     	// if collide between immovable object skip generate contacts
-    	if ((candidate[i].m_body[0]->body->getInverseMass() == 0) && (candidate[i].m_body[1]->body->getInverseMass() == 0)) {
+    	if ((candidate[i].m_body[0]->getComponent<ECS::PhysicsComponent>().value()->body->getInverseMass() == 0) && 
+            (candidate[i].m_body[1]->getComponent<ECS::PhysicsComponent>().value()->body->getInverseMass() == 0)) {
     		continue;
     	}
     	DetectCollisionObjectAndObject(candidate[i].m_body[0], candidate[i].m_body[1], &cData);
@@ -133,8 +137,7 @@ unsigned PhysicWorld::generateContacts() {
 }
 
 
-void PhysicWorld::runPhysics(float dt)
-{
+void PhysicWorld::runPhysics(float dt) {
 
     //for (auto box : bodiesCollide) {
     //    // Run the physics
@@ -145,10 +148,11 @@ void PhysicWorld::runPhysics(float dt)
     //std::vector<std::shared_ptr<ECS::PhysicsComponent>> dirtyBody;
     for (auto& node : objects) {
         if (node.IsLeaf()) {
-            if (node.m_body->body->integrate(dt) || node.m_body->GetDirty()) {
+            if (node.m_body->getComponent<ECS::PhysicsComponent>().value()->body->integrate(dt) || 
+                node.m_body->getComponent<ECS::PhysicsComponent>().value()->GetDirty()) {
                 //dirtyBody.push_back(node.m_body);
-                node.m_body->ResetDirty();
-                node.m_body->collider->calculateInternals();
+                node.m_body->getComponent<ECS::PhysicsComponent>().value()->ResetDirty();
+                node.m_body->getComponent<ECS::PhysicsComponent>().value()->collider->calculateInternals();
             }
         }
     }

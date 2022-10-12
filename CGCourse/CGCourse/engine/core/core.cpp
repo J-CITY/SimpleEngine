@@ -20,6 +20,17 @@
 
 import logger;
 
+namespace KUMA
+{
+	namespace ECS
+	{
+		class InputComponent;
+		class LogicComponent;
+		class AmbientSphereLight;
+		class AmbientLight;
+	}
+}
+
 using namespace KUMA;
 using namespace KUMA::CORE_SYSTEM;
 
@@ -43,6 +54,22 @@ Core::Core() {
 	physicsManger = std::make_unique<PHYSICS::PhysicWorld>(256);
 	taskManger = std::make_unique<TASK::TaskSystem>();
 	taskManger->setup();
+
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::TransformComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::AmbientLight>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::AmbientSphereLight>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::AudioComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::CameraComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::DirectionalLight>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::InputComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::LogicComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::MaterialRenderer>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::ModelRenderer>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::PointLight>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::ScriptComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::Skeletal>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::SpotLight>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::PhysicsComponent>();
 	
 	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(modelManager);
 	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(textureManager);

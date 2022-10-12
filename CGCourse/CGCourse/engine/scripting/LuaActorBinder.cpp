@@ -48,13 +48,13 @@ void KUMA::SCRIPTING::LuaActorBinder::BindActor(sol::state & p_luaState) {
 		"GetMaterialRenderer", &Object::getComponent<MaterialRenderer>,
 		
 		/* Behaviours relatives */
-		"GetBehaviour", [](Object& p_this, const std::string& p_name) -> sol::table {
-			auto behaviour = p_this.getScript(p_name);
-			if (behaviour)
-				return behaviour->getTable();
-			else
-				return sol::nil;
-		},
+		//"GetBehaviour", [](Object& p_this, const std::string& p_name) -> sol::table {
+		//	auto behaviour = p_this.getScript(p_name);
+		//	if (behaviour)
+		//		return behaviour->getTable();
+		//	else
+		//		return sol::nil;
+		//},
 
 		/* Components Creators */
 		"AddTransform", &Object::addComponent<TransformComponent>,
@@ -75,14 +75,14 @@ void KUMA::SCRIPTING::LuaActorBinder::BindActor(sol::state & p_luaState) {
 		"RemoveDirectionalLight", &Object::removeComponent<DirectionalLight>,
 		"RemoveAmbientBoxLight", &Object::removeComponent<AmbientLight>,
 		"RemoveAmbientSphereLight", &Object::removeComponent<AmbientSphereLight>,
-		"RemoveMaterialRenderer", &Object::removeComponent<MaterialRenderer>,
+		"RemoveMaterialRenderer", &Object::removeComponent<MaterialRenderer>//,
 		
 		/* Behaviour management */
-		"AddBehaviour", &Object::addScript,
-		"RemoveBehaviour", sol::overload
-		(
-			//sol::resolve<bool(ScriptComponent&)>(&Object::removeScript),
-			sol::resolve<bool(const std::string&)>(&Object::removeScript)
-		)
+		//"AddBehaviour", &Object::addScript,
+		//"RemoveBehaviour", sol::overload
+		//(
+		//	//sol::resolve<bool(ScriptComponent&)>(&Object::removeScript),
+		//	sol::resolve<bool(const std::string&)>(&Object::removeScript)
+		//)
 	);
 }

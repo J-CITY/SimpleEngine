@@ -11,7 +11,7 @@ namespace KUMA::ECS {
 		int blurAmount = 0;
 		float exposure = 1.0f;
 		
-		CameraComponent(const ECS::Object& obj);
+		CameraComponent(Ref<ECS::Object> obj);
 		~CameraComponent() = default;
 		void ResizeRenderTexture(size_t w, size_t h);
 		void setFov(float value);

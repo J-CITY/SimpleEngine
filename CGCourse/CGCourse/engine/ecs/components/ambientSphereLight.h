@@ -7,7 +7,7 @@ namespace KUMA::ECS { class Object; }
 namespace KUMA::ECS {
 	class AmbientSphereLight : public LightComponent {
 	public:
-		AmbientSphereLight(ECS::Object& p_owner);
+		AmbientSphereLight(Ref<ECS::Object> p_owner);
 
 		float getRadius() const;
 		void setRadius(float p_radius);

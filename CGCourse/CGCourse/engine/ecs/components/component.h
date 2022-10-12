@@ -4,13 +4,14 @@
 #include <string>
 
 #include "../../resourceManager/serializerInterface.h"
+#include "../../utils/pointers/objPtr.h"
 
 namespace KUMA::ECS { class Object; }
 
 namespace KUMA::ECS {
 	class Component: public RESOURCES::Serializable {
 	public:
-		Component(const ECS::Object& obj);
+		Component(Ref<ECS::Object> obj);
 		virtual ~Component();
 
 		virtual void onAwake() {}
@@ -29,7 +30,8 @@ namespace KUMA::ECS {
 
 		const ECS::Object& getObject();
 
-		const ECS::Object& obj;
+		//make it private
+		Ref<ECS::Object> obj;
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 		}

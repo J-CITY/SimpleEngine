@@ -1,14 +1,11 @@
 #include "meshGenerator.h"
 #include "../resourceManager/textureManager.h"
 #include "../render/model.h"
-
 #include <iostream>
 
 import logger;
 
-
 using namespace KUMA;
-
 
 std::shared_ptr<RENDER::Model> MeshGenerator::createTerrainFromHeightmap(const std::string& fileName) {
 	std::shared_ptr<RENDER::Model> model = std::make_shared<RENDER::Model>("");

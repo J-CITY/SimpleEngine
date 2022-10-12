@@ -2,7 +2,7 @@
 
 using namespace KUMA::ECS;
 
-AmbientSphereLight::AmbientSphereLight(ECS::Object& obj): LightComponent(obj) {
+AmbientSphereLight::AmbientSphereLight(Ref<ECS::Object> obj): LightComponent(obj) {
 	__NAME__ = "AmbientSphereLight";
 	data.type = RENDER::Light::Type::AMBIENT_SPHERE;
 	data.color = { 0.1f, 0.1f, 0.1f };

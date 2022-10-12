@@ -3,8 +3,8 @@
 
 using namespace KUMA::ECS;
 
-LightComponent::LightComponent(const ECS::Object& obj): Component(obj),
-	data(obj.transform->getTransform()) {
+LightComponent::LightComponent(Ref<ECS::Object> obj): Component(obj),
+	data(obj->getTransform()->getTransform()) {
 }
 
 const KUMA::RENDER::Light& LightComponent::getData() const {

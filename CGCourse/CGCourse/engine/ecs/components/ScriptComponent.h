@@ -4,6 +4,7 @@
 
 #include "component.h"
 #include "../../utils/event.h"
+#include "../../utils/pointers/objPtr.h"
 
 import logger;
 
@@ -12,7 +13,7 @@ namespace KUMA::ECS { class Object; }
 namespace KUMA::ECS {
 	class ScriptComponent : public Component {
 	public:
-		ScriptComponent(const ECS::Object& obj, const std::string& name);
+		ScriptComponent(Ref<ECS::Object> obj, const std::string& name);
 
 		~ScriptComponent();
 		bool registerToLuaContext(sol::state& luaState, const std::string& scriptFolder);
@@ -29,8 +30,8 @@ namespace KUMA::ECS {
 		virtual void onFixedUpdate(std::chrono::duration<double> dt) override;
 		virtual void onLateUpdate(std::chrono::duration<double> dt) override;
 
-		static KUMA::EVENT::Event<std::shared_ptr<KUMA::ECS::ScriptComponent>> createdEvent;
-		static KUMA::EVENT::Event<std::shared_ptr<KUMA::ECS::ScriptComponent>> destroyedEvent;
+		static KUMA::EVENT::Event<object_ptr<KUMA::ECS::ScriptComponent>> createdEvent;
+		static KUMA::EVENT::Event<object_ptr<KUMA::ECS::ScriptComponent>> destroyedEvent;
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			name = j["data"]["name"];

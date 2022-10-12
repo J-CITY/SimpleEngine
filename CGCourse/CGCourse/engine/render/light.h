@@ -22,7 +22,7 @@ namespace KUMA {
 		struct Light {
 			enum class Type { NONE, POINT, DIRECTIONAL, SPOT, AMBIENT_BOX, AMBIENT_SPHERE, INPUT };
 
-			Light(ECS::Transform& p_tranform, Type p_type = Type::NONE);
+			Light(Ref<ECS::Transform> p_tranform, Type p_type = Type::NONE);
 			[[nodiscard]] LightOGL generateOGLStruct() const;
 			[[nodiscard]] float getEffectRange() const;
 			[[nodiscard]] const ECS::Transform& getTransform() const;
@@ -37,7 +37,7 @@ namespace KUMA {
 			Type type = Type::NONE;
 
 		protected:
-			ECS::Transform& transform;
+			Ref<ECS::Transform> transform;
 		};
 	}
 }

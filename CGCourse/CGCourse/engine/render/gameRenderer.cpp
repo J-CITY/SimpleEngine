@@ -693,7 +693,7 @@ void Renderer::renderSkybox() {
 	auto& currentScene = context.sceneManager->getCurrentScene();
 	auto& skyboxObj = currentScene.getSkybox();
 
-	auto skyboxMat = skyboxObj.getComponent<ECS::MaterialRenderer>()->getMaterials()[0];
+	auto skyboxMat = skyboxObj.getComponent<ECS::MaterialRenderer>().value()->getMaterials()[0];
 	skyboxMat->getShader()->bind();
 	GLint OldCullFaceMode;
 	glGetIntegerv(GL_CULL_FACE_MODE, &OldCullFaceMode);
@@ -702,12 +702,12 @@ void Renderer::renderSkybox() {
 	glCullFace(GL_FRONT);
 	glDepthFunc(GL_LEQUAL);
 
-	auto mainCameraComponent = currentScene.findMainCamera();
+	auto mainCameraComponent = currentScene.findMainCamera().value();
 	auto& camera = mainCameraComponent->getCamera();
 	auto v = camera.getViewMatrix();
 	auto p = camera.getProjectionMatrix();
 
-	auto pos = mainCameraComponent->obj.transform->getWorldPosition();
+	auto pos = mainCameraComponent->obj->getTransform()->getWorldPosition();
 	auto rot = MATHGL::Quaternion(MATHGL::Vector3(0, 0, 0));
 	auto scl = MATHGL::Vector3(1, 1, 1);
 
@@ -718,7 +718,7 @@ void Renderer::renderSkybox() {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, currentScene.getSkyboxTexture().getId());
 
-	auto mr = skyboxObj.getComponent<ECS::ModelRenderer>();
+	auto mr = skyboxObj.getComponent<ECS::ModelRenderer>().value();
 	auto mm = mr->getModel()->getMeshes();
 	for (auto m : mm)
 		draw(*m, PrimitiveMode::TRIANGLES, 1);
@@ -754,12 +754,12 @@ void Renderer::prepareTexturesForPostprocessing() {
 		drawDrawable(drawable, *shaderStorage["godRaysTexture"]);
 	}
 	shaderStorage["godRaysTexture"]->setUniformVec3("u_Color", MATHGL::Vector3(1.0f, 1.0f, 1.0f));
-	for (auto& light : ECS::ComponentManager::getInstance()->getAllDirectionalLights()) {
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
 		Drawable d;
 		d.mesh = sphere->meshes[0];
 		d.material = emptyMaterial;
 		d.material->getUniformsData()["u_UseBone"] = false;
-		d.world = light->obj.transform->getTransform().getWorldMatrix();
+		d.world = light.obj->getTransform()->getTransform().getWorldMatrix();
 		drawDrawable(d, *shaderStorage["godRaysTexture"]);
 	}
 	shaderStorage["godRaysTexture"]->unbind();
@@ -834,8 +834,8 @@ void Renderer::prepareBlurTexture() {
 }
 
 void Renderer::applyGoodRays() {
-	auto dirLights = ECS::ComponentManager::getInstance()->getAllDirectionalLights();
-	if (dirLights.size() > 0) {
+	auto& dirLights = *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>();
+	if (dirLights.getSize() > 0) {
 		swapBuffers[currentSwapBuffer].bind();
 
 		BaseRender::clear(true, true, false);
@@ -843,7 +843,7 @@ void Renderer::applyGoodRays() {
 		swapTextures[!currentSwapBuffer]->bind(0);
 		pipeline.godRays.godRaysTexture->bind(1);
 		shaderStorage["godRays"]->setUniformInt("u_UseGodRays", true);
-		shaderStorage["godRays"]->setUniformVec3("u_SunPos", dirLights[0]->obj.transform->getWorldPosition());
+		shaderStorage["godRays"]->setUniformVec3("u_SunPos", dirLights.begin()->obj->getTransform()->getWorldPosition());
 		renderQuad();
 		shaderStorage["godRays"]->unbind();
 
@@ -940,7 +940,7 @@ void Renderer::applyDepthOfField() {
 	pipeline.globalDepth->bind(1);
 	pipeline.noiseTexture->bind(2);
 	pipeline.blurTexture->bind(3);
-	shaderStorage["depthOfField"]->setUniformVec2("nearFar", MATHGL::Vector2{ mainCameraComponent->getNear(), mainCameraComponent->getFar() });
+	shaderStorage["depthOfField"]->setUniformVec2("nearFar", MATHGL::Vector2{ mainCameraComponent.value()->getNear(), mainCameraComponent.value()->getFar() });
 	shaderStorage["depthOfField"]->setUniformVec3("focusPoint", 
 		MATHGL::Vector3(400.0f, 300.0f, 0.0f));
 	renderQuad();
@@ -961,7 +961,7 @@ void Renderer::applyOutline() {
 
 	pipeline.globalDepth->bind(1);
 	pipeline.noiseTexture->bind(2);
-	shaderStorage["outline"]->setUniformVec2("nearFar", MATHGL::Vector2{ mainCameraComponent->getNear(), mainCameraComponent->getFar() });
+	shaderStorage["outline"]->setUniformVec2("nearFar", MATHGL::Vector2{ mainCameraComponent.value()->getNear(), mainCameraComponent.value()->getFar() });
 	shaderStorage["outline"]->setUniformVec2("gamma", MATHGL::Vector2{ 2.2f, 1.0f / 2.2f });
 	renderQuad();
 	shaderStorage["outline"]->unbind();
@@ -997,7 +997,7 @@ void Renderer::applyVolumetricLight() {
 	glBindTexture(GL_TEXTURE_2D, pipeline.dirLightsData[0].id);
 
 	auto& currentScene = context.sceneManager->getCurrentScene();
-	auto mainCameraComponent = currentScene.findMainCamera();
+	auto mainCameraComponent = currentScene.findMainCamera().value();
 	shaderStorage["volumetricLight"]->setUniformMat4("u_CameraTransformMatrix", mainCameraComponent->getCamera().getViewMatrix());
 	shaderStorage["volumetricLight"]->setUniformMat4("u_ShadowMapTransformMatrix", pipeline.dirLightsData[0].projMap);
 
@@ -1353,21 +1353,21 @@ void Renderer::renderScene() {
 		auto& currentScene = context.sceneManager->getCurrentScene();
 		//grass
 		auto grass = currentScene.findObjectByName("Grass");
-		auto m = grass->getComponent<KUMA::ECS::MaterialRenderer>();
+		auto m = grass->getComponent<KUMA::ECS::MaterialRenderer>().value();
 		m->getMaterials()[0]->getUniformsData()["fTimePassed"] = static_cast<float>(KUMA::TIME::Timer::GetInstance().getTimeSinceStart().count());
 
 		if (auto mainCameraComponent = currentScene.findMainCamera()) {
-			auto& camera = mainCameraComponent->getCamera();
-			if (mainCameraComponent->isFrustumLightCulling()) {
-				updateLightsInFrustum(currentScene, mainCameraComponent->getCamera().getFrustum());
+			auto& camera = mainCameraComponent.value()->getCamera();
+			if (mainCameraComponent.value()->isFrustumLightCulling()) {
+				updateLightsInFrustum(currentScene, mainCameraComponent.value()->getCamera().getFrustum());
 			}
 			else {
 				updateLights(currentScene);
 			}
 
 			auto [winWidth, winHeight] = context.window->getSize();
-			const auto& cameraPosition = mainCameraComponent->obj.transform->getWorldPosition();
-			const auto& cameraRotation = mainCameraComponent->obj.transform->getWorldRotation();
+			const auto& cameraPosition = mainCameraComponent.value()->obj->getTransform()->getWorldPosition();
+			const auto& cameraRotation = mainCameraComponent.value()->obj->getTransform()->getWorldRotation();
 			camera.cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
 
 			updateEngineUBO(*mainCameraComponent);
@@ -1458,7 +1458,7 @@ void Renderer::updateEngineUBO(ECS::CameraComponent& p_mainCamera) {
 	offset += sizeof(MATHGL::Matrix4);
 	engineUBO->setSubData(MATHGL::Matrix4::Transpose(camera.getProjectionMatrix()), offset);
 	offset += sizeof(MATHGL::Matrix4);
-	engineUBO->setSubData(p_mainCamera.obj.transform->getWorldPosition(), offset);
+	engineUBO->setSubData(p_mainCamera.obj->getTransform()->getWorldPosition(), offset);
 	offset += sizeof(MATHGL::Vector3);
 	offset += sizeof(float);
 	engineUBO->setSubData(RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize(), offset);
@@ -1511,8 +1511,8 @@ RENDER::UniformBuffer& Renderer::getUBO() const {
 
 void Renderer::prepareDirLightShadowMap() {
 	pipeline.dirLightsData.clear();
-	for (auto& light : ECS::ComponentManager::getInstance()->getAllDirectionalLights()) {
-		pipeline.depthMapFBO.attachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+		pipeline.depthMapFBO.attachTexture(*light.shadowMap, Attachment::DEPTH_ATTACHMENT);
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 		pipeline.depthMapFBO.unbind();
@@ -1520,10 +1520,10 @@ void Renderer::prepareDirLightShadowMap() {
 
 		float nearPlane = 1.0f, farPlane = 100.0f;
 		auto lightProjection = MATHGL::Matrix4::CreateOrthographic(-50.0f, 50.0f, -50.0f, 50.0f, nearPlane, farPlane);
-		auto lightView = MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
+		auto lightView = MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
 		auto lightSpaceMatrix = lightProjection * lightView;
 
-		pipeline.dirLightsData.push_back(DirLightData{light->shadowMap->getId(), lightSpaceMatrix, light->obj.transform->getWorldPosition()});
+		pipeline.dirLightsData.push_back(DirLightData{light.shadowMap->getId(), lightSpaceMatrix, light.obj->getTransform()->getWorldPosition()});
 
 		shaderStorage["simpleDepthShader"]->bind();
 		shaderStorage["simpleDepthShader"]->setUniformMat4("u_engine_LightSpaceMatrix", lightSpaceMatrix);
@@ -1548,8 +1548,8 @@ void Renderer::prepareDirLightShadowMap() {
 
 
 void Renderer::prepareSpotLightShadowMap() {
-	for (auto& light : ECS::ComponentManager::getInstance()->getAllSpotLights()) {
-		pipeline.depthMapFBO.attachTexture(*light->shadowMap, Attachment::DEPTH_ATTACHMENT);
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+		pipeline.depthMapFBO.attachTexture(*light.shadowMap, Attachment::DEPTH_ATTACHMENT);
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 		pipeline.depthMapFBO.unbind();
@@ -1558,11 +1558,11 @@ void Renderer::prepareSpotLightShadowMap() {
 		float nearPlane = 1.0f, farPlane = 100.0f;
 		auto res = getShadowMapResolution();
 		auto lightProjection = MATHGL::Matrix4::CreatePerspective(TO_RADIANS(45.0f), res.x / res.y, nearPlane, farPlane);
-		auto lightView = MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
+		auto lightView = MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
 
 		auto lightSpaceMatrix = lightProjection * lightView;
 
-		pipeline.spotLightData = SpotLightData{light->shadowMap->getId(), lightSpaceMatrix, light->obj.transform->getWorldPosition(), nearPlane, farPlane};
+		pipeline.spotLightData = SpotLightData{light.shadowMap->getId(), lightSpaceMatrix, light.obj->getTransform()->getWorldPosition(), nearPlane, farPlane};
 
 		// Рендеринг сцены глазами источника света
 		shaderStorage["simpleDepthShader"]->bind();
@@ -1587,9 +1587,9 @@ void Renderer::preparePointLightShadowMap() {
 	auto res = getShadowMapResolution();
 	pipeline.pointLightsData.size = 0;
 	pipeline.pointLightsData.farPlane = 25.0f;
-	for (auto& light : ECS::ComponentManager::getInstance()->getAllPointLights()) {
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::PointLight>()) {
 		//jjjjlight->DepthMap->LoadDepth(1024, 1024);
-		pipeline.depthMapFBO.attachCubeMap(*light->DepthMap, Attachment::DEPTH_ATTACHMENT);
+		pipeline.depthMapFBO.attachCubeMap(*light.DepthMap, Attachment::DEPTH_ATTACHMENT);
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 		pipeline.depthMapFBO.unbind();
@@ -1603,12 +1603,12 @@ void Renderer::preparePointLightShadowMap() {
 		float farPlane = 25.0f;
 		auto shadowProj = MATHGL::Matrix4::CreatePerspective(TO_RADIANS(90.0f), res.x / res.y, nearPlane, farPlane);
 		std::vector<MATHGL::Matrix4> shadowTransforms;
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), light->obj.transform->getWorldPosition() + MATHGL::Vector3(1.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), light->obj.transform->getWorldPosition() + MATHGL::Vector3(-1.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), light->obj.transform->getWorldPosition() + MATHGL::Vector3(0.0f, 1.0f, 0.0f), MATHGL::Vector3(0.0f, 0.0f, 1.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), light->obj.transform->getWorldPosition() + MATHGL::Vector3(0.0f, -1.0f, 0.0f), MATHGL::Vector3(0.0f, 0.0f, -1.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), light->obj.transform->getWorldPosition() + MATHGL::Vector3(0.0f, 0.0f, 1.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light->obj.transform->getWorldPosition(), light->obj.transform->getWorldPosition() + MATHGL::Vector3(0.0f, 0.0f, -1.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), light.obj->getTransform()->getWorldPosition() + MATHGL::Vector3(1.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), light.obj->getTransform()->getWorldPosition() + MATHGL::Vector3(-1.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), light.obj->getTransform()->getWorldPosition() + MATHGL::Vector3(0.0f, 1.0f, 0.0f), MATHGL::Vector3(0.0f, 0.0f, 1.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), light.obj->getTransform()->getWorldPosition() + MATHGL::Vector3(0.0f, -1.0f, 0.0f), MATHGL::Vector3(0.0f, 0.0f, -1.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), light.obj->getTransform()->getWorldPosition() + MATHGL::Vector3(0.0f, 0.0f, 1.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), light.obj->getTransform()->getWorldPosition() + MATHGL::Vector3(0.0f, 0.0f, -1.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
 
 
 		//pipeline.depthMapFBO.bind();
@@ -1618,7 +1618,7 @@ void Renderer::preparePointLightShadowMap() {
 			shaderStorage["pointShadowShader"]->setUniformMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
 		}
 		shaderStorage["pointShadowShader"]->setUniformFloat("far_plane", farPlane);
-		shaderStorage["pointShadowShader"]->setUniformVec3("lightPos", light->obj.transform->getLocalPosition());
+		shaderStorage["pointShadowShader"]->setUniformVec3("lightPos", light.obj->getTransform()->getLocalPosition());
 
 		shaderStorage["pointShadowShader"]->unbind();
 		//renderScene(shaderStorage["pointShadowShader"]);
@@ -1653,7 +1653,7 @@ void Renderer::preparePointLightShadowMap() {
 			//drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shaderStorage["pointShadowShader"]);
 		}
 		
-		pipeline.pointLightsData.data[pipeline.pointLightsData.size] = PointInfo{light->obj.transform->getWorldPosition(), light->DepthMap->getId()};
+		pipeline.pointLightsData.data[pipeline.pointLightsData.size] = PointInfo{light.obj->getTransform()->getWorldPosition(), light.DepthMap->getId()};
 		pipeline.pointLightsData.size++;
 		if (pipeline.pointLightsData.size == 4) {
 			pipeline.depthMapFBO.unbind();
@@ -1711,9 +1711,9 @@ void Renderer::renderDirShadowMap() {
 		if (drawable.material->getUniformsData().count("castShadow") && !std::get<bool>(drawable.material->getUniformsData()["castShadow"])) {
 			continue;
 		}
-		//if (drawable.animator) {
+		if (drawable.animator) {
 			sendBounseDataToShader(*drawable.material, *drawable.animator, *shaderStorage["simpleDepthShader"]);
-		//}
+		}
 		drawMeshWithShader(*drawable.mesh, *drawable.material, drawable.world, *shaderStorage["simpleDepthShader"]);
 		//drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shaderStorage["simpleDepthShader"]);
 	}
@@ -1724,9 +1724,9 @@ void Renderer::renderDirShadowMap() {
 		if (drawable.material->getUniformsData().count("castShadow") && !std::get<bool>(drawable.material->getUniformsData()["castShadow"])) {
 			continue;
 		}
-		//if (drawable.animator) {
+		if (drawable.animator) {
 			sendBounseDataToShader(*drawable.material, *drawable.animator, *shaderStorage["simpleDepthShader"]);
-		//}
+		}
 		drawMeshWithShader(*drawable.mesh, *drawable.material, drawable.world, *shaderStorage["simpleDepthShader"]);
 		//drawDirShadowMap(*drawable.mesh, *drawable.material, &drawable.world, shaderStorage["simpleDepthShader"]);
 	}

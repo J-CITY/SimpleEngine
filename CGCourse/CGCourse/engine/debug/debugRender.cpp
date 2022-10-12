@@ -302,6 +302,15 @@ bool buildWidget(T& data) {
 	return go(info, data);
 }
 
+struct DebugConfig {
+	enum class WidgetType {
+		WINDOW = 0
+	};
+
+	static bool check(WidgetType t) { return conf[static_cast<int>(t)]; }
+	inline static std::bitset<10> conf;
+};
+
 DebugRender::DebugRender() {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -343,6 +352,17 @@ DebugRender::~DebugRender() {
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
+}
+
+void DebugRender::drawWindowWidget(CORE_SYSTEM::Core& core) {
+	if (DebugConfig::check(DebugConfig::WidgetType::WINDOW)) {
+		ImGui::Begin("Window Config");
+		auto b = buildWidget(core.window->getSetting());
+		if (b) {
+			core.window->updateWindow();
+		}
+		ImGui::End();
+	}
 }
 
 void DebugRender::draw(CORE_SYSTEM::Core& core) {
@@ -462,14 +482,7 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 		}
 		ImGui::End();
 	}
-	{//Debug
-		ImGui::Begin("Window Config");
-		auto b = buildWidget(core.window->getSetting());
-		if (b) {
-			core.window->updateWindow();
-		}
-		ImGui::End();
-	}
+	drawWindowWidget(core);
 	{
 		drawNodeTree(core);
 		drawNodeTreeGui(core);

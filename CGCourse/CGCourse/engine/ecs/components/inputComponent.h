@@ -11,7 +11,7 @@ namespace KUMA::ECS {
 		bool isActive = true;
 		std::function<void(std::chrono::duration<double>)> inputEventFun;
 	public:
-		InputComponent(const ECS::Object& obj, std::function<void(std::chrono::duration<double>)> inputEventFun);
+		InputComponent(Ref<ECS::Object> obj, std::function<void(std::chrono::duration<double>)> inputEventFun);
 		void setActive(bool val) {
 			isActive = val;
 		}

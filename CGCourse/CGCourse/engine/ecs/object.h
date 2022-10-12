@@ -10,6 +10,7 @@
 #include "../scripting/scriptInterpreter.h"
 #include "../utils/idObject.h"
 #include "../utils/event.h"
+#include "../utils/pointers/objPtr.h"
 
 //TODO: можно убрать компоненты и хратить только в ECS
 
@@ -66,30 +67,51 @@ namespace KUMA::ECS {
 		void onLateUpdate(std::chrono::duration<double> dt);
 
 		//TODO: refactor to addComponent
-		std::shared_ptr<ScriptComponent> addScript(const std::string& name);
-		bool removeScript(std::shared_ptr<ScriptComponent> script);
-		bool removeScript(const std::string& name);
-		std::shared_ptr<ScriptComponent> getScript(const std::string& name);
-		std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>& getScripts();
+		//std::shared_ptr<ScriptComponent> addScript(const std::string& name);
+		//bool removeScript(std::shared_ptr<ScriptComponent> script);
+		//bool removeScript(const std::string& name);
+		//std::shared_ptr<ScriptComponent> getScript(const std::string& name);
+		//std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>& getScripts();
     	
     	template<typename T, typename ...Args>
-		inline std::shared_ptr<T> addComponent(Args&& ...args) {
+		inline Ref<T> addComponent(Args&& ...args) {
 			static_assert(std::is_base_of<Component, T>::value, "T should derive from Component");
-    		static_assert(!std::is_same<ScriptComponent, T>::value, "Use addScript()");
+    		//static_assert(!std::is_same<ScriptComponent, T>::value, "Use addScript()");
 
-			if (auto found = getComponent<T>(); !found) {
-				components.insert(components.begin(), std::make_shared<T>(*this, args...));
-				std::shared_ptr<T> instance = std::dynamic_pointer_cast<T>(components.front());
-				componentAddedEvent.run(instance);
+			if (auto& found = getComponent<T>(); !found) {
+				auto instance = T(*this, args...);
+				componentAddedEvent.run(&instance);
 				if (getIsActive()) {
-					instance->onEnable();
-					instance->onStart();
+					instance.onAwake();
+					instance.onEnable();
+					instance.onStart();
 				}
-				ComponentManager::getInstance()->addComponent<T>(getID(), instance);
-				return instance;
+				ComponentManager::getInstance()->addComponent<T>(getID(), std::move(instance));
+				//components.push_back(getComponent<T>().value());
+				return getComponent<T>().value();
 			}
 			else {
-				return found;
+				return found.value();
+			}
+		}
+
+		template<>
+		inline Ref<ScriptComponent> addComponent<ScriptComponent>(const std::string& name) {
+			if (auto found = getComponent<ScriptComponent>(); !found) {
+				auto instance = ScriptComponent(*this, name);
+				ScriptComponent::createdEvent.run(&instance);
+				componentAddedEvent.run(&instance);
+				if (getIsActive()) {
+					instance.onAwake();
+					instance.onEnable();
+					instance.onStart();
+				}
+				ComponentManager::getInstance()->addComponent<ScriptComponent>(getID(), instance);
+				//components.push_back(getComponent<ScriptComponent>().value());
+				return getComponent<ScriptComponent>().value();
+			}
+			else {
+				return found.value();
 			}
 		}
 
@@ -98,56 +120,86 @@ namespace KUMA::ECS {
 			static_assert(std::is_base_of<Component, T>::value, "T should derive from Component");
 			static_assert(!std::is_same<TransformComponent, T>::value, "You can't remove a Transform from an actor");
 
-			std::shared_ptr<T> result(nullptr);
-
-			for (auto it = components.begin(); it != components.end(); ++it) {
-				result = std::dynamic_pointer_cast<T>(*it);
-				if (result) {
-					componentRemovedEvent.run(result);
-					components.erase(it);
-					ComponentManager::getInstance()->removeComponents<T>(getID());
-					return true;
-				}
+			auto result = getComponent<T>();
+			if (!result) {
+				return false;
 			}
+			componentRemovedEvent.run(result.value().getPtr());
+			ComponentManager::getInstance()->removeComponent<T>(getID());
 
-			return false;
+			//T* result = nullptr;
+			//for (auto it = components.begin(); it != components.end(); ++it) {
+			//	result = dynamic_cast<T>(&(*it).get());
+			//	if (result != nullptr) {
+			//		componentRemovedEvent.run(*result);
+			//		components.erase(it);
+			//		ComponentManager::getInstance()->removeComponent<T>(getID());
+			//		return true;
+			//	}
+			//}
+			return true;
 		}
 
 		template<>
 		inline bool removeComponent<ScriptComponent>() {
-			if (ComponentManager::getInstance()->scriptComponents.count(id)) {
-				ComponentManager::getInstance()->removeComponents<ScriptComponent>(getID());
-				return true;
+
+			auto result = getComponent<ScriptComponent>();
+			if (!result) {
+				return false;
 			}
-			return false;
+			ScriptComponent::destroyedEvent.run(result.value().getPtr());
+			componentRemovedEvent.run(result.value().getPtr());
+			ComponentManager::getInstance()->removeComponent<ScriptComponent>(getID());
+
+			//ScriptComponent* result = nullptr;
+			//for (auto it = components.begin(); it != components.end(); ++it) {
+			//	result = dynamic_cast<ScriptComponent*>(&(*it).get());
+			//	if (result != nullptr) {
+			//		componentRemovedEvent.run(*result);
+			//		ScriptComponent::destroyedEvent.run(*result);
+			//		components.erase(it);
+			//		ComponentManager::getInstance()->removeComponent<ScriptComponent>(getID());
+			//		return true;
+			//	}
+			//}
+			return true;
 		}
 
+		//template<>
+		//inline bool removeComponent<ScriptComponent>() {
+		//	if (ComponentManager::getInstance()->scriptComponents.count(id)) {
+		//		ComponentManager::getInstance()->removeComponents<ScriptComponent>(getID());
+		//		return true;
+		//	}
+		//	return false;
+		//}
+
 		template<typename T>
-		inline std::shared_ptr<T> getComponent() const {
+		inline std::optional<Ref<T>> getComponent() const {
 			static_assert(std::is_base_of<Component, T>::value, "T should derive from Component");
-			static_assert(!std::is_same<ScriptComponent, T>::value, "Use getScripts()");
-			
-			std::shared_ptr<T> result(nullptr);
-			for (auto it = components.begin(); it != components.end(); ++it) {
-				result = std::dynamic_pointer_cast<T>(*it);
-				if (result) {
-					return result;
-				}
+			//static_assert(!std::is_same<ScriptComponent, T>::value, "Use getScripts()");
+
+			if (ComponentManager::getInstance()->checkComponent<T>(getID())) {
+				return ComponentManager::getInstance()->getComponent<T>(getID());
 			}
-			return nullptr;
+			return std::nullopt;
 		}
     	
-    	std::vector<std::shared_ptr<Component>>& getComponents();
+    	//std::vector<std::reference_wrapper<Component>>& getComponents();
 
 		virtual void onDeserialize(nlohmann::json& j) override;
 		virtual void onSerialize(nlohmann::json& j) override;
-    	
+
+
+		Ref<TransformComponent> getTransform() const {
+			return getComponent<TransformComponent>().value();
+		}
     private:
         void recursiveActiveUpdate();
 
     public:
-        EVENT::Event<std::shared_ptr<Component>>	componentAddedEvent;
-		EVENT::Event<std::shared_ptr<Component>>	componentRemovedEvent;
+        EVENT::Event<object_ptr<Component>>	componentAddedEvent;
+		EVENT::Event<object_ptr<Component>>	componentRemovedEvent;
 
         static EVENT::Event<Object&>				destroyedEvent;
         static EVENT::Event<Object&>				createdEvent;
@@ -164,8 +216,8 @@ namespace KUMA::ECS {
 
     	std::weak_ptr<Object> parent;
         std::vector<std::shared_ptr<Object>> children;
-        std::vector<std::shared_ptr<Component>> components;
+        //std::vector<std::reference_wrapper<Component>> components;
     public:
-        std::shared_ptr<TransformComponent> transform;
+        //Ref<TransformComponent> transform;
     };
 };

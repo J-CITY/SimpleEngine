@@ -13,7 +13,7 @@ namespace KUMA::ECS {
 	class LightComponent : public Component
 	{
 	public:
-		LightComponent(const ECS::Object& obj);
+		LightComponent(Ref<ECS::Object> obj);
 		const RENDER::Light& getData() const;
 		const MATHGL::Vector3& getColor() const;
 		float getIntensity() const;

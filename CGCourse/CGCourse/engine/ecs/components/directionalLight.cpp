@@ -4,7 +4,7 @@
 
 using namespace KUMA::ECS;
 
-DirectionalLight::DirectionalLight(const ECS::Object& obj) : LightComponent(obj) {
+DirectionalLight::DirectionalLight(Ref<ECS::Object> obj) : LightComponent(obj) {
 	__NAME__ = "DirectionalLight";
 	data.type = RENDER::Light::Type::DIRECTIONAL;
 
@@ -27,7 +27,7 @@ KUMA::MATHGL::Matrix4 DirectionalLight::GetMatrix(const KUMA::MATHGL::Vector3& c
     };
 
     MATHGL::Matrix4 LightView = MATHGL::Matrix4::CreateView(
-        KUMA::MATHGL::Vector3::Normalize(obj.transform->getWorldForward()),
+        KUMA::MATHGL::Vector3::Normalize(obj.get().getTransform()->getWorldForward()),
         KUMA::MATHGL::Vector3(0.0f, 0.0f, 0.0f),
         KUMA::MATHGL::Vector3(0.001f, 1.0f, 0.001f)
     );

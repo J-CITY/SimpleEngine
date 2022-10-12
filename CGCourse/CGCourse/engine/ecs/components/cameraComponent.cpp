@@ -5,7 +5,7 @@ import glmath;
 
 using namespace KUMA::ECS;
 
-CameraComponent::CameraComponent(const Object& obj): Component(obj) {
+CameraComponent::CameraComponent(Ref<ECS::Object> obj): Component(obj) {
 	__NAME__ = "Camera";
 
 	//renderBuffers = std::make_unique<CameraRender>();

@@ -3,7 +3,7 @@
 
 using namespace KUMA::ECS;
 
-KUMA::ECS::Component::Component(const KUMA::ECS::Object& obj): obj(obj) {}
+KUMA::ECS::Component::Component(Ref<ECS::Object> obj): obj(obj) {}
 
 KUMA::ECS::Component::~Component() {
 	onDisable();
