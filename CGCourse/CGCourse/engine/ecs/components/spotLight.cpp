@@ -4,7 +4,7 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-SpotLight::SpotLight(const ECS::Object& obj) : LightComponent(obj) {
+SpotLight::SpotLight(Ref<ECS::Object> obj) : LightComponent(obj) {
 	__NAME__ = "SpotLight";
 	data.type = RENDER::Light::Type::SPOT;
 	//bool initFBOFLag3 = dirShadowFBO.setupFrameBuffer(shadowRes, shadowRes, false);

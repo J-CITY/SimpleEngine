@@ -100,7 +100,7 @@ namespace KUMA::SCENE_SYSTEM {
 			std::shared_ptr<RENDER::Material> defaultMaterial
 		);
 
-		std::shared_ptr<ECS::CameraComponent> findMainCamera();
+		std::optional<Ref<KUMA::ECS::CameraComponent>> findMainCamera();
 		std::vector<RENDER::LightOGL> findLightData();
 		std::vector<RENDER::LightOGL> findLightDataInFrustum(const RENDER::Frustum& frustum);
 

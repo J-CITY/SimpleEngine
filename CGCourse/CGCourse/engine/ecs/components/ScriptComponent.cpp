@@ -6,10 +6,10 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-EVENT::Event<std::shared_ptr<KUMA::ECS::ScriptComponent>> ScriptComponent::createdEvent;
-EVENT::Event<std::shared_ptr<KUMA::ECS::ScriptComponent>> ScriptComponent::destroyedEvent;
+EVENT::Event<object_ptr<KUMA::ECS::ScriptComponent>> ScriptComponent::destroyedEvent;
+EVENT::Event<object_ptr<KUMA::ECS::ScriptComponent>> ScriptComponent::createdEvent;
 
-ScriptComponent::ScriptComponent(const ECS::Object& obj, const std::string& name) :
+ScriptComponent::ScriptComponent(Ref<ECS::Object> obj, const std::string& name) :
 	name(name), Component(obj) {
 	__NAME__ = "ScriptComponent";
 }

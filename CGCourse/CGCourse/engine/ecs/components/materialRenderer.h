@@ -16,7 +16,7 @@ namespace KUMA::ECS {
 		using MaterialList = std::array<std::shared_ptr<RENDER::Material>, MAX_MATERIAL_COUNT>;
 		using MaterialNames = std::array<std::string, MAX_MATERIAL_COUNT>;
 		
-		MaterialRenderer(const ECS::Object& obj);
+		MaterialRenderer(Ref<ECS::Object> obj);
 		void fillWithMaterial(std::shared_ptr<RENDER::Material> material);
 		void setMaterial(unsigned index, std::shared_ptr<RENDER::Material> material);
 		std::shared_ptr<RENDER::Material> GetMaterialAtIndex(unsigned index);

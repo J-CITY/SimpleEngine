@@ -20,7 +20,7 @@ namespace KUMA::ECS {
 	};
 	class PhysicsComponent : public Component {
 	public:
-		PhysicsComponent(const Object& obj): Component(obj) {
+		PhysicsComponent(Ref<ECS::Object> obj): Component(obj) {
 			
 		}
 		int GetDirty() const { return m_dirtyFlag; }

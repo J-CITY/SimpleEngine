@@ -25,8 +25,9 @@ EVENT::Event<Object&> Object::dettachEvent;
 Object::Object(ObjectId<Object> actorID, const std::string& name, const std::string& tag) :
 	id(actorID),
 	name(name),
-	tag(tag),
-	transform(addComponent<TransformComponent>()) {
+	tag(tag)//,
+	/*transform(addComponent<TransformComponent>())*/ {
+	addComponent<TransformComponent>();
 	createdEvent.run(*this);
 }
 
@@ -47,11 +48,11 @@ Object::~Object() {
 	toDetach.clear();
 
 	detachFromParent();
-
-	std::for_each(components.begin(), components.end(), [&](std::shared_ptr<Component> p_component) {
-		componentRemovedEvent.run(p_component);
+	auto components = ComponentManager::getInstance()->getComponents(id);
+	std::for_each(components.begin(), components.end(), [&](Ref<Component> p_component) {
+		componentRemovedEvent.run(p_component.getPtr());
 	});
-	ComponentManager::getInstance()->removeAllObjectComponents(getID());
+	ComponentManager::getInstance()->entityDestroyed(getID());
 }
 
 const std::string& Object::getName() const {
@@ -98,7 +99,7 @@ void Object::setParent(std::shared_ptr<Object> _parent) {
 	detachFromParent();
 
 	parent = _parent;
-	transform->setParent(*_parent->transform);
+	getComponent<TransformComponent>().value()->setParent(_parent->getComponent<TransformComponent>().value().get());
 
 	_parent->children.push_back(shared_from_this());
 	attachEvent.run(*this, *_parent);
@@ -113,7 +114,7 @@ void Object::detachFromParent() {
 		}));
 	}
 
-	transform->removeParent();
+	getComponent<TransformComponent>().value().get().removeParent();
 }
 
 bool Object::hasParent() const {
@@ -148,46 +149,53 @@ bool Object::isAlive() const {
 
 void Object::onStart() {
 	isReady = true;
+	auto components = ComponentManager::getInstance()->getComponents(id);
 	std::for_each(components.begin(), components.end(), [](auto element) { element->onStart(); });
 }
 
 void Object::onEnable() {
+	auto components = ComponentManager::getInstance()->getComponents(id);
 	std::for_each(components.begin(), components.end(), [](auto element) { element->onEnable(); });
 	ComponentManager::getInstance()->enable(id);
 }
 
 void Object::onDisable() {
+	auto components = ComponentManager::getInstance()->getComponents(id);
 	std::for_each(components.begin(), components.end(), [](auto element) { element->onDisable(); });
 	ComponentManager::getInstance()->disable(id);
 }
 
 void Object::onDestroy() {
+	auto components = ComponentManager::getInstance()->getComponents(id);
 	std::for_each(components.begin(), components.end(), [](auto element) { element->onDestroy(); });
 }
 
 void Object::onUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
+		auto components = ComponentManager::getInstance()->getComponents(id);
 		std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
-		std::for_each(ComponentManager::getInstance()->scriptComponents[id].begin(),
-			ComponentManager::getInstance()->scriptComponents[id].end(), [&](auto element) { element.second->onUpdate(dt); });
+		//std::for_each(ComponentManager::getInstance()->scriptComponents[id].begin(),
+		//	ComponentManager::getInstance()->scriptComponents[id].end(), [&](auto element) { element.second->onUpdate(dt); });
 	}
 }
 
 void Object::onFixedUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
+		auto components = ComponentManager::getInstance()->getComponents(id);
 		std::for_each(components.begin(), components.end(), [&](auto element) { element->onFixedUpdate(dt); });
 	}
 }
 
 void Object::onLateUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
+		auto components = ComponentManager::getInstance()->getComponents(id);
 		std::for_each(components.begin(), components.end(), [&](auto element) { element->onLateUpdate(dt); });
 	}
 }
 
-std::vector<std::shared_ptr<Component>>& Object::getComponents() {
-	return components;
-}
+//std::vector<std::reference_wrapper<Component>>& Object::getComponents() {
+//	return components;
+//}
 
 void Object::recursiveActiveUpdate() {
 	bool isActive = getIsActive();
@@ -215,117 +223,117 @@ void Object::onDeserialize(nlohmann::json& j) {
 	isActive = j["isActive"];
 
 	for (auto& c : j["components"]) {
-		if (c["type"] == "Transform") {
-			auto _c = addComponent<TransformComponent>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "SpotLight") {
-			auto _c = addComponent<SpotLight>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "ScriptComponent") {
-			auto _c = addScript(c["data"]["name"]);
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "PointLight") {
-			auto _c = addComponent<PointLight>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "ModelRenderer") {
-			auto _c = addComponent<ModelRenderer>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "MaterialRenderer") {
-			auto _c = addComponent<MaterialRenderer>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "Input") {
-			auto _c = addComponent<InputComponent>([](std::chrono::duration<double>){});
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "DirectionalLight") {
-			auto _c = addComponent<DirectionalLight>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "Camera") {
-			auto _c = addComponent<CameraComponent>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "AmbientSphereLight") {
-			auto _c = addComponent<AmbientSphereLight>();
-			_c->onDeserialize(c);
-		}
-		else if (c["type"] == "AmbientLight") {
-			auto _c = addComponent<AmbientLight>();
-			_c->onDeserialize(c);
-		}
+		//if (c["type"] == "Transform") {
+		//	auto _c = addComponent<TransformComponent>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "SpotLight") {
+		//	auto _c = addComponent<SpotLight>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "ScriptComponent") {
+		//	auto _c = addScript(c["data"]["name"]);
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "PointLight") {
+		//	auto _c = addComponent<PointLight>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "ModelRenderer") {
+		//	auto _c = addComponent<ModelRenderer>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "MaterialRenderer") {
+		//	auto _c = addComponent<MaterialRenderer>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "Input") {
+		//	auto _c = addComponent<InputComponent>([](std::chrono::duration<double>){});
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "DirectionalLight") {
+		//	auto _c = addComponent<DirectionalLight>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "Camera") {
+		//	auto _c = addComponent<CameraComponent>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "AmbientSphereLight") {
+		//	auto _c = addComponent<AmbientSphereLight>();
+		//	_c->onDeserialize(c);
+		//}
+		//else if (c["type"] == "AmbientLight") {
+		//	auto _c = addComponent<AmbientLight>();
+		//	_c->onDeserialize(c);
+		//}
 	}
 }
 void Object::onSerialize(nlohmann::json& j) {
-	nlohmann::json oj;
-	oj["name"] = name;
-	oj["tag"] = tag;
-	oj["id"] = id.operator int();
-	oj["isActive"] = isActive;
-	auto _parent = parent.lock();
-	oj["parent"] = _parent ? _parent->getID().operator int() : -1;
-
-	for (auto& c : components) {
-		nlohmann::json cj;
-		cj["type"] = c->getName();
-		c->onSerialize(cj);
-		oj["components"].push_back(cj);
-	}
-	j.push_back(oj);
+	//nlohmann::json oj;
+	//oj["name"] = name;
+	//oj["tag"] = tag;
+	//oj["id"] = id.operator int();
+	//oj["isActive"] = isActive;
+	//auto _parent = parent.lock();
+	//oj["parent"] = _parent ? _parent->getID().operator int() : -1;
+	//
+	//for (auto& c : components) {
+	//	nlohmann::json cj;
+	//	cj["type"] = c->getName();
+	//	c->onSerialize(cj);
+	//	oj["components"].push_back(cj);
+	//}
+	//j.push_back(oj);
 }
 
 //TODO: refactor to addComponent
-std::shared_ptr<ScriptComponent> Object::addScript(const std::string& name) {
-	auto newInstance = std::make_shared<ScriptComponent>(*this, name);
-	ScriptComponent::createdEvent.run(newInstance);
-	ComponentManager::getInstance()->addComponent<ScriptComponent>(getID(), newInstance);
-	if (getIsActive()) {
-		newInstance->onAwake();
-		newInstance->onEnable();
-		newInstance->onStart();
-	}
-	return newInstance;
-}
+//std::shared_ptr<ScriptComponent> Object::addScript(const std::string& name) {
+//	auto newInstance = std::make_shared<ScriptComponent>(*this, name);
+//	ScriptComponent::createdEvent.run(newInstance);
+//	ComponentManager::getInstance()->addComponent<ScriptComponent>(getID(), newInstance);
+//	if (getIsActive()) {
+//		newInstance->onAwake();
+//		newInstance->onEnable();
+//		newInstance->onStart();
+//	}
+//	return newInstance;
+//}
 
 //TODO: удалять и из off контейнеров, тк объект может быть выключен
-bool Object::removeScript(std::shared_ptr<ScriptComponent> script) {
-	bool found = false;
-	for (auto& [name, behaviour] : ComponentManager::getInstance()->scriptComponents[id]) {
-		if (behaviour.get() == script.get()) {
-			found = true;
-			break;
-		}
-	}
+//bool Object::removeScript(std::shared_ptr<ScriptComponent> script) {
+//	bool found = false;
+//	for (auto& [name, behaviour] : ComponentManager::getInstance()->scriptComponents[id]) {
+//		if (behaviour.get() == script.get()) {
+//			found = true;
+//			break;
+//		}
+//	}
+//
+//	if (found) {
+//		ScriptComponent::destroyedEvent.run(script);
+//		return removeScript(script->getName());
+//	}
+//	return false;
+//}
 
-	if (found) {
-		ScriptComponent::destroyedEvent.run(script);
-		return removeScript(script->getName());
-	}
-	return false;
-}
+//bool Object::removeScript(const std::string& name) {
+//	auto found = getScript(name);
+//	if (found) {
+//		ComponentManager::getInstance()->scriptComponents[id].erase(name);
+//		return true;
+//	}
+//	return false;
+//}
 
-bool Object::removeScript(const std::string& name) {
-	auto found = getScript(name);
-	if (found) {
-		ComponentManager::getInstance()->scriptComponents[id].erase(name);
-		return true;
-	}
-	return false;
-}
+//std::shared_ptr<ScriptComponent> Object::getScript(const std::string& name) {
+//	auto result = ComponentManager::getInstance()->scriptComponents[id].find(name);
+//	if (result != ComponentManager::getInstance()->scriptComponents[id].end())
+//		return result->second;
+//	else
+//		return nullptr;
+//}
 
-std::shared_ptr<ScriptComponent> Object::getScript(const std::string& name) {
-	auto result = ComponentManager::getInstance()->scriptComponents[id].find(name);
-	if (result != ComponentManager::getInstance()->scriptComponents[id].end())
-		return result->second;
-	else
-		return nullptr;
-}
-
-std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>& Object::getScripts() {
-	return ComponentManager::getInstance()->scriptComponents[id];
-}
+//std::unordered_map<std::string, std::shared_ptr<ScriptComponent>>& Object::getScripts() {
+//	return ComponentManager::getInstance()->scriptComponents[id];
+//}

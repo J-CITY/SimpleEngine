@@ -12,7 +12,7 @@ namespace KUMA::ECS {
 	public:
 
 		constexpr static size_t TextureCount = 3;
-		DirectionalLight(const ECS::Object& obj);
+		DirectionalLight(Ref<ECS::Object> obj);
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			LightComponent::onDeserialize(j);

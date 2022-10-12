@@ -19,19 +19,19 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	using namespace KUMA::ECS;
 	using namespace KUMA::SCENE_SYSTEM;
 
-	auto CreateActorOverload = sol::overload
-	(
-		sol::resolve<std::shared_ptr<Object>(void)>(&Scene::createObject),
-		sol::resolve<std::shared_ptr<Object>(const std::string&, const std::string&)>(&Scene::createObject)
-	);
+	//auto CreateActorOverload = sol::overload
+	//(
+	//	sol::resolve<std::shared_ptr<Object>(void)>(&Scene::createObject),
+	//	sol::resolve<std::shared_ptr<Object>(const std::string&, const std::string&)>(&Scene::createObject)
+	//);
 
 	p_luaState.new_usertype<Scene>("Scene",
 		/* Methods */
 		"FindActorByName", &Scene::findObjectByName,
 		"FindActorByTag", &Scene::findObjectByTag,
 		"FindActorsByName", &Scene::findObjectsByTag,
-		"FindActorsByTag", &Scene::findObjectsByTag,
-		"CreateActor", CreateActorOverload
+		"FindActorsByTag", &Scene::findObjectsByTag//,
+		//"CreateActor", CreateActorOverload
 		);
 
 	p_luaState.new_enum<EKey>("Key",

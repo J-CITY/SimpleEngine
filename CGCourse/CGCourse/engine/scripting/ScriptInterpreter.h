@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "../utils/pointers/objPtr.h"
 
 namespace sol {
 	class state;
@@ -20,14 +21,14 @@ namespace KUMA::SCRIPTING {
 
 		void createLuaContextAndBindGlobals();
 		void destroyLuaContext();
-		void consider(std::shared_ptr<KUMA::ECS::ScriptComponent> toConsider);
-		void unconsider(std::shared_ptr<KUMA::ECS::ScriptComponent> toUnconsider);
+		void consider(object_ptr<KUMA::ECS::ScriptComponent> toConsider);
+		void unconsider(object_ptr<KUMA::ECS::ScriptComponent> toUnconsider);
 		void refreshAll();
 		bool isOk() const;
 	private:
 		std::unique_ptr<sol::state> luaState;
 		std::string scriptRootFolder;
-		std::vector<std::shared_ptr<KUMA::ECS::ScriptComponent>> scripts;
+		std::vector<object_ptr<KUMA::ECS::ScriptComponent>> scripts;
 		bool checkOk;
 	};
 }

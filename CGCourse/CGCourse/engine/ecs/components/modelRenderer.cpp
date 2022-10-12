@@ -7,7 +7,7 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-ModelRenderer::ModelRenderer(const ECS::Object& p_owner): Component(p_owner) {
+ModelRenderer::ModelRenderer(Ref<ECS::Object> p_owner): Component(p_owner) {
 	__NAME__ = "ModelRenderer";
 }
 

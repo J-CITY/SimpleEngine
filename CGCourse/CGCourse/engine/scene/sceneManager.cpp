@@ -38,16 +38,16 @@ void SceneManager::loadDefaultScene() {
 
 	auto directionalLight = m_currentScene->createObject("Directional Light");
 	directionalLight->addComponent<ECS::DirectionalLight>()->setIntensity(0.75f);
-	directionalLight->transform->setLocalPosition({0.0f, 10.0f, 0.0f});
-	directionalLight->transform->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{120.0f, -40.0f, 0.0f}));
+	directionalLight->getTransform()->setLocalPosition({0.0f, 10.0f, 0.0f});
+	directionalLight->getTransform()->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{120.0f, -40.0f, 0.0f}));
 
 	auto ambientLight = m_currentScene->createObject("Ambient Light");
 	ambientLight->addComponent<ECS::AmbientSphereLight>()->setRadius(10000.0f);
 
 	auto camera = m_currentScene->createObject("Main Camera");
 	camera->addComponent<ECS::CameraComponent>();
-	camera->transform->setLocalPosition({0.0f, 3.0f, 8.0f});
-	camera->transform->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{20.0f, 180.0f, 0.0f}));
+	camera->getTransform()->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{ 20.0f, 180.0f, 0.0f }));
+	camera->getTransform()->setLocalPosition({0.0f, 3.0f, 8.0f});
 }
 
 

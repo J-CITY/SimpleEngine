@@ -6,7 +6,7 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-AudioComponent::AudioComponent(const ECS::Object& obj, AUDIO::Sound3d sound): Component(obj) {
+AudioComponent::AudioComponent(Ref<ECS::Object> obj, AUDIO::Sound3d sound): Component(obj) {
 	__NAME__ = "AudioComponent";
 	this->sound = sound;
 
@@ -23,8 +23,8 @@ void AudioComponent::onLateUpdate(std::chrono::duration<double> dt) {
 		auto& currentScene = sceneManager.getCurrentScene();
 		if (auto mainCameraComponent = currentScene.findMainCamera()) {
 			RESOURCES::ServiceManager::Get<AUDIO::AudioManager>().setListenerPos(
-				mainCameraComponent->obj.transform->getWorldPosition(),
-				mainCameraComponent->obj.transform->getWorldRotation() * -MATHGL::Vector3::Forward
+				mainCameraComponent.value().get().obj->getTransform()->getWorldPosition(),
+				mainCameraComponent.value().get().obj->getTransform()->getWorldRotation() * -MATHGL::Vector3::Forward
 			);
 		}
 	}

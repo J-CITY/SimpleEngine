@@ -5,9 +5,9 @@
 
 namespace KUMA {
 	struct Config {
-		const inline static std::string ROOT = std::filesystem::current_path().string() + "/";;
-		const inline static std::string ASSETS_PATH = "Assets/";
-		const inline static std::string ENGINE_ASSETS_PATH = "Assets/Engine/";
-		const inline static std::string USER_ASSETS_PATH = "Assets/Game/";
+		const inline static std::string ROOT = std::filesystem::current_path().string() + "/";
+		constexpr static auto ASSETS_PATH = "Assets/";
+		constexpr static auto ENGINE_ASSETS_PATH = "Assets/Engine/";
+		constexpr static auto USER_ASSETS_PATH = "Assets/Game/";
 	};
 };

@@ -34,6 +34,14 @@ Game::World* world = nullptr;
 float liveTime = 20.0f;
 float liveTime2 = 20.0f;
 
+namespace KUMA::MATHGL {
+	class Vector3;
+	class Vector4;
+	class Matrix3;
+	class Matrix4;
+	class Quaternion;
+};
+
 namespace Game {
 	Game::ChunkDataTypePtr _GetChunkDataForMeshing(int cx, int cz) {
 		if (world && world->ChunkExistsInMap(cx, cz)) {
@@ -58,6 +66,7 @@ namespace Game {
 		return block.first;
 	}
 }
+
 int main() {
 	KUMA::CORE_SYSTEM::App app;
 
@@ -82,48 +91,9 @@ int main() {
 			light->setColor({255.0f, 200.0f, 255.0f});
 			light->Radius = 25.0f;
 			//obj.transform->setLocalPosition({rpos(), rpos(), rpos()});
-			obj->transform->setLocalPosition({0, 50, 0});
-			obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-			obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
-
-			auto inp = obj->addComponent<KUMA::ECS::InputComponent>([&app](std::chrono::duration<double> dt) {
-			auto& core = app.getCore();
-			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_K)) {
-				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
-				pos.z += 1.0f;
-				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
-			}
-			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_I)) {
-				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
-				pos.z -= 1.0f;
-				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
-			}
-
-			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_J)) {
-				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
-				pos.x -= 1.0f;
-				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
-			}
-			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_L)) {
-				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
-				pos.x += 1.0f;
-				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
-			}
-
-			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_U)) {
-				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
-				pos.y -= 1.0f;
-				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
-			}
-			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_O)) {
-				auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
-				pos.y += 1.0f;
-				core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->setLocalPosition(pos);
-			}
-
-			auto pos = core.sceneManager->getCurrentScene().findObjectByName("PointLight")->transform->getLocalPosition();
-			//LOG_INFO(std::to_string(pos.x) + " " + std::to_string(pos.y) + " " + std::to_string(pos.z) + "\n");
-		});
+			obj->getTransform()->setLocalPosition({0, 50, 0});
+			obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+			obj->getTransform()->setLocalScale({1.0f, 1.0f, 1.0f});
 		}
 	}
 
@@ -131,7 +101,7 @@ int main() {
 
 
 		for (auto i = 0; i < 1; i++) {
-			auto& obj = scene.createObject("DirLight");
+			auto obj = scene.createObject("DirLight");
 			auto light = obj->addComponent<KUMA::ECS::DirectionalLight>();
 			//light->shadowRes = 2048;
 			light->orthoBoxSize = 100;
@@ -143,15 +113,15 @@ int main() {
 			light->setIntensity(1.0f);
 
 			light->setColor({1.0f, 1.0f, 1.0f});
-			obj->transform->setLocalPosition({-20.0f, 40.0f, 10.0f});
-			obj->transform->setLocalRotation({0.81379771, -0.17101006, 0.29619816, 0.46984628});
-			obj->transform->setLocalScale({1.5f, 1.5f, 1.5f});
-			obj->addScript("ControllerDirLight");
+			obj->getTransform()->setLocalPosition({ -20.0f, 40.0f, 10.0f });
+			obj->getTransform()->setLocalRotation({ 0.81379771, -0.17101006, 0.29619816, 0.46984628 });
+			obj->getTransform()->setLocalScale({1.5f, 1.5f, 1.5f});
+			//obj->addScript("ControllerDirLight");
 		}
 	}
 
 	{
-		auto& obj = scene.createObject("Point2Light");
+		auto obj = scene.createObject("Point2Light");
 		auto light = obj->addComponent<KUMA::ECS::PointLight>();
 		//light->shadowRes = 2048;
 		//light->zNear = 1.0f;
@@ -163,12 +133,12 @@ int main() {
 		light->setQuadratic(1.0f);
 		light->setLinear(1.0f);
 		light->setColor({1.0f, 1.0f, 1.0f});
-		obj->transform->setLocalPosition({0.0f, 14.0f, -45.0f});
-		obj->transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
-		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({0.0f, 14.0f, -45.0f});
+		obj->getTransform()->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
+		obj->getTransform()->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
 	{
-		auto& obj = scene.createObject("Point3Light");
+		auto obj = scene.createObject("Point3Light");
 		auto light = obj->addComponent<KUMA::ECS::PointLight>();
 		//light->shadowRes = 2048;
 		//light->zNear = 1.0f;
@@ -180,12 +150,12 @@ int main() {
 		light->setQuadratic(1.0f);
 		light->setLinear(1.0f);
 		light->setColor({255.0f, 255.0f, 255.0f});
-		obj->transform->setLocalPosition({-20.0f, 40.0f, 10.0f});
-		obj->transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
-		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({-20.0f, 40.0f, 10.0f});
+		obj->getTransform()->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
+		obj->getTransform()->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
 	{
-		auto& obj = scene.createObject("Point3Light");
+		auto obj = scene.createObject("Point3Light");
 		auto light = obj->addComponent<KUMA::ECS::PointLight>();
 		//light->shadowRes = 2048;
 		//light->zNear = 1.0f;
@@ -197,29 +167,29 @@ int main() {
 		light->setQuadratic(1.0f);
 		light->setLinear(1.0f);
 		light->setColor({255.0f, 255.0f, 255.0f});
-		obj->transform->setLocalPosition({-20.0f, 35.0f, 15.0f});
-		obj->transform->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
-		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({-20.0f, 35.0f, 15.0f});
+		obj->getTransform()->setLocalRotation({0.81379771f, -0.17101006f, 0.29619816f, 0.46984628f});
+		obj->getTransform()->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
 
 	{
-		auto& obj = scene.createObject("AmbLight");
+		auto obj = scene.createObject("AmbLight");
 
 		nlohmann::json j;
-		obj->transform->onSerialize(j);
-		obj->transform->onDeserialize(j);
+		obj->getTransform()->onSerialize(j);
+		obj->getTransform()->onDeserialize(j);
 		auto s = j.dump(2);
 
 		auto light = obj->addComponent<KUMA::ECS::AmbientSphereLight>();
 		light->setIntensity(1.0f);
 		light->setColor({1.0f, 0.7f, 0.8f});
 		light->setRadius(1.0f);
-		obj->transform->setLocalPosition({0.0f, 0.0f, 0.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({0.0f, 0.0f, 0.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalScale({1.0f, 1.0f, 1.0f});
 	}
 	{
-		auto& obj = scene.createObject("Camera");
+		auto obj = scene.createObject("Camera");
 		auto cam = obj->addComponent<KUMA::ECS::CameraComponent>();
 		cam->setFov(45.0f);
 		cam->setSize(5.0f);
@@ -228,10 +198,10 @@ int main() {
 		cam->setFrustumGeometryCulling(false);
 		cam->setFrustumLightCulling(false);
 		cam->setProjectionMode(KUMA::RENDER::Camera::ProjectionMode::PERSPECTIVE);
-		obj->transform->setLocalPosition({0.f, 140.0f, 0.0f});
-		obj->transform->setLocalRotation({0.0f, 0.98480773f, -0.17364819f, 0.0f});
-		obj->transform->setLocalScale({1.0f, 1.0f, 1.0f});
-		obj->addScript("Controller");
+		obj->getTransform()->setLocalPosition({ 0.f, 140.0f, 0.0f });
+		obj->getTransform()->setLocalRotation({ 0.0f, 0.98480773f, -0.17364819f, 0.0f });
+		obj->getTransform()->setLocalScale({1.0f, 1.0f, 1.0f});
+		obj->addComponent<KUMA::ECS::ScriptComponent>("Controller");
 
 		/*auto inp = obj.addComponent<KUMA::ECS::InputComponent>([&app](float dt) {
 			auto& core = app.getCore();
@@ -604,7 +574,7 @@ int main() {
 
 
 	{
-		auto& obj = scene.createObject("Plane");
+		auto obj = scene.createObject("Plane");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -621,10 +591,10 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 100.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({0.0f, -5.0f, 10.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({0.0f, -5.0f, 10.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({300.0f, 1.0f, 300.0f});
+		obj->getTransform()->setLocalScale({300.0f, 1.0f, 300.0f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
@@ -664,7 +634,7 @@ int main() {
 
 		//auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
 		auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
-		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
+		body->setPosition(obj->getTransform()->getLocalPosition().x, obj->getTransform()->getLocalPosition().y, obj->getTransform()->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
 		body->setRotation(0, 0, 0);
@@ -698,12 +668,12 @@ int main() {
 
 		//app.getCore().physicsManger->bodies.push_back(body);
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
-		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
+		app.getCore().physicsManger->objects.Insert(obj, pc->boundingSphere);
 
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
-			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
-			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+			obj->getTransform()->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
+			obj->getTransform()->setLocalRotation(KUMA::MATHGL::Quaternion(
 				body->getOrientation().x, body->getOrientation().y, body->getOrientation().z, body->getOrientation().w));
 
 			//pc->collider->transform = pc->obj.transform->getLocalMatrix();
@@ -715,7 +685,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene.createObject("Box1");
+		auto obj = scene.createObject("Box1");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -732,10 +702,10 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 10.50f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({0.0f, 55.0f, 0.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({0.0f, 55.0f, 0.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({10.5f, 10.5f, 10.5f});
+		obj->getTransform()->setLocalScale({10.5f, 10.5f, 10.5f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
@@ -773,7 +743,7 @@ int main() {
 
 		auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
 		auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
-		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
+		body->setPosition(obj->getTransform()->getLocalPosition().x, obj->getTransform()->getLocalPosition().y, obj->getTransform()->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
 		body->setRotation(0, 0, 0);
@@ -807,14 +777,14 @@ int main() {
 
 		//app.getCore().physicsManger->bodies.push_back(body);
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
-		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
+		app.getCore().physicsManger->objects.Insert(obj, pc->boundingSphere);
 
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
-			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
+			obj->getTransform()->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
 			//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
 			//	KUMA::MATHGL::Vector3(TO_DEGREES(body->getRotation().x), TO_DEGREES(body->getRotation().y), TO_DEGREES(body->getRotation().z))));
-			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+			obj->getTransform()->setLocalRotation(KUMA::MATHGL::Quaternion(
 				body->getOrientation().x, body->getOrientation().y, body->getOrientation().z, body->getOrientation().w));
 
 
@@ -836,7 +806,7 @@ int main() {
 
 
 	{
-		auto& obj = scene.createObject("BoxN");
+		auto obj = scene.createObject("BoxN");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -853,10 +823,10 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 10.50;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({7.0f, 155.0f, 0.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({10.5f, 10.5f, 10.5f});
+		obj->getTransform()->setLocalPosition({7.0f, 155.0f, 0.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.getTransform()->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj->getTransform()->setLocalScale({10.5f, 10.5f, 10.5f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
@@ -892,9 +862,9 @@ int main() {
 		data["u_UseBone"] = false;
 		mat->fillWithMaterial(_m);
 
-		auto pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
+		auto& pc = obj->addComponent<KUMA::ECS::PhysicsComponent>();
 		auto body = std::make_shared<KUMA::PHYSICS::RigidBody>();
-		body->setPosition(obj->transform->getLocalPosition().x, obj->transform->getLocalPosition().y, obj->transform->getLocalPosition().z);
+		body->setPosition(obj->getTransform()->getLocalPosition().x, obj->getTransform()->getLocalPosition().y, obj->getTransform()->getLocalPosition().z);
 		body->setOrientation(1, 0, 0, 0);
 		body->setVelocity(0, 0, 0);
 		body->setRotation(0, 0, 0);
@@ -931,13 +901,13 @@ int main() {
 
 		//app.getCore().physicsManger->bodies.push_back(body);
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
-		app.getCore().physicsManger->objects.Insert(pc, pc->boundingSphere);
+		app.getCore().physicsManger->objects.Insert(obj, pc->boundingSphere);
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
-			obj->transform->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
+			obj->getTransform()->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
 			//obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
 			//	KUMA::MATHGL::Vector3(TO_DEGREES(body->getRotation().x), TO_DEGREES(body->getRotation().y), TO_DEGREES(body->getRotation().z))));
-			obj->transform->setLocalRotation(KUMA::MATHGL::Quaternion(
+			obj->getTransform()->setLocalRotation(KUMA::MATHGL::Quaternion(
 				body->getOrientation().x, body->getOrientation().y, body->getOrientation().z, body->getOrientation().w));
 
 			//pc->collider->transform = pc->obj.transform->getLocalMatrix();
@@ -957,7 +927,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene.createObject("Box2");
+		auto obj = scene.createObject("Box2");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -974,10 +944,10 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({20.0f, 0.0f, 10.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({10.5f, 10.5f, 10.5f});
+		obj->getTransform()->setLocalPosition({20.0f, 0.0f, 10.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		//obj.getTransform()->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj->getTransform()->setLocalScale({10.5f, 10.5f, 10.5f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
@@ -1012,9 +982,9 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 	{
-		auto& obj = scene.createObject("Box3");
+		auto obj = scene.createObject("Box3");
 
-		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
+		auto& model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
 		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
 		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
@@ -1029,10 +999,9 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({-10.0f, 0.0f, 20.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({5.25f, 15.25f, 5.25f});
+		obj->getTransform()->setLocalPosition({-10.0f, 0.0f, 20.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalScale({5.25f, 15.25f, 5.25f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\StandardPBR.glsl");
 
@@ -1087,10 +1056,10 @@ int main() {
 		bs.position = { 0.0f, 0.0f, 0.0f };
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({ 40.0f, 0.0f, 30.0f });
-		obj->transform->setLocalRotation({ 0.0f, 0.0f, 0.0f, 1.0f });
-		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({ 5.25f, 15.25f, 5.25f });
+		obj->getTransform()->setLocalPosition({ 40.0f, 0.0f, 30.0f });
+		obj->getTransform()->setLocalRotation({ 0.0f, 0.0f, 0.0f, 1.0f });
+		//obj.getTransform()->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj->getTransform()->setLocalScale({ 5.25f, 15.25f, 5.25f });
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\StandardPBR.glsl");
 
@@ -1129,7 +1098,7 @@ int main() {
 
 
 	{
-		auto& obj = scene.createObject("BoxDirLight");
+		auto obj = scene.createObject("BoxDirLight");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1146,10 +1115,10 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({-20.0f, 35.0f, 10.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({-20.0f, 35.0f, 10.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({1.25f, 1.25f, 1.25f});
+		obj->getTransform()->setLocalScale({1.25f, 1.25f, 1.25f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
@@ -1187,7 +1156,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene.createObject("Center");
+		auto obj = scene.createObject("Center");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1204,10 +1173,10 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({0.0f, 0.0f, 0.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({0.0f, 0.0f, 0.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({1.25f, 1.25f, 1.25f});
+		obj->getTransform()->setLocalScale({1.25f, 1.25f, 1.25f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Standard.glsl");
 
@@ -1298,7 +1267,7 @@ int main() {
 	}*/
 
 	{
-		auto& obj = scene.createObject("Smoke");
+		auto obj = scene.createObject("Smoke");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1323,9 +1292,9 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({-128.0f, 30.0f, 0.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-		obj->transform->setLocalScale({1.01f, 1.01f, 1.01f});
+		obj->getTransform()->setLocalPosition({-128.0f, 30.0f, 0.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalScale({1.01f, 1.01f, 1.01f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Smoke.glsl");
 
@@ -1424,7 +1393,7 @@ int main() {
 	}*/
 
 	{
-		auto& obj = scene.createObject("Grass");
+		auto obj = scene.createObject("Grass");
 
 		auto audio = obj->addComponent<KUMA::ECS::AudioComponent>(KUMA::AUDIO::Sound3d{
 			"C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Audio\\test.mp3",
@@ -1444,9 +1413,9 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({-300.0f, 1.0f, 10.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-		obj->transform->setLocalScale({30.0f, 30.0f, 30.0f});
+		obj->getTransform()->setLocalPosition({-300.0f, 1.0f, 10.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalScale({30.0f, 30.0f, 30.0f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\grass.glsl");
 
@@ -1523,7 +1492,7 @@ int main() {
 	}*/
 
 	{
-		auto& obj = scene.createObject("TerrainTes");
+		auto obj = scene.createObject("TerrainTes");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 
@@ -1534,9 +1503,9 @@ int main() {
 		bs.position = { 0.0f, 0.0f, 0.0f };
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({ -100.0f, 50.0f, 10.0f });
-		obj->transform->setLocalRotation({ 0.0f, 0.0f, 0.0f, 1.0f });
-		obj->transform->setLocalScale({ 0.10f, 0.10f, 0.10f });
+		obj->getTransform()->setLocalPosition({ -100.0f, 50.0f, 10.0f });
+		obj->getTransform()->setLocalRotation({ 0.0f, 0.0f, 0.0f, 1.0f });
+		obj->getTransform()->setLocalScale({ 0.10f, 0.10f, 0.10f });
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\tess.glsl");
 
@@ -1570,7 +1539,7 @@ int main() {
 	}
 
 	{
-		auto& obj = scene.createObject("Clouds");
+		auto obj = scene.createObject("Clouds");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
 		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
@@ -1586,10 +1555,10 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 1.0f;
 		model->setCustomBoundingSphere(bs);
-		obj->transform->setLocalPosition({-300.0f, 50.0f, -300.0f});
-		obj->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+		obj->getTransform()->setLocalPosition({-300.0f, 50.0f, -300.0f});
+		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.transform->setLocalScale({100.01f, 100.01f, 100.01f});
-		obj->transform->setLocalScale({300.0f, 300.0f, 300.0f});
+		obj->getTransform()->setLocalScale({300.0f, 300.0f, 300.0f});
 
 		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Clouds.glsl");
 
@@ -1643,7 +1612,7 @@ int main() {
 		mat->fillWithMaterial(_m);
 	}
 
-	{
+	/*{
 		auto& obj = scene.createObject("Water");
 
 		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
@@ -1688,7 +1657,7 @@ int main() {
 		});
 
 		mat->fillWithMaterial(_m);
-	}
+	}*/
 
 	//{
 	//

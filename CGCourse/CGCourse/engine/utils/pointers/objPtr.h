@@ -8,6 +8,7 @@
 
 namespace KUMA {
 	namespace UTILS {
+
 		template <typename Ptr, bool = std::is_class<Ptr>::value>
 		struct has_smart_pointer_ops {
 			using false_test = char;
@@ -116,7 +117,7 @@ namespace KUMA {
 		template <
 			typename Ptr,
 			typename = std::enable_if_t<
-			detail::is_convertible_smart_pointer<Ptr, T>::value>>
+				UTILS::is_convertible_smart_pointer<Ptr, T>::value>>
 			constexpr object_ptr(Ptr const& other) noexcept : ptr(other.get()) {}
 
 		/// Get the raw pointer value
@@ -191,6 +192,22 @@ namespace KUMA {
 		/// The stored pointer
 		T* ptr;
 	};
+
+	template<typename T>
+	class Ref : public std::reference_wrapper<T> {
+	public:
+		using base = std::reference_wrapper<T>;
+		using base::base;
+
+		T* operator->() {
+			return &(this->get());
+		}
+
+		object_ptr<T> getPtr() {
+			return &(this->get());
+		}
+	};
+
 
 }
 

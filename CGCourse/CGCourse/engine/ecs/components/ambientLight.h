@@ -8,7 +8,7 @@ namespace KUMA::ECS { class Object; }
 namespace KUMA::ECS {
 	class AmbientLight: public LightComponent {
 	public:
-		AmbientLight(const ECS::Object& p_owner);
+		AmbientLight(Ref<ECS::Object> p_owner);
 		MATHGL::Vector3 getSize() const;
 		void setSize(const MATHGL::Vector3& val);
 

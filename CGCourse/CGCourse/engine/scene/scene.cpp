@@ -31,7 +31,7 @@ using namespace KUMA::SCENE_SYSTEM;
 void Scene::init() {
 	//Create Default skybox
 	
-	skyboxObject = std::make_unique<KUMA::ECS::Object>(KUMA::ObjectId<ECS::Object>(-1), "Skybox", "");
+	skyboxObject = std::make_unique<KUMA::ECS::Object>(KUMA::ObjectId<ECS::Object>(999), "Skybox", "");
 
 	skyboxTexture = KUMA::RESOURCES::TextureLoader::CreateSkybox("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\sb\\");
 	auto mat = skyboxObject->addComponent<KUMA::ECS::MaterialRenderer>();
@@ -56,9 +56,9 @@ void Scene::init() {
 	bs.position = {0.0f, 0.0f, 0.0f};
 	bs.radius = 1.0f;
 	model->setCustomBoundingSphere(bs);
-	skyboxObject->transform->setLocalPosition({0.0f, 0.0f, 0.0f});
-	skyboxObject->transform->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-	skyboxObject->transform->setLocalScale({20.0f, 20.0f, 20.0f});
+	skyboxObject->getTransform()->setLocalPosition({ 0.0f, 0.0f, 0.0f });
+	skyboxObject->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+	skyboxObject->getTransform()->setLocalScale({20.0f, 20.0f, 20.0f});
 	
 }
 
@@ -198,40 +198,134 @@ std::span<std::shared_ptr<KUMA::ECS::Object>> Scene::getObjects() {
 }
 
 
-std::shared_ptr<KUMA::ECS::CameraComponent> Scene::findMainCamera() {
-	for (auto& camera : ECS::ComponentManager::getInstance()->cameraComponents) {
-		if (camera.second->obj.getIsActive()) {
-			return camera.second;
+std::optional<KUMA::Ref<KUMA::ECS::CameraComponent>> Scene::findMainCamera() {
+	for (auto& camera : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::CameraComponent>()) {
+		if (camera.obj->getIsActive()) {
+			return camera;
 		}
 	}
-	return nullptr;
+	return std::nullopt;
 }
+
+
 
 std::vector<KUMA::RENDER::LightOGL> Scene::findLightData() {
 	std::vector<RENDER::LightOGL> result;
-	for (auto light : ECS::ComponentManager::getInstance()->lightComponents) {
-		if (light.second->obj.getIsActive()) {
-			auto ldata = light.second->getData().generateOGLStruct();
+	
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+		if (light.obj->getIsActive()) {
+			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+		if (light.obj->getIsActive()) {
+			auto ldata = light.getData().generateOGLStruct();
+			result.push_back(ldata);
+		}
+	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::PointLight>()) {
+		if (light.obj->getIsActive()) {
+			auto ldata = light.getData().generateOGLStruct();
+			result.push_back(ldata);
+		}
+	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientLight>()) {
+		if (light.obj->getIsActive()) {
+			auto ldata = light.getData().generateOGLStruct();
+			result.push_back(ldata);
+		}
+	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientSphereLight>()) {
+		if (light.obj->getIsActive()) {
+			auto ldata = light.getData().generateOGLStruct();
+			result.push_back(ldata);
+		}
+	}
+	//for (auto light : ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+	//	if (light.second->obj.getIsActive()) {
+	//		auto ldata = light.second->getData().generateOGLStruct();
+	//		result.push_back(ldata);
+	//	}
+	//}
 	return result;
 }
 
 std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::Frustum& p_frustum) {
 	std::vector<RENDER::LightOGL> result;
-	for (auto& light : ECS::ComponentManager::getInstance()->lightComponents) {
-		if (light.second->obj.getIsActive()) {
-			const auto& lightData = light.second->getData();
+	
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+		if (light.obj->getIsActive()) {
+			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
 			auto effectRange = lightData.getEffectRange();
-			
+
 			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
 				auto ldata = lightData.generateOGLStruct();
 				result.push_back(ldata);
 			}
 		}
 	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+		if (light.obj->getIsActive()) {
+			const auto& lightData = light.getData();
+			const auto& position = lightData.getTransform().getWorldPosition();
+			auto effectRange = lightData.getEffectRange();
+
+			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
+				auto ldata = lightData.generateOGLStruct();
+				result.push_back(ldata);
+			}
+		}
+	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::PointLight>()) {
+		if (light.obj->getIsActive()) {
+			const auto& lightData = light.getData();
+			const auto& position = lightData.getTransform().getWorldPosition();
+			auto effectRange = lightData.getEffectRange();
+
+			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
+				auto ldata = lightData.generateOGLStruct();
+				result.push_back(ldata);
+			}
+		}
+	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientLight>()) {
+		if (light.obj->getIsActive()) {
+			const auto& lightData = light.getData();
+			const auto& position = lightData.getTransform().getWorldPosition();
+			auto effectRange = lightData.getEffectRange();
+
+			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
+				auto ldata = lightData.generateOGLStruct();
+				result.push_back(ldata);
+			}
+		}
+	}
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientSphereLight>()) {
+		if (light.obj->getIsActive()) {
+			const auto& lightData = light.getData();
+			const auto& position = lightData.getTransform().getWorldPosition();
+			auto effectRange = lightData.getEffectRange();
+
+			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
+				auto ldata = lightData.generateOGLStruct();
+				result.push_back(ldata);
+			}
+		}
+	}
+	//for (auto& light : ECS::ComponentManager::getInstance()->lightComponents) {
+	//	if (light.second->obj.getIsActive()) {
+	//		const auto& lightData = light.second->getData();
+	//		const auto& position = lightData.getTransform().getWorldPosition();
+	//		auto effectRange = lightData.getEffectRange();
+	//		
+	//		if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
+	//			auto ldata = lightData.generateOGLStruct();
+	//			result.push_back(ldata);
+	//		}
+	//	}
+	//}
 	return result;
 }
 
@@ -284,35 +378,34 @@ KUMA::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
 	RENDER::TransparentDrawables transparentDrawablesDeferred;
 
-	for (const auto& modelRenderer : ECS::ComponentManager::getInstance()->modelComponents) {
-		auto& owner = modelRenderer.second->obj;
+	for (const auto& modelRenderer : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ModelRenderer>()) {
+		auto owner = modelRenderer.obj;
 
-		if (owner.getIsActive()) {
-			if (auto model = modelRenderer.second->getModel()) {
-				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
-					auto& transform = owner.transform->getTransform();
-					auto animator = modelRenderer.second->obj.getComponent<ECS::Skeletal>();
+		if (owner->getIsActive()) {
+			if (auto model = modelRenderer.getModel()) {
+				if (auto materialRenderer = modelRenderer.obj.get().getComponent<ECS::MaterialRenderer>()) {
+					auto& transform = owner->getTransform()->getTransform();
+					auto animator = modelRenderer.obj.get().getComponent<ECS::Skeletal>();
 
 					RENDER::CullingOptions cullingOptions = RENDER::CullingOptions::NONE;
 
-					if (modelRenderer.second->getFrustumBehaviour() != ECS::ModelRenderer::EFrustumBehaviour::DISABLED) {
+					if (modelRenderer.getFrustumBehaviour() != ECS::ModelRenderer::EFrustumBehaviour::DISABLED) {
 						cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MODEL;
 					}
 
-					if (modelRenderer.second->getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_MESHES) {
+					if (modelRenderer.getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_MESHES) {
 						cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MESH;
 					}
 
-					const auto& modelBoundingSphere = modelRenderer.second->getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer.second->getCustomBoundingSphere() : model->getBoundingSphere();
+					const auto& modelBoundingSphere = modelRenderer.getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer.getCustomBoundingSphere() : model->getBoundingSphere();
 
 					std::vector<std::reference_wrapper<RESOURCES::Mesh>> meshes;
-					{
-						meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
-					}
+					meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
+					
 
 					if (!meshes.empty()) {
 						float distanceToActor = MATHGL::Vector3::Distance(transform.getWorldPosition(), cameraPosition);
-						const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
+						const ECS::MaterialRenderer::MaterialList& materials = materialRenderer.value()->getMaterials();
 
 						for (const auto& mesh : meshes) {
 							std::shared_ptr<RENDER::Material> material;
@@ -365,16 +458,16 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
 	RENDER::TransparentDrawables transparentDrawablesDeferred;
 
-	for (auto& modelRenderer : ECS::ComponentManager::getInstance()->modelComponents) {
-		if (modelRenderer.second->obj.getIsActive() && modelRenderer.second->obj.getName() != "Skybox") {
-			if (auto model = modelRenderer.second->getModel()) {
-				float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.second->obj.transform->getWorldPosition(), cameraPosition);
+	for (auto& modelRenderer : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ModelRenderer>()) {
+		if (modelRenderer.obj->getIsActive() && modelRenderer.obj->getName() != "Skybox") {
+			if (auto model = modelRenderer.getModel()) {
+				float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
 
-				if (auto materialRenderer = modelRenderer.second->obj.getComponent<ECS::MaterialRenderer>()) {
-					const auto& transform = modelRenderer.second->obj.transform->getTransform();
-					auto animator = modelRenderer.second->obj.getComponent<ECS::Skeletal>();
+				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
+					const auto& transform = modelRenderer.obj->getTransform()->getTransform();
+					auto animator = modelRenderer.obj->getComponent<ECS::Skeletal>();
 
-					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
+					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer.value()->getMaterials();
 
 					for (auto mesh : model->getMeshes()) {
 						std::shared_ptr<RENDER::Material> material;

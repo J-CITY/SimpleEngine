@@ -95,8 +95,8 @@ namespace Game
 	*/
 	void World::OnUpdate(KUMA::WINDOW_SYSTEM::Window* window)
 	{
-		int player_chunk_x = (int)floor(p_Player->transform->getWorldPosition().x / CHUNK_SIZE_X);
-		int player_chunk_z = (int)floor(p_Player->transform->getWorldPosition().z / CHUNK_SIZE_Z);
+		int player_chunk_x = (int)floor(p_Player->getTransform()->getWorldPosition().x / CHUNK_SIZE_X);
+		int player_chunk_z = (int)floor(p_Player->getTransform()->getWorldPosition().z / CHUNK_SIZE_Z);
 
 		std::stringstream str;
 
@@ -146,8 +146,8 @@ namespace Game
 
 		// Update the view frustum
 		m_ViewFrustum.Update( 
-			p_Player->getComponent<KUMA::ECS::CameraComponent>()->getCamera().getProjectionMatrix() * 
-			p_Player->getComponent<KUMA::ECS::CameraComponent>()->getCamera().getViewMatrix());
+			p_Player->getComponent<KUMA::ECS::CameraComponent>().value()->getCamera().getProjectionMatrix() * 
+			p_Player->getComponent<KUMA::ECS::CameraComponent>().value()->getCamera().getViewMatrix());
 
 		// Increase the frame count 
 		m_CurrentFrame++;
@@ -182,13 +182,13 @@ namespace Game
 		glFrontFace(GL_CCW);
 
 		// Determine the player's current chunk
-		player_chunk_x = (int)floor(p_Player->transform->getWorldPosition().x / CHUNK_SIZE_X);
-		player_chunk_z = (int)floor(p_Player->transform->getWorldPosition().z / CHUNK_SIZE_Z);
+		player_chunk_x = (int)floor(p_Player->getTransform()->getWorldPosition().x / CHUNK_SIZE_X);
+		player_chunk_z = (int)floor(p_Player->getTransform()->getWorldPosition().z / CHUNK_SIZE_Z);
 		uint32_t chunks_rendered = 0;
 
 		// Render chunks according to render distance
 
-		m_Renderer.StartChunkRendering(p_Player->getComponent<KUMA::ECS::CameraComponent>().get(), KUMA::MATHGL::Vector4(ambient, ambient, ambient, 1.0f), render_distance, m_SunPosition);
+		m_Renderer.StartChunkRendering(p_Player->getComponent<KUMA::ECS::CameraComponent>().value().getPtr().get(), KUMA::MATHGL::Vector4(ambient, ambient, ambient, 1.0f), render_distance, m_SunPosition);
 
 		for (int i = player_chunk_x - render_distance_x; i < player_chunk_x + render_distance_x; i++)
 		{
@@ -236,7 +236,7 @@ namespace Game
 
 		glDisable(GL_CULL_FACE);
 
-		m_Renderer.StartChunkModelRendering(p_Player->getComponent<KUMA::ECS::CameraComponent>().get(), KUMA::MATHGL::Vector4(ambient, ambient, ambient, 1.0f), render_distance, m_SunPosition);
+		m_Renderer.StartChunkModelRendering(p_Player->getComponent<KUMA::ECS::CameraComponent>().value().getPtr().get(), KUMA::MATHGL::Vector4(ambient, ambient, ambient, 1.0f), render_distance, m_SunPosition);
 
 		for (int i = player_chunk_x - render_distance_x; i < player_chunk_x + render_distance_x; i++)
 		{
@@ -360,9 +360,9 @@ namespace Game
 	bool World::TestRayPlayerCollision(const KUMA::MATHGL::Vector3& ray_block)
 	{
 		KUMA::MATHGL::Vector3 pos = KUMA::MATHGL::Vector3(
-			p_Player->transform->getWorldPosition().x,
-			p_Player->transform->getWorldPosition().y,
-			p_Player->transform->getWorldPosition().z);
+			p_Player->getTransform()->getWorldPosition().x,
+			p_Player->getTransform()->getWorldPosition().y,
+			p_Player->getTransform()->getWorldPosition().z);
 
 		if (TestAABB3DCollision(pos, KUMA::MATHGL::Vector3(0.75f, 1.5f, 0.75f), ray_block, KUMA::MATHGL::Vector3(1.0f, 1.0f, 1.0f)))
 		{

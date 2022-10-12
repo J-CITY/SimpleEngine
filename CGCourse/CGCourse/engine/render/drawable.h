@@ -24,7 +24,7 @@ namespace KUMA {
 			MATHGL::Matrix4 world;
 			RESOURCES::Mesh* mesh;
 			std::shared_ptr<RENDER::Material> material;
-			std::shared_ptr<ECS::Skeletal> animator;
+			std::optional<Ref<ECS::Skeletal>> animator;
 		};
 
 		using OpaqueDrawables = std::multimap<float, Drawable, std::less<float>>;

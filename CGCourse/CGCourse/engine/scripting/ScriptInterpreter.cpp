@@ -53,7 +53,7 @@ void ScriptInterpreter::destroyLuaContext() {
 	}
 }
 
-void ScriptInterpreter::consider(std::shared_ptr<KUMA::ECS::ScriptComponent> s) {
+void ScriptInterpreter::consider(object_ptr<KUMA::ECS::ScriptComponent> s) {
 	if (luaState) {
 		scripts.push_back(s);
 
@@ -63,11 +63,11 @@ void ScriptInterpreter::consider(std::shared_ptr<KUMA::ECS::ScriptComponent> s) 
 	}
 }
 
-void ScriptInterpreter::unconsider(std::shared_ptr<KUMA::ECS::ScriptComponent> p_toUnconsider) {
+void ScriptInterpreter::unconsider(object_ptr<KUMA::ECS::ScriptComponent> p_toUnconsider) {
 	if (luaState) {
 		p_toUnconsider->unregisterFromLuaContext();
 	}
-	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](std::shared_ptr<KUMA::ECS::ScriptComponent> s) {
+	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](object_ptr<KUMA::ECS::ScriptComponent> s) {
 		return p_toUnconsider == s;
 	}));
 

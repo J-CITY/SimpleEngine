@@ -6,7 +6,7 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-MaterialRenderer::MaterialRenderer(const ECS::Object& obj) : Component(obj) {
+MaterialRenderer::MaterialRenderer(Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "MaterialRenderer";
 	materials.fill(nullptr);
 }

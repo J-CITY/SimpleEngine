@@ -4,7 +4,7 @@
 using namespace KUMA;
 using namespace KUMA::ECS;
 
-PointLight::PointLight(const ECS::Object& obj) : LightComponent(obj) {
+PointLight::PointLight(Ref<ECS::Object> obj) : LightComponent(obj) {
 	__NAME__ = "PointLight";
 	data.type = RENDER::Light::Type::POINT;
 	//pointLightShadowFBO.setupFrameBuffer(shadowRes, shadowRes, true);

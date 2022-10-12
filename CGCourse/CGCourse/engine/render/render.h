@@ -5,7 +5,7 @@
 namespace KUMA {
 	namespace RESOURCES {
 		class Mesh;
-		class Animator;
+		//class Animator;
 	}
 	namespace RENDER {
 		class Material;

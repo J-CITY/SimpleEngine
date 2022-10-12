@@ -9,7 +9,7 @@ namespace KUMA::ECS { class Object; }
 namespace KUMA::ECS{
 	class PointLight : public LightComponent {
 	public:
-		PointLight(const ECS::Object& obj);
+		PointLight(Ref<ECS::Object> obj);
 		float getConstant() const;
 		float getLinear() const;
 		float getQuadratic() const;

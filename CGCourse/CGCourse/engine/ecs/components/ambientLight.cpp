@@ -2,7 +2,7 @@
 
 using namespace KUMA::ECS;
 
-AmbientLight::AmbientLight(const ECS::Object& obj): LightComponent(obj) {
+AmbientLight::AmbientLight(Ref<ECS::Object> obj): LightComponent(obj) {
 	__NAME__ = "AmbientLight";
 	
 	data.type = RENDER::Light::Type::AMBIENT_BOX;

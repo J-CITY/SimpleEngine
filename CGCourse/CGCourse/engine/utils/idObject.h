@@ -14,6 +14,10 @@ namespace KUMA {
 			return static_cast<int>(m_id);
 		}
 
+		explicit operator size_t() const noexcept {
+			return static_cast<size_t>(m_id);
+		}
+
 		bool operator<(const ObjectId& b) const noexcept {
 			return m_id < b.m_id;
 		}
@@ -48,5 +52,18 @@ namespace KUMA {
 
 	protected:
 		id m_id;
+	};
+
+}
+
+namespace std {
+	template<typename T>
+	struct hash<KUMA::ObjectId<T>> {
+		std::size_t operator()(const KUMA::ObjectId<T>& k) const {
+			using std::size_t;
+			using std::hash;
+
+			return (hash<int>()(static_cast<int>(k)));
+		}
 	};
 }

@@ -23,7 +23,7 @@ bool TransformNotifier::removeNotificationHandler(const NotificationHandlerID& p
 
 //Transform Component
 
-TransformComponent::TransformComponent(const Object& obj, Vector3 localPosition, 
+TransformComponent::TransformComponent(Ref<ECS::Object> obj, Vector3 localPosition,
 	Quaternion localRotation, Vector3 localScale): Component(obj) {
 	__NAME__ = "Transform";
 	transform.generateMatrices(localPosition, localRotation, localScale);

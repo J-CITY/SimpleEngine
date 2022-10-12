@@ -1,9 +1,6 @@
-#pragma once;
+#pragma once
 
 #include <memory>
-#include <vector>
-
-#include "body.h"
 #include "broadPhase.h"
 #include "contacts.h"
 #include "narrowPhase.h"
@@ -13,6 +10,7 @@ namespace KUMA
 {
 	namespace ECS
 	{
+		class Object;
 		class PhysicsComponent;
 	}
 }
@@ -29,7 +27,7 @@ namespace KUMA::PHYSICS {
         //std::vector<CollisionBox*> bodiesCollide;
         
         ContactResolver resolver;
-        BVHTree<RENDER::BoundingSphere, std::shared_ptr<ECS::PhysicsComponent>> objects;
+        BVHTree<RENDER::BoundingSphere, std::shared_ptr<ECS::Object>> objects;
 
         CollisionData cData;
         Contact contacts[256];

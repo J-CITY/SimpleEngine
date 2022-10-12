@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 
+#include "../../resourceManager/resource/bone.h"
 #include "component.h"
 
 
@@ -14,7 +15,7 @@ namespace KUMA::ECS { class Object; }
 namespace KUMA::ECS {
 	class Skeletal : public Component {
 	public:
-		Skeletal(const ECS::Object& obj, const std::string& path, const std::optional<std::string>& startAnimation=std::nullopt);
+		Skeletal(Ref<ECS::Object> obj, const std::string& path, const std::optional<std::string>& startAnimation=std::nullopt);
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 
