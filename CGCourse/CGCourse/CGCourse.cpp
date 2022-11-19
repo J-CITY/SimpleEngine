@@ -16,7 +16,10 @@
 #include "engine/physics/body.h"
 #include "engine/physics/narrowPhase.h"
 #include "engine/physics/PhysicWorld.h"
+#include "engine/resourceManager/materialManager.h"
 #include "engine/resourceManager/resource/bone.h"
+#include "engine/resourceManager/modelManager.h"
+#include "engine/resourceManager/shaderManager.h"
 #include "engine/scene/sceneManager.h"
 #include "engine/utils/meshGenerator.h"
 #include "game/World.h"
@@ -70,7 +73,7 @@ namespace Game {
 int main() {
 	KUMA::CORE_SYSTEM::App app;
 
-	auto& scene = app.getCore().sceneManager->getCurrentScene();
+	auto& scene = app.getCore()->sceneManager->getCurrentScene();
 
 	{
 		auto rpos = []() {
@@ -668,7 +671,7 @@ int main() {
 
 		//app.getCore().physicsManger->bodies.push_back(body);
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
-		app.getCore().physicsManger->objects.Insert(obj, pc->boundingSphere);
+		app.getCore()->physicsManger->objects.Insert(obj, pc->boundingSphere);
 
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
@@ -777,7 +780,7 @@ int main() {
 
 		//app.getCore().physicsManger->bodies.push_back(body);
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
-		app.getCore().physicsManger->objects.Insert(obj, pc->boundingSphere);
+		app.getCore()->physicsManger->objects.Insert(obj, pc->boundingSphere);
 
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
@@ -901,7 +904,7 @@ int main() {
 
 		//app.getCore().physicsManger->bodies.push_back(body);
 		//app.getCore().physicsManger->bodiesCollide.push_back(colider);
-		app.getCore().physicsManger->objects.Insert(obj, pc->boundingSphere);
+		app.getCore()->physicsManger->objects.Insert(obj, pc->boundingSphere);
 		auto inp = obj->addComponent<KUMA::ECS::InputComponent>([body, obj](std::chrono::duration<double> dt) {
 			//if (pc->body)
 			obj->getTransform()->setLocalPosition(KUMA::MATHGL::Vector3(body->getPosition().x, body->getPosition().y, body->getPosition().z));
