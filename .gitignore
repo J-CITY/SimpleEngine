@@ -778,3 +778,11 @@ CGCourse/CGCourse/CGCourse.vcxproj.filters
 *.pdb
 *.idb
 *.tlog
+CGCourse/x64/Debug/CGCourse.lib
+CGCourse/x64/Debug/CGCourse.exp
+CGCourse/Intermediate/lua/Debug/lua.lib.recipe
+CGCourse/x64/Debug/CGCourse.lib
+CGCourse/CGCourse/imgui.ini
+*.vcxproj
+*.filters
+*.bin
