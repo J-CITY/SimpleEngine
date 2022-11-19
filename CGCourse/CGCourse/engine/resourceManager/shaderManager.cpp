@@ -2,6 +2,8 @@
 
 #include <fstream>
 #include <functional>
+#include <iostream>
+
 #include "ServiceManager.h"
 
 using namespace KUMA;
@@ -13,9 +15,9 @@ ResourcePtr<Shader> ShaderLoader::createResource(const std::string& path) {
 	return CreateFromFile(path);
 }
 
-ResourcePtr<Shader> ShaderLoader::CreateFromFile(const std::string& path) {
-	std::string realPath = getRealPath(path);
-	auto shader = Create(realPath);
+ResourcePtr<Shader> ShaderLoader::CreateFromFile(const std::string& path, bool useBinary) {
+	const std::string realPath = getRealPath(path);
+	auto shader = Create(realPath, useBinary);
 	if (shader) {
 		shader->path = path;
 	}
@@ -189,14 +191,61 @@ uint32_t ShaderLoader::CompileShader(uint32_t p_type, const std::string& p_sourc
 	return id;
 }
 
-ResourcePtr<Shader> ShaderLoader::Create(const std::string& filePath) {
+bool ShaderLoader::checkBinarySupport() {
+	GLint formats = 0;
+	glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
+	if (formats < 1) {
+		LOG_INFO("Driver does not support any binary formats.");
+		return false;
+	}
+	return true;
+}
+
+ResourcePtr<Shader> ShaderLoader::Create(const std::string& filePath, bool useBinary) {
 	FILE_PATH = filePath;
 
-	std::array<std::string, 5> source = ParseShader(filePath);
+	useBinary &= checkBinarySupport();
+
+	if (useBinary && std::filesystem::exists(filePath + ".bin")) {
+		GLuint program = glCreateProgram();
+		GLenum format = 0;
+		std::ifstream inputStream(filePath + ".bin", std::ios::binary);
+		std::istreambuf_iterator<char> startIt(inputStream), endIt;
+		std::vector<char> buffer(startIt, endIt);
+		inputStream.close();
+		
+		memcpy(&format, buffer.data(), sizeof(GLenum));
+		glProgramBinary(program, format, buffer.data() + sizeof(format), buffer.size());
+		LOG_INFO("Reading from " + filePath + ", binary format = " + std::to_string(format));
+		// Check for success/failure
+		GLint status;
+		glGetProgramiv(program, GL_LINK_STATUS, &status);
+		if (GL_FALSE == status) {
+			// Handle failure ...
+		}
+	}
+
+	const std::array<std::string, 5> source = ParseShader(filePath);
 
 	uint32_t programID = CreateProgram(source[0], source[1], source[2], source[3], source[4]);
-
+	
 	if (programID) {
+		if (useBinary) {
+			GLint length = 0;
+			glGetProgramiv(programID, GL_PROGRAM_BINARY_LENGTH, &length);
+
+			std::vector<GLubyte> buffer(length);
+			GLenum format = 0;
+			glGetProgramBinary(programID, length, NULL, &format, buffer.data());
+
+			std::string fName = filePath + ".bin";
+			LOG_INFO("Writing to " + fName + ", binary format = " + std::to_string(format));
+			std::ofstream out(fName.c_str(), std::ios::binary);
+			out.write(reinterpret_cast<char*>(&format), sizeof(format));
+			out.write(reinterpret_cast<char*>(buffer.data()), length);
+			out.close();
+		}
+
 		return ResourcePtr<Shader>(new Shader(filePath, programID), [](Shader* m) {
 			ServiceManager::Get<ShaderLoader>().unloadResource<ShaderLoader>(m->path);
 		});
@@ -219,23 +268,15 @@ ResourcePtr<Shader> ShaderLoader::CreateFromSource(const std::string& vertexShad
 void ShaderLoader::Recompile(Shader& shader, const std::string& filePath) {
 	FILE_PATH = filePath;
 
-	std::array<std::string, 5> source = ParseShader(filePath);
-
-	/* Create the new program */
+	const std::array<std::string, 5> source = ParseShader(filePath);
+	
 	uint32_t newProgram = CreateProgram(source[0], source[1], source[2], source[3], source[4]);
 
 	if (newProgram) {
-		/* Pointer to the shaderID (const data member, tricks to access it) */
 		std::uint32_t* shaderID = reinterpret_cast<uint32_t*>(&shader) + offsetof(Shader, id);
-
-		/* Deletes the previous program */
 		glDeleteProgram(*shaderID);
-
-		/* Store the new program in the shader */
 		*shaderID = newProgram;
-
 		shader.queryUniforms();
-
 		LOG_INFO("[COMPILE] \"" + FILE_PATH + "\": Success!");
 	}
 	else {
