@@ -36,7 +36,9 @@ void KUMA::SCRIPTING::LuaActorBinder::BindActor(sol::state & p_luaState) {
 
 
 		/* Components Getters */
-		"GetTransform", &Object::getComponent<TransformComponent>,
+		"GetTransform", [](Object& p_this) -> TransformComponent* {
+			return p_this.getComponent<TransformComponent>().value().getPtr().get();
+		},
 		"GetCamera", &Object::getComponent<CameraComponent>,
 		"GetLight", &Object::getComponent<LightComponent>,
 		"GetPointLight", &Object::getComponent<PointLight>,

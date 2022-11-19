@@ -30,7 +30,7 @@ bool ScriptComponent::registerToLuaContext(sol::state& p_luaState, const std::st
 	else {
 		if (result.return_count() == 1 && result[0].is<sol::table>()) {
 			object = result[0];
-			object["owner"] = &obj;
+			object["owner"] = obj.getPtr().get();
 			return true;
 		}
 		else {

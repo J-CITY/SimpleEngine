@@ -17,6 +17,11 @@
 #include "../render/render.h"
 #include "../scene/sceneManager.h"
 #include "../debug/debugRender.h"
+#include "../ecs/systems/audioSystem.h"
+#include "../resourceManager/materialManager.h"
+#include "../resourceManager/modelManager.h"
+#include "../resourceManager/shaderManager.h"
+#include "../resourceManager/textureManager.h"
 
 import logger;
 
@@ -45,6 +50,10 @@ Core::Core() {
 		LOG_ERROR(windowSettings.unwrapErr().msg);
 		throw;
 	}
+	modelManager = std::make_unique<RESOURCES::ModelLoader>();
+	textureManager = std::make_unique<RESOURCES::TextureLoader>();
+	shaderManager = std::make_unique<RESOURCES::ShaderLoader>();
+	materialManager = std::make_unique<RESOURCES::MaterialLoader>();
 	window = std::make_unique<WINDOW_SYSTEM::Window>(windowSettings.unwrap());
 	sceneManager = std::make_unique<SCENE_SYSTEM::SceneManager>(Config::ENGINE_ASSETS_PATH);
 	inputManager = std::make_unique<INPUT_SYSTEM::InputManager>(*window);
@@ -70,11 +79,16 @@ Core::Core() {
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::Skeletal>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::SpotLight>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::PhysicsComponent>();
+
+	ECS::ComponentManager::getInstance()->systemManager->registerSystem<ECS::AudioSystem>();
+	ECS::Signature signature;
+	signature.set(static_cast<unsigned int>(ECS::ComponentManager::getInstance()->getComponentType<ECS::AudioComponent>()));
+	ECS::ComponentManager::getInstance()->setSystemSignature<ECS::AudioSystem>(signature);
 	
-	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(modelManager);
-	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(textureManager);
-	RESOURCES::ServiceManager::Set<RESOURCES::ShaderLoader>(shaderManager);
-	RESOURCES::ServiceManager::Set<RESOURCES::MaterialLoader>(materialManager);
+	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(*modelManager);
+	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(*textureManager);
+	RESOURCES::ServiceManager::Set<RESOURCES::ShaderLoader>(*shaderManager);
+	RESOURCES::ServiceManager::Set<RESOURCES::MaterialLoader>(*materialManager);
 	RESOURCES::ServiceManager::Set<INPUT_SYSTEM::InputManager>(*inputManager);
 	RESOURCES::ServiceManager::Set<WINDOW_SYSTEM::Window>(*window);
 	RESOURCES::ServiceManager::Set<SCENE_SYSTEM::SceneManager>(*sceneManager);
@@ -88,8 +102,6 @@ Core::Core() {
 	debugRender = std::make_unique<DEBUG::DebugRender>();
 
 	sceneManager->getCurrentScene().init();
-	
-	
 }
 
 Core::~Core() = default;

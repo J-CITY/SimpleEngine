@@ -127,13 +127,13 @@ namespace KUMA::ECS {
 	class ComponentManager {
 		static ComponentManager* instance;
 
-		std::unique_ptr<SystemManager> systemManager;
+		
 
 		ComponentManager() {
 			systemManager = std::make_unique<SystemManager>();
 		}
 	public:
-
+		std::unique_ptr<SystemManager> systemManager;
 		using ComponentType = ObjectId<ComponentManager>;
 
 		static ComponentManager* getInstance() {

@@ -8,6 +8,7 @@
 #include "../render/gameRenderer.h"
 #include "../render/buffers/uniformBuffer.h"
 #include "../debug/debugRender.h"
+#include "../ecs/ComponentManager.h"
 
 using namespace KUMA::CORE_SYSTEM;
 
@@ -19,9 +20,9 @@ App::~App() = default;
 
 void App::run() {
 	while (isRunning()) {
-		preUpdate();
+		preUpdate(TIME::Timer::GetInstance().getDeltaTime());
 		update(TIME::Timer::GetInstance().getDeltaTime());
-		postUpdate();
+		postUpdate(TIME::Timer::GetInstance().getDeltaTime());
 		TIME::Timer::GetInstance().update();
 	}
 	
@@ -31,7 +32,7 @@ bool App::isRunning() const {
 	return !core.window->isClosed();
 }
 
-void App::preUpdate() {
+void App::preUpdate(std::chrono::duration<double> dt) {
 }
 
 void App::update(std::chrono::duration<double> dt) {
@@ -51,6 +52,9 @@ void App::update(std::chrono::duration<double> dt) {
 		currentScene.fixedUpdate(dt);
 		currentScene.update(dt);
 		currentScene.lateUpdate(dt);
+		for (auto& system : ECS::ComponentManager::getInstance()->systemManager->systems) {
+			system.second->onLateUpdate(dt);
+		}
 		core.renderer->renderScene();
 
 		//core.renderer->setClearColor(1.0f, 0.0f, 0.0f);
@@ -62,8 +66,12 @@ void App::update(std::chrono::duration<double> dt) {
 	core.sceneManager->update();
 }
 
-void App::postUpdate() {
+void App::postUpdate(std::chrono::duration<double> dt) {
 	core.window->pollEvent();
 	core.debugRender->draw(core);
 	core.window->draw();
+}
+
+KUMA::Ref<Core> App::getCore() {
+	return core;
 }

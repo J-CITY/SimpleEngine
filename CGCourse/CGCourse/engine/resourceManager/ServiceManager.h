@@ -67,5 +67,4 @@ namespace KUMA {
 			static std::unordered_map<size_t, ServiceType> SERVICES;
 		};
 	}
-	
 }
