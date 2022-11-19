@@ -1,11 +1,6 @@
 #pragma once
 
 #include <memory>
-#include "../resourceManager/materialManager.h"
-#include "../resourceManager/modelManager.h"
-#include "../resourceManager/shaderManager.h"
-#include "../resourceManager/textureManager.h"
-
 
 namespace KUMA
 {
@@ -41,6 +36,14 @@ namespace KUMA
 
 namespace KUMA
 {
+	namespace RESOURCES
+	{
+		class MaterialLoader;
+		class ShaderLoader;
+		class TextureLoader;
+		class ModelLoader;
+	}
+
 	namespace DEBUG
 	{
 		class DebugRender;
@@ -102,10 +105,10 @@ namespace KUMA {
 
 			std::unique_ptr<KUMA::DEBUG::DebugRender> debugRender;
 
-			RESOURCES::ModelLoader    modelManager;
-			RESOURCES::TextureLoader  textureManager;
-			RESOURCES::ShaderLoader   shaderManager;
-			RESOURCES::MaterialLoader materialManager;
+			std::unique_ptr<RESOURCES::ModelLoader>    modelManager;
+			std::unique_ptr<RESOURCES::TextureLoader>  textureManager;
+			std::unique_ptr<RESOURCES::ShaderLoader>   shaderManager;
+			std::unique_ptr<RESOURCES::MaterialLoader> materialManager;
 		};
 	}
 }

@@ -2,6 +2,8 @@
 #include "../core/core.h"
 #include "../render/material.h"
 #include "../render/gameRenderer.h"
+#include "../resourceManager/shaderManager.h"
+#include "../resourceManager/materialManager.h"
 
 using namespace KUMA;
 using namespace KUMA::GUI;

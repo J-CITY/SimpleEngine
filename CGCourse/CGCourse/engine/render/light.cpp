@@ -1,9 +1,10 @@
 #include "light.h"
+#include "../ecs/ComponentManager.h"
 
 using namespace KUMA;
 using namespace KUMA::RENDER;
 
-Light::Light(Ref<ECS::Transform> tranform, Type type) : transform(tranform), type(type) {}
+Light::Light(ObjectId<ECS::Object> objId, Type type) : objId(objId), type(type) {}
 
 uint32_t pack(uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3) {
 	return (c0 << 24) | (c1 << 16) | (c2 << 8) | c3;
@@ -16,13 +17,13 @@ uint32_t Pack(const KUMA::MATHGL::Vector3& vec) {
 
 LightOGL Light::generateOGLStruct() const {
 	LightOGL result;
-
-	auto position = transform.get().getWorldPosition();
+	auto transform = ECS::ComponentManager::getInstance()->getComponent<ECS::TransformComponent>(objId);
+	auto position = transform->getWorldPosition();
 	result.pos[0] = position.x;
 	result.pos[1] = position.y;
 	result.pos[2] = position.z;
 
-	auto forward = transform.get().getWorldForward();
+	auto forward = transform->getWorldForward();
 	result.forward[0] = forward.x;
 	result.forward[1] = forward.y;
 	result.forward[2] = forward.z;
@@ -116,7 +117,10 @@ float Light::getEffectRange() const {
 	switch (type) {
 	case Type::POINT:
 	case Type::SPOT:			return calculatePointLightRadius(constant, linear, quadratic, intensity);
-	case Type::AMBIENT_BOX:		return calculateAmbientBoxLightRadius(transform.get().getWorldPosition(), {constant, linear, quadratic});
+	case Type::AMBIENT_BOX: {
+		auto transform = ECS::ComponentManager::getInstance()->getComponent<ECS::TransformComponent>(objId);
+		return calculateAmbientBoxLightRadius(transform->getWorldPosition(), { constant, linear, quadratic });
+	}
 	case Type::AMBIENT_SPHERE:	return constant;
 	}
 
@@ -124,5 +128,6 @@ float Light::getEffectRange() const {
 }
 
 const ECS::Transform& Light::getTransform() const {
-	return transform;
+	auto transform = ECS::ComponentManager::getInstance()->getComponent<ECS::TransformComponent>(objId);
+	return transform->getTransform();
 }

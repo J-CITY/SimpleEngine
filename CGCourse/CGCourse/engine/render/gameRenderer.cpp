@@ -19,6 +19,8 @@
 #include "../resourceManager/textureManager.h"
 #include "../utils/time/time.h"
 #include "../resourceManager/resource/bone.h"
+#include "../resourceManager/shaderManager.h"
+#include "../resourceManager/modelManager.h"
 #include "buffers/uniformBuffer.h"
 #include "../scene/sceneManager.h"
 #include "buffers/shaderStorageBuffer.h"
@@ -188,7 +190,7 @@ void Renderer::initShaders() {
 
 void Renderer::init() {
 	emptyMaterial = std::make_shared<RENDER::Material>();
-	emptyMaterial->setShader(context.shaderManager.CreateFromFile("Shaders\\Unlit.glsl"));
+	emptyMaterial->setShader(context.shaderManager->CreateFromFile("Shaders\\Unlit.glsl"));
 	emptyMaterial->set("u_Diffuse", MATHGL::Vector3(1.f, 0.f, 1.f));
 	emptyMaterial->set("u_DiffuseMap", nullptr);
 
@@ -1009,7 +1011,7 @@ void Renderer::applyVolumetricLight() {
 }
 
 const RESOURCES::Texture& Renderer::getResultTexture() {
-	return *swapTextures[!currentSwapBuffer];
+	return *pipeline.finalTextureBeforePostprocessing;// *swapTextures[!currentSwapBuffer];
 }
 
 void Renderer::applyHDR() {

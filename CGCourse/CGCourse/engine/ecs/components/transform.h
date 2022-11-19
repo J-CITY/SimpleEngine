@@ -79,7 +79,7 @@ namespace KUMA::ECS {
 		KUMA::MATHGL::Vector3 worldScale;
 		MATHGL::Matrix4 localMatrix;
 		MATHGL::Matrix4 worldMatrix;
-		Transform* parent;
+		Transform* parent = nullptr;
 	};
 	
 	class TransformComponent : public Component {

@@ -80,6 +80,9 @@ namespace KUMA::ECS {
 
 			if (auto& found = getComponent<T>(); !found) {
 				auto instance = T(*this, args...);
+				if (std::is_same<T, ScriptComponent>::value) {
+					ScriptComponent::createdEvent.run(object_ptr(dynamic_cast<ScriptComponent*>(&instance)));
+				}
 				componentAddedEvent.run(&instance);
 				if (getIsActive()) {
 					instance.onAwake();
@@ -95,25 +98,25 @@ namespace KUMA::ECS {
 			}
 		}
 
-		template<>
-		inline Ref<ScriptComponent> addComponent<ScriptComponent>(const std::string& name) {
-			if (auto found = getComponent<ScriptComponent>(); !found) {
-				auto instance = ScriptComponent(*this, name);
-				ScriptComponent::createdEvent.run(&instance);
-				componentAddedEvent.run(&instance);
-				if (getIsActive()) {
-					instance.onAwake();
-					instance.onEnable();
-					instance.onStart();
-				}
-				ComponentManager::getInstance()->addComponent<ScriptComponent>(getID(), instance);
-				//components.push_back(getComponent<ScriptComponent>().value());
-				return getComponent<ScriptComponent>().value();
-			}
-			else {
-				return found.value();
-			}
-		}
+		//template<typename ...Args>
+		//inline Ref<ScriptComponent> addComponent<ScriptComponent>(Args&& ...args) {
+		//	if (auto found = getComponent<ScriptComponent>(); !found) {
+		//		auto instance = ScriptComponent(*this, args...);
+		//		ScriptComponent::createdEvent.run(&instance);
+		//		componentAddedEvent.run(&instance);
+		//		if (getIsActive()) {
+		//			instance.onAwake();
+		//			instance.onEnable();
+		//			instance.onStart();
+		//		}
+		//		ComponentManager::getInstance()->addComponent<ScriptComponent>(getID(), instance);
+		//		//components.push_back(getComponent<ScriptComponent>().value());
+		//		return getComponent<ScriptComponent>().value();
+		//	}
+		//	else {
+		//		return found.value();
+		//	}
+		//}
 
 		template<typename T>
 		inline bool removeComponent() {
@@ -123,6 +126,9 @@ namespace KUMA::ECS {
 			auto result = getComponent<T>();
 			if (!result) {
 				return false;
+			}
+			if (std::is_same<T, ScriptComponent>::value) {
+				ScriptComponent::destroyedEvent.run(dynamic_cast<ScriptComponent*>(result.value().getPtr().get()));
 			}
 			componentRemovedEvent.run(result.value().getPtr());
 			ComponentManager::getInstance()->removeComponent<T>(getID());
@@ -140,30 +146,30 @@ namespace KUMA::ECS {
 			return true;
 		}
 
-		template<>
-		inline bool removeComponent<ScriptComponent>() {
-
-			auto result = getComponent<ScriptComponent>();
-			if (!result) {
-				return false;
-			}
-			ScriptComponent::destroyedEvent.run(result.value().getPtr());
-			componentRemovedEvent.run(result.value().getPtr());
-			ComponentManager::getInstance()->removeComponent<ScriptComponent>(getID());
-
-			//ScriptComponent* result = nullptr;
-			//for (auto it = components.begin(); it != components.end(); ++it) {
-			//	result = dynamic_cast<ScriptComponent*>(&(*it).get());
-			//	if (result != nullptr) {
-			//		componentRemovedEvent.run(*result);
-			//		ScriptComponent::destroyedEvent.run(*result);
-			//		components.erase(it);
-			//		ComponentManager::getInstance()->removeComponent<ScriptComponent>(getID());
-			//		return true;
-			//	}
-			//}
-			return true;
-		}
+		//template<>
+		//inline bool removeComponent<ScriptComponent>() {
+		//
+		//	auto result = getComponent<ScriptComponent>();
+		//	if (!result) {
+		//		return false;
+		//	}
+		//	ScriptComponent::destroyedEvent.run(result.value().getPtr());
+		//	componentRemovedEvent.run(result.value().getPtr());
+		//	ComponentManager::getInstance()->removeComponent<ScriptComponent>(getID());
+		//
+		//	//ScriptComponent* result = nullptr;
+		//	//for (auto it = components.begin(); it != components.end(); ++it) {
+		//	//	result = dynamic_cast<ScriptComponent*>(&(*it).get());
+		//	//	if (result != nullptr) {
+		//	//		componentRemovedEvent.run(*result);
+		//	//		ScriptComponent::destroyedEvent.run(*result);
+		//	//		components.erase(it);
+		//	//		ComponentManager::getInstance()->removeComponent<ScriptComponent>(getID());
+		//	//		return true;
+		//	//	}
+		//	//}
+		//	return true;
+		//}
 
 		//template<>
 		//inline bool removeComponent<ScriptComponent>() {

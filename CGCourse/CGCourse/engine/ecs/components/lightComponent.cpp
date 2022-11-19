@@ -4,7 +4,7 @@
 using namespace KUMA::ECS;
 
 LightComponent::LightComponent(Ref<ECS::Object> obj): Component(obj),
-	data(obj->getTransform()->getTransform()) {
+	data(obj->getID()) {
 }
 
 const KUMA::RENDER::Light& LightComponent::getData() const {

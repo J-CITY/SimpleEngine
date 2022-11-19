@@ -2,7 +2,7 @@
 
 import glmath;
 #include "../ecs/components/transform.h"
-
+#include "../utils/idObject.h"
 namespace KUMA {
 	namespace RENDER {
 
@@ -22,7 +22,7 @@ namespace KUMA {
 		struct Light {
 			enum class Type { NONE, POINT, DIRECTIONAL, SPOT, AMBIENT_BOX, AMBIENT_SPHERE, INPUT };
 
-			Light(Ref<ECS::Transform> p_tranform, Type p_type = Type::NONE);
+			Light(ObjectId<ECS::Object> objId, Type p_type = Type::NONE);
 			[[nodiscard]] LightOGL generateOGLStruct() const;
 			[[nodiscard]] float getEffectRange() const;
 			[[nodiscard]] const ECS::Transform& getTransform() const;
@@ -37,7 +37,7 @@ namespace KUMA {
 			Type type = Type::NONE;
 
 		protected:
-			Ref<ECS::Transform> transform;
+			ObjectId<ECS::Object> objId;
 		};
 	}
 }

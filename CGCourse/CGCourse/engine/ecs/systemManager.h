@@ -1,6 +1,7 @@
 #pragma once
 #include <bitset>
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <set>
 #include <unordered_map>
@@ -14,6 +15,19 @@ namespace KUMA::ECS {
 	class System {
 	public:
 		std::set<Entity> mEntities;
+
+		virtual void onAwake() {}
+		virtual void onStart() {}
+
+		virtual void onEnable() {}
+		virtual void onDisable() {}
+
+		virtual void onDestroy() {}
+
+		virtual void onUpdate(std::chrono::duration<double> dt) {}
+		virtual void onFixedUpdate(std::chrono::duration<double> dt) {}
+		virtual void onLateUpdate(std::chrono::duration<double> dt) {}
+
 	};
 
 	class SystemManager {
@@ -68,7 +82,7 @@ namespace KUMA::ECS {
 			}
 		}
 
-	private:
+	//private:
 		// Map from system type string pointer to a signature
 		std::unordered_map<const char*, Signature> signatures;
 
