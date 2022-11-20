@@ -18,6 +18,9 @@
 #include "../scene/sceneManager.h"
 #include "../debug/debugRender.h"
 #include "../ecs/systems/audioSystem.h"
+#include "../ecs/systems/scriptSystem.h"
+#include "../ecs/systems/logicSystem.h"
+#include "../ecs/systems/inputSystem.h"
 #include "../resourceManager/materialManager.h"
 #include "../resourceManager/modelManager.h"
 #include "../resourceManager/shaderManager.h"
@@ -80,6 +83,9 @@ Core::Core() {
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::SpotLight>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::PhysicsComponent>();
 
+	ECS::ComponentManager::getInstance()->systemManager->registerSystem<ECS::ScriptSystem>();
+	ECS::ComponentManager::getInstance()->systemManager->registerSystem<ECS::LogicSystem>();
+	ECS::ComponentManager::getInstance()->systemManager->registerSystem<ECS::InputSystem>();
 	ECS::ComponentManager::getInstance()->systemManager->registerSystem<ECS::AudioSystem>();
 	ECS::Signature signature;
 	signature.set(static_cast<unsigned int>(ECS::ComponentManager::getInstance()->getComponentType<ECS::AudioComponent>()));

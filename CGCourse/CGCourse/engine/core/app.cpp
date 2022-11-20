@@ -50,7 +50,13 @@ void App::update(std::chrono::duration<double> dt) {
 	if (core.sceneManager->hasCurrentScene()) {
 		auto& currentScene = core.sceneManager->getCurrentScene();
 		currentScene.fixedUpdate(dt);
+		for (auto& system : ECS::ComponentManager::getInstance()->systemManager->systems) {
+			system.second->onFixedUpdate(dt);
+		}
 		currentScene.update(dt);
+		for (auto& system : ECS::ComponentManager::getInstance()->systemManager->systems) {
+			system.second->onUpdate(dt);
+		}
 		currentScene.lateUpdate(dt);
 		for (auto& system : ECS::ComponentManager::getInstance()->systemManager->systems) {
 			system.second->onLateUpdate(dt);

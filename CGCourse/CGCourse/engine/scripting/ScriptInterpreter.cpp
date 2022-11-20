@@ -6,7 +6,10 @@
 import logger;
 
 #include "luaBinder.h"
-#include "../ecs/components/ScriptComponent.h"
+#include "../ecs/components/scriptComponent.h"
+#include "../ecs/ComponentManager.h"
+#include "../ecs/systems/scriptSystem.h"
+
 
 using namespace KUMA;
 using namespace KUMA::SCRIPTING;
@@ -31,7 +34,7 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 		checkOk = true;
 		
 		for (const auto& s : scripts) {
-			if (!s->registerToLuaContext(*luaState, scriptRootFolder)) {
+			if (!ECS::ComponentManager::getInstance()->systemManager->getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
 				checkOk = false;
 			}
 		}
@@ -45,7 +48,7 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 void ScriptInterpreter::destroyLuaContext() {
 	if (luaState) {
 		for (const auto& s : scripts) {
-			s->unregisterFromLuaContext();
+			ECS::ComponentManager::getInstance()->systemManager->getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*s);
 		}
 
 		luaState.reset();
@@ -57,7 +60,7 @@ void ScriptInterpreter::consider(object_ptr<KUMA::ECS::ScriptComponent> s) {
 	if (luaState) {
 		scripts.push_back(s);
 
-		if (!s->registerToLuaContext(*luaState, scriptRootFolder)) {
+		if (!ECS::ComponentManager::getInstance()->systemManager->getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
 			checkOk = false;
 		}
 	}
@@ -65,7 +68,7 @@ void ScriptInterpreter::consider(object_ptr<KUMA::ECS::ScriptComponent> s) {
 
 void ScriptInterpreter::unconsider(object_ptr<KUMA::ECS::ScriptComponent> p_toUnconsider) {
 	if (luaState) {
-		p_toUnconsider->unregisterFromLuaContext();
+		ECS::ComponentManager::getInstance()->systemManager->getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*p_toUnconsider);
 	}
 	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](object_ptr<KUMA::ECS::ScriptComponent> s) {
 		return p_toUnconsider == s;
