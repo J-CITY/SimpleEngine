@@ -85,6 +85,7 @@ namespace KUMA::ECS {
 				}
 				componentAddedEvent.run(&instance);
 				if (getIsActive()) {
+					//TODO: call systems methods
 					instance.onAwake();
 					instance.onEnable();
 					instance.onStart();

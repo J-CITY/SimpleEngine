@@ -17,7 +17,7 @@
 #include "components/modelRenderer.h"
 #include "components/materialRenderer.h"
 #include "components/pointLight.h"
-#include "components/ScriptComponent.h"
+#include "components/scriptComponent.h"
 #include "components/skeletal.h"
 #include "components/spotLight.h"
 
