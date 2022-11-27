@@ -498,6 +498,33 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 				ImGui::GetCursorScreenPos().y + size.y / 2), ImVec2(0, 1), ImVec2(1, 0));
 		ImGui::End();
 	}
+	{
+		auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+		ImGui::Begin("Scene Window Light");
+		ImVec2 pos = ImGui::GetCursorScreenPos();
+		ImGui::GetWindowDrawList()->AddImage(
+			(void*)core.renderer->getResultTexture2().getId(),
+			ImVec2(ImGui::GetCursorScreenPos()),
+			ImVec2(ImGui::GetCursorScreenPos().x + size.x / 2,
+				ImGui::GetCursorScreenPos().y + size.y / 2), ImVec2(0, 1), ImVec2(1, 0));
+
+		{
+			static float x = -20.0f;
+			static float y = 40.0f;
+			static float z = 10.0f;
+			if (ImGui::DragFloat("LightX", &x, 1.0f, -100.0f, 100.0f)) {
+				core.renderer->setLightPos(x, y, z);
+			}
+			if (ImGui::DragFloat("LightY", &y, 1.0f, -100.0f, 100.0f)) {
+				core.renderer->setLightPos(x, y, z);
+			}
+			if (ImGui::DragFloat("LightZ", &z, 1.0f, -100.0f, 100.0f)) {
+				core.renderer->setLightPos(x, y, z);
+			}
+		}
+
+		ImGui::End();
+	}
 	//ImGui::SFML::Render(*window);
 
 	ImGui::Render();

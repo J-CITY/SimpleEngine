@@ -205,32 +205,38 @@ ResourcePtr<Shader> ShaderLoader::Create(const std::string& filePath, bool useBi
 	FILE_PATH = filePath;
 
 	useBinary &= checkBinarySupport();
-
+	uint32_t programID;
 	if (useBinary && std::filesystem::exists(filePath + ".bin")) {
-		GLuint program = glCreateProgram();
-		GLenum format = 0;
+		programID = glCreateProgram();
+		//GLenum format = 0;
 		std::ifstream inputStream(filePath + ".bin", std::ios::binary);
 		std::istreambuf_iterator<char> startIt(inputStream), endIt;
 		std::vector<char> buffer(startIt, endIt);
 		inputStream.close();
 		
-		memcpy(&format, buffer.data(), sizeof(GLenum));
-		glProgramBinary(program, format, buffer.data() + sizeof(format), buffer.size());
-		LOG_INFO("Reading from " + filePath + ", binary format = " + std::to_string(format));
+		//memcpy(&format, buffer.data(), sizeof(GLenum));
+		GLint formats = 0;
+		glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
+		std::vector<GLint> binaryFormats;
+		binaryFormats.resize(formats);
+		glGetIntegerv(GL_PROGRAM_BINARY_FORMATS, binaryFormats.data());
+
+		glProgramBinary(programID, binaryFormats[0], buffer.data(), buffer.size());
+		LOG_INFO("Reading from " + filePath + ", binary format = ");
 		// Check for success/failure
 		GLint status;
-		glGetProgramiv(program, GL_LINK_STATUS, &status);
+		glGetProgramiv(programID, GL_LINK_STATUS, &status);
 		if (GL_FALSE == status) {
 			// Handle failure ...
 		}
+		//glValidateProgram(programID);
 	}
-
-	const std::array<std::string, 5> source = ParseShader(filePath);
-
-	uint32_t programID = CreateProgram(source[0], source[1], source[2], source[3], source[4]);
-	
+	else {
+		const std::array<std::string, 5> source = ParseShader(filePath);
+		programID = CreateProgram(source[0], source[1], source[2], source[3], source[4]);
+	}
 	if (programID) {
-		if (useBinary) {
+		if (useBinary && !std::filesystem::exists(filePath + ".bin")) {
 			GLint length = 0;
 			glGetProgramiv(programID, GL_PROGRAM_BINARY_LENGTH, &length);
 
@@ -241,7 +247,7 @@ ResourcePtr<Shader> ShaderLoader::Create(const std::string& filePath, bool useBi
 			std::string fName = filePath + ".bin";
 			LOG_INFO("Writing to " + fName + ", binary format = " + std::to_string(format));
 			std::ofstream out(fName.c_str(), std::ios::binary);
-			out.write(reinterpret_cast<char*>(&format), sizeof(format));
+			//out.write(reinterpret_cast<char*>(&format), sizeof(format));
 			out.write(reinterpret_cast<char*>(buffer.data()), length);
 			out.close();
 		}
