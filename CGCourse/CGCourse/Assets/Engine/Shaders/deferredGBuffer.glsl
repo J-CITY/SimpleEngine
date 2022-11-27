@@ -61,7 +61,6 @@ void main() {
     );
 
     mat3 TBNi = transpose(vs_out.TBN);
-
     if (u_UseBone) {
         vs_out.FragPos          = vec3(ubo_Model * totalPosition);
         vs_out.EyeSpacePosition =  (ubo_View * ubo_Model) * totalPosition;

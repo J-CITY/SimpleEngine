@@ -70,6 +70,17 @@ void Window::setFullscreen(bool val) {
 	);
 }
 
+void Window::setCursorVisible(bool isVisible, bool isLock) const {
+	auto val = GLFW_CURSOR_NORMAL;
+	if (!isVisible && isLock) {
+		val = GLFW_CURSOR_DISABLED;
+	}
+	else if (!isVisible) {
+		val = GLFW_CURSOR_HIDDEN;
+	}
+	glfwSetInputMode(window.get(), GLFW_CURSOR, val);
+}
+
 void Window::toggleFullscreen() {
 	setFullscreen(!windowSettings.isFullscreen);
 }
@@ -185,7 +196,7 @@ void Window::create() {
 	setAntialiasingLevel(windowSettings.antialiasingLevel);
 	setDepthBits(windowSettings.depthBits);
 	setStencilBits(windowSettings.stencilBits);
-
+	
 	window = std::unique_ptr<GLFWwindow, DestroyGLFW>(glfwCreateWindow(
 		windowSettings.size.x, windowSettings.size.y, 
 		windowSettings.title.c_str(), NULL, NULL));
@@ -194,6 +205,7 @@ void Window::create() {
 	glfwMakeContextCurrent(window.get());
 	glfwSwapInterval(1); //vsync
 	setRefreshRate(windowSettings.refreshRate);
+	setCursorVisible(windowSettings.isCursorVisible, windowSettings.isCursorLock);
 
 	if (!window) {
 		glfwTerminate();

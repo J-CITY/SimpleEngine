@@ -76,15 +76,16 @@ void main() {
 
        if(fog_calc > 0){
           //bias for the shadow map, helps against aliasing
-          float BIAS = 0.002;
+          float BIAS = 0.45;
           //bias for the camera depth, avoid seeing lights "through" the objects
-          float BIAS_DEPTH = 0.02;
+          float BIAS_DEPTH = -0.35;
           //check that the end of the vector is not further than the depth map (behind an object)
           if(end_vec.z/end_vec.w+BIAS_DEPTH < texture(u_DepthTex, TexCoords).r){
              //check that the ray from the end vector to the light has no obstruction with the help of the shadow depth map
              if ( texture( u_ShadowMapDepthTex, (shadow_coord_tex.xy/shadow_coord_tex.w) ).x > shadow_coord_tex.z/shadow_coord_tex.w-BIAS){
                 //if ray not obstructed from cam to end_vec and then to light, then add a bit of colour (vol light)
-                color += fog_calc*vec3(0.016);
+                 //color = vec3(1,0,0);
+                 color += fog_calc * vec3(0.016);
              }
           }
        }

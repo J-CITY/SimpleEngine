@@ -1,5 +1,7 @@
 {
 	"depthBits": 24,
+	"isCursorVisible": true,
+	"isCursorLock": true,
 	"stencilBits": 8,
 	"antialiasingLevel": 4,
 	"majorVersion": 4,

@@ -161,6 +161,8 @@ void Renderer::initShaders() {
 	//global depth
 	shaderStorage["globalDepth"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/globalDepth.glsl");
 
+	shaderStorage["globalDepth2"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/globalDepth2.glsl");
+
 	//volumetric light
 	shaderStorage["volumetricLight"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/volumetricLight.glsl");
 
@@ -187,6 +189,8 @@ void Renderer::initShaders() {
 	shaderStorage["ssr"] = RESOURCES::ShaderLoader::CreateFromFile("Shaders/ssr.glsl");
 }
 
+std::shared_ptr<RESOURCES::Texture> depthLight;
+std::shared_ptr<RESOURCES::Texture> depthCamera;
 
 void Renderer::init() {
 	emptyMaterial = std::make_shared<RENDER::Material>();
@@ -260,6 +264,13 @@ void Renderer::init() {
 		// Конфигурирование g-буфера фреймбуфера
 		pipeline.deferredRender.gBuffer.bind();
 
+
+		depthLight = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		depthLight->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+		depthCamera = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
+		depthCamera->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+
+
 		// Цветовой буфер позиций
 		pipeline.deferredRender.gPosition = RESOURCES::TextureLoader::CreateEmpty(screenRes.x, screenRes.y);
 		pipeline.deferredRender.gPosition->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
@@ -282,7 +293,7 @@ void Renderer::init() {
 
 		// Указываем OpenGL на то, в какой прикрепленный цветовой буфер (заданного фреймбуфера) мы собираемся выполнять рендеринг 
 		pipeline.deferredRender.gBuffer.setOutputBuffers(std::array{Attachment::COLOR_ATTACHMENT0, Attachment::COLOR_ATTACHMENT1,
-			Attachment::COLOR_ATTACHMENT2, Attachment::COLOR_ATTACHMENT3});
+			Attachment::COLOR_ATTACHMENT2, Attachment::COLOR_ATTACHMENT3 });
 
 		// Создаем и прикрепляем буфер глубины (рендербуфер)
 		DepthBuffer rboDepth(screenRes.x, screenRes.y);
@@ -781,6 +792,49 @@ void Renderer::prepareTexturesForPostprocessing() {
 	}
 	shaderStorage["globalDepth"]->unbind();
 
+	{//gen depth for volumetric light
+		swapBuffers[0].attachTexture(*depthCamera);
+		BaseRender::clear(true, true, false);
+		shaderStorage["globalDepth2"]->bind();
+
+		auto& currentScene = context.sceneManager->getCurrentScene();
+		auto mainCameraComponent = currentScene.findMainCamera();
+		auto& camera = mainCameraComponent.value()->getCamera();
+		shaderStorage["globalDepth2"]->setUniformMat4("lightView", camera.getViewMatrix());
+		shaderStorage["globalDepth2"]->setUniformMat4("lightProj", camera.getProjectionMatrix());
+
+		for (const auto& [distance, drawable] : opaqueMeshesForward) {
+			drawDrawable(drawable, *shaderStorage["globalDepth2"]);
+		}
+		for (const auto& [distance, drawable] : opaqueMeshesDeferred) {
+			drawDrawable(drawable, *shaderStorage["globalDepth2"]);
+		}
+		shaderStorage["globalDepth2"]->unbind();
+
+
+		swapBuffers[0].attachTexture(*depthLight);
+		BaseRender::clear(true, true, false);
+		shaderStorage["globalDepth2"]->bind();
+
+		MATHGL::Matrix4 mv;
+		auto lightProjection = MATHGL::Matrix4::CreatePerspective(45.0f,
+			800.0f / 600.0f, 0.1f, 1000.0f);
+		for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+			mv = MATHGL::Matrix4::CreateView(light.obj->getTransform()->getLocalPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, 1.0f, 0.0f));
+			break;
+		}
+		shaderStorage["globalDepth2"]->setUniformMat4("lightView", mv);
+		shaderStorage["globalDepth2"]->setUniformMat4("lightProj", lightProjection);
+
+		for (const auto& [distance, drawable] : opaqueMeshesForward) {
+			drawDrawable(drawable, *shaderStorage["globalDepth2"]);
+		}
+		for (const auto& [distance, drawable] : opaqueMeshesDeferred) {
+			drawDrawable(drawable, *shaderStorage["globalDepth2"]);
+		}
+		shaderStorage["globalDepth2"]->unbind();
+	}
+
 	prepareBlurTexture();
 
 	//set to default
@@ -992,16 +1046,32 @@ void Renderer::applyVolumetricLight() {
 	shaderStorage["volumetricLight"]->bind();
 	swapTextures[!currentSwapBuffer]->bind();
 
-	pipeline.globalDepth->bind(1);
-	//pipeline.deferredRender.gPosition->bind(1);
+	depthCamera->bind(1);
+	depthLight->bind(2);
 
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, pipeline.dirLightsData[0].id);
+	//glActiveTexture(GL_TEXTURE2);
+	//glBindTexture(GL_TEXTURE_2D, pipeline.dirLightsData[0].id);
 
 	auto& currentScene = context.sceneManager->getCurrentScene();
 	auto mainCameraComponent = currentScene.findMainCamera().value();
 	shaderStorage["volumetricLight"]->setUniformMat4("u_CameraTransformMatrix", mainCameraComponent->getCamera().getViewMatrix());
-	shaderStorage["volumetricLight"]->setUniformMat4("u_ShadowMapTransformMatrix", pipeline.dirLightsData[0].projMap);
+
+	MATHGL::Matrix4 bias_matrix(
+		0.5, 0.0, 0.0, 0.0,
+		0.0, 0.5, 0.0, 0.0,
+		0.0, 0.0, 0.5, 0.0,
+		0.5, 0.5, 0.5, 1.0
+	);
+	MATHGL::Matrix4 mv;
+	auto lightProjection = MATHGL::Matrix4::CreatePerspective(45.0f,
+		800.0f / 600.0f, 0.1f, 1000.0f);
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+		mv = MATHGL::Matrix4::CreateView(light.obj->getTransform()->getLocalPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, 1.0f, 0.0f));
+		break;
+	}
+
+	auto res = bias_matrix*(lightProjection * mv);
+	shaderStorage["volumetricLight"]->setUniformMat4("u_ShadowMapTransformMatrix", res);
 
 	renderQuad();
 	shaderStorage["volumetricLight"]->unbind();
@@ -1011,7 +1081,17 @@ void Renderer::applyVolumetricLight() {
 }
 
 const RESOURCES::Texture& Renderer::getResultTexture() {
-	return *pipeline.finalTextureBeforePostprocessing;// *swapTextures[!currentSwapBuffer];
+	return  *swapTextures[!currentSwapBuffer];
+}
+const RESOURCES::Texture& Renderer::getResultTexture2() {
+	return *pipeline.ssrTexture;
+}
+
+void Renderer::setLightPos(float x, float y, float z) {
+	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+		light.obj->getTransform()->setLocalPosition(MATHGL::Vector3(x,y,z));
+		break;
+	}
 }
 
 void Renderer::applyHDR() {
@@ -1123,6 +1203,8 @@ void Renderer::renderResultToScreen() {
 //it is more prepearing for ssao
 void Renderer::applySSAO() {
 	// 2. Генерируем текстуру для SSAO
+	pipeline.ssao.ssaoFBO.attachTexture(*pipeline.ssao.ssaoColorBuffer);
+
 	pipeline.ssao.ssaoFBO.bind();
 	BaseRender::clear(true, false, false);
 	shaderStorage["ssao"]->bind();
@@ -1232,7 +1314,6 @@ void Renderer::applyDeferred() {
 		// 1. Геометрический проход: выполняем рендеринг геометрических/цветовых данных сцены в g-буфер
 		pipeline.deferredRender.gBuffer.bind();
 		BaseRender::clear(true, true, false);
-		//shaderStorage["deferredGBuffer"]->bind();
 
 		for (const auto& [distance, p_toDraw] : opaqueMeshesDeferred) {
 			if (p_toDraw.material->getGPUInstances() <= 0) {
@@ -1391,13 +1472,17 @@ void Renderer::renderScene() {
 			uint8_t glState = fetchGLState();
 			applyStateMask(glState);
 
+			
 			if (pipeline.deferred.usePbr) {
 				applyDeferredPbr();
 			}
 			else {
 				applyDeferred();
 			}
+			applySSR();
+			applySSGI();
 			pipeline.finalFBOBeforePostprocessing.unbind();
+
 			// 2.5. Копируем содержимое буфера глубины (геометрический проход) в буфер глубины заданного по умолчанию фреймбуфера
 			FrameBuffer::CopyDepth(pipeline.deferredRender.gBuffer, pipeline.finalFBOBeforePostprocessing, screenRes.x, screenRes.y);
 			pipeline.finalFBOBeforePostprocessing.bind();
@@ -1409,9 +1494,6 @@ void Renderer::renderScene() {
 			RESOURCES::Texture::CopyTexture(*pipeline.finalTextureBeforePostprocessing, *swapTextures[!currentSwapBuffer]);
 			
 			prepareTexturesForPostprocessing();
-
-			//applySSR();
-			//applySSGI();
 
 			for (auto& f : postProcessingFuncs) {
 				f();

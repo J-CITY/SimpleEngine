@@ -209,6 +209,8 @@ namespace KUMA::RENDER {
 		void addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled = true);
 		void setCustomPostRocessing(std::string name, bool isEnabled);
 		const RESOURCES::Texture& getResultTexture();
+		const RESOURCES::Texture& getResultTexture2();
+		void setLightPos(float x, float y, float z);
 	public:
 		RenderPipeline pipeline;
 		std::unordered_map<std::string, std::shared_ptr<RESOURCES::Shader>> shaderStorage;

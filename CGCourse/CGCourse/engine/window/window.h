@@ -22,6 +22,8 @@ namespace KUMA::CORE_SYSTEM {
 namespace KUMA::WINDOW_SYSTEM {
 	struct WindowSettings {
 		bool isFullscreen = false;
+		bool isCursorVisible = true;
+		bool isCursorLock = true;
 		int depthBits = 24;
 		int stencilBits = 8;
 		int antialiasingLevel = 4;
@@ -33,6 +35,8 @@ namespace KUMA::WINDOW_SYSTEM {
 
 		DERIVE_SERDE(WindowSettings,
 			(&Self::isFullscreen, "isFullscreen")
+			(&Self::isFullscreen, "isCursorVisible")
+			(&Self::isFullscreen, "isCursorLock")
 			(&Self::depthBits, "depthBits")
 			(&Self::stencilBits, "stencilBits")
 			(&Self::antialiasingLevel, "antialiasingLevel")
@@ -90,6 +94,8 @@ namespace KUMA::WINDOW_SYSTEM {
 		void draw() const;
 		[[nodiscard]] GLFWwindow& getContext() const;
 		[[nodiscard]] bool isClosed() const;
+
+		void setCursorVisible(bool isVisible, bool isLock) const;
 	private:
 		struct DestroyGLFW {
 			void operator()(GLFWwindow* ptr) const;
