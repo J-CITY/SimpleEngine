@@ -34,6 +34,7 @@ namespace KUMA::SCENE_SYSTEM {
 
 		std::shared_ptr<ECS::Object> createObject();
 		std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");
+		std::shared_ptr<ECS::Object> _createObject(const std::string& p_name, const std::string& p_tag = "");
 
 		bool destroyObject(std::shared_ptr<ECS::Object> p_target);
 

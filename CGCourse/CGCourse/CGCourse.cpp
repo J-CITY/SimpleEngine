@@ -16,6 +16,8 @@
 #include "engine/physics/body.h"
 #include "engine/physics/narrowPhase.h"
 #include "engine/physics/PhysicWorld.h"
+#include "engine/physics/cloth/Cloth.h"
+//#include "engine/physics/particel/opencl/loadKernel.h"
 #include "engine/resourceManager/materialManager.h"
 #include "engine/resourceManager/resource/bone.h"
 #include "engine/resourceManager/modelManager.h"
@@ -70,11 +72,105 @@ namespace Game {
 	}
 }
 
-int main() {
+int main2() {
 	KUMA::CORE_SYSTEM::App app;
-
 	auto& scene = app.getCore()->sceneManager->getCurrentScene();
+	{
+		auto obj = scene.createObject("DirLight");
+		auto light = obj->addComponent<KUMA::ECS::DirectionalLight>();
+		light->orthoBoxSize = 100;
+		light->distance = 100;
+		light->setIntensity(1.0f);
+		light->setColor({ 1.0f, 1.0f, 1.0f });
+		obj->getTransform()->setLocalPosition({ -20.0f, 40.0f, 10.0f });
+		obj->getTransform()->setLocalRotation({ 0.81379771, -0.17101006, 0.29619816, 0.46984628 });
+		obj->getTransform()->setLocalScale({ 1.5f, 1.5f, 1.5f });
+	}
+	{
+		auto obj = scene.createObject("Camera");
+		//auto cam = obj->addComponent<KUMA::ECS::CameraComponent>();
+		//cam->setFov(45.0f);
+		//cam->setSize(5.0f);
+		//cam->setNear(0.1f);
+		//cam->setFar(1000.0f);
+		//cam->setFrustumGeometryCulling(false);
+		//cam->setFrustumLightCulling(false);
+		//cam->setProjectionMode(KUMA::RENDER::Camera::ProjectionMode::PERSPECTIVE);
+		//obj->getTransform()->setLocalPosition({ 0.f, 140.0f, 0.0f });
+		//obj->getTransform()->setLocalRotation({ 0.0f, 0.98480773f, -0.17364819f, 0.0f });
+		//obj->getTransform()->setLocalScale({ 1.0f, 1.0f, 1.0f });
+		//obj->addComponent<KUMA::ECS::ScriptComponent>("Controller");
 
+		auto cam = obj->addComponent<KUMA::ECS::ArCameraComponent>();
+
+	}
+	{
+		auto& obj = scene.createObject("Box3");
+
+		auto model = obj->addComponent<KUMA::ECS::ModelRenderer>();
+		KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+		flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+
+		//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\User\\cottage_fbx.fbx", flags);
+		auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+		model->setModel(m);
+		model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+		auto bs = KUMA::RENDER::BoundingSphere();
+		bs.position = { 0.0f, 0.0f, 0.0f };
+		bs.radius = 1.0f;
+		model->setCustomBoundingSphere(bs);
+		obj->getTransform()->setLocalPosition({ 0.0f, 0.0f, 0.0f });
+		obj->getTransform()->setLocalRotation({ 0.0f, 0.0f, 0.0f, 1.0f });
+		//obj.getTransform()->setLocalScale({100.01f, 100.01f, 100.01f});
+		obj->getTransform()->setLocalScale({ 1.f, 1.f, 1.f });
+
+		auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\Base.glsl");
+
+		auto mat = obj->addComponent<KUMA::ECS::MaterialRenderer>();
+		auto _m = KUMA::RESOURCES::MaterialLoader::Create("");
+		//_m->isDeferred = true;
+		_m->setShader(s);
+		_m->setBlendable(false);
+		_m->setBackfaceCulling(true);
+		_m->setFrontfaceCulling(false);
+		_m->setDepthTest(true);
+		_m->setDepthWriting(true);
+		_m->setColorWriting(true);
+		_m->setGPUInstances(1);
+		auto& data = _m->getUniformsData();
+		//data["u_Albedo"] = KUMA::MATHGL::Vector4{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+		auto tex1 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\brick_albedo.jpg");
+		data["u_DiffuseMap"] = tex1;
+
+		//data["u_EnableNormalMapping"] = true;
+		//data["u_HeightScale"] = 0.0f;
+
+		//auto tex2 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\brick_normal.jpg");
+		//data["u_NormalMap"] = tex2;
+		//auto tex3 = KUMA::RESOURCES::TextureLoader().CreateFromFile("textures\\noiseTexture.png");
+		//data["u_Noise"] = tex3;
+		//data["fogScaleBias"] = KUMA::MATHGL::Vector4(0, -0.06f, 0, 0.0008f);
+		//data["u_Shininess"] = 100;
+		//data["u_Specular"] = KUMA::MATHGL::Vector3{ 1.0f, 1.0f, 1.0f };
+		//data["u_TextureOffset"] = KUMA::MATHGL::Vector2f{ 0.0f, 0.0f };
+		//data["u_TextureTiling"] = KUMA::MATHGL::Vector2f{ 1.0f, 1.0f };
+		//data["u_UseBone"] = false;
+		mat->fillWithMaterial(_m);
+	}
+	app.run();
+	return 0;
+}
+
+int main() {
+
+	//example();
+
+	KUMA::CORE_SYSTEM::App app;
+	auto& scene = app.getCore()->sceneManager->getCurrentScene();
 	{
 		auto rpos = []() {
 			auto LO = -100.0f;
@@ -206,6 +302,34 @@ int main() {
 		obj->getTransform()->setLocalScale({1.0f, 1.0f, 1.0f});
 		obj->addComponent<KUMA::ECS::ScriptComponent>("Controller");
 
+
+		//VR test
+		//auto vrCam = obj->addComponent<KUMA::ECS::VrCameraComponent>();
+		//
+		//{
+		//	auto camLeft = scene.createObject("CameraLeft");
+		//	auto cam = camLeft->addComponent<KUMA::ECS::CameraComponent>();
+		//	cam->setFov(45.0f);
+		//	cam->setSize(5.0f);
+		//	cam->setNear(0.1f);
+		//	cam->setFar(1000.0f);
+		//	cam->setFrustumGeometryCulling(false);
+		//	cam->setFrustumLightCulling(false);
+		//	cam->setProjectionMode(KUMA::RENDER::Camera::ProjectionMode::PERSPECTIVE);
+		//	vrCam->left = camLeft;
+		//}
+		//{
+		//	auto camRight = scene.createObject("CameraRight");
+		//	auto cam = camRight->addComponent<KUMA::ECS::CameraComponent>();
+		//	cam->setFov(45.0f);
+		//	cam->setSize(5.0f);
+		//	cam->setNear(0.1f);
+		//	cam->setFar(1000.0f);
+		//	cam->setFrustumGeometryCulling(false);
+		//	cam->setFrustumLightCulling(false);
+		//	cam->setProjectionMode(KUMA::RENDER::Camera::ProjectionMode::PERSPECTIVE);
+		//	vrCam->right = camRight;
+		//}
 		/*auto inp = obj.addComponent<KUMA::ECS::InputComponent>([&app](float dt) {
 			auto& core = app.getCore();
 			if (core.inputManager->isKeyPressed(KUMA::INPUT_SYSTEM::EKey::KEY_S)) {
@@ -613,6 +737,7 @@ int main() {
 		_m->setDepthWriting(true);
 		_m->setColorWriting(true);
 		_m->setGPUInstances(1);
+		_m->isDeferred = true;
 		auto& data = _m->getUniformsData();
 		data["u_Diffuse"] = KUMA::MATHGL::Vector4{1.0f, 1.0f, 1.0f, 1.0f};
 
@@ -826,7 +951,7 @@ int main() {
 		bs.position = {0.0f, 0.0f, 0.0f};
 		bs.radius = 10.50;
 		model->setCustomBoundingSphere(bs);
-		obj->getTransform()->setLocalPosition({7.0f, 155.0f, 0.0f});
+		obj->getTransform()->setLocalPosition({7.0f, 15.0f, 0.0f});
 		obj->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 		//obj.getTransform()->setLocalScale({100.01f, 100.01f, 100.01f});
 		obj->getTransform()->setLocalScale({10.5f, 10.5f, 10.5f});
@@ -1788,8 +1913,22 @@ int main() {
 
 	}
 
+	//{//hard add cloth
+	//	int num_part = 15;
+	//	float part_dist = 0.9f;
+	//	float k = -3.0f;
+	//	float d = 0.20f;
+	//	ClothObj cloth;
+	//	cloth.Initialize(num_part, part_dist, glm::vec3(0, 50, 0));
+	//	cloth.SetStructuralSprings(k, d);
+	//	cloth.SetBendSprings(k, d);
+	//	cloth.SetShearSprings(k, d);
+	//
+	//	app.getCore()->physicsManger->cloths.push_back(cloth);
+	//}
 
 	app.run();
+	return 0;
 }
 
 

@@ -3,6 +3,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "ServiceManager.h"
 #include "../../3rd/stb/stb_image.h"
+#include "../resourceManager/ServiceManager.h"
+#include "../tasks/taskSystem.h"
 
 using namespace KUMA;
 using namespace KUMA::RESOURCES;
@@ -207,6 +209,45 @@ ResourcePtr<Texture> TextureLoader::CreateFromFile(const std::string& path) {
 		texture->path = path;
 	}
 	return texture;
+}
+
+std::future<ResourcePtr<Texture>> TextureLoader::CreateFromFileAsync(const std::string& path) {
+	std::string realPath = getRealPath(path);
+
+	struct LoadImageData {
+		unsigned char* data = nullptr;
+		int textureWidth = 0;
+		int textureHeight = 0;
+	};
+
+	auto taskLoadImage = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("LoadImage", 3, nullptr, [realPath]() {
+		int textureWidth;
+		int textureHeight;
+		int bitsPerPixel;
+		stbi_set_flip_vertically_on_load(true);
+		unsigned char* dataBuffer = stbi_load(realPath.c_str(), &textureWidth, &textureHeight, &bitsPerPixel, 4);
+		return LoadImageData{ dataBuffer, textureWidth, textureHeight };
+	});
+
+	auto f = std::async(std::launch::deferred, [taskLoadImage, realPath]() -> ResourcePtr<Texture> {
+		auto imgData = taskLoadImage.future->get();
+		auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
+	TextureFiltering::LINEAR_MIPMAP_LINEAR, TextureFiltering::LINEAR, true };
+		if (imgData.data) {
+			auto res = CreateFromMemory(imgData.data, imgData.textureWidth, imgData.textureHeight, min, mag, mipmap);
+			stbi_image_free(imgData.data);
+			if (res) {
+				res->path = realPath;
+			}
+			return res;
+		}
+		else {
+			stbi_image_free(imgData.data);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			return nullptr;
+		}
+	});
+	return f;
 }
 
 ResourcePtr<Texture> TextureLoader::CreateFromFileFloat(const std::string& path) {

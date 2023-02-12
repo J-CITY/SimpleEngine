@@ -72,6 +72,8 @@ Core::Core() {
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::AmbientSphereLight>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::AudioComponent>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::CameraComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::VrCameraComponent>();
+	ECS::ComponentManager::getInstance()->registerComponent<ECS::ArCameraComponent>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::DirectionalLight>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::InputComponent>();
 	ECS::ComponentManager::getInstance()->registerComponent<ECS::LogicComponent>();
