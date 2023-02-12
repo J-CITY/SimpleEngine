@@ -1,4 +1,5 @@
 #pragma once
+#include <future>
 #include <memory>
 #include <string>
 #include "resourceManager.h"
@@ -19,6 +20,7 @@ namespace KUMA {
 			static ResourcePtr<Texture> CreateColor(uint32_t p_data, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap);
 			static ResourcePtr<Texture> CreateEmpty(uint32_t width, uint32_t height, bool isFloating=true, int channels=4, TextureFormat format= TextureFormat::RGBA16F);
 			static ResourcePtr<Texture> CreateFromFile(const std::string& path);
+			static std::future<ResourcePtr<Texture>> CreateFromFileAsync(const std::string& path);
 			static ResourcePtr<Texture> CreateFromFileFloat(const std::string& path);
 
 			static std::shared_ptr<CubeMap> CreateColorCM(uint8_t r, uint8_t g, uint8_t b);

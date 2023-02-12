@@ -2,8 +2,19 @@
 
 #include "component.h"
 #include "../../render/camera.h"
+#include <opencv2/aruco.hpp>
+#include <opencv2/opencv.hpp>
+namespace KUMA
+{
+	namespace RESOURCES
+	{
+		class Texture;
+	}
+}
 
 namespace KUMA::ECS { class Object; }
+
+import glmath;
 
 namespace KUMA::ECS {
 	class CameraComponent : public Component {
@@ -12,7 +23,7 @@ namespace KUMA::ECS {
 		float exposure = 1.0f;
 		
 		CameraComponent(Ref<ECS::Object> obj);
-		~CameraComponent() = default;
+		~CameraComponent() override = default;
 		void ResizeRenderTexture(size_t w, size_t h);
 		void setFov(float value);
 		void setSize(float value);
@@ -50,5 +61,50 @@ namespace KUMA::ECS {
 		}
 	private:
 		RENDER::Camera camera;
+	};
+
+	class VrCameraComponent : public Component {
+	public:
+		int blurAmount = 0;
+		float exposure = 1.0f;
+
+		std::shared_ptr<RESOURCES::Texture> leftTexture;
+		std::shared_ptr<RESOURCES::Texture> rightTexture;
+
+		VrCameraComponent(Ref<ECS::Object> obj);;
+		~VrCameraComponent() override = default;
+
+		void onUpdate(std::chrono::duration<double> dt) override;
+		void updateEyes();
+		//private:
+		std::shared_ptr<ECS::Object> left;
+		std::shared_ptr<ECS::Object> right;
+
+		RENDER::Camera camera;
+		
+		float EyeDistance = 0.1f;
+		float FocusDistance = 10.0f;
+	};
+
+	class ArCameraComponent : public Component {
+	public:
+		std::shared_ptr<RESOURCES::Texture> cameraTexture;
+
+		cv::VideoCapture cap;
+		cv::Mat frame;
+		cv::aruco::Dictionary dictionary;
+		cv::aruco::ArucoDetector markerDetector;
+		cv::Mat cameraMatrix;
+		cv::Mat distCoeffs;
+
+		bool markerFind = false;
+
+		MATHGL::Matrix4 view;
+
+		ArCameraComponent(Ref<ECS::Object> obj);;
+		~ArCameraComponent() override = default;
+
+		void onUpdate(std::chrono::duration<double> dt) override;
+		//private:
 	};
 }

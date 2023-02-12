@@ -99,7 +99,7 @@ namespace KUMA::ECS {
 		iterator end() { return componentArray.data() + size; }
 		const_iterator end() const { return componentArray.data() + size; }
 
-	private:
+	//private:
 		std::vector<T> componentArray;
 		std::unordered_map<Entity, size_t> entityToIndexInArray;
 		std::unordered_map<size_t, Entity> indexInArrayToEntity;
@@ -236,6 +236,10 @@ namespace KUMA::ECS {
 			res.push_back(getComponentArray<AudioComponent>()->getData(entity));
 			if (getComponentArray<CameraComponent>()->count(entity))
 			res.push_back(getComponentArray<CameraComponent>()->getData(entity));
+			if (getComponentArray<VrCameraComponent>()->count(entity))
+			res.push_back(getComponentArray<VrCameraComponent>()->getData(entity));
+			if (getComponentArray<ArCameraComponent>()->count(entity))
+				res.push_back(getComponentArray<ArCameraComponent>()->getData(entity));
 			if (getComponentArray<DirectionalLight>()->count(entity))
 			res.push_back(getComponentArray<DirectionalLight>()->getData(entity));
 			if (getComponentArray<InputComponent>()->count(entity))

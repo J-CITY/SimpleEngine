@@ -8,7 +8,7 @@ namespace KUMA {
 	namespace RESOURCES {
 		class ShaderLoader : public ResourceManager<Shader> {
 		public:
-			static ResourcePtr<Shader> CreateFromFile(const std::string& path, bool useBinary=true);
+			static ResourcePtr<Shader> CreateFromFile(const std::string& path, bool useBinary=false);
 			static ResourcePtr<Shader> CreateFromSource(const std::string& vertexShader, const std::string& fragmentShader,
 				const std::string& geometryShader = "", const std::string& tessCompShader="", const std::string& tessEvoluationShader="");
 			static void Recompile(Shader& shader, const std::string& filePath);

@@ -10,6 +10,9 @@ import glmath;
 #include "../../game/World.h"
 #include "../gui/guiObject.h"
 #include "buffers/depthBuffer.h"
+#include "../physics/particel/ParticleSystem.h"
+#include "../physics/particel/ParticleSystemGPU.h"
+
 
 namespace KUMA {
 	namespace ECS {
@@ -204,6 +207,7 @@ namespace KUMA::RENDER {
 		~Renderer();
 		[[nodiscard]] RENDER::UniformBuffer& getUBO() const;
 		void renderScene();
+		void renderScene(std::optional<KUMA::Ref<KUMA::ECS::CameraComponent>> mainCameraComponent, bool needRenderOnScreen);
 		void initShaders();
 		void setPostProcessing(PostProcessing type, bool isEnable);
 		void addCustomPostRocessing(std::string name, std::shared_ptr<Material> material, bool isEnabled = true);
@@ -309,6 +313,7 @@ namespace KUMA::RENDER {
 
 		static MATHGL::Matrix4 guiProjection;
 
+		//ParticleSystemGPU* particleSystem = nullptr;
 		//KUMA::GUI::Font f;
 		//std::shared_ptr<KUMA::GUI::Sprite> s;
 		//move later to component

@@ -107,6 +107,18 @@ std::shared_ptr<KUMA::ECS::Object> Scene::createObject() {
 	return createObject("New Actor");
 }
 
+std::shared_ptr<KUMA::ECS::Object> Scene::_createObject(const std::string& name, const std::string& tag) {
+	auto instance = std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag);
+	if (isExecute) {
+		instance->setActive(true);
+		if (instance->getIsActive()) {
+			instance->onEnable();
+			instance->onStart();
+		}
+	}
+	return instance;
+}
+
 std::shared_ptr<KUMA::ECS::Object> Scene::createObject(const std::string& name, const std::string& tag) {
 	objects.push_back(std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag));
 	auto& instance = objects.back();

@@ -39,13 +39,18 @@ void App::update(std::chrono::duration<double> dt) {
 	core.renderer->getUBO().setSubData(static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count()), 
 		3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
 
-	auto taskUpdatePhysics = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("UpdatePhysics", 2, nullptr, [this]() {
-		core.physicsManger->startFrame();
-		auto duration = static_cast<float>(TIME::Timer::GetInstance().getDeltaTime().count());
-		if (duration > 0.0f) {
-			core.physicsManger->runPhysics(duration);
-		}
-	});
+	//auto taskUpdatePhysics = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("UpdatePhysics", 2, nullptr, [this]() {
+	//	core.physicsManger->startFrame();
+	//	auto duration = static_cast<float>(TIME::Timer::GetInstance().getDeltaTime().count());
+	//	if (duration > 0.0f) {
+	//		core.physicsManger->runPhysics(duration);
+	//	}
+	//});
+	core.physicsManger->startFrame();
+	auto duration = static_cast<float>(TIME::Timer::GetInstance().getDeltaTime().count());
+	if (duration > 0.0f) {
+		core.physicsManger->runPhysics(duration);
+	}
 
 	if (core.sceneManager->hasCurrentScene()) {
 		auto& currentScene = core.sceneManager->getCurrentScene();
@@ -67,7 +72,7 @@ void App::update(std::chrono::duration<double> dt) {
 		//core.renderer->clear(true, true, false);
 	}
 
-	RESOURCES::ServiceManager::Get<TASK::TaskSystem>().waitSync();
+	//RESOURCES::ServiceManager::Get<TASK::TaskSystem>().waitSync();
 	
 	core.sceneManager->update();
 }
