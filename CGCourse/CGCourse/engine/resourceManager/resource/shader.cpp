@@ -2,7 +2,7 @@
 
 using namespace KUMA;
 using namespace RESOURCES;
-
+/*
 Shader::Shader(const std::string path, uint32_t id): path(path), id(id) {
 	queryUniforms();
 }
@@ -181,3 +181,4 @@ MATHGL::Matrix4 Shader::getUniformMat4(const std::string& name) {
 	glGetnUniformfv(id, getUniformLocation(name), 16 * sizeof(float), values);
 	return reinterpret_cast<MATHGL::Matrix4&>(values);
 }
+*/

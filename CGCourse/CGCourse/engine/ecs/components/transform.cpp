@@ -1,4 +1,6 @@
 #include "transform.h"
+#include "../../../resourceManager/ServiceManager.h"
+#include "../../../window/window.h"
 
 using namespace KUMA::ECS;
 using namespace KUMA::MATHGL;
@@ -26,103 +28,104 @@ bool TransformNotifier::removeNotificationHandler(const NotificationHandlerID& p
 TransformComponent::TransformComponent(Ref<ECS::Object> obj, Vector3 localPosition,
 	Quaternion localRotation, Vector3 localScale): Component(obj) {
 	__NAME__ = "Transform";
-	transform.generateMatrices(localPosition, localRotation, localScale);
+	transform = std::make_shared<Transform>();
+	transform->generateMatrices(localPosition, localRotation, localScale);
 }
 
 void TransformComponent::setParent(TransformComponent& parent) {
-	transform.setParent(parent.getTransform());
+	transform->setParent(parent.getTransform());
 }
 
 bool TransformComponent::removeParent() {
-	return transform.removeParent();
+	return transform->removeParent();
 }
 
 bool TransformComponent::hasParent() const {
-	return transform.hasParent();
+	return transform->hasParent();
 }
 
 void TransformComponent::setLocalPosition(Vector3 newPosition) {
-	transform.setLocalPosition(newPosition);
+	transform->setLocalPosition(newPosition);
 }
 
 void TransformComponent::setLocalRotation(Quaternion newRotation) {
-	transform.setLocalRotation(newRotation);
+	transform->setLocalRotation(newRotation);
 }
 
 void TransformComponent::setLocalScale(Vector3 newScale) {
-	transform.setLocalScale(newScale);
+	transform->setLocalScale(newScale);
 }
 
 void TransformComponent::translateLocal(const Vector3 & translation) {
-	transform.translateLocal(translation);
+	transform->translateLocal(translation);
 }
 
 void TransformComponent::rotateLocal(const Quaternion & p_rotation) {
-	transform.rotateLocal(p_rotation);
+	transform->rotateLocal(p_rotation);
 }
 
 void TransformComponent::scaleLocal(const Vector3 & p_scale) {
-	transform.scaleLocal(p_scale);
+	transform->scaleLocal(p_scale);
 }
 
 const Vector3 & TransformComponent::getLocalPosition() const {
-	return transform.getLocalPosition();
+	return transform->getLocalPosition();
 }
 
 const Quaternion & TransformComponent::getLocalRotation() const {
-	return transform.getLocalRotation();
+	return transform->getLocalRotation();
 }
 
 const Vector3 & TransformComponent::getLocalScale() const {
-	return transform.getLocalScale();
+	return transform->getLocalScale();
 }
 
 const Vector3 & TransformComponent::getWorldPosition() const {
-	return transform.getWorldPosition();
+	return transform->getWorldPosition();
 }
 
 const Quaternion& TransformComponent::getWorldRotation() const {
-	return transform.getWorldRotation();
+	return transform->getWorldRotation();
 }
 
 const Vector3 & TransformComponent::getWorldScale() const {
-	return transform.getWorldScale();
+	return transform->getWorldScale();
 }
 
 const Matrix4 & TransformComponent::getLocalMatrix() const {
-	return transform.getLocalMatrix();
+	return transform->getLocalMatrix();
 }
 
 const Matrix4 & TransformComponent::getWorldMatrix() const {
-	return transform.getWorldMatrix();
+	return transform->getWorldMatrix();
 }
 
 Transform& TransformComponent::getTransform() {
-	return transform;
+	return *transform;
 }
 
 Vector3 TransformComponent::getWorldForward() const {
-	return transform.getWorldForward();
+	return transform->getWorldForward();
 }
 
 Vector3 TransformComponent::getWorldUp() const {
-	return transform.getWorldUp();
+	return transform->getWorldUp();
 }
 
 Vector3 TransformComponent::getWorldRight() const {
-	return transform.getWorldRight();
+	return transform->getWorldRight();
 }
 
 Vector3 TransformComponent::getLocalForward() const {
-	return transform.getLocalForward();
+	return transform->getLocalForward();
 }
 
 Vector3 TransformComponent::getLocalUp() const {
-	return transform.getLocalUp();
+	return transform->getLocalUp();
 }
 
 Vector3 TransformComponent::getLocalRight() const {
-	return transform.getLocalRight();
+	return transform->getLocalRight();
 }
 
 //Transform
@@ -144,8 +147,8 @@ void Transform::notificationHandler(TransformNotifier::Notification p_notificati
 		break;
 
 	case TransformNotifier::Notification::DESTROYED:
-		generateMatrices(worldPosition, worldRotation, worldScale);
 		parent = nullptr;
+		generateMatrices(worldPosition, worldRotation, worldScale);
 		updateWorldMatrix();
 		break;
 	}
@@ -175,8 +178,25 @@ bool Transform::hasParent() const {
 	return parent != nullptr;
 }
 
+
 void Transform::generateMatrices(Vector3 position, Quaternion rotation, Vector3 scale) {
-	localMatrix = Matrix4::Translation(position) * Quaternion::ToMatrix4(Quaternion::Normalize(rotation)) * Matrix4::Scaling(scale);
+	if (use2d) {
+		auto screenSz = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+		auto parentSize = hasParent() ? parent->mSize : MATHGL::Vector2f(screenSz.x, screenSz.y);
+
+		localMatrix = MATHGL::Matrix4();
+		localMatrix *= MATHGL::Matrix4::Translation(MATHGL::Vector3(parentSize.x * mAnchor.x, parentSize.y * mAnchor.y, 0.0f));
+		localMatrix *= MATHGL::Matrix4::Translation(MATHGL::Vector3(mSize.x * -mPivot.x * localScale.x,
+			mSize.y * -mPivot.y * localScale.y, 0.0f));
+		localMatrix *= MATHGL::Matrix4::Translation(position);
+		localMatrix *= MATHGL::Matrix4::Translation({ mSize.x * mPivot.x * localScale.x, mSize.y * mPivot.y * localScale.y, 0.0f });
+		localMatrix *= MATHGL::Quaternion::ToMatrix4(MATHGL::Quaternion::Normalize(localRotation));
+		localMatrix *= MATHGL::Matrix4::Translation({ mSize.x * -mPivot.x * localScale.x, mSize.y * -mPivot.y * localScale.y, 0.0f });
+		localMatrix *= MATHGL::Matrix4::Scaling(localScale/* * MATHGL::Vector3(mSize.x, mSize.y, 1.0f)*/);
+	}
+	else {
+		localMatrix = Matrix4::Translation(position) * Quaternion::ToMatrix4(Quaternion::Normalize(rotation)) * Matrix4::Scaling(scale);
+	}
 	localPosition = position;
 	localRotation = rotation;
 	localScale = scale;
@@ -184,6 +204,7 @@ void Transform::generateMatrices(Vector3 position, Quaternion rotation, Vector3 
 }
 
 void Transform::updateWorldMatrix() {
+	prevWorldMatrix = worldMatrix;
 	worldMatrix = hasParent() ? parent->worldMatrix * localMatrix : localMatrix;
 	preDecomposeWorldMatrix();
 	notifier.notifyChildren(TransformNotifier::Notification::CHANGED);
@@ -199,6 +220,19 @@ void Transform::setLocalRotation(Quaternion p_newRotation) {
 
 void Transform::setLocalScale(Vector3 p_newScale) {
 	generateMatrices(localPosition, localRotation, p_newScale);
+}
+
+void Transform::setLocalAnchor(Vector2f p_new) {
+	mAnchor = p_new;
+	generateMatrices(localPosition, localRotation, localScale);
+}
+void Transform::setLocalPivot(Vector2f p_new) {
+	mPivot = p_new;
+	generateMatrices(localPosition, localRotation, localScale);
+}
+void Transform::setLocalSize(Vector2f p_new) {
+	mSize = p_new;
+	generateMatrices(localPosition, localRotation, localScale);
 }
 
 void Transform::translateLocal(const Vector3& p_translation) {
@@ -229,6 +263,16 @@ const Vector3& Transform::getLocalScale() const {
 	return localScale;
 }
 
+const Vector2f& Transform::getLocalAnchor() const {
+	return mAnchor;
+}
+const Vector2f& Transform::getLocalPivot() const {
+	return mPivot;
+}
+const Vector2f& Transform::getLocalSize() const {
+	return mSize;
+}
+
 const Vector3& Transform::getWorldPosition() const {
 	return worldPosition;
 }
@@ -247,6 +291,10 @@ const Matrix4& Transform::getLocalMatrix() const {
 
 const Matrix4& Transform::getWorldMatrix() const {
 	return worldMatrix;
+}
+
+const Matrix4& Transform::getPrevWorldMatrix() const {
+	return prevWorldMatrix;
 }
 
 Vector3 Transform::getWorldForward() const {
@@ -271,6 +319,10 @@ Vector3 Transform::getLocalUp() const {
 
 Vector3 Transform::getLocalRight() const {
 	return localRotation * Vector3::Right;
+}
+
+void Transform::setPrevWorldMatrix(MATHGL::Matrix4 m) {
+	prevWorldMatrix = m;
 }
 
 void Transform::preDecomposeWorldMatrix() {

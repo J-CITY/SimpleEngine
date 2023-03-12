@@ -1,5 +1,5 @@
 #include "render.h"
-#include "frustum.h"
+/*#include "frustum.h"
 #include <GL/glew.h>
 #include "../resourceManager/resource/mesh.h"
 #include "material.h"
@@ -356,3 +356,4 @@ const BaseRender::FrameInfo& BaseRender::getFrameInfo() const {
 void BaseRender::useDepthBufferMask(bool value) {
 	glDepthMask(value);
 }
+*/

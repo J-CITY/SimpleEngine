@@ -47,23 +47,42 @@ namespace KUMA::ECS {
 		void setLocalPosition(KUMA::MATHGL::Vector3 p_newPosition);
 		void setLocalRotation(KUMA::MATHGL::Quaternion p_newRotation);
 		void setLocalScale(KUMA::MATHGL::Vector3 p_newScale);
+		void setLocalAnchor(KUMA::MATHGL::Vector2f p_new);
+		void setLocalPivot(KUMA::MATHGL::Vector2f p_new);
+		void setLocalSize(KUMA::MATHGL::Vector2f p_new);
 		void translateLocal(const KUMA::MATHGL::Vector3& p_translation);
 		void rotateLocal(const KUMA::MATHGL::Quaternion& p_rotation);
 		void scaleLocal(const KUMA::MATHGL::Vector3& p_scale);
 		const KUMA::MATHGL::Vector3& getLocalPosition() const;
 		const KUMA::MATHGL::Quaternion& getLocalRotation() const;
 		const KUMA::MATHGL::Vector3& getLocalScale() const;
+		const KUMA::MATHGL::Vector2f& getLocalAnchor() const;
+		const KUMA::MATHGL::Vector2f& getLocalPivot() const;
+		const KUMA::MATHGL::Vector2f& getLocalSize() const;
 		const KUMA::MATHGL::Vector3& getWorldPosition() const;
 		const KUMA::MATHGL::Quaternion& getWorldRotation() const;
 		const KUMA::MATHGL::Vector3& getWorldScale() const;
 		const KUMA::MATHGL::Matrix4& getLocalMatrix() const;
 		const MATHGL::Matrix4& getWorldMatrix() const;
+		const MATHGL::Matrix4& getPrevWorldMatrix() const;
 		KUMA::MATHGL::Vector3 getWorldForward() const;
 		KUMA::MATHGL::Vector3 getWorldUp() const;
 		KUMA::MATHGL::Vector3 getWorldRight() const;
 		KUMA::MATHGL::Vector3 getLocalForward() const;
 		KUMA::MATHGL::Vector3 getLocalUp() const;
 		KUMA::MATHGL::Vector3 getLocalRight() const;
+		void setPrevWorldMatrix(MATHGL::Matrix4 m);
+
+		void turnOnAnchorPivot() {
+			use2d = true;
+		}
+		void turnOffAnchorPivot() {
+			use2d = false;
+		}
+
+		bool isAnchorPivotMode() {
+			return use2d;
+		}
 
 		TransformNotifier notifier;
 		TransformNotifier::NotificationHandlerID notificationHandlerID;
@@ -79,7 +98,14 @@ namespace KUMA::ECS {
 		KUMA::MATHGL::Vector3 worldScale;
 		MATHGL::Matrix4 localMatrix;
 		MATHGL::Matrix4 worldMatrix;
+		MATHGL::Matrix4 prevWorldMatrix;
 		Transform* parent = nullptr;
+
+		//for 2d
+		bool use2d = false;
+		MATHGL::Vector2f mAnchor;
+		MATHGL::Vector2f mPivot;
+		MATHGL::Vector2f mSize;
 	};
 	
 	class TransformComponent : public Component {
@@ -127,7 +153,7 @@ namespace KUMA::ECS {
 		KUMA::MATHGL::Vector3 getLocalRight() const;
 
 		MATHGL::Matrix3 GetNormalMatrix(const MATHGL::Matrix4& model) const {
-			if (transform.getWorldScale().x == this->transform.getWorldScale().y && transform.getWorldScale().y == transform.getWorldScale().z) {
+			if (transform->getWorldScale().x == transform->getWorldScale().y && transform->getWorldScale().y == transform->getWorldScale().z) {
 				auto buf = model;
 				return MATHGL::Matrix3(
 					buf(0, 0), buf(0, 1), buf(0, 2),
@@ -149,18 +175,18 @@ namespace KUMA::ECS {
 			MATHGL::Vector3 dump;
 			MATHGL::Quaternion dumpq;
 			RESOURCES::DeserializeVec3(j["data"]["pos"], dump);
-			transform.setLocalPosition(dump);
+			transform->setLocalPosition(dump);
 			RESOURCES::DeserializeQuat(j["data"]["rot"], dumpq);
-			transform.setLocalRotation(dumpq);
+			transform->setLocalRotation(dumpq);
 			RESOURCES::DeserializeVec3(j["data"]["scale"], dump);
-			transform.setLocalScale(dump);
+			transform->setLocalScale(dump);
 		}
 		virtual void onSerialize(nlohmann::json& j) override {
-			RESOURCES::SerializeVec3(j["data"]["pos"], transform.getLocalPosition());
-			RESOURCES::SerializeQuat(j["data"]["rot"], transform.getLocalRotation());
-			RESOURCES::SerializeVec3(j["data"]["scale"], transform.getLocalScale());
+			RESOURCES::SerializeVec3(j["data"]["pos"], transform->getLocalPosition());
+			RESOURCES::SerializeQuat(j["data"]["rot"], transform->getLocalRotation());
+			RESOURCES::SerializeVec3(j["data"]["scale"], transform->getLocalScale());
 		}
 	private:
-		Transform transform;
+		std::shared_ptr<Transform> transform;
 	};
 }

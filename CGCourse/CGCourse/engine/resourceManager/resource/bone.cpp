@@ -1,7 +1,8 @@
 #include "bone.h"
+
+#include <cassert>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-#include "../../render/model.h"
 #include "../engine/resourceManager/parser/assimpParser.h"
 
 using namespace KUMA;
@@ -149,7 +150,7 @@ const std::map<std::string, RENDER::BoneInfo>& Animation::GetBoneIDMap() {
 	return m_BoneInfoMap;
 }
 
-void Animation::ReadMissingBones(const aiAnimation& animation, RENDER::Model& model) {
+void Animation::ReadMissingBones(const aiAnimation& animation, RENDER::ModelInterface& model) {
 	int size = animation.mNumChannels;
 
 	auto& boneInfoMap = model.GetBoneInfoMap();//getting m_BoneInfoMap from Model class
@@ -161,11 +162,11 @@ void Animation::ReadMissingBones(const aiAnimation& animation, RENDER::Model& mo
 		std::string boneName = channel->mNodeName.data;
 
 		if (boneInfoMap.find(boneName) == boneInfoMap.end()) {
-			boneInfoMap[boneName].id = boneCount;
+			boneInfoMap[boneName].mId = boneCount;
 			boneCount++;
 		}
 		m_Bones.push_back(Bone(channel->mNodeName.data,
-		                       boneInfoMap[channel->mNodeName.data].id, channel));
+		                       boneInfoMap[channel->mNodeName.data].mId, channel));
 	}
 
 	m_BoneInfoMap = boneInfoMap;
@@ -185,7 +186,7 @@ void Animation::ReadHeirarchyData(AssimpNodeData& dest, const aiNode* src) {
 	}
 }
 
-Animation::Animation(const std::string& animationPath, RENDER::Model* model) {
+Animation::Animation(const std::string& animationPath, RENDER::ModelInterface* model) {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(animationPath, aiProcess_Triangulate);
     assert(scene && scene->mRootNode);
@@ -199,7 +200,7 @@ Animation::Animation(const std::string& animationPath, RENDER::Model* model) {
 }
 
 
-Animation::Animation(const aiAnimation& animation, const aiScene& scene, RENDER::Model& model) {
+Animation::Animation(const aiAnimation& animation, const aiScene& scene, RENDER::ModelInterface& model) {
     m_Duration = animation.mDuration;
     m_TicksPerSecond = animation.mTicksPerSecond;
     aiMatrix4x4 globalTransformation = scene.mRootNode->mTransformation;
@@ -212,7 +213,7 @@ std::vector<MATHGL::Matrix4> Animator::GetFinalBoneMatrices() {
 	return m_FinalBoneMatrices;
 }
 
-std::map<std::string, std::shared_ptr<Animation>> Animation::LoadAnimations(const std::string& animationPath, RENDER::Model* model) {
+std::map<std::string, std::shared_ptr<Animation>> Animation::LoadAnimations(const std::string& animationPath, RENDER::ModelInterface* model) {
     std::map<std::string, std::shared_ptr<Animation>> res;
 
     Assimp::Importer importer;
@@ -269,8 +270,8 @@ void Animator::CalculateBoneTransform(const AssimpNodeData* node, MATHGL::Matrix
 
     auto boneInfoMap = m_CurrentAnimation->GetBoneIDMap();
     if (boneInfoMap.find(nodeName) != boneInfoMap.end()) {
-        int index = boneInfoMap[nodeName].id;
-        auto offset = boneInfoMap[nodeName].offset;
+        int index = boneInfoMap[nodeName].mId;
+        auto offset = boneInfoMap[nodeName].mOffset;
         m_FinalBoneMatrices[index] = globalTransformation * offset;
     }
 

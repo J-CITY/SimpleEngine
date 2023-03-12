@@ -42,13 +42,13 @@ namespace KUMA::ECS {
 		RENDER::Camera& getCamera();
 
 		virtual void onDeserialize(nlohmann::json& j) override {
-			camera.setFar(j["data"]["far"]);
-			camera.setFov(j["data"]["fov"]);
-			camera.setSize(j["data"]["size"]);
-			camera.setNear(j["data"]["near"]);
-			camera.setFrustumGeometryCulling(j["data"]["geometryCulling"]);
-			camera.setFrustumLightCulling(j["data"]["lightCulling"]);
-			camera.setProjectionMode(j["data"]["mode"]);
+			camera.setFar(j["far"]);
+			camera.setFov(j["fov"]);
+			camera.setSize(j["size"]);
+			camera.setNear(j["near"]);
+			//camera.setFrustumGeometryCulling(j["geometryCulling"]);
+			//camera.setFrustumLightCulling(j["lightCulling"]);
+			camera.setProjectionMode(RENDER::Camera::ProjectionMode::PERSPECTIVE/*j["projectionMode"]*/);
 		}
 		virtual void onSerialize(nlohmann::json& j) override {
 			j["data"]["far"] = camera.getFar();

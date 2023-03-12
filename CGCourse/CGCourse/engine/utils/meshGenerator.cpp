@@ -1,14 +1,28 @@
 #include "meshGenerator.h"
 #include "../resourceManager/textureManager.h"
-#include "../render/model.h"
 #include <iostream>
+
+#include "vertex.h"
+
+#include "../render/backends/interface/meshInterface.h"
+#include "../render/backends/interface/modelInterface.h"
+
+#ifdef OPENGL_BACKEND
+#include "../render/backends/gl/modelGl.h"
+#include "../render/backends/gl/meshGl.h"
+#endif
+
 
 import logger;
 
 using namespace KUMA;
 
-std::shared_ptr<RENDER::Model> MeshGenerator::createTerrainFromHeightmap(const std::string& fileName) {
-	std::shared_ptr<RENDER::Model> model = std::make_shared<RENDER::Model>("");
+std::shared_ptr<RENDER::ModelInterface> MeshGenerator::createTerrainFromHeightmap(const std::string& fileName) {
+	std::shared_ptr<RENDER::ModelInterface> model;
+#ifdef OPENGL_BACKEND
+	model = std::make_shared<RENDER::ModelGl>("");
+#endif
+
 	const auto heightData = getHeightDataFromImage(fileName);
 	if (heightData.size() == 0) {
 		LOG_ERROR("Heightmap size empty");
@@ -64,8 +78,12 @@ std::shared_ptr<RENDER::Model> MeshGenerator::createTerrainFromHeightmap(const s
 		}
 	}
 
-	auto mesh = new RESOURCES::Mesh(vertices, indices, 0);
-	model->meshes.push_back(mesh);
+	std::shared_ptr<RENDER::MeshInterface> mesh;
+#ifdef OPENGL_BACKEND
+	mesh = std::make_shared<RENDER::MeshGl>(vertices, indices, 0);
+#endif
+
+	model->getMeshes().push_back(mesh);
 	return model;
 }
 
@@ -90,9 +108,11 @@ std::vector<std::vector<float>> MeshGenerator::getHeightDataFromImage(const std:
     return result;
 }
 
-std::shared_ptr<RENDER::Model> MeshGenerator::createSquare(unsigned rez, int width, int height) {
-	std::shared_ptr<RENDER::Model> model = std::make_shared<RENDER::Model>("");
-	
+std::shared_ptr<RENDER::ModelInterface> MeshGenerator::createSquare(unsigned rez, int width, int height) {
+	std::shared_ptr<RENDER::ModelInterface> model;
+#ifdef OPENGL_BACKEND
+	model = std::make_shared<RENDER::ModelGl>("");
+#endif
 	auto numVertices = rez * rez;
 
 	std::vector<Vertex> vertices;
@@ -166,7 +186,10 @@ std::shared_ptr<RENDER::Model> MeshGenerator::createSquare(unsigned rez, int wid
 	//	}
 	//}
 
-	auto mesh = new RESOURCES::Mesh(vertices, indices, 0);
-	model->meshes.push_back(mesh);
+	std::shared_ptr<RENDER::MeshInterface> mesh;
+#ifdef OPENGL_BACKEND
+	mesh = std::make_shared<RENDER::MeshGl>(vertices, indices, 0);
+#endif
+	model->getMeshes().push_back(mesh);
 	return model;
 }

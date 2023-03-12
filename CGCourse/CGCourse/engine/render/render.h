@@ -1,6 +1,9 @@
 #pragma once
-#include <string>
+
+
+/*#include <string>
 #include "../glManager/glManager.h"
+
 
 namespace KUMA {
 	namespace RESOURCES {
@@ -215,3 +218,4 @@ namespace KUMA {
 		};
 	}
 }
+*/

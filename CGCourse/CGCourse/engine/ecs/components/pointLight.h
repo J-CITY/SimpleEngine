@@ -1,6 +1,5 @@
 #pragma once
 #include "lightComponent.h"
-#include "../../render/buffers/depthBuffer.h"
 
 import glmath;
 

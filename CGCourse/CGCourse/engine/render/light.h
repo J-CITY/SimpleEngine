@@ -8,12 +8,12 @@ namespace KUMA {
 
 		struct LightOGL {
 			float pos[3];
-			float forward[3];
-			float color[3];
-			int type;
 			float cutoff;
+			float forward[3];
 			float outerCutoff;
+			float color[3];
 			float constant;
+			int type;
 			float linear;
 			float quadratic;
 			float intensity;

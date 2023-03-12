@@ -3,7 +3,7 @@
 #include <vector>
 #include "../resourceManager/shaderManager.h"
 #include "../resourceManager/resource/mesh.h"
-
+/*
 KUMA::RENDER::PrimitiveRender::PrimitiveRender(BaseRender& render): render(render) {
 	std::vector<Vertex> vertices;
 	vertices.push_back({
@@ -82,3 +82,4 @@ void KUMA::RENDER::PrimitiveRender::drawGrid(const MATHGL::Vector3& viewPos, con
 	render.setRasterizationMode(RasterizationMode::FILL);
 	gridShader->unbind();
 }
+*/

@@ -1,4 +1,5 @@
 #include "sceneManager.h"
+
 #include "../ecs/components/ambientSphereLight.h"
 #include "../ecs/components/cameraComponent.h"
 #include "../ecs/components/directionalLight.h"
@@ -48,6 +49,76 @@ void SceneManager::loadDefaultScene() {
 	camera->addComponent<ECS::CameraComponent>();
 	camera->getTransform()->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{ 20.0f, 180.0f, 0.0f }));
 	camera->getTransform()->setLocalPosition({0.0f, 3.0f, 8.0f});
+}
+
+#include <fstream>
+#include <json.hpp>
+#include "../utils/loader.h"
+void SceneManager::loadFromFile(const std::string& sceneFilePath) {
+	unloadCurrentScene();
+
+	m_currentScene = std::make_unique<Scene>();
+
+	std::ifstream f(UTILS::getRealPath(sceneFilePath));
+	nlohmann::json data = nlohmann::json::parse(f);
+	f.close();
+	if (data.contains("actors")) {
+		std::string name;
+		std::string tag;
+		ObjectId<ECS::Object> id(0u);
+		for (auto& actor : data["actors"]) {
+			if (actor.contains("name")) {
+				name = actor["name"].get<std::string>();
+			}
+			if (actor.contains("tag")) {
+				tag = actor["tag"].get<std::string>();
+			}
+			if (actor.contains("id")) {
+				id = ObjectId<ECS::Object>(actor["id"].get<unsigned>());
+			}
+			auto obj = m_currentScene->createObject(id, name, tag);
+
+			if (actor.contains("components")) {
+				for (auto& component: actor["components"]) {
+					std::string type = component["type"];
+					auto n = typeid(ECS::Transform).name();
+					if (type == typeid(ECS::TransformComponent).name()) {
+						
+						auto pos = RESOURCES::DeserializeVec3(component["pos"]);
+						auto scale = RESOURCES::DeserializeVec3(component["scale"]);
+						auto rotate = RESOURCES::DeserializeQuat(component["rotate"]);
+						obj->getTransform()->getTransform().generateMatrices(pos, rotate, scale);
+					}
+					else if (type == typeid(ECS::CameraComponent).name()) {
+						auto c = obj->addComponent<KUMA::ECS::CameraComponent>();
+						c.getPtr()->onDeserialize(component);
+					}
+					else if (type == typeid(ECS::DirectionalLight).name()) {
+						auto c = obj->addComponent<KUMA::ECS::DirectionalLight>();
+						c.getPtr()->onDeserialize(component);
+					}
+					else if (type == typeid(ECS::AmbientSphereLight).name()) {
+						auto c = obj->addComponent<KUMA::ECS::AmbientSphereLight>();
+						c.getPtr()->onDeserialize(component);
+					}
+					else if (type == typeid(ECS::ModelRenderer).name()) {
+						auto c = obj->addComponent<KUMA::ECS::ModelRenderer>();
+						c.getPtr()->onDeserialize(component);
+					}
+					else if (type == typeid(ECS::MaterialRenderer).name()) {
+						auto c = obj->addComponent<KUMA::ECS::MaterialRenderer>();
+						c.getPtr()->onDeserialize(component);
+					}
+					else if (type == typeid(ECS::ScriptComponent).name()) {
+						auto c = obj->addComponent<KUMA::ECS::ScriptComponent>("Controller");
+						c.getPtr()->onDeserialize(component);
+					}
+					
+				}
+			}
+		}
+	}
+
 }
 
 

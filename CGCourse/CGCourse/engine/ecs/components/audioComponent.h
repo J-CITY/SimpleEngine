@@ -1,6 +1,5 @@
 #pragma once
 #include "component.h"
-#include "../../render/buffers/depthBuffer.h"
 #include "../../audioManager/audioManager.h"
 
 

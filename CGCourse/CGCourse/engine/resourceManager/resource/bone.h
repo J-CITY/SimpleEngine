@@ -1,7 +1,10 @@
 #pragma once
+#include <string>
 #include <vector>
+#include <assimp/scene.h>
 
-#include "../../render/model.h"
+#include "../../render/backends/interface/modelInterface.h"
+
 import glmath;
 //#include <glm/gtx/quaternion.hpp>
 //#include <glm/glm.hpp>
@@ -9,9 +12,6 @@ import glmath;
 struct aiNodeAnim;
 
 namespace KUMA {
-	namespace RENDER {
-        class Model;
-	}
 	namespace RESOURCES {
         struct AssimpNodeData {
             MATHGL::Matrix4 transformation;
@@ -81,7 +81,7 @@ namespace KUMA {
         class Animation {
         public:
             Animation();
-            Animation(const std::string& animationPath, RENDER::Model* model);
+            Animation(const std::string& animationPath, RENDER::ModelInterface* model);
             ~Animation();
 
             Bone* FindBone(const std::string& name);
@@ -89,10 +89,10 @@ namespace KUMA {
             float GetDuration();
             const AssimpNodeData& GetRootNode();
             const std::map<std::string, RENDER::BoneInfo>& GetBoneIDMap();
-            static std::map<std::string, std::shared_ptr<Animation>> LoadAnimations(const std::string& animationPath, RENDER::Model* model);
+            static std::map<std::string, std::shared_ptr<Animation>> LoadAnimations(const std::string& animationPath, RENDER::ModelInterface* model);
         private:
-            Animation(const aiAnimation& animation, const aiScene& scene, RENDER::Model& model);
-            void ReadMissingBones(const aiAnimation& animation, RENDER::Model& model);
+            Animation(const aiAnimation& animation, const aiScene& scene, RENDER::ModelInterface& model);
+            void ReadMissingBones(const aiAnimation& animation, RENDER::ModelInterface& model);
             void ReadHeirarchyData(AssimpNodeData& dest, const aiNode* src);
 
             float m_Duration;

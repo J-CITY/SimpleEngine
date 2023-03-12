@@ -1,4 +1,13 @@
 #pragma once
+#include <memory>
+
+namespace KUMA
+{
+	namespace RENDER
+	{
+		class MaterialGl;
+	}
+}
 
 namespace KUMA
 {
@@ -14,9 +23,14 @@ namespace KUMA::DEBUG {
 	public:
 		DebugRender();
 		~DebugRender();
-
+#ifdef VULKAN_BACKEND
+		void initForVk();
+#endif
 		void draw(CORE_SYSTEM::Core& core);
 	private:
 		void drawWindowWidget(CORE_SYSTEM::Core& core);
+		void drawMaterialWidget(RENDER::MaterialGl* material);
+		void drawComponentInspector();
+		void drawTextureWatcher();
 	};
 }

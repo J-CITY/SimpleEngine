@@ -1,10 +1,14 @@
 #pragma once
 #include <vector>
 #include <assimp/scene.h>
-import glmath;
-#include "../resource/mesh.h"
+#include "../../render/backends/interface/modelInterface.h"
 #include "../resourceManager.h"
+
+import glmath;
+
 namespace KUMA {
+	class Vertex;
+
 	namespace RENDER {
 		class Model;
 	}
@@ -49,13 +53,13 @@ namespace KUMA {
 		
 		class AssimpParser {
 		public:
-			bool LoadModel(const std::string& fileName, RESOURCES::ResourcePtr<RENDER::Model> model, ModelParserFlags parserFlags);
+			bool LoadModel(const std::string& fileName, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags);
 		private:
 			const unsigned int MAX_BONE_WEIGHTS = 4;
 			void processMaterials(const struct aiScene* scene, std::vector<std::string>& materials);;
-			void processNode(void* transform, struct aiNode* node, const struct aiScene* scene, ResourcePtr<RENDER::Model> model);
+			void processNode(void* transform, struct aiNode* node, const struct aiScene* scene, ResourcePtr<RENDER::ModelInterface> model);
 			void processMesh(void* transform, struct aiMesh* mesh, const struct aiScene* scene, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
-			void loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::Model> model);
+			void loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model);
 			void setVertexBoneData(Vertex& vertex, int boneID, float weight);
 		};
 	}

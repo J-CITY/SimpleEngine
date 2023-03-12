@@ -14,11 +14,11 @@ namespace KUMA::ECS {
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			LightComponent::onDeserialize(j);
-			setRadius(j["data"]["radius"]);
+			setRadius(j["radius"]);
 		}
 		virtual void onSerialize(nlohmann::json& j) override {
 			LightComponent::onSerialize(j);
-			j["data"]["radius"] = getRadius();
+			j["radius"] = getRadius();
 		}
 	};
 

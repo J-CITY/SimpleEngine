@@ -11,6 +11,7 @@ namespace KUMA::GUI {
 }
 
 namespace KUMA::RENDER {
+	class Model;
 	enum class CullingOptions;
 	struct LightOGL;
 	struct Drawable;
@@ -35,6 +36,7 @@ namespace KUMA::SCENE_SYSTEM {
 		std::shared_ptr<ECS::Object> createObject();
 		std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");
 		std::shared_ptr<ECS::Object> _createObject(const std::string& p_name, const std::string& p_tag = "");
+		std::shared_ptr<ECS::Object> createObject(ObjectId<ECS::Object> actorID, const std::string& name, const std::string& tag = "");
 
 		bool destroyObject(std::shared_ptr<ECS::Object> p_target);
 
@@ -64,11 +66,11 @@ namespace KUMA::SCENE_SYSTEM {
 			}
 		}
 
-		[[nodiscard]] ECS::Object& getSkybox() const;
-		[[nodiscard]] RESOURCES::CubeMap& getSkyboxTexture() const;
+		//[[nodiscard]] ECS::Object& getSkybox() const;
+		//[[nodiscard]] RESOURCES::CubeMap& getSkyboxTexture() const;
 
-		std::vector<std::reference_wrapper<KUMA::RESOURCES::Mesh>> Scene::getMeshesInFrustum(
-			const RENDER::Model& model,
+		std::vector<std::shared_ptr<RENDER::MeshInterface>> Scene::getMeshesInFrustum(
+			const RENDER::ModelInterface& model,
 			const RENDER::BoundingSphere& modelBoundingSphere,
 			const ECS::Transform& modelTransform,
 			const RENDER::Frustum& frustum,
@@ -81,7 +83,7 @@ namespace KUMA::SCENE_SYSTEM {
 			KUMA::RENDER::TransparentDrawables>  findDrawables(const MATHGL::Vector3& p_cameraPosition,
 			const RENDER::Camera& p_camera,
 			const RENDER::Frustum* p_customFrustum,
-			std::shared_ptr<RENDER::Material> p_defaultMaterial
+			std::shared_ptr<RENDER::MaterialInterface> p_defaultMaterial
 		);
 
 		std::tuple<KUMA::RENDER::OpaqueDrawables,
@@ -90,7 +92,7 @@ namespace KUMA::SCENE_SYSTEM {
 			KUMA::RENDER::TransparentDrawables>  findAndSortFrustumCulledDrawables(
 			const MATHGL::Vector3& cameraPosition,
 			const RENDER::Frustum& frustum,
-			std::shared_ptr<RENDER::Material> defaultMaterial
+			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
 
 		std::tuple<KUMA::RENDER::OpaqueDrawables,
@@ -98,7 +100,7 @@ namespace KUMA::SCENE_SYSTEM {
 			KUMA::RENDER::OpaqueDrawables,
 			KUMA::RENDER::TransparentDrawables>  findAndSortDrawables(
 			const MATHGL::Vector3& cameraPosition,
-			std::shared_ptr<RENDER::Material> defaultMaterial
+			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
 
 		std::optional<Ref<KUMA::ECS::CameraComponent>> findMainCamera();
@@ -113,7 +115,7 @@ namespace KUMA::SCENE_SYSTEM {
 		bool isExecute = false;
 		std::vector<std::shared_ptr<ECS::Object>> objects;
 
-		std::unique_ptr<ECS::Object> skyboxObject;
-		std::unique_ptr<RESOURCES::CubeMap> skyboxTexture;
+		//std::unique_ptr<ECS::Object> skyboxObject;
+		//std::unique_ptr<RESOURCES::CubeMap> skyboxTexture;
 	};
 };

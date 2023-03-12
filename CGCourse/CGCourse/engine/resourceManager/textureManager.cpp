@@ -17,7 +17,15 @@ float* RESOURCES::stbiLoadf(char const* filename, int* x, int* y, int* channels_
 	return stbi_loadf(filename, x, y, channels_in_file, desired_channels);
 }
 
+unsigned char* RESOURCES::stbiLoad(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels) {
+	return stbi_load(filename, x, y, channels_in_file, desired_channels);
+}
+
 void RESOURCES::stbiImageFree(float* data) {
+	stbi_image_free(data);
+}
+
+void RESOURCES::stbiImageFree(unsigned char* data) {
 	stbi_image_free(data);
 }
 

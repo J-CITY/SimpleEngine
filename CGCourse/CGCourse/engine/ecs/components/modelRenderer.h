@@ -1,6 +1,6 @@
 #pragma once
 #include "component.h"
-#include "../../render/model.h"
+#include "../../render/backends/interface/modelInterface.h"
 #include "../../resourceManager/serializerInterface.h"
 #include "../../utils/event.h"
 
@@ -24,8 +24,8 @@ namespace KUMA::ECS{
 		})
 
 		ModelRenderer(Ref<ECS::Object> obj);
-		void setModel(std::shared_ptr<RENDER::Model> model);
-		std::shared_ptr<RENDER::Model> getModel() const;
+		void setModel(std::shared_ptr<RENDER::ModelInterface> model);
+		std::shared_ptr<RENDER::ModelInterface> getModel() const;
 		void setFrustumBehaviour(EFrustumBehaviour boundingMode);
 		EFrustumBehaviour getFrustumBehaviour() const;
 		const RENDER::BoundingSphere& getCustomBoundingSphere() const;
@@ -34,7 +34,7 @@ namespace KUMA::ECS{
 		virtual void onDeserialize(nlohmann::json& j) override;
 		virtual void onSerialize(nlohmann::json& j) override;
 	private:
-		std::shared_ptr<RENDER::Model> model = nullptr;
+		std::shared_ptr<RENDER::ModelInterface> model = nullptr;
 		RENDER::BoundingSphere customBoundingSphere = { {}, 1.0f };
 		EFrustumBehaviour frustumBehaviour = EFrustumBehaviour::CULL_MODEL;
 	};

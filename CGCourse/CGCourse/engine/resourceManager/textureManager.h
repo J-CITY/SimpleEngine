@@ -9,7 +9,9 @@ namespace KUMA {
 	namespace RESOURCES {
 		void stbiSetFlipVerticallyOnLoad(bool b);
 		float* stbiLoadf(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels);
+		unsigned char* stbiLoad(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels);
 		void stbiImageFree(float*);
+		void stbiImageFree(unsigned char* data);
 		
 		class TextureLoader : public ResourceManager<Texture> {
 		public:
