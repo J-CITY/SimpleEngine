@@ -35,8 +35,8 @@ namespace Game {
 		std::shared_ptr<KUMA::RESOURCES::Texture> GetAtlasTexture() { return m_BlockAtlas; }
 
 	private:
-		KUMA::RENDER::VertexBuffer<float> m_VBO;
-		KUMA::RENDER::VertexArray m_VAO;
+		//KUMA::RENDER::VertexBuffer<float> m_VBO;
+		//KUMA::RENDER::VertexArray m_VAO;
 		std::shared_ptr<KUMA::RESOURCES::Shader> m_DefaultChunkShader;
 		std::shared_ptr<KUMA::RESOURCES::Shader> m_DefaultChunkModelShader;
 		std::shared_ptr<KUMA::RESOURCES::Texture> m_BlockAtlas;

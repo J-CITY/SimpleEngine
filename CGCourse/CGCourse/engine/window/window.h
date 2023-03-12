@@ -53,10 +53,8 @@ namespace KUMA::WINDOW_SYSTEM {
 	public:
 		EVENT::Event<int> keyPressedEvent;
 		EVENT::Event<int> keyReleasedEvent;
-		EVENT::Event<GLFWwindow*, int, int, int, int> keyEvent;
 		EVENT::Event<int> mouseButtonPressedEvent;
 		EVENT::Event<int> mouseButtonReleasedEvent;
-		EVENT::Event<GLFWwindow*, int, int, int> mouseButtonEvent;
 		EVENT::Event<INPUT::Gamepad::GamepadData> gamepadEvent;
 		
 		explicit Window(const WindowSettings& p_windowSettings);
@@ -92,24 +90,38 @@ namespace KUMA::WINDOW_SYSTEM {
 		[[nodiscard]] bool hasFocus() const;
 		void pollEvent();
 		void draw() const;
+#if defined(VULKAN_BACKEND) || defined(OPENGL_BACKEND)
+		EVENT::Event<GLFWwindow*, int, int, int, int> keyEvent;
+		EVENT::Event<GLFWwindow*, int, int, int> mouseButtonEvent;
 		[[nodiscard]] GLFWwindow& getContext() const;
+#endif
 		[[nodiscard]] bool isClosed() const;
 
 		void setCursorVisible(bool isVisible, bool isLock) const;
+
+#ifdef VULKAN_BACKEND
+		GLFWwindow* getGLFWWin() {
+			return window.get();
+		}
+#endif
+
 	private:
-		struct DestroyGLFW {
-			void operator()(GLFWwindow* ptr) const;
-		};
+		
 
 		[[nodiscard]] WindowSettings& getSetting();;
 		void updateWindow();
 
 		void create();
+		WindowSettings windowSettings;
+#if defined(VULKAN_BACKEND) || defined(OPENGL_BACKEND)
+		struct DestroyGLFW {
+			void operator()(GLFWwindow* ptr) const;
+		};
 		void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 		void mouseCallback(GLFWwindow* window, int button, int action, int mods);
 
-		WindowSettings windowSettings;
 		std::unique_ptr<GLFWwindow, DestroyGLFW> window;
+#endif
 		MATHGL::Vector2i position{};
 		bool isClose = false;
 	};
