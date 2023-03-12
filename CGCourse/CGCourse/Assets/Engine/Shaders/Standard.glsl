@@ -329,4 +329,5 @@ void main() {
 	    float fogCoordinate = abs(fs_in.EyeSpacePosition.z / fs_in.EyeSpacePosition.w);
         FRAGMENT_COLOR = mix(FRAGMENT_COLOR, vec4(u_engine_FogParams.color, 1.0), getFogFactor(u_engine_FogParams, fogCoordinate));
     }
+    FRAGMENT_COLOR =  vec4(1);
 }

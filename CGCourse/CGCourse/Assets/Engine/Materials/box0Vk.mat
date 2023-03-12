@@ -1,0 +1,25 @@
+{
+	"shaderFragment": "",
+	"shaderVertex": "",
+	"blendable": false,
+	"backfaceCulling": true,
+	"frontfaceCulling": false,
+	"depthTest": true,
+	"depthWriting": true,
+	"colorWriting": true,
+	"gpuInstances": 1,
+	"isDeferred": true,
+	"uniforms": {
+		"u_AlbedoMap": "textures\\brick_albedo.jpg",
+		"u_NormalMap": "textures\\brick_normal.jpg",
+		"dataUBO": {
+			"u_TextureTiling": [ 1.0, 1.0 ],
+			"u_TextureOffset": [ 0.0, 0.0 ],
+			"u_Albedo": [ 1.0, 1.0, 1.0, 1.0 ],
+			"u_Specular": [ 1.0, 1.0, 1.0 ],
+			"u_Shininess": 100.0,
+			"u_HeightScale": 0.0,
+			"u_EnableNormalMapping": 0.0
+		}
+	}
+}

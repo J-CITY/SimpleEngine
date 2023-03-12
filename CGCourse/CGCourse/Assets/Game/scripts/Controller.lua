@@ -8,7 +8,9 @@ local Controller =
 
 function Controller:OnUpdate(deltaTime)
     self:HandleMovement(deltaTime)
-    self:HandleRotation(deltaTime)
+    if Inputs.GetKeyDown(Key.Z) then 
+        self:HandleRotation(deltaTime)
+    end
 end
 
 function Controller:HandleMovement(deltaTime)

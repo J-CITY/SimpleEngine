@@ -12,7 +12,7 @@ vec3 BlinnPhong(vec3 p_LightDir, vec3 p_LightColor, float p_Luminosity, float sh
 {
     const vec3  halfwayDir          = normalize(p_LightDir + g_ViewDir);
     const float diffuseCoefficient  = max(dot(g_Normal, p_LightDir), 0.0);
-    const float specularCoefficient = pow(max(dot(g_Normal, halfwayDir), 0.0), u_Shininess * 2.0);
+    const float specularCoefficient = pow(max(dot(g_Normal, halfwayDir), 0.0), g_Shininess * 2.0);
 
     return (1.0-shadow) * (p_LightColor * g_DiffuseTexel.rgb * diffuseCoefficient * p_Luminosity + 
         ((p_Luminosity > 0.0) ? (p_LightColor * g_SpecularTexel.rgb * specularCoefficient * p_Luminosity) : vec3(0.0)));
