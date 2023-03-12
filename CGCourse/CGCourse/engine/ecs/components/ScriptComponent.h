@@ -21,10 +21,10 @@ namespace KUMA::ECS {
 		static KUMA::EVENT::Event<object_ptr<KUMA::ECS::ScriptComponent>> destroyedEvent;
 
 		virtual void onDeserialize(nlohmann::json& j) override {
-			name = j["data"]["name"];
+			name = j["name"];
 		}
 		virtual void onSerialize(nlohmann::json& j) override {
-			j["data"]["name"] = name;
+			j["name"] = name;
 		}
 
 		[[nodiscard]] std::string getName() const;

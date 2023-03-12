@@ -1,9 +1,6 @@
 #pragma once
 
-#include "../../config.h"
-#include "../../inputManager/inputManager.h"
-#include "../../resourceManager/ServiceManager.h"
-//#include "../../window/window.h"
+#include "../../ecs/components/component.h"
 
 namespace KUMA
 {
@@ -17,88 +14,40 @@ namespace KUMA
 {
 	namespace RENDER
 	{
-		class Material;
+		class TextureInterface;
+		class MaterialInterface;
+		//class Material;
+	}
+
+	namespace GUI
+	{
+		class Font;
 	}
 }
 
 namespace KUMA {
-	namespace GUI {
-		struct Font;
-		class GuiObject;
+	namespace ECS {
+		class Object;
 
-		class ComponentGui {
+		class RootGuiComponent: public Component {
 		public:
-			virtual ~ComponentGui() = default;
-			ComponentGui(GuiObject& obj) : obj(obj) {}
-			
-			bool isEnabled = true;
-			virtual void draw() {}
-
-			virtual void onCreate() {
-				isEnabled = true;
-			}
-			virtual void onDestroy() {}
-			virtual void onEnabled() {
-				isEnabled = true;
-			}
-			virtual void onDisable() {
-				isEnabled = false;
-			}
-			virtual void onPreUpdate(float) {}
-			virtual void onUpdate(float) {}
-			virtual void onPostUpdate(float) {}
-			
-			GuiObject& obj;
+			RootGuiComponent(Object& obj): Component(obj) {}
 		};
 
-		class TransformComponentGui : public ComponentGui {
+		class SpriteComponent : public Component {
 		public:
-			bool isDirty = true;
-			
-			MATHGL::Vector3  position = {0, 0, 0};
-			MATHGL::Vector3  scale = {1, 1, 1};
-			MATHGL::Vector3  rotation = {0, 0, 0};
-			MATHGL::Vector4  color = {1, 1, 1, 1};
-			MATHGL::Vector2f anchor;
-			MATHGL::Vector2f pivot;
-
-			MATHGL::Vector3  globalPosition = {0, 0, 0};
-			MATHGL::Vector3  globalScale = {1, 1, 1};
-			MATHGL::Vector3  globalRotation = {0, 0, 0};
-			MATHGL::Vector2f globalAnchor;
-			MATHGL::Vector2f globalPivot;
-
-			MATHGL::Vector2f size;
-
-			TransformComponentGui(GuiObject& obj);
-
-			void calculate();
-			MATHGL::Matrix4 model;
-			MATHGL::Matrix4 globalModel;
+			SpriteComponent(Object& obj, const std::string& path);
+			MATHGL::Vector4 mColor = {1, 1, 1, 1};
+			std::string mPath;
+			std::shared_ptr<RENDER::TextureInterface> mTexture;
 		};
 
-		class SpriteComponentGui : public ComponentGui {
+		class LabelComponent : public Component {
 		public:
-			SpriteComponentGui(GuiObject& obj, std::shared_ptr<RENDER::Material> material);
-			void draw() override;
-			std::shared_ptr<RESOURCES::Shader> shader;
-		//private:
+			LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font);
+			std::string mLabel;
+			std::shared_ptr<GUI::Font> font;
 			MATHGL::Vector4 color = {1, 1, 1, 1};
-			unsigned int quadVAO;
-			std::shared_ptr<RENDER::Material> material;
-		};
-		class LabelComponentGui : public ComponentGui {
-		public:
-			std::string label;
-			std::shared_ptr<Font> font;
-			std::shared_ptr<RENDER::Material> material;
-			unsigned int VAO, VBO;
-
-			MATHGL::Vector4 color = {1, 1, 1, 1};
-
-			LabelComponentGui(GuiObject& obj, std::string label, std::shared_ptr<Font> font, std::shared_ptr<RENDER::Material> material);
-			void draw() override;
-
 		};
 
 		enum class GuiEventType {
@@ -109,77 +58,68 @@ namespace KUMA {
 			RELEASE,
 			UNCOVER
 		};
-		class InteractionComponentGui : public ComponentGui {
+		class InteractionComponent : public Component {
 		public:
-			GuiEventType cur = GuiEventType::NONE;
+			GuiEventType mCurEvent = GuiEventType::NONE;
 
-			std::function<void()> onPress;
-			std::function<void()> onPressContinue;
-			std::function<void()> onRelease;
-			std::function<void()> onCover;
-			std::function<void()> onUncover;
+			std::function<void()> mOnPress;
+			std::function<void()> mOnPressContinue;
+			std::function<void()> mOnRelease;
+			std::function<void()> mOnCover;
+			std::function<void()> mOnUncover;
 
-			float globalX = 0.0f;
-			float globalY = 0.0f;
-			InteractionComponentGui(GuiObject& obj, MATHGL::Vector2f size);
-			void onUpdate(float dt) override;
-			void onPreUpdate(float dt) override;
+			float mGlobalX = 0.0f;
+			float mGlobalY = 0.0f;
+
+			float mWidth = 0.0f;
+			float mHeight = 0.0f;
+			InteractionComponent(Object& obj, float w, float h);
 			
-		private:
-			bool contains(float x, float y) const;
+		//private:
+			bool contains(float x, float y);
 		};
 
-		
-
-		class ClipComponentGui : public ComponentGui {
+		class ClipComponent : public Component {
 		public:
-			float globalX = 0.0f;
-			float globalY = 0.0f;
+			float mGlobalX = 0.0f;
+			float mGlobalY = 0.0f;
 
-			float width = 0.0f;
-			float height = 0.0f;
-			ClipComponentGui(GuiObject& obj, float w, float h);
-			void draw() override;
-			void onPreUpdate(float dt) override;
+			float mWidth = 0.0f;
+			float mHeight = 0.0f;
+			ClipComponent(Object& obj, float w, float h);
 		};
 
-		class ScrollComponentGui : public ComponentGui {
+		class ScrollComponent : public Component {
 		public:
-			bool isScrollHorizontal = true;
-			bool isScrollVertical = false;
-			float width = 0.0f;
-			float height = 0.0f;
+			bool mIsScrollHorizontal = true;
+			bool mIsScrollVertical = false;
+			float mWidth = 0.0f;
+			float mHeight = 0.0f;
 
 
-			float startX = 0.0f;
-			float startY = 0.0f;
-			bool isPress = false;
+			float mStartX = 0.0f;
+			float mStartY = 0.0f;
+			bool mIsPress = false;
 
-			ScrollComponentGui(GuiObject& obj, float w, float h) : ComponentGui(obj),
-				width(w), height(h) {
-			}
-			
+			std::shared_ptr<Object> mSelectedObj;
+			MATHGL::Vector2f mSelectedObjPos;
+
+			ScrollComponent(Object& obj, float w, float h);
 		};
-
-		enum class Type {
-			HORIZONTAL,
-			VERTICAL
-		};
-		class LayoutComponentGui : public ComponentGui {
+		
+		class LayoutComponent : public Component {
 		public:
-			Type type = Type::HORIZONTAL;
+			enum class Type {
+				HORIZONTAL,
+				VERTICAL
+			};
+			Type mType = Type::HORIZONTAL;
 
-			float hOffset = 0.0f;
-			float vOffset = 0.0f;
+			float mHorizontalOffset = 0.0f;
+			float mVerticalOffset = 0.0f;
 
-			LayoutComponentGui(GuiObject& obj) : ComponentGui(obj) {
-			}
-
+			LayoutComponent(Object& obj, Type type) : Component(obj), mType(type) {}
 		};
-		
-		
-
-		
 	}
 }
 

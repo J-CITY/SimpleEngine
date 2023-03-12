@@ -1,28 +1,22 @@
 #pragma once
-//#include "../ecs/components/modelRenderer.h"
-//#include "../resourceManager/modelManager.h"
-//#include "../resourceManager/textureManager.h"
-//#include "../resourceManager/parser/assimpParser.h"
-//#include "../scene/scene.h"
-//#include "../utils/idObject.h"
-//#include "../utils/math/Vector2.h"
 #include <memory>
-#include <vector>
-#include <algorithm>
 
-
-#include "components/spriteComponent.h"
 
 #include <ft2build.h>
-#include <typeindex>
+#include <string>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-#include "../resourceManager/resource/shader.h"
+#include "../scene/sceneManager.h"
 
 #include FT_FREETYPE_H
 
 namespace KUMA {
+	namespace RENDER
+	{
+		class MaterialInterface;
+	}
+
 	namespace RESOURCES
 	{
 		class Shader;
@@ -36,10 +30,10 @@ namespace KUMA {
 
 
 		struct Character {
-			glm::ivec2   Size;      // размер глифа
-			glm::ivec2   Start;      // размер глифа
-			glm::ivec2   Bearing;   // смещение от линии шрифта до верхнего/левого угла глифа
-			unsigned int Advance;   // смещение до следующего глифа
+			glm::ivec2   Size;
+			glm::ivec2   Start;
+			glm::ivec2   Bearing;
+			unsigned int Advance;
 		};
 
 		struct Font {
@@ -48,7 +42,17 @@ namespace KUMA {
 			Font(std::string fontPath, int size);
 		};
 
-		class GuiObject {
+		struct GuiHelper {
+			static std::shared_ptr<ECS::Object> CreateSprite(const std::string& name, const std::string& path, bool isRoot = false);
+			static std::shared_ptr<ECS::Object> CreateLabel(const std::string& name, const std::string& label, bool isRoot = false);
+			static std::shared_ptr<ECS::Object> CreateScroll(const std::string& name, int w, int h, bool isRoot = false);
+			static std::shared_ptr<ECS::Object> CreateClip(const std::string& name, int w, int h, bool isRoot = false);
+			static std::shared_ptr<ECS::Object> CreateLayout(const std::string& name, KUMA::ECS::LayoutComponent::Type type, bool isRoot = false);
+			static std::shared_ptr<ECS::Object> CreateButton(const std::string& name, bool isRoot = false);
+
+		};
+
+		/*class GuiObject {
 		public:
 			float childOffsetX = 0.0f;
 			float childOffsetY = 0.0f;
@@ -164,83 +168,83 @@ namespace KUMA {
 				childs.push_back(child);
 			}
 			
-		};
+		};*/
 
-		class GuiButton: public GuiObject {
-		public:
-			GuiButton();
-		};
-		class GuiLabel : public GuiObject {
-		public:
-			GuiLabel(std::string text, std::shared_ptr<Font> font, std::shared_ptr<RENDER::Material> material);
-		};
-		class GuiImage : public GuiObject {
-		public:
-			GuiImage(std::shared_ptr<RENDER::Material> material);
-		};
-
-		class GuiLayout : public GuiObject {
-		public:
-			GuiLayout() :GuiObject() {
-				addComponent(std::make_shared<LayoutComponentGui>(*this));
-			}
-			virtual void onPreUpdate(float dt) override {
-				auto lc = getComponent<LayoutComponentGui>();
-				//if (transform->isDirty) {
-					//calculateTransformOwn();
-					transform->calculate();
-				//}
-				float width = 0.0f;
-				float height = 0.0f;
-				auto startX = transform->globalModel(0, 3) + lc->hOffset;
-				auto startY = transform->globalModel(1, 3) + lc->vOffset;
-				for (auto& child : childs) {
-					if (lc->type == Type::HORIZONTAL) {
-						child->transform->globalModel(1, 3) = (transform->globalModel(1, 3) + lc->vOffset) +
-							child->transform->position.y;
-						child->transform->globalModel(0, 3) = startX + child->transform->position.x + lc->hOffset;
-						startX += lc->hOffset + child->transform->size.x * transform->globalModel(0, 0);
-						width += child->transform->size.x * child->transform->globalModel(0, 0) + lc->hOffset;
-						height = std::max<float>(height, child->transform->size.y * child->transform->globalModel(1, 1));
-					}
-					else {
-						child->transform->globalModel(0, 3) = (transform->globalModel(0, 3) + lc->hOffset) +
-							child->transform->position.x;
-						child->transform->globalModel(1, 3) = startY + child->transform->position.y;
-						startY += child->transform->size.y * child->transform->globalModel(1, 1) + lc->vOffset;
-						height += child->transform->size.y * child->transform->globalModel(1, 1) + lc->vOffset;
-						width = std::max<float>(width, child->transform->size.x * child->transform->globalModel(0, 0));
-					}
-					
-					child->transform->isDirty = false;
-					for (auto& ch : child->childs) {
-						ch->setDirty(true);
-						ch->onPreUpdate(dt);
-					}
-				}
-				transform->size = MATHGL::Vector2{width, height};
-			}
-		};
-
-		class GuiClip: public GuiObject {
-		public:
-			GuiClip(float w, float h) {
-				addComponent(std::make_shared<ClipComponentGui>(*this, w, h));
-			}
-			virtual void onUpdate(float dt) override;
-		};
-		
-		class GuiScroll : public GuiObject {
-		public:
-			std::shared_ptr<GuiObject> selectedObj;
-			MATHGL::Vector2f selectedObjPos;
-			
-			GuiScroll(float w, float h);
-
-			bool contains(float left, float top, float width, float height, float x, float y) const;
-			float prevShiftX = 0.0f;
-			float prevShiftY = 0.0f;
-		};
+		//class GuiButton: public GuiObject {
+		//public:
+		//	GuiButton();
+		//};
+		//class GuiLabel : public GuiObject {
+		//public:
+		//	GuiLabel(std::string text, std::shared_ptr<Font> font, std::shared_ptr<RENDER::MaterialInterface> material);
+		//};
+		//class GuiImage : public GuiObject {
+		//public:
+		//	GuiImage(std::shared_ptr<RENDER::MaterialInterface> material);
+		//};
+		//
+		//class GuiLayout : public GuiObject {
+		//public:
+		//	GuiLayout() :GuiObject() {
+		//		addComponent(std::make_shared<LayoutComponentGui>(*this));
+		//	}
+		//	virtual void onPreUpdate(float dt) override {
+		//		auto lc = getComponent<LayoutComponentGui>();
+		//		//if (transform->isDirty) {
+		//			//calculateTransformOwn();
+		//			transform->calculate();
+		//		//}
+		//		float width = 0.0f;
+		//		float height = 0.0f;
+		//		auto startX = transform->globalModel(0, 3) + lc->hOffset;
+		//		auto startY = transform->globalModel(1, 3) + lc->vOffset;
+		//		for (auto& child : childs) {
+		//			if (lc->type == Type::HORIZONTAL) {
+		//				child->transform->globalModel(1, 3) = (transform->globalModel(1, 3) + lc->vOffset) +
+		//					child->transform->position.y;
+		//				child->transform->globalModel(0, 3) = startX + child->transform->position.x + lc->hOffset;
+		//				startX += lc->hOffset + child->transform->size.x * transform->globalModel(0, 0);
+		//				width += child->transform->size.x * child->transform->globalModel(0, 0) + lc->hOffset;
+		//				height = std::max<float>(height, child->transform->size.y * child->transform->globalModel(1, 1));
+		//			}
+		//			else {
+		//				child->transform->globalModel(0, 3) = (transform->globalModel(0, 3) + lc->hOffset) +
+		//					child->transform->position.x;
+		//				child->transform->globalModel(1, 3) = startY + child->transform->position.y;
+		//				startY += child->transform->size.y * child->transform->globalModel(1, 1) + lc->vOffset;
+		//				height += child->transform->size.y * child->transform->globalModel(1, 1) + lc->vOffset;
+		//				width = std::max<float>(width, child->transform->size.x * child->transform->globalModel(0, 0));
+		//			}
+		//			
+		//			child->transform->isDirty = false;
+		//			for (auto& ch : child->childs) {
+		//				ch->setDirty(true);
+		//				ch->onPreUpdate(dt);
+		//			}
+		//		}
+		//		transform->size = MATHGL::Vector2{width, height};
+		//	}
+		//};
+		//
+		//class GuiClip: public GuiObject {
+		//public:
+		//	GuiClip(float w, float h) {
+		//		addComponent(std::make_shared<ClipComponentGui>(*this, w, h));
+		//	}
+		//	virtual void onUpdate(float dt) override;
+		//};
+		//
+		//class GuiScroll : public GuiObject {
+		//public:
+		//	std::shared_ptr<GuiObject> selectedObj;
+		//	MATHGL::Vector2f selectedObjPos;
+		//	
+		//	GuiScroll(float w, float h);
+		//
+		//	bool contains(float left, float top, float width, float height, float x, float y) const;
+		//	float prevShiftX = 0.0f;
+		//	float prevShiftY = 0.0f;
+		//};
 		
 	} 
 }

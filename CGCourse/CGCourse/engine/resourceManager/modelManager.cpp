@@ -1,43 +1,79 @@
 #include "modelManager.h"
 #include "ServiceManager.h"
-#include "../render/model.h"
+#include "../render/backends/interface/modelInterface.h"
+
+#ifdef OPENGL_BACKEND
+#include "../render/backends/gl/modelGl.h"
+#endif
+
+#ifdef VULKAN_BACKEND
+#include "../render/backends/vk/modelVk.h"
+#endif
+
+#ifdef DX12_BACKEND
+#include "../render/backends/dx12/modelDx12.h"
+#endif
 
 using namespace KUMA::RESOURCES;
 
 AssimpParser ModelLoader::_ASSIMP;
 
-void ModelLoader::Reload(RENDER::Model& model, const std::string& filePath, ModelParserFlags parserFlags) {
-	std::shared_ptr<RENDER::Model> newModel = Create(filePath, parserFlags);
+void ModelLoader::Reload(RENDER::ModelInterface& model, const std::string& filePath, ModelParserFlags parserFlags) {
+	std::shared_ptr<RENDER::ModelInterface> newModel = Create(filePath, parserFlags);
 
 	if (newModel) {
-		model.meshes = newModel->meshes;
-		model.materialNames = newModel->materialNames;
-		newModel->meshes.clear();
+		model.setMeshes(newModel->getMeshes());
+		model.setMaterialNames(newModel->getMaterialsNames());
+		newModel->clearMeshes();
 	}
 }
 
-ResourcePtr<KUMA::RENDER::Model> ModelLoader::CreateFromFile(const std::string& path) {
+ResourcePtr<KUMA::RENDER::ModelInterface> ModelLoader::CreateFromFile(const std::string& path) {
 	std::string realPath = getRealPath(path);
 	auto model = Create(realPath, getAssetMetadata(realPath));
-	if (model)
-		model->path = path;
-
+	if (model) {
+		model->setPath(path);
+	}
 	return model;
 }
 
-ResourcePtr<KUMA::RENDER::Model> ModelLoader::CreateFromFile(const std::string& path, ModelParserFlags parserFlags) {
+ResourcePtr<KUMA::RENDER::ModelInterface> ModelLoader::CreateFromFile(const std::string& path, ModelParserFlags parserFlags) {
 	std::string realPath = getRealPath(path);
 	auto model = Create(realPath, parserFlags);
-	if (model)
-		model->path = path;
-
+	if (model) {
+		model->setPath(path);
+	}
 	return model;
 }
 
-ResourcePtr<KUMA::RENDER::Model> ModelLoader::Create(const std::string& filepath, ModelParserFlags parserFlags) {
-	auto result = ResourcePtr<RENDER::Model>(new RENDER::Model(filepath), [](RENDER::Model* m) {
-		ServiceManager::Get<ModelLoader>().unloadResource<ModelLoader>(m->path);
-	});
+#include "../render/backends/interface/driverInterface.h"
+
+ResourcePtr<KUMA::RENDER::ModelInterface> ModelLoader::Create(const std::string& filepath, ModelParserFlags parserFlags) {
+	ResourcePtr<RENDER::ModelInterface> result;
+
+#ifdef OPENGL_BACKEND
+	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
+		result = ResourcePtr<RENDER::ModelInterface>(new RENDER::ModelGl(filepath), [](RENDER::ModelGl* m) {
+			ServiceManager::Get<ModelLoader>().unloadResource<ModelLoader>(m->getPath());
+		});
+	}
+#endif
+
+#ifdef VULKAN_BACKEND
+	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
+		result = ResourcePtr<RENDER::ModelInterface>(new RENDER::ModelVk(filepath), [](RENDER::ModelVk* m) {
+			ServiceManager::Get<ModelLoader>().unloadResource<ModelLoader>(m->getPath());
+		});
+	}
+#endif
+
+#ifdef DX12_BACKEND
+	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
+		result = ResourcePtr<RENDER::ModelInterface>(new RENDER::ModelDx12(filepath), [](RENDER::ModelDx12* m) {
+			ServiceManager::Get<ModelLoader>().unloadResource<ModelLoader>(m->getPath());
+		});
+	}
+#endif
 
 	if (_ASSIMP.LoadModel(filepath, result, parserFlags)) {
 		result->computeBoundingSphere();
@@ -48,8 +84,13 @@ ResourcePtr<KUMA::RENDER::Model> ModelLoader::Create(const std::string& filepath
 
 ModelParserFlags ModelLoader::getAssetMetadata(const std::string& path) {
 	//auto metaFile = iniFile(path + ".meta");
-
-	ModelParserFlags flags = ModelParserFlags::NONE;
+	KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+	flags |= KUMA::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
+	flags |= KUMA::RESOURCES::ModelParserFlags::FLIP_UVS;
+	flags |= KUMA::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
+	flags |= KUMA::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+	return flags;
+	//ModelParserFlags flags = ModelParserFlags::NONE;
 
 	if (true)	flags |= ModelParserFlags::CALC_TANGENT_SPACE;
 	if (true)	flags |= ModelParserFlags::JOIN_IDENTICAL_VERTICES;
@@ -81,11 +122,11 @@ ModelParserFlags ModelLoader::getAssetMetadata(const std::string& path) {
 	return {flags};
 }
 
-ResourcePtr<KUMA::RENDER::Model> ModelLoader::createResource(const std::string& path) {
+ResourcePtr<KUMA::RENDER::ModelInterface> ModelLoader::createResource(const std::string& path) {
 	std::string realPath = getRealPath(path);
 	auto model = Create(realPath, getAssetMetadata(realPath));
-	if (model)
-		model->path = path;
-
+	if (model) {
+		model->setPath(path);
+	}
 	return model;
 }

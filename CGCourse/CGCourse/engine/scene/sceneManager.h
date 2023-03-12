@@ -10,7 +10,7 @@ namespace KUMA::SCENE_SYSTEM {
 		~SceneManager();
 
 		void update();
-
+		void loadFromFile(const std::string& sceneFilePath);
 		void loadEmptyScene();
 		void loadDefaultScene();
 		void unloadCurrentScene();

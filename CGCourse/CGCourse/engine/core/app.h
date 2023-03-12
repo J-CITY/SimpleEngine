@@ -4,10 +4,17 @@
 #include "core.h"
 #include "../utils/pointers/objPtr.h"
 
+#ifdef DX12_BACKEND
+#include <Windows.h>
+#endif
+
 namespace KUMA {
 	namespace CORE_SYSTEM {
 		class App {
 		public:
+#ifdef DX12_BACKEND
+			inline static HINSTANCE hInstance;
+#endif
 			App();
 			~App();
 			void run();

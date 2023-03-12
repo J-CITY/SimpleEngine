@@ -1,22 +1,29 @@
 #include "assimpParser.h"
 
-#include <map>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/matrix4x4.h>
-#include "../engine/render/model.h"
-
 #include "../../../3rd/stb/stb.h"
-import glmath;
 #include "../resource/bone.h"
+#include "../../utils/vertex.h"
+#ifdef OPENGL_BACKEND
+#include "../../render/backends/gl/meshGl.h"
+#include "../../render/backends/gl/modelGl.h"
+#endif
+
+import glmath;
 
 using namespace KUMA;
 using namespace KUMA::RESOURCES;
 
 unsigned int ID=0;
 
+//if batchin we use this vectors
+std::vector<Vertex> globalVertices;
+std::vector<uint32_t> globalIndices;
+
 bool AssimpParser::LoadModel(const std::string& fileName, 
-	RESOURCES::ResourcePtr<RENDER::Model> model,  ModelParserFlags parserFlags) {
+	RESOURCES::ResourcePtr<RENDER::ModelInterface> model,  ModelParserFlags parserFlags) {
 	
 	Assimp::Importer* import = new Assimp::Importer();
 	auto scene = import->ReadFile(fileName, static_cast<int>(parserFlags));
@@ -24,18 +31,27 @@ bool AssimpParser::LoadModel(const std::string& fileName,
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 		return false;
 	}
-	processMaterials(scene, model->materialNames);
+	processMaterials(scene, model->getMaterialsNames());
 
 	aiMatrix4x4 identity;
 
+	globalVertices.clear();
+	globalIndices.clear();
 	//if (scene->HasAnimations()) {
 		processNode(&identity, scene->mRootNode, scene, model);
 	//}
+	if (model->getUseBatching()) {
+#ifdef OPENGL_BACKEND
+		dynamic_cast<RENDER::ModelGl*>(model.get())->createBuffers(globalVertices, globalIndices);
+#endif
+	}
+
 
 	//std::shared_ptr<Assimp::Importer> imp = std::shared_ptr<Assimp::Importer>(import);
 	//for (auto m : meshes) {
 	//	m->imp = imp;
 	//}
+	delete import;
 	return true;
 }
 
@@ -49,8 +65,18 @@ void AssimpParser::processMaterials(const aiScene* scene, std::vector<std::strin
 		}
 	}
 }
+#include "../../render/backends/interface/driverInterface.h"
+#ifdef VULKAN_BACKEND
+#include "../../render/backends/vk/meshVk.h"
+#include "../../render/backends/vk/modelVk.h"
+#endif
 
-void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* scene, ResourcePtr<RENDER::Model> model) {
+#ifdef DX12_BACKEND
+#include "../../render/backends/dx12/meshDx12.h"
+#include "../../render/backends/dx12/modelDx12.h"
+#endif
+
+void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model) {
 	aiMatrix4x4 nodeTransformation = *reinterpret_cast<aiMatrix4x4*>(transform) * node->mTransformation;
 
 	auto boneSz = 0;
@@ -68,6 +94,7 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 	//bones.resize(bonesSz/*scene->mMeshes[i]->mNumVertices*/);
 	auto NumVertices = 0;
 	auto NumIndices = 0;
+
 	for (uint32_t i = 0; i < node->mNumMeshes; ++i) {
 		m_NumBones = 0;
 		std::vector<Vertex> vertices;
@@ -86,9 +113,45 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 		processMesh(&nodeTransformation, mesh, scene, vertices, indices);
 
 		loadBones(vertices, mesh, scene, model);
-		//loadBones(NumVertices, mesh, bones, m_BoneMapping, m_NumBones, m_BoneInfo);
+		//loadBones(NumVertices, mesh, bones, m_BoneMapping, m_NumBones, m_BoneInfo);'
+		std::shared_ptr<RENDER::MeshInterface> newMash;
+#ifdef OPENGL_BACKEND
+		if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
+			if (model->getUseBatching()) {
+				newMash = std::make_shared<RENDER::MeshGl>(vertices, indices, globalIndices.size(), mesh->mMaterialIndex);
+				globalVertices.insert(globalVertices.end(), vertices.begin(), vertices.end());
+				globalIndices.insert(globalIndices.end(), indices.begin(), indices.end());
+			}
+			else {
+				newMash = std::make_shared<RENDER::MeshGl>(vertices, indices, mesh->mMaterialIndex);
+			}
+		}
+#endif
+#ifdef VULKAN_BACKEND
+		if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
+			if (model->getUseBatching()) {
+				newMash = std::make_shared<RENDER::MeshVk>(vertices, indices, globalIndices.size(), mesh->mMaterialIndex);
+				globalVertices.insert(globalVertices.end(), vertices.begin(), vertices.end());
+				globalIndices.insert(globalIndices.end(), indices.begin(), indices.end());
+			}
+			else {
+				newMash = std::make_shared<RENDER::MeshVk>(vertices, indices, mesh->mMaterialIndex);
+			}
+		}
+#endif
+#ifdef DX12_BACKEND
+		if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
+			if (model->getUseBatching()) {
+				//newMash = std::make_shared<RENDER::MeshDx12>(vertices, indices, globalIndices.size(), mesh->mMaterialIndex);
+				//globalVertices.insert(globalVertices.end(), vertices.begin(), vertices.end());
+				//globalIndices.insert(globalIndices.end(), indices.begin(), indices.end());
+			}
+			else {
+				newMash = std::make_shared<RENDER::MeshDx12>(vertices, indices, mesh->mMaterialIndex);
+			}
+		}
+#endif
 
-		auto newMash = new Mesh(vertices, indices, mesh->mMaterialIndex);
 		//newMash->m_pScene = scene;
 		//newMash->m_BoneMapping = m_BoneMapping;
 		//newMash->m_BoneInfo = m_BoneInfo;
@@ -128,7 +191,7 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 		//
 		//newMash->m_GlobalInverseTransform = m_GlobalInverseTransform;
 		//newMash->m_NumBones = m_NumBones;
-		model->meshes.push_back(newMash); // The model will handle mesh destruction
+		model->getMeshes().push_back(newMash); // The model will handle mesh destruction
 	}
 
 	// Then do the same for each of its children
@@ -137,20 +200,19 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 	}
 }
 
-void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::Model> model) {
+void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model) {
 	for (int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
 		int boneID = -1;
 		std::string boneName = mesh->mBones[boneIndex]->mName.C_Str();
-		if (model->m_BoneInfoMap.find(boneName) == model->m_BoneInfoMap.end()) {
+		if (!model->isBoneExist(boneName)) {
 			RENDER::BoneInfo newBoneInfo;
-			newBoneInfo.id = model->m_BoneCounter;
-			newBoneInfo.offset = ConvertMatrix4x4(mesh->mBones[boneIndex]->mOffsetMatrix);
-			model->m_BoneInfoMap[boneName] = newBoneInfo;
-			boneID = model->m_BoneCounter;
-			model->m_BoneCounter++;
+			newBoneInfo.mId = model->getBoneCounter();
+			newBoneInfo.mOffset = ConvertMatrix4x4(mesh->mBones[boneIndex]->mOffsetMatrix);
+			boneID = model->getBoneCounter();
+			model->addBone(boneName, newBoneInfo);
 		}
 		else {
-			boneID = model->m_BoneInfoMap[boneName].id;
+			boneID = model->getBoneId(boneName);
 		}
 		assert(boneID != -1);
 		auto weights = mesh->mBones[boneIndex]->mWeights;

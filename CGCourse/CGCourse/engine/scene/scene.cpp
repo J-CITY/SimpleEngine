@@ -4,11 +4,8 @@
 
 
 #include "../ecs/ComponentManager.h"
-#include "../ecs/components/inputComponent.h"
-#include "../resourceManager/modelManager.h"
-#include "../resourceManager/shaderManager.h"
 #include "../resourceManager/parser/assimpParser.h"
-#include "../render/render.h"
+#include "../render/backends/interface/renderEnums.h"
 
 namespace KUMA
 {
@@ -26,39 +23,40 @@ namespace KUMA
 	}
 }
 
+using namespace KUMA;
 using namespace KUMA::SCENE_SYSTEM;
 
 void Scene::init() {
 	//Create Default skybox
 	
-	skyboxObject = std::make_unique<KUMA::ECS::Object>(KUMA::ObjectId<ECS::Object>(999), "Skybox", "");
+	//skyboxObject = std::make_unique<KUMA::ECS::Object>(KUMA::ObjectId<ECS::Object>(999), "Skybox", "");
 
-	skyboxTexture = KUMA::RESOURCES::TextureLoader::CreateSkybox("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\sb\\");
-	auto mat = skyboxObject->addComponent<KUMA::ECS::MaterialRenderer>();
-	auto skyboxMat = std::make_shared<KUMA::RENDER::Material>();
-	auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\skybox1.glsl");
-	skyboxMat->setShader(s);
-	skyboxMat->setBackfaceCulling(true);
-	skyboxMat->setBackfaceCulling(true);
-	skyboxMat->setDepthTest(true);
-	skyboxMat->setDepthWriting(true);
-	skyboxMat->setColorWriting(true);
-	skyboxMat->setGPUInstances(1);
-	skyboxMat->getShader()->setUniformInt("gCubemapTexture", 0);
-	mat->fillWithMaterial(skyboxMat);
+	//skyboxTexture = KUMA::RESOURCES::TextureLoader::CreateSkybox("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\sb\\");
+	//auto mat = skyboxObject->addComponent<KUMA::ECS::MaterialRenderer>();
+	//auto skyboxMat = std::make_shared<KUMA::RENDER::Material>();
+	//auto s = KUMA::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\skybox1.glsl");
+	//skyboxMat->setShader(s);
+	//skyboxMat->setBackfaceCulling(true);
+	//skyboxMat->setBackfaceCulling(true);
+	//skyboxMat->setDepthTest(true);
+	//skyboxMat->setDepthWriting(true);
+	//skyboxMat->setColorWriting(true);
+	//skyboxMat->setGPUInstances(1);
+	//skyboxMat->getShader()->setUniformInt("gCubemapTexture", 0);
+	//mat->fillWithMaterial(skyboxMat);
 	
-	auto model = skyboxObject->addComponent<KUMA::ECS::ModelRenderer>();
-	KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
-	auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
-	model->setModel(m);
-	model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
-	auto bs = KUMA::RENDER::BoundingSphere();
-	bs.position = {0.0f, 0.0f, 0.0f};
-	bs.radius = 1.0f;
-	model->setCustomBoundingSphere(bs);
-	skyboxObject->getTransform()->setLocalPosition({ 0.0f, 0.0f, 0.0f });
-	skyboxObject->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-	skyboxObject->getTransform()->setLocalScale({20.0f, 20.0f, 20.0f});
+	//auto model = skyboxObject->addComponent<KUMA::ECS::ModelRenderer>();
+	//KUMA::RESOURCES::ModelParserFlags flags = KUMA::RESOURCES::ModelParserFlags::TRIANGULATE;
+	//auto m = KUMA::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
+	//model->setModel(m);
+	//model->setFrustumBehaviour(KUMA::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
+	//auto bs = KUMA::RENDER::BoundingSphere();
+	//bs.position = {0.0f, 0.0f, 0.0f};
+	//bs.radius = 1.0f;
+	//model->setCustomBoundingSphere(bs);
+	//skyboxObject->getTransform()->setLocalPosition({ 0.0f, 0.0f, 0.0f });
+	//skyboxObject->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
+	//skyboxObject->getTransform()->setLocalScale({20.0f, 20.0f, 20.0f});
 	
 }
 
@@ -118,6 +116,20 @@ std::shared_ptr<KUMA::ECS::Object> Scene::_createObject(const std::string& name,
 	}
 	return instance;
 }
+
+std::shared_ptr<KUMA::ECS::Object> Scene::createObject(ObjectId<ECS::Object> actorID, const std::string& name, const std::string& tag) {
+	objects.push_back(std::make_shared<ECS::Object>(actorID, name, tag));
+	auto& instance = objects.back();
+	if (isExecute) {
+		instance->setActive(true);
+		if (instance->getIsActive()) {
+			instance->onEnable();
+			instance->onStart();
+		}
+	}
+	return instance;
+}
+
 
 std::shared_ptr<KUMA::ECS::Object> Scene::createObject(const std::string& name, const std::string& tag) {
 	objects.push_back(std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag));
@@ -209,6 +221,8 @@ std::span<std::shared_ptr<KUMA::ECS::Object>> Scene::getObjects() {
 	return objects;
 }
 
+//TODO: void Scene::setMainCamera(Entity id) {}
+
 
 std::optional<KUMA::Ref<KUMA::ECS::CameraComponent>> Scene::findMainCamera() {
 	for (auto& camera : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::CameraComponent>()) {
@@ -218,7 +232,6 @@ std::optional<KUMA::Ref<KUMA::ECS::CameraComponent>> Scene::findMainCamera() {
 	}
 	return std::nullopt;
 }
-
 
 
 std::vector<KUMA::RENDER::LightOGL> Scene::findLightData() {
@@ -341,16 +354,16 @@ std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::
 	return result;
 }
 
-KUMA::ECS::Object& Scene::getSkybox() const {
-	return *skyboxObject;
-}
+//KUMA::ECS::Object& Scene::getSkybox() const {
+//	return *skyboxObject;
+//}
+//
+//KUMA::RESOURCES::CubeMap& Scene::getSkyboxTexture() const {
+//	return *skyboxTexture;
+//}
 
-KUMA::RESOURCES::CubeMap& Scene::getSkyboxTexture() const {
-	return *skyboxTexture;
-}
-
-std::vector<std::reference_wrapper<KUMA::RESOURCES::Mesh>> Scene::getMeshesInFrustum(
-	const RENDER::Model& model,
+std::vector<std::shared_ptr<RENDER::MeshInterface>> Scene::getMeshesInFrustum(
+	const RENDER::ModelInterface& model,
 	const RENDER::BoundingSphere& modelBoundingSphere,
 	const ECS::Transform& modelTransform,
 	const RENDER::Frustum& frustum,
@@ -359,15 +372,15 @@ std::vector<std::reference_wrapper<KUMA::RESOURCES::Mesh>> Scene::getMeshesInFru
 	const bool frustumPerModel = isFlagSet(RENDER::CullingOptions::FRUSTUM_PER_MODEL, cullingOptions);
 
 	if (!frustumPerModel || frustum.boundingSphereInFrustum(modelBoundingSphere, modelTransform)) {
-		std::vector<std::reference_wrapper<RESOURCES::Mesh>> result;
+		std::vector<std::shared_ptr<RENDER::MeshInterface>> result;
 
 		const bool frustumPerMesh = isFlagSet(RENDER::CullingOptions::FRUSTUM_PER_MESH, cullingOptions);
 
-		const auto& meshes = model.getMeshes();
+		auto& meshes = model.getMeshes();
 
 		for (auto mesh : meshes) {
 			if (meshes.size() == 1 || !frustumPerMesh || frustum.boundingSphereInFrustum(mesh->getBoundingSphere(), modelTransform)) {
-				result.emplace_back(*mesh);
+				result.emplace_back(mesh);
 			}
 		}
 		return result;
@@ -383,7 +396,7 @@ KUMA::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 (
 	const MATHGL::Vector3& cameraPosition,
 	const RENDER::Frustum& frustum,
-	std::shared_ptr<RENDER::Material> defaultMaterial
+	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
 	RENDER::OpaqueDrawables opaqueDrawablesForward;
 	RENDER::TransparentDrawables transparentDrawablesForward;
@@ -410,26 +423,25 @@ KUMA::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 					}
 
 					const auto& modelBoundingSphere = modelRenderer.getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer.getCustomBoundingSphere() : model->getBoundingSphere();
-
-					std::vector<std::reference_wrapper<RESOURCES::Mesh>> meshes;
-					meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
 					
+					auto meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
 
 					if (!meshes.empty()) {
 						float distanceToActor = MATHGL::Vector3::Distance(transform.getWorldPosition(), cameraPosition);
 						const ECS::MaterialRenderer::MaterialList& materials = materialRenderer.value()->getMaterials();
 
-						for (const auto& mesh : meshes) {
-							std::shared_ptr<RENDER::Material> material;
-							if (mesh.get().getMaterialIndex() < MAX_MATERIAL_COUNT) {
-								material = materials.at(mesh.get().getMaterialIndex());
-								if (!material || (!material->getShader() && !material->isDeferred)) {
+						for (const auto mesh : meshes) {
+							std::shared_ptr<RENDER::MaterialInterface> material;
+							if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
+								material = materials.at(mesh->getMaterialIndex());
+								if (!material || (!material->getShader() && !material->isDeferred())) {
 									material = defaultMaterial;
 								}
 							}
 
 							if (material) {
-								RENDER::Drawable element = {transform.getWorldMatrix(), &mesh.get(), material, animator};
+								RENDER::Drawable element = { transform.getPrevWorldMatrix(), transform.getWorldMatrix(), mesh, material, animator};
+								transform.setPrevWorldMatrix(transform.getWorldMatrix());
 								if (material->isBlendable()) {
 									if (material->getShader()) {
 										transparentDrawablesForward.emplace(distanceToActor, element);
@@ -463,7 +475,7 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 	KUMA::RENDER::TransparentDrawables>  Scene::findAndSortDrawables
 (
 	const MATHGL::Vector3& cameraPosition,
-	std::shared_ptr<RENDER::Material> defaultMaterial
+	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
 	RENDER::OpaqueDrawables opaqueDrawablesForward;
 	RENDER::TransparentDrawables transparentDrawablesForward;
@@ -476,24 +488,25 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 				float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
 
 				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
-					const auto& transform = modelRenderer.obj->getTransform()->getTransform();
+					auto& transform = modelRenderer.obj->getTransform()->getTransform();
 					auto animator = modelRenderer.obj->getComponent<ECS::Skeletal>();
 
 					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer.value()->getMaterials();
 
-					for (auto mesh : model->getMeshes()) {
-						std::shared_ptr<RENDER::Material> material;
+					for (const auto mesh : model->getMeshes()) {
+						std::shared_ptr<RENDER::MaterialInterface> material;
 						if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
 							material = materials.at(mesh->getMaterialIndex());
-							if (!material || (!material->getShader() && !material->isDeferred)) {
+							if (!material || (!material->getShader() && !material->isDeferred())) {
 								material = defaultMaterial;
 							}
 						}
 
 						if (material) {
-							RENDER::Drawable element = {transform.getWorldMatrix(), mesh, material, animator};
+							RENDER::Drawable element = { transform.getPrevWorldMatrix(),transform.getWorldMatrix(), mesh, material, animator};
+							transform.setPrevWorldMatrix(transform.getWorldMatrix());
 							if (material->isBlendable()) {
-								if (material->getShader()) {
+								if (!material->isDeferred()) {
 									transparentDrawablesForward.emplace(distanceToActor, element);
 								}
 								else {
@@ -501,7 +514,7 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 								}
 							}
 							else {
-								if (material->getShader()) {
+								if (!material->isDeferred()) {
 									opaqueDrawablesForward.emplace(distanceToActor, element);
 								}
 								else {
@@ -526,7 +539,7 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 	const MATHGL::Vector3& cameraPosition,
 	const RENDER::Camera& camera,
 	const RENDER::Frustum* customFrustum,
-	std::shared_ptr<RENDER::Material> defaultMaterial
+	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
 	if (camera.isFrustumGeometryCulling()) {
 		const auto& frustum = customFrustum ? *customFrustum : camera.getFrustum();

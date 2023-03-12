@@ -2,6 +2,9 @@
 #include <fstream>
 #include <string>
 #include <result.h>
+#include <serdepp/include/serdepp/adaptor/sstream.hpp>
+#include "../config.h"
+
 
 namespace KUMA::UTILS {
 
@@ -19,7 +22,7 @@ namespace KUMA::UTILS {
 
     static std::string getRealPath(const std::string& p_path) {
         std::string result;
-        if (std::filesystem::exists(Config::ENGINE_ASSETS_PATH + p_path)) {
+        if (std::filesystem::exists(Config::ROOT + Config::ENGINE_ASSETS_PATH + p_path)) {
             result = Config::ROOT + Config::ENGINE_ASSETS_PATH + p_path;
         }
         else {
@@ -37,7 +40,7 @@ namespace KUMA::UTILS {
         }
         std::stringstream buffer;
         buffer << ifile.rdbuf();
-        return Ok(serde::deserialize<T>(buffer));
+        return Ok<T>(serde::deserialize<T>(buffer));
 	}
 
 }

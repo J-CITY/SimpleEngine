@@ -23,6 +23,7 @@
 
 #include "../utils/pointers/objPtr.h"
 #include "components/physicsComponent.h"
+#include "../gui/components/spriteComponent.h"
 
 namespace KUMA {
 	namespace SCENE_SYSTEM {
@@ -121,7 +122,11 @@ namespace KUMA::ECS {
 		ScriptComponent,
 		Skeletal,
 		SpotLight,
-		PhysicsComponent
+		PhysicsComponent,
+
+		//GUI
+		RootGuiComponent,
+		SpriteComponent
 	>;
 
 	class ComponentManager {

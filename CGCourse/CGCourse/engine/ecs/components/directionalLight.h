@@ -2,8 +2,7 @@
 #include <string>
 
 #include "lightComponent.h"
-#include "../../../DiffuseLightRT.h"
-#include "../../render/buffers/depthBuffer.h"
+//#include "../../../DiffuseLightRT.h"
 
 namespace KUMA::ECS { class Object; }
 
@@ -16,6 +15,8 @@ namespace KUMA::ECS {
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 			LightComponent::onDeserialize(j);
+
+			distance = j["distance"].get<float>();
 		}
 		virtual void onSerialize(nlohmann::json& j) override {
 			LightComponent::onSerialize(j);
@@ -27,7 +28,7 @@ namespace KUMA::ECS {
 
 		
 		float distance = 0.0f;
-		float orthoBoxSize = 3000.0f;
+		float orthoBoxSize = 100.0f;
 
 		float zNear = 0.0f;
 		float zFar = 0.0f;

@@ -12,6 +12,7 @@
 #include "components/inputComponent.h"
 #include "components/pointLight.h"
 #include "components/spotLight.h"
+#include "../../../gui/components/spriteComponent.h"
 
 using namespace KUMA;
 using namespace KUMA::ECS;
@@ -113,8 +114,6 @@ void Object::detachFromParent() {
 			return e.get() == this;
 		}));
 	}
-
-	getComponent<TransformComponent>().value().get().removeParent();
 }
 
 bool Object::hasParent() const {

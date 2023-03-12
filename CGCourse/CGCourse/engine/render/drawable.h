@@ -3,27 +3,20 @@
 #include <map>
 import glmath;
 
-namespace KUMA
-{
-	namespace RESOURCES
-	{
-		class Mesh;
-	}
 
-	namespace ECS
-	{
-		class Skeletal;
-	}
-}
+#include "backends/interface/meshInterface.h"
+#include "backends/interface/materialInterface.h"
+#include "../../../ecs/components/skeletal.h"
 
 namespace KUMA {
 	namespace RENDER {
 		class Material;
 
 		struct Drawable {
+			MATHGL::Matrix4 prevWorld;
 			MATHGL::Matrix4 world;
-			RESOURCES::Mesh* mesh;
-			std::shared_ptr<RENDER::Material> material;
+			std::shared_ptr<MeshInterface> mesh;
+			std::shared_ptr<MaterialInterface> material;
 			std::optional<Ref<ECS::Skeletal>> animator;
 		};
 

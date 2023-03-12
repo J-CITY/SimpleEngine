@@ -21,9 +21,9 @@ namespace KUMA::ECS {
 		void setIntensity(float intensity);
 		virtual void onDeserialize(nlohmann::json& j) override {
 			MATHGL::Vector3 dump;
-			RESOURCES::DeserializeVec3(j["data"]["color"], dump);
+			RESOURCES::DeserializeVec3(j["color"], dump);
 			data.color = dump;
-			data.intensity = j["data"]["intensity"];
+			data.intensity = j["intensity"];
 		}
 		virtual void onSerialize(nlohmann::json& j) override {
 			j["data"]["intensity"] = data.intensity;

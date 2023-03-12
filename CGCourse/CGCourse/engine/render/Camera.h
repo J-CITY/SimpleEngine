@@ -57,8 +57,8 @@ namespace KUMA {
 			float _near;
 			float _far;
 
-			bool frustumGeometryCulling;
-			bool frustumLightCulling;
+			bool frustumGeometryCulling = false;
+			bool frustumLightCulling = false;
 		};
 	}
 }

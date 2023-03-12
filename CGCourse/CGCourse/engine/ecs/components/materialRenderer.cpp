@@ -11,17 +11,17 @@ MaterialRenderer::MaterialRenderer(Ref<ECS::Object> obj) : Component(obj) {
 	materials.fill(nullptr);
 }
 
-void MaterialRenderer::fillWithMaterial(std::shared_ptr<RENDER::Material> material) {
+void MaterialRenderer::fillWithMaterial(std::shared_ptr<RENDER::MaterialInterface> material) {
 	for (auto i = 0u; i < materials.size(); i++) {
 		materials[i] = material;
 	}
 }
 
-void MaterialRenderer::setMaterial(unsigned index, std::shared_ptr<RENDER::Material> p_material) {
+void MaterialRenderer::setMaterial(unsigned index, std::shared_ptr<RENDER::MaterialInterface> p_material) {
 	materials[index] = p_material;
 }
 
-std::shared_ptr<RENDER::Material> MaterialRenderer::GetMaterialAtIndex(unsigned index) {
+std::shared_ptr<RENDER::MaterialInterface> MaterialRenderer::GetMaterialAtIndex(unsigned index) {
 	return materials.at(index);
 }
 
@@ -31,7 +31,7 @@ void MaterialRenderer::removeMaterial(unsigned index) {
 	}
 }
 
-void MaterialRenderer::removeMaterial(std::shared_ptr<RENDER::Material> p_instance) {
+void MaterialRenderer::removeMaterial(std::shared_ptr<RENDER::MaterialInterface> p_instance) {
 	for (uint8_t i = 0; i < materials.size(); i++) {
 		if (materials[i] == p_instance) {
 			materials[i] = nullptr;
@@ -50,15 +50,17 @@ const MaterialRenderer::MaterialList& MaterialRenderer::getMaterials() const {
 }
 
 void MaterialRenderer::onDeserialize(nlohmann::json& j) {
-	for (auto& m : materials) {
-		if (m)
-			j["data"]["materials"].push_back(m->path);
-	}
-}
-void MaterialRenderer::onSerialize(nlohmann::json& j) {
 	int i = 0;
-	for (auto& m : j["data"]["materials"]) {
+	for (auto& m : j["materials"]) {
 		materials[i] = RESOURCES::MaterialLoader::Create(m);
 		i++;
+	}
+	
+}
+void MaterialRenderer::onSerialize(nlohmann::json& j) {
+	for (auto& m : materials) {
+		if (m) {
+			j["materials"].push_back(m->mPath);
+		}
 	}
 }

@@ -5,14 +5,17 @@
 #include "../resourceManager/ServiceManager.h"
 #include "../scene/sceneManager.h"
 #include "../window/window.h"
-#include "../render/gameRenderer.h"
-#include "../render/buffers/uniformBuffer.h"
+#include "../render/gameRendererInterface.h"
 #include "../debug/debugRender.h"
 #include "../ecs/ComponentManager.h"
 
 using namespace KUMA::CORE_SYSTEM;
 
-App::App() {
+App::App(): core(
+#ifdef DX12_BACKEND
+	hInstance
+#endif
+) {
 	core.sceneManager->getCurrentScene().go();
 }
 
@@ -36,8 +39,8 @@ void App::preUpdate(std::chrono::duration<double> dt) {
 }
 
 void App::update(std::chrono::duration<double> dt) {
-	core.renderer->getUBO().setSubData(static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count()), 
-		3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
+	//core.renderer->getUBO().setSubData(static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count()), 
+	//	3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
 
 	//auto taskUpdatePhysics = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("UpdatePhysics", 2, nullptr, [this]() {
 	//	core.physicsManger->startFrame();

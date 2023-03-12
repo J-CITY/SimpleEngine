@@ -5,7 +5,7 @@ namespace KUMA {
 	namespace RENDER {
 		struct BoundingSphere {
 			MATHGL::Vector3 position;
-			float radius;
+			float radius = 0.0f;
 
 			[[nodiscard]] float calcGrowth(const BoundingSphere& sphere) const;
 			[[nodiscard]] float getSize() const;

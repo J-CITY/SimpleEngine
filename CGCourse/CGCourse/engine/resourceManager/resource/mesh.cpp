@@ -3,7 +3,7 @@
 using namespace KUMA;
 using namespace KUMA::RESOURCES;
 
-
+/*
 Mesh::Mesh(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned materialIndex):
 	vertexCount(static_cast<unsigned>(vertices.size())),
 	indicesCount(static_cast<unsigned>(indices.size())),
@@ -121,3 +121,4 @@ void Mesh::computeBoundingSphere(std::span<Vertex> vertices) {
 		}
 	}
 }
+*/
