@@ -1,0 +1,108 @@
+[package]
+   name = "serdepp"
+   version = "0.1.4"
+   description = "c++ universal serialize deserialize library like rust serde"
+   standard="17"
+   #tool-version = "dev"
+#[cmake]
+#    include=["cmake/Lua.cmake"]
+
+[profile.dev.compiler]
+    clang = "-fprofile-instr-generate -fcoverage-mapping"
+
+[lib]
+   name = "serdepp"
+   type = "static"
+   #type = "header-only"
+   source= ["src/to_static.cpp"]
+
+
+[[example]]
+    name = "serde_example1"
+    source = ["examples/example1.cpp"]
+
+[[example]]
+    name = "serde_example"
+    source = ["examples/example.cpp"]
+
+[[example]]
+    name = "simple_example"
+    source = ["examples/simple_example.cpp"]
+
+[[example]]
+    name = "flatten_example"
+    source = ["examples/flatten.cpp"]
+
+[[example]]
+    name = "variant_example"
+    source = ["examples/variant.cpp"]
+
+[[example]]
+    name = "parse_file_example"
+    source = ["examples/parse_file.cpp"]
+
+[[example]]
+    name = "struct_attribute_example"
+    source = ["examples/struct_attribute.cpp"]
+
+[[example]]
+    name = "sugar"
+    source = ["examples/sugar.cpp"]
+
+[[example]]
+    name = "reflection"
+    source = ["examples/reflection.cpp"]
+
+[[example]]
+    name = "print"
+    source = ["examples/print.cpp"]
+
+[[example]]
+    name = "pointer"
+    source = ["examples/pointer.cpp"]
+
+#[[example]]
+#    name = "tuple_sort"
+#    source = ["examples/tuple_sort.cpp"]
+
+#[[example]]
+#    name = "sol2_example"
+#    source = ["examples/sol2.cpp"]
+
+#[[example]]
+#    name = "simdjson_example"
+#    source = ["examples/simdjson.cpp"]
+
+[[benchmark]]
+    name = "benchmark"
+    source = ["benchmark/benchmark.cpp"]
+
+[[benchmark]]
+    name = "data_type_benchmark"
+    source = ["benchmark/data_type_benchmark.cpp"]
+
+[[benchmark]]
+    name = "syntax_sugar_benchmark"
+    source = ["benchmark/syntax_benchmark.cpp"]
+
+[[tests]]
+name   = "unittest"
+source = ["tests/.*"]
+
+[dependencies]
+    nameof = { version="0.10.0", link="public"}
+    magic_enum = { version= "0.7.3", link="public"}
+    fmt = {version="8.0.1", link="public", optional=true}
+    yaml-cpp   = { version="0.7.0",  link="public", optional=true}
+    toml11     = { version="3.7.0",  link="public", optional=true}
+    nlohmann_json = { version="3.10.5", link="public", optional=true}
+    RapidJSON = { version="1.1.1", link="public", optional=true}
+    benchmark = { version="1.5.2", optional=true}
+    Catch2 = {version="2.9.1", optional=true}
+    #pybind11 = "2.9.0"
+    #hiredis = "git"
+    #"redis++" = "1.3.2"
+    #simdjson = {version="0.9.7", link="public"}
+    #ryml     = { version= "0.2.0", link="public", optional=true}
+    #sol2 = { version="3.2.2"}
+#[dev-dependencies]
