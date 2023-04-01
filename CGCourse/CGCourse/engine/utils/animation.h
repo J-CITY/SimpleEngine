@@ -45,7 +45,7 @@ namespace KUMA::ANIMATION {
 		float bounceEaseInOut(float a);
 	}
 
-	using PropType = std::variant<float, int, bool>;
+	using PropType = std::variant<float, int, bool, std::string>;
 	enum class InterpolationType {
 		LINEAR,
 		QUADRATIC_IN,
@@ -172,14 +172,18 @@ namespace KUMA::ANIMATION {
 			Builder& addProperty(AnimationProperty p);
 			std::unique_ptr<Animation> build();
 		};
-	private:
+	//private:
 		Animation(unsigned int frameCount, unsigned int fps, bool isLooped);
+		void setFrameCount(unsigned _frameCount);
+		void setFPS(unsigned fps);
+		void setLooped(bool b);
 		void init();
 		float linearFunc(float x0, float x1, float progress);
 		int linearFunc(int x0, int x1, float progress);
 		bool linearFunc(bool x0, bool x1, float progress);
 		void addProperty(AnimationProperty p);
 		void addKeyFrame(int frame, std::map<std::string, PropType> prop);
+		void delKeyFrameProp(int frame, std::map<std::string, PropType> prop);
 		void addKeyFrameMerge(int frame, std::map<std::string, PropType> prop);
 	public:
 		void update(float dt) override;

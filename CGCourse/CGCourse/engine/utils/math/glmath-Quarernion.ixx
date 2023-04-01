@@ -57,6 +57,7 @@ export namespace KUMA::MATHGL {
 		static float Dot(const Quaternion& V1, const Quaternion& V2);
 		static Quaternion Slerp(Quaternion& x, Quaternion& y, float a);
 		static Vector3 ToEulerAngles(Quaternion q);
+		static Quaternion ToQuaternion(Vector3 vec);
 	};
 	
 	Quaternion operator*(const float f, const Quaternion& V);

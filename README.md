@@ -20,6 +20,8 @@ Also support irrKlang 3d sound
 
 Some screenshots
 
+![Screenshot](https://github.com/J-CITY/SimpleEngine/blob/master/screens/editor0.png)
+
 ![Screenshot](https://github.com/J-CITY/SimpleEngine/blob/master/screens/0.gif)
 
 ![Screenshot](https://github.com/J-CITY/SimpleEngine/blob/master/screens/1.gif)

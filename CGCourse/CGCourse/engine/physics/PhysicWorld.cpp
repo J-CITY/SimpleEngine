@@ -136,7 +136,7 @@ unsigned PhysicWorld::generateContacts() {
     return cData.contactCount;
 }
 
-
+#include "../ecs/ComponentManager.h"
 void PhysicWorld::runPhysics(float dt) {
 
     //for (auto box : bodiesCollide) {
@@ -163,6 +163,44 @@ void PhysicWorld::runPhysics(float dt) {
     //    updateObjectMovement(body, sphere);
     //    //}
     //}
+
+    {
+        // Same as above, calculate forces acting on cloths
+        for (int i = 0, size = cloths.size(); i < size; ++i) {
+            cloths[i].ApplyForces();
+        }
+        for (int i = 0, size = cloths.size(); i < size; ++i) {
+            cloths[i].Update(0.1);
+        }
+        // Same as above, apply spring forces for cloths
+        for (int i = 0, size = cloths.size(); i < size; ++i) {
+            cloths[i].ApplySpringForces(0.1);
+        }
+        // Same as above, solve cloth constraints
+        for (int i = 0, size = cloths.size(); i < size; ++i) {
+            std::vector<OBB> constraints;
+            for (auto& e : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::PhysicsComponent>()) {
+                auto _e = ((KUMA::PHYSICS::CollisionBox*)(e.collider.get()));
+        
+            	OBB obb;
+                obb.size = glm::vec3(_e->halfSize.x*2, _e->halfSize.y * 2, _e->halfSize.z * 2);
+                obb.position = glm::vec3(
+                    e.obj->getTransform()->getLocalPosition().x,
+                    e.obj->getTransform()->getLocalPosition().y,
+                    e.obj->getTransform()->getLocalPosition().z
+                );
+                auto rotM = MATHGL::Quaternion::ToMatrix3(e.obj->getTransform()->getLocalRotation());
+                //rotM = MATHGL::Matrix3::Transpose(rotM);
+                obb.orientation = glm::mat3(
+                    rotM(0, 0), rotM(0, 1), rotM(0, 2),
+                    rotM(1, 0), rotM(1, 1), rotM(1, 2),
+                    rotM(2, 0), rotM(2, 1), rotM(2, 2)
+                );
+                constraints.push_back(obb);
+            }
+            cloths[i].SolveConstraints(constraints);
+        }
+    }
 
     // Generate contacts
     auto usedContacts = generateContacts();

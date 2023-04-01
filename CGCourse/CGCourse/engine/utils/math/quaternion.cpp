@@ -3,6 +3,8 @@ module;
 #include <stdexcept>
 #include <array>
 
+//#include "../../utils/refl.hpp"
+
 module glmath:Quaternion;
 
 import :Constants;
@@ -468,20 +470,48 @@ Vector3 Quaternion::ToEulerAngles(Quaternion q) {
 	Vector3 angles;
 
 	// roll (x-axis rotation)
-	double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
-	double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
+	float sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
+	float cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
 	angles.x = std::atan2(sinr_cosp, cosr_cosp);
 
 	// pitch (y-axis rotation)
-	double sinp = std::sqrt(1 + 2 * (q.w * q.y - q.x * q.z));
-	double cosp = std::sqrt(1 - 2 * (q.w * q.y - q.x * q.z));
+	float sinp = std::sqrt(1 + 2 * (q.w * q.y - q.x * q.z));
+	float cosp = std::sqrt(1 - 2 * (q.w * q.y - q.x * q.z));
 	angles.y = 2 * std::atan2(sinp, cosp) - PI / 2;
 
 	// yaw (z-axis rotation)
-	double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
-	double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+	float siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+	float cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
 	angles.z = std::atan2(siny_cosp, cosy_cosp);
 
 	return angles;
 }
+
+Quaternion Quaternion::ToQuaternion(Vector3 vec) {
+	auto yaw = vec.x;
+	auto pitch = vec.y;
+	auto roll = vec.z;
+	float cr = cos(roll * 0.5);
+	float sr = sin(roll * 0.5);
+	float cp = cos(pitch * 0.5);
+	float sp = sin(pitch * 0.5);
+	float cy = cos(yaw * 0.5);
+	float sy = sin(yaw * 0.5);
+
+	Quaternion q;
+	q.w = cr * cp * cy + sr * sp * sy;
+	q.x = sr * cp * cy - cr * sp * sy;
+	q.y = cr * sp * cy + sr * cp * sy;
+	q.z = cr * cp * sy - sr * sp * cy;
+
+	return q;
+}
+
+//REFL_AUTO(
+//	type(KUMA::MATHGL::Quaternion),
+//	field(x),
+//	field(y),
+//	field(z),
+//	field(w)
+//)
 

@@ -329,6 +329,18 @@ Animation::Animation(unsigned int frameCount, unsigned int fps, bool isLooped) :
 	this->isLooped = isLooped;
 }
 
+void Animation::setFrameCount(unsigned int _frameCount) {
+	framesCount = _frameCount;
+}
+
+void Animation::setFPS(unsigned int fps) {
+	FPS = fps;
+}
+
+void Animation::setLooped(bool b) {
+	isLooped = b;
+}
+
 void Animation::init() {
 	isInit = true;
 	fastAccess.clear();
@@ -369,13 +381,23 @@ void Animation::addKeyFrame(int frame, std::map<std::string, PropType> prop) {
 	frames.emplace(frame, prop);
 }
 
+void Animation::delKeyFrameProp(int frame, std::map<std::string, PropType> prop) {
+	if (!frames.contains(frame)) {
+		return;
+	}
+	for (auto& e : prop) {
+		frames[frame].erase(e.first);
+	}
+	frames.emplace(frame, prop);
+}
+
 void Animation::addKeyFrameMerge(int frame, std::map<std::string, PropType> prop) {
 	if (frames.find(frame) == frames.end()) {
 		frames.emplace(frame, prop);
 		return;
 	}
 	for (auto& p : prop) {
-		frames.at(frame).emplace(p.first, p.second);
+		frames.at(frame).insert_or_assign(p.first, p.second);
 	}
 }
 
@@ -441,6 +463,9 @@ void Animation::update(float dt) {
 						if (val1 && val2) {
 							curState[p.first] = linearFunc(*val1, *val2, p.second.getInterpolation()(progress));
 						}
+					},
+					[this, &p, a1, a2, progress](const std::string& val) {
+						
 					}
 				}, frames[a1][p.first]);
 			}
