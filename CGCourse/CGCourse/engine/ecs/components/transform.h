@@ -3,7 +3,12 @@
 #include "component.h"
 import glmath;
 #include <functional>
+#include <serdepp/include/serdepp/adaptor/reflection.hpp>
+
 #include "../../resourceManager/serializerInterface.h"
+#include "serdepp/include/serdepp/utility.hpp"
+
+//#include "../../utils/refl.hpp"
 
 namespace KUMA::ECS { class Object; }
 
@@ -190,3 +195,10 @@ namespace KUMA::ECS {
 		std::shared_ptr<Transform> transform;
 	};
 }
+
+//REFL_AUTO(
+//	type(KUMA::ECS::Transform),
+//	field(localRotation),
+//	field(localRotation),
+//	field(localScale)
+//)

@@ -2,6 +2,7 @@ module;
 #include <cmath>
 #include <stdexcept>
 
+//#include "../../utils/refl.hpp"
 module glmath:Vector3;
 
 using namespace KUMA;
@@ -253,3 +254,9 @@ Vector3 KUMA::MATHGL::operator/(const float f, const Vector3& V) {
 	return V / f;
 }
 
+//REFL_AUTO(
+//	type(KUMA::MATHGL::Vector3),
+//	field(x),
+//	field(y),
+//	field(z)
+//)

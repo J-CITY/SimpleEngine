@@ -13,3 +13,7 @@ KUMA::ECS::Component::~Component() {
 std::string KUMA::ECS::Component::getName() {
 	return __NAME__;
 }
+
+const Object& Component::getObject() {
+	return obj.get();
+}

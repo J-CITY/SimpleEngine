@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 #include <result.h>
-#include <serdepp/include/serdepp/adaptor/sstream.hpp>
+#include <serdepp/include/serdepp/serializer.hpp>
 #include "../config.h"
 
 
@@ -35,7 +35,7 @@ namespace KUMA::UTILS {
     Result<T, Error> loadConfigFile(const std::string& path) {
         auto realPath = getRealPath(path);
         std::ifstream ifile(realPath);
-        if (!ifile) {
+        if (!ifile.is_open()) {
             return Err(Error(Error::Type::FILE_NOT_EXIST, "loadConfigFile: " + realPath + " file not exist"));
         }
         std::stringstream buffer;

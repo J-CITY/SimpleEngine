@@ -5,6 +5,11 @@
 #include "contacts.h"
 #include "narrowPhase.h"
 #include "../render/objects/boundingSphere.h"
+#include <vector>
+
+#include "cloth/Cloth.h"
+#include "particel/ParticleSystem.h"
+
 
 namespace KUMA
 {
@@ -32,6 +37,9 @@ namespace KUMA::PHYSICS {
         CollisionData cData;
         Contact contacts[256];
         unsigned maxContacts;
+
+        
+        std::vector<ClothObj> cloths;
 
     public:
         PhysicWorld(unsigned maxContacts, unsigned iterations=0);
