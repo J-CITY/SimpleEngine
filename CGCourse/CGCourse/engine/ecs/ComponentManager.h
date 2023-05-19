@@ -24,6 +24,7 @@
 #include "../utils/pointers/objPtr.h"
 #include "components/physicsComponent.h"
 #include "../gui/components/spriteComponent.h"
+#include "../tasks/taskSystem.h"
 
 namespace KUMA {
 	namespace SCENE_SYSTEM {
@@ -35,6 +36,7 @@ namespace KUMA {
 namespace KUMA::ECS {
 	template<typename T>
 	class ComponentArray: public IComponentArray {
+		inline static constexpr int CHUNK_SIZE = 100;
 	public:
 		void insertData(Entity entity, T component) {
 			assert(!entityToIndexInArray.count(entity) && "Component added to same entity more than once.");
@@ -49,6 +51,8 @@ namespace KUMA::ECS {
 			else {
 				componentArray.push_back(std::move(component));
 			}
+			// Update cb ptr
+			componentArray[newIndex].getControlBlock()->ptr = &componentArray[newIndex];
 			size++;
 		}
 
@@ -60,6 +64,8 @@ namespace KUMA::ECS {
 			size_t indexOfLastElement = size - 1;
 			auto component = std::move(componentArray[indexOfRemovedEntity]);
 			componentArray[indexOfRemovedEntity] = std::move(componentArray[indexOfLastElement]);
+			// Update cb ptr
+			componentArray[indexOfRemovedEntity].getControlBlock()->ptr = &componentArray[indexOfRemovedEntity];
 
 			// Update map to point to moved spot
 			Entity entityOfLastElement = indexInArrayToEntity.at(indexOfLastElement);
@@ -68,6 +74,9 @@ namespace KUMA::ECS {
 			entityToIndexInArray.erase(entity);
 			indexInArrayToEntity.erase(indexOfLastElement);
 			size--;
+
+			//TODO: add support change chunk size without remove last element
+			componentArray.pop_back();
 
 			return component;
 		}
@@ -92,20 +101,41 @@ namespace KUMA::ECS {
 			return size;
 		}
 
-		using iterator = T*;
-		using const_iterator = const T*;
-
-		iterator begin() { return componentArray.data(); }
-		const_iterator begin() const { return componentArray.data(); }
-		iterator end() { return componentArray.data() + size; }
-		const_iterator end() const { return componentArray.data() + size; }
+		auto begin() { return componentArray.begin(); }
+		auto begin() const { return componentArray.begin(); }
+		auto end() { return componentArray.end(); }
+		auto end() const { return componentArray.end(); }
 
 	//private:
-		std::vector<T> componentArray;
+		UTILS::ChunkList<T, CHUNK_SIZE> componentArray;
+		//std::vector<T> componentArray;
 		std::unordered_map<Entity, size_t> entityToIndexInArray;
 		std::unordered_map<size_t, Entity> indexInArrayToEntity;
 		int size = 0;
 	};
+
+	template<class T>
+	void For(std::shared_ptr<ComponentArray<T>> data, std::function<void(T&)> func, int threadsCount = 4) {
+		static std::atomic_llong taskId = 0;
+
+		int sz = data->size;
+		int chunkSz = sz / 4;
+		int start = 0;
+		std::list<TASK::TaskHandle<void>> waitTasks;
+		for (int threadId = 0; threadId < threadsCount; threadId++) {
+			int end = (threadId == threadsCount - 1 ? sz : start + chunkSz);
+			auto task = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("___task___" + std::to_string(taskId), -1, nullptr, [data, start, end, func]() {
+				for (int i = start; i < end; i++) {
+					func((*data)[i]);
+				}
+			});
+			waitTasks.push_back(task);
+			taskId += 1;
+		}
+		for (auto& t : waitTasks) {
+			t.task->wait();
+		}
+	}
 
 	template<typename...> class ComponentsTypeProvider {};
 	using ComponentsTypeProviderType = ComponentsTypeProvider<TransformComponent,
@@ -279,6 +309,13 @@ namespace KUMA::ECS {
 			const char* typeName = typeid(T).name();
 			assert(componentTypes.count(typeName) && "Component not registered before use.");
 			return std::static_pointer_cast<ComponentArray<T>>(componentArrays[typeName]);
+		}
+
+		template<typename T>
+		ECS::ComponentArray<T>& getComponentArrayRef() {
+			const char* typeName = typeid(T).name();
+			assert(componentTypes.count(typeName) && "Component not registered before use.");
+			return *std::static_pointer_cast<ComponentArray<T>>(componentArrays[typeName]);
 		}
 
 		template<typename T>

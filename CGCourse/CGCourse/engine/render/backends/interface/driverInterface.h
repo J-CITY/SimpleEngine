@@ -2,7 +2,6 @@
 
 
 #include "../interface/shaderInterface.h"
-#include "serdepp/include/serdepp/utility.hpp"
 
 namespace KUMA::RENDER {
 	struct RenderSettings {
@@ -11,9 +10,6 @@ namespace KUMA::RENDER {
 		};
 		Backend backend = Backend::OPENGL;
 
-		DERIVE_SERDE(RenderSettings,
-			(&Self::backend, "backend")
-		)
 	};
 
 

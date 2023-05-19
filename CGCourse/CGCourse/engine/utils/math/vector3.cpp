@@ -74,15 +74,24 @@ Vector3& Vector3::operator/=(float scalar) {
 	return *this;
 }
 
-bool Vector3::operator==(const Vector3& other) {
-	return
-		this->x == other.x &&
-		this->y == other.y &&
-		this->z == other.z;
-}
+//bool Vector3::operator==(const Vector3& other) {
+//	return
+//		this->x == other.x &&
+//		this->y == other.y &&
+//		this->z == other.z;
+//}
+//
+//bool Vector3::operator!=(const Vector3& other) {
+//	return !operator==(other);
+//}
 
-bool Vector3::operator!=(const Vector3& other) {
-	return !operator==(other);
+bool KUMA::MATHGL::operator==(const Vector3& left, const Vector3& right) {
+	return left.x == right.x &&
+		left.y == right.y &&
+		left.z == right.z;
+}
+bool KUMA::MATHGL::operator!=(const Vector3& left, const Vector3& right) {
+	return !operator==(left, right);
 }
 
 Vector3 Vector3::Add(const Vector3& left, const Vector3& right) {

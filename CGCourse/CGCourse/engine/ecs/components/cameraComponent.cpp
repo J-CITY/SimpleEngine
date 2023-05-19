@@ -227,3 +227,53 @@ void ArCameraComponent::onUpdate(std::chrono::duration<double> dt) {
 
 	//cv::imwrite("test.jpg", frame);
 }
+
+
+
+#include <rttr/registration>
+
+RTTR_REGISTRATION
+{
+	rttr::registration::enumeration<KUMA::RENDER::Camera::ProjectionMode>("ProjectionMode")
+	(
+		rttr::value("ORTHOGRAPHIC",    KUMA::RENDER::Camera::ProjectionMode::ORTHOGRAPHIC),
+		rttr::value("PERSPECTIVE",   KUMA::RENDER::Camera::ProjectionMode::PERSPECTIVE)
+	);
+	rttr::registration::class_<KUMA::ECS::CameraComponent>("CameraComponent")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_ANIMATION)
+	)
+	.property("Far", &KUMA::ECS::CameraComponent::getFar, &KUMA::ECS::CameraComponent::setFar)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Fov", &KUMA::ECS::CameraComponent::getFov, &KUMA::ECS::CameraComponent::setFov)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Size", &KUMA::ECS::CameraComponent::getSize, &KUMA::ECS::CameraComponent::setSize)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Near", &KUMA::ECS::CameraComponent::getNear, &KUMA::ECS::CameraComponent::setNear)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("ProjectionMode", &KUMA::ECS::CameraComponent::getProjectionMode, &KUMA::ECS::CameraComponent::setProjectionMode)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
+	);
+}

@@ -2,12 +2,12 @@
 #include <string>
 
 //need for right including dependencies
+#include <memory>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 #include "../utils/event.h"
 #include "../utils/gamepad/gamepad.h"
-#include "serdepp/include/serdepp/utility.hpp"
 
 import glmath;
 
@@ -32,21 +32,8 @@ namespace KUMA::WINDOW_SYSTEM {
 		std::string title;
 		MATHGL::Vector2u size = MATHGL::Vector2u(800, 600);
 		int refreshRate = 60;
-
-		DERIVE_SERDE(WindowSettings,
-			(&Self::isFullscreen, "isFullscreen")
-			(&Self::isFullscreen, "isCursorVisible")
-			(&Self::isFullscreen, "isCursorLock")
-			(&Self::depthBits, "depthBits")
-			(&Self::stencilBits, "stencilBits")
-			(&Self::antialiasingLevel, "antialiasingLevel")
-			(&Self::majorVersion, "majorVersion")
-			(&Self::minorVersion, "minorVersion")
-			(&Self::title, "title")
-			(&Self::size, "size")
-			(&Self::refreshRate, "refreshRate")
-		)
 	};
+	
 
 	class Window {
 		friend DEBUG::DebugRender;

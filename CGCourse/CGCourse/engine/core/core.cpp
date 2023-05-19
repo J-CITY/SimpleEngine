@@ -71,13 +71,13 @@ Core::Core(
 	RESOURCES::ShaderLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::MaterialLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 
-	auto res = serde::serialize<nlohmann::json>(RENDER::DriverInterface::settings);
-
-	auto windowSettings = KUMA::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs/window.json");
-	if (windowSettings.isErr()) {
-		LOG_ERROR(windowSettings.unwrapErr().msg);
-		throw;
-	}
+	//auto res = serde::serialize<nlohmann::json>(RENDER::DriverInterface::settings);
+	WINDOW_SYSTEM::WindowSettings windowSettings;
+	//auto windowSettings = KUMA::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs/window.json");
+	//if (windowSettings.isErr()) {
+	//	LOG_ERROR(windowSettings.unwrapErr().msg);
+	//	throw;
+	//}
 
 	//auto renderSettings = KUMA::UTILS::loadConfigFile<RENDER::RenderSettings>("Configs/render.json");
 	//if (renderSettings.isErr()) {
@@ -89,7 +89,7 @@ Core::Core(
 	textureManager = std::make_unique<RESOURCES::TextureLoader>();
 	shaderManager = std::make_unique<RESOURCES::ShaderLoader>();
 	materialManager = std::make_unique<RESOURCES::MaterialLoader>();
-	window = std::make_unique<WINDOW_SYSTEM::Window>(windowSettings.unwrap());
+	window = std::make_unique<WINDOW_SYSTEM::Window>(windowSettings);
 	sceneManager = std::make_unique<SCENE_SYSTEM::SceneManager>(Config::ENGINE_ASSETS_PATH);
 	inputManager = std::make_unique<INPUT_SYSTEM::InputManager>(*window);
 	RESOURCES::ServiceManager::Set<WINDOW_SYSTEM::Window>(window.get());

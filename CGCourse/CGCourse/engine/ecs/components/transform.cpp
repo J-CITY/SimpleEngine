@@ -395,3 +395,90 @@ void Transform::preDecomposeLocalMatrix() {
 
 	localRotation = Quaternion(rotationMatrix);
 }
+
+#include <rttr/registration>
+
+RTTR_REGISTRATION
+{
+	rttr::registration::class_<KUMA::ECS::TransformComponent>("TransformComponent")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_ANIMATION)
+	)
+	.property("LocalScaleX", &KUMA::ECS::TransformComponent::getLocalScaleX, &KUMA::ECS::TransformComponent::setLocalScaleX)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalScaleY", &KUMA::ECS::TransformComponent::getLocalScaleY, &KUMA::ECS::TransformComponent::setLocalScaleY)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalScaleZ", &KUMA::ECS::TransformComponent::getLocalScaleZ, &KUMA::ECS::TransformComponent::setLocalScaleZ)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalScale", &KUMA::ECS::TransformComponent::getLocalScale_, &KUMA::ECS::TransformComponent::setLocalScale_)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT_3)
+	)
+
+	.property("LocalRotationX", &KUMA::ECS::TransformComponent::getLocalRotationX, &KUMA::ECS::TransformComponent::setLocalRotationX)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalRotationY", &KUMA::ECS::TransformComponent::getLocalRotationY, &KUMA::ECS::TransformComponent::setLocalRotationY)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalRotationZ", &KUMA::ECS::TransformComponent::getLocalRotationZ, &KUMA::ECS::TransformComponent::setLocalRotationZ)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalRotation", &KUMA::ECS::TransformComponent::getLocalRotationDeg, &KUMA::ECS::TransformComponent::setLocalRotationDeg)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT_3)
+	)
+
+	.property("LocalPositionX", &KUMA::ECS::TransformComponent::getLocalPositionX, &KUMA::ECS::TransformComponent::setLocalPositionX)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalPositionY", &KUMA::ECS::TransformComponent::getLocalPositionY, &KUMA::ECS::TransformComponent::setLocalPositionY)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalPositionZ", &KUMA::ECS::TransformComponent::getLocalPositionZ, &KUMA::ECS::TransformComponent::setLocalPositionZ)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
+	)
+	.property("LocalPosition", &KUMA::ECS::TransformComponent::getLocalPosition_, &KUMA::ECS::TransformComponent::setLocalPosition_)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT_3)
+	);
+}

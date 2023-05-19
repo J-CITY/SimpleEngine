@@ -225,7 +225,7 @@ std::span<std::shared_ptr<KUMA::ECS::Object>> Scene::getObjects() {
 
 
 std::optional<KUMA::Ref<KUMA::ECS::CameraComponent>> Scene::findMainCamera() {
-	for (auto& camera : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::CameraComponent>()) {
+	for (auto& camera : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::CameraComponent>()) {
 		if (camera.obj->getIsActive()) {
 			return camera;
 		}
@@ -237,37 +237,37 @@ std::optional<KUMA::Ref<KUMA::ECS::CameraComponent>> Scene::findMainCamera() {
 std::vector<KUMA::RENDER::LightOGL> Scene::findLightData() {
 	std::vector<RENDER::LightOGL> result;
 	
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::DirectionalLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::PointLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::PointLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::AmbientLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientSphereLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::AmbientSphereLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	//for (auto light : ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+	//for (auto light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::SpotLight>()) {
 	//	if (light.second->obj.getIsActive()) {
 	//		auto ldata = light.second->getData().generateOGLStruct();
 	//		result.push_back(ldata);
@@ -279,7 +279,7 @@ std::vector<KUMA::RENDER::LightOGL> Scene::findLightData() {
 std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::Frustum& p_frustum) {
 	std::vector<RENDER::LightOGL> result;
 	
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -291,7 +291,7 @@ std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::
 			}
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::DirectionalLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -303,7 +303,7 @@ std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::
 			}
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::PointLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::PointLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -315,7 +315,7 @@ std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::
 			}
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::AmbientLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -327,7 +327,7 @@ std::vector<KUMA::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::
 			}
 		}
 	}
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::AmbientSphereLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::AmbientSphereLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -403,7 +403,7 @@ KUMA::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
 	RENDER::TransparentDrawables transparentDrawablesDeferred;
 
-	for (const auto& modelRenderer : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ModelRenderer>()) {
+	for (const auto& modelRenderer : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ModelRenderer>()) {
 		auto owner = modelRenderer.obj;
 
 		if (owner->getIsActive()) {
@@ -482,7 +482,7 @@ std::tuple<KUMA::RENDER::OpaqueDrawables,
 	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
 	RENDER::TransparentDrawables transparentDrawablesDeferred;
 
-	for (auto& modelRenderer : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ModelRenderer>()) {
+	for (auto& modelRenderer : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ModelRenderer>()) {
 		if (modelRenderer.obj->getIsActive() && modelRenderer.obj->getName() != "Skybox") {
 			if (auto model = modelRenderer.getModel()) {
 				float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);

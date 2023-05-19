@@ -69,6 +69,10 @@ Matrix4 Matrix4::MakeBiasMatrix() {
 	return Result;
 }
 
+float* Matrix4::getData() {
+	return data._values;
+}
+
 Vector3 Matrix4::transformInverseDirection(const Vector3& vector) const {
 	return Vector3(
 		vector.x * data[0] +
