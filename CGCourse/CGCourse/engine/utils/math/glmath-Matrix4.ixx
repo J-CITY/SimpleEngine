@@ -21,6 +21,8 @@ export namespace KUMA::MATHGL {
 		Matrix4(const Matrix4& in);
 		~Matrix4() = default;
 
+		float* getData();
+
 		Vector3 transformInverseDirection(const Vector3& vector) const;
 		Vector3 transform(const Vector3& vector) const;
 		Vector3 transformInverse(const Vector3& vector) const;

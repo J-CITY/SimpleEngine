@@ -2,7 +2,6 @@ export;
 #pragma once
 #include <cmath>
 #include <stdexcept>
-#include "serdepp/include/serdepp/utility.hpp"
 
 export module glmath:Vector2;
 
@@ -98,10 +97,6 @@ export namespace KUMA::MATHGL {
 		inline Vector2 normalize() {
 			return *this / length();
 		}
-
-		DERIVE_SERDE(Vector2<unsigned>,
-			(&Self::x, "x")
-			(&Self::y, "y"))
 	};
 
 	using Vector2i = Vector2<int>;

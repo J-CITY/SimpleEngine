@@ -19,4 +19,12 @@ void KUMA::ECS::AudioSystem::onLateUpdate(std::chrono::duration<double> dt) {
 	}
 }
 
-
+#include <rttr/registration>
+RTTR_REGISTRATION
+{
+	rttr::registration::class_<KUMA::ECS::AudioSystem>("AudioSystem")
+	(
+		rttr::metadata(KUMA::ECS::System::SYSTEM_COMPONENTS_READ, "CameraComponent"),
+		rttr::metadata(KUMA::ECS::System::SYSTEM_COMPONENTS_WRITE, "AudioComponent")
+	);
+}

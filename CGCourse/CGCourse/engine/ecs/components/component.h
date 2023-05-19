@@ -5,11 +5,14 @@
 
 #include "../../resourceManager/serializerInterface.h"
 #include "../../utils/pointers/objPtr.h"
+#include "../../utils/structures.h"
 
 namespace KUMA::ECS { class Object; }
 
 namespace KUMA::ECS {
-	class Component: public RESOURCES::Serializable {
+
+	class Component: public RESOURCES::Serializable, public UTILS::ControlBlockHandler {
+		UTILS::ControlBlock* mCb = nullptr;
 	public:
 		Component(Ref<ECS::Object> obj);
 		virtual ~Component();
@@ -37,7 +40,14 @@ namespace KUMA::ECS {
 		}
 		virtual void onSerialize(nlohmann::json& j) override {;
 		}
+
+		template<class T>
+		UTILS::WeakPtr<T> getWeak() {
+			return UTILS::WeakPtr<T>(*this);
+		}
+
+		UTILS::ControlBlock* getControlBlock();
 	protected:
-		std::string __NAME__ = "";
+		std::string __NAME__;
 	};
 }

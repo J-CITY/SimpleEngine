@@ -1,7 +1,6 @@
 #include "debugRender.h"
 
 #include <memory>
-#include <serdepp/include/serdepp/adaptor/reflection.hpp>
 
 
 #include "../render/backends/interface/driverInterface.h"
@@ -22,10 +21,13 @@
 #include "../render/backends/gl/materialGl.h"
 #endif
 #include <unordered_set>
+#include <rttr/enumeration.h>
+#include <rttr/type.h>
 
 #include "../window/window.h"
 #include "../inputManager/inputManager.h"
-
+#include "imgui/ImGuizmo.h"
+#include "imgui/IconFont/IconsFontAwesome5.h"
 using namespace KUMA;
 using namespace KUMA::DEBUG;
 
@@ -37,16 +39,56 @@ using namespace KUMA::DEBUG;
 #include "../core/core.h"
 #include "../utils/time/time.h"
 
+struct MovableChildData
+{
+	ImVec2 m_pressPosition = ImVec2(0, 0);
+	ImVec2 m_position = ImVec2(0, 0);
+	bool   m_isDragging = false;
+	bool   m_initialPositionSet = false;
+};
 
 int uniqueNodeId = 0;
 std::shared_ptr<KUMA::ECS::Object> selectObj;
 std::shared_ptr<KUMA::GUI::GuiObject> selectObjGui;
+std::map<std::string, MovableChildData>       m_movableChildData;
 
+template <typename Key, typename Value, std::size_t Size>
+struct ConstexprMap {
+	std::array<std::pair<Key, Value>, Size> data;
+	[[nodiscard]] constexpr Value at(const Key& key) const {
+		const auto itr = std::find_if(begin(data), end(data), [&key](const auto& v) { return v.first == key; });
+		if (itr != end(data)) {
+			return itr->second;
+		}
+		throw std::range_error("Not Found");
+	}
+};
+
+static constexpr std::array<std::pair<const char*, int>, 1> nameToIdInVariant = {
+	{{ "Transform", 0}}
+};
+
+int getComponentTypeIdInVariant(const char* key) {
+	static constexpr auto map =
+		ConstexprMap<const char*, int, nameToIdInVariant.size()>{ {nameToIdInVariant} };
+	return map.at(key);
+}
+
+using ComponentType = std::variant<ECS::TransformComponent*, ECS::AmbientLight*, ECS::AmbientSphereLight*,
+	ECS::DirectionalLight*, ECS::PointLight*, ECS::SpotLight*, ECS::CameraComponent*>;
+using ComponentName = std::string;
+using PromName = std::string;
+using PropValue = std::variant<float, int, bool, std::string>;
 
 struct AnimationLineInfo {
 	ObjectId<ECS::Object> id;
 	std::string name;
 	std::string componentName;
+	std::string propName;
+
+	PropValue value;
+
+	ComponentType component;
 };
 std::vector<AnimationLineInfo> SequencerItemTypeNames{};
 
@@ -151,6 +193,10 @@ std::shared_ptr<KUMA::ECS::Object> recursiveDraw(KUMA::SCENE_SYSTEM::Scene& acti
 }
 void drawNodeTree(KUMA::CORE_SYSTEM::Core& core) {
 	static bool isobjTreeOpen = true;
+	static std::unordered_map<std::string, std::function<ComponentType(ECS::Component&)>> convertComp = {
+		{ "Transform", [](ECS::Component& c) { return &static_cast<ECS::TransformComponent&>(c); } }
+	};
+
 	if (core.sceneManager->hasCurrentScene()) {
 		auto& scene = core.sceneManager->getCurrentScene();
 		if (ImGui::Begin("Scene Hierarchy", &isobjTreeOpen)) {
@@ -161,7 +207,21 @@ void drawNodeTree(KUMA::CORE_SYSTEM::Core& core) {
 				if (selectObj) {
 					auto components = ECS::ComponentManager::getInstance()->getComponents(selectObj->getID());
 					for (auto& e : components) {
-						SequencerItemTypeNames.push_back(AnimationLineInfo{ selectObj->getID(), selectObj->getName(), e->getName() });
+						if (!convertComp.count(e->getName())) continue; //TODO:: write info to log
+						auto c = convertComp[e->getName()](e.get());
+						rttr::type t = std::visit(
+							[](auto& arg) {
+								return rttr::type::get<std::remove_reference_t<decltype(*arg)>>();
+							},
+							c);
+						for (auto& prop : t.get_properties()) {
+							auto flags = prop.get_metadata(MetaInfo::FLAGS).get_value<MetaInfo::Flags>();
+							if (flags & (MetaInfo::USE_IN_ANIMATION | MetaInfo::USE_IN_EDITOR)) {
+								SequencerItemTypeNames.push_back(AnimationLineInfo{ 
+									selectObj->getID(), selectObj->getName(),
+									e->getName(), std::string(prop.get_name()), 0.0f, c});
+							}
+						}
 					}
 				}
 			}
@@ -213,21 +273,26 @@ struct FileBrowser {
 	int globalNodeId = 0;
 	void draw() {
 		//ImGui::Columns(2);
-
 		ImGui::Begin("File Browser");
-		globalNodeId = 0;
-		//for (const auto& entry : std::filesystem::directory_iterator(mPath)) {
-		//	draw(entry.path().string());
-		//}
-		drawItem(globalNodeId, mPath);
-		ImGui::End();
-		//ImGui::NextColumn();
-		ImGui::Begin("Folder");
-		drawFolder(mSelectedFolderPath);
-		ImGui::End();
+		if (ImGui::BeginTable("File Browser Table", 2, ImGuiTableFlags_Reorderable | ImGuiTableFlags_Resizable)) {
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			globalNodeId = 0;
+			drawItem(globalNodeId, mPath);
+			
+			ImGui::TableNextColumn();
+			drawFolder(mSelectedFolderPath);
 
-		//ImGui::NextColumn();
-		//ImGui::Columns(1);
+			ImGui::EndTable();
+		}
+		ImGui::End();
+		//ImGui::Begin("File Browser");
+		//globalNodeId = 0;
+		//drawItem(globalNodeId, mPath);
+		//ImGui::End();
+		//ImGui::Begin("Folder");
+		//drawFolder(mSelectedFolderPath);
+		//ImGui::End();
 	}
 private:
 	enum class FileType {
@@ -532,6 +597,345 @@ std::shared_ptr<KUMA::GUI::GuiObject> recursiveDrawGui(KUMA::SCENE_SYSTEM::Scene
 //}
 
 
+#include "../resourceManager/ServiceManager.h"
+
+
+bool SliderFloatWithSteps(const char* label, float* v, float v_min, float v_max, float v_step, const char* display_format = "%.3f") {
+	if (!display_format)
+		display_format = "%.3f";
+
+	char text_buf[64] = {};
+	ImFormatString(text_buf, IM_ARRAYSIZE(text_buf), display_format, *v);
+
+	// Map from [v_min,v_max] to [0,N]
+	const int countValues = int((v_max - v_min) / v_step);
+	int v_i = int((*v - v_min) / v_step);
+	const bool value_changed = ImGui::SliderInt(label, &v_i, 0, countValues, text_buf);
+
+	// Remap from [0,N] to [v_min,v_max]
+	*v = v_min + float(v_i) * v_step;
+	return value_changed;
+}
+
+
+void PushIconFontSmall()
+{
+	//ImGui::PushFont(GUILayer::Get()->GetIconFontSmall());
+}
+
+void IconSmall(const char* icon)
+{
+	//PushIconFontSmall();
+	ImGui::Text(icon);
+	//ImGui::PopFont();
+}
+ImGuiWindowFlags gizmoWindowFlags = 0;
+void BeginMovableChild(const char* childID, ImVec2 size, const ImVec2& defaultPosition, const ImRect& confineRect, bool isHorizontal, ImVec2 iconCursorOffset)
+{
+	const ImVec2 confineSize = ImVec2(confineRect.Max.x - confineRect.Min.x, confineRect.Max.y - confineRect.Min.y);
+	const float  iconOffset = 12.0f;
+	if (isHorizontal)
+		size.x += iconOffset;
+	else
+		size.y += iconOffset;
+
+	// Set the position only if first launch.
+	const std::string childIDStr = std::string(childID);
+	ImVec2            targetPosition = ImVec2(confineRect.Min.x + m_movableChildData[childIDStr].m_position.x, confineRect.Min.y + m_movableChildData[childIDStr].m_position.y);
+
+	if (targetPosition.x > confineRect.Max.x - size.x)
+		targetPosition.x = confineRect.Max.x - size.x;
+	if (targetPosition.y > confineRect.Max.y - size.y)
+		targetPosition.y = confineRect.Max.y - size.y;
+
+	ImGui::SetNextWindowPos(targetPosition);
+
+	ImGui::BeginChild(childID, size, true, ImGuiWindowFlags_NoMove);
+	ImGui::SetCursorPos(iconCursorOffset);
+
+	IconSmall(isHorizontal ? ICON_FA_ELLIPSIS_V : ICON_FA_ELLIPSIS_H);
+
+	if (ImGui::IsItemClicked())
+	{
+		if (!m_movableChildData[childIDStr].m_isDragging)
+		{
+			m_movableChildData[childIDStr].m_isDragging = true;
+			m_movableChildData[childIDStr].m_pressPosition = m_movableChildData[childIDStr].m_position;
+		}
+	}
+	if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+	{
+		m_movableChildData[childIDStr].m_isDragging = false;
+	}
+
+	if (ImGui::IsMouseDragging(ImGuiMouseButton_Left) && m_movableChildData[childIDStr].m_isDragging)
+	{
+
+		// Calc new window position.
+		const ImVec2 pressPos = m_movableChildData[childIDStr].m_pressPosition;
+		const ImVec2 drag = ImGui::GetMouseDragDelta();
+		ImVec2       desiredPosition = ImVec2(pressPos.x + drag.x, pressPos.y + drag.y);
+
+		// Confine window position to confine rect.
+		const float positionLimitPadding = 2.0f;
+		if (desiredPosition.x < positionLimitPadding)
+			desiredPosition.x = positionLimitPadding;
+		else if (desiredPosition.x > confineSize.x - positionLimitPadding - size.x)
+			desiredPosition.x = confineSize.x - positionLimitPadding - size.x;
+		if (desiredPosition.y < positionLimitPadding)
+			desiredPosition.y = positionLimitPadding;
+		else if (desiredPosition.y > confineSize.y - positionLimitPadding - size.y)
+			desiredPosition.y = confineSize.y - positionLimitPadding - size.y;
+
+		m_movableChildData[childIDStr].m_position = desiredPosition;
+	}
+	else
+	{
+
+
+		if (!m_movableChildData[childIDStr].m_initialPositionSet)
+		{
+			m_movableChildData[childIDStr].m_initialPositionSet = true;
+			m_movableChildData[childIDStr].m_position = defaultPosition;
+		}
+	}
+}
+
+
+
+static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
+float camDistance = 8.f;
+int gizmoCount = 1;
+bool useWindow = false;
+bool isPerspective = true;
+void drawGuizmo() {
+	if (!selectObj) {
+		return;
+	}
+
+	ImGuizmo::SetOrthographic(!isPerspective);
+	ImGuizmo::BeginFrame();
+
+	ImGuizmo::SetID(0);
+
+	bool editTransformDecomposition = true;
+
+	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
+	static bool useSnap = false;
+	static float snap[3] = { 1.f, 1.f, 1.f };
+	static float bounds[] = { -0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
+	static float boundsSnap[] = { 0.1f, 0.1f, 0.1f };
+	static bool boundSizing = false;
+	static bool boundSizingSnap = false;
+
+	auto& sceneManager = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
+	auto cameraComponent = sceneManager.getCurrentScene().findMainCamera().value();
+	auto cameraProjection = MATHGL::Matrix4::Transpose(cameraComponent->getCamera().getProjectionMatrix());
+	auto cameraView = MATHGL::Matrix4::Transpose(cameraComponent->getCamera().getViewMatrix());
+	auto matrix = MATHGL::Matrix4::Transpose(selectObj->getTransform()->getWorldMatrix());
+
+
+	if (editTransformDecomposition)
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_T))
+			mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+		if (ImGui::IsKeyPressed(ImGuiKey_E))
+			mCurrentGizmoOperation = ImGuizmo::ROTATE;
+		if (ImGui::IsKeyPressed(ImGuiKey_R)) // r Key
+			mCurrentGizmoOperation = ImGuizmo::SCALE;
+		if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+			mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+			mCurrentGizmoOperation = ImGuizmo::ROTATE;
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+			mCurrentGizmoOperation = ImGuizmo::SCALE;
+		if (ImGui::RadioButton("Universal", mCurrentGizmoOperation == ImGuizmo::UNIVERSAL))
+			mCurrentGizmoOperation = ImGuizmo::UNIVERSAL;
+		float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+		ImGuizmo::DecomposeMatrixToComponents(matrix.getData(), matrixTranslation, matrixRotation, matrixScale);
+		ImGui::InputFloat3("Tr", matrixTranslation);
+		ImGui::InputFloat3("Rt", matrixRotation);
+		ImGui::InputFloat3("Sc", matrixScale);
+		//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, matrix.getData());
+
+		if (mCurrentGizmoOperation != ImGuizmo::SCALE)
+		{
+			if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+				mCurrentGizmoMode = ImGuizmo::LOCAL;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+				mCurrentGizmoMode = ImGuizmo::WORLD;
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_S))
+			useSnap = !useSnap;
+		ImGui::Checkbox("##UseSnap", &useSnap);
+		ImGui::SameLine();
+
+		switch (mCurrentGizmoOperation)
+		{
+		case ImGuizmo::TRANSLATE:
+			ImGui::InputFloat3("Snap", &snap[0]);
+			break;
+		case ImGuizmo::ROTATE:
+			ImGui::InputFloat("Angle Snap", &snap[0]);
+			break;
+		case ImGuizmo::SCALE:
+			ImGui::InputFloat("Scale Snap", &snap[0]);
+			break;
+		}
+		ImGui::Checkbox("Bound Sizing", &boundSizing);
+		if (boundSizing)
+		{
+			ImGui::PushID(3);
+			ImGui::Checkbox("##BoundSizing", &boundSizingSnap);
+			ImGui::SameLine();
+			ImGui::InputFloat3("Snap", boundsSnap);
+			ImGui::PopID();
+		}
+	}
+
+	ImGuiIO& io = ImGui::GetIO();
+	float viewManipulateRight = io.DisplaySize.x;
+	float viewManipulateTop = 0;
+	
+	//if (useWindow)
+	//{
+	//	ImGui::SetNextWindowSize(ImVec2(800, 400), ImGuiCond_Appearing);
+	//	ImGui::SetNextWindowPos(ImVec2(400, 20), ImGuiCond_Appearing);
+	//	ImGui::PushStyleColor(ImGuiCol_WindowBg, (ImVec4)ImColor(0.35f, 0.3f, 0.3f));
+	//	ImGui::Begin("Gizmo", 0, gizmoWindowFlags);
+	//	ImGuizmo::SetDrawlist();
+	//	float windowWidth = (float)ImGui::GetWindowWidth();
+	//	float windowHeight = (float)ImGui::GetWindowHeight();
+	//	ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowWidth, windowHeight);
+	//	viewManipulateRight = ImGui::GetWindowPos().x + windowWidth;
+	//	viewManipulateTop = ImGui::GetWindowPos().y;
+	//	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	//	gizmoWindowFlags = ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(window->InnerRect.Min, window->InnerRect.Max) ? ImGuiWindowFlags_NoMove : 0;
+	//}
+	//else
+	//{
+	//	ImGuizmo::SetDrawlist();
+	//	float windowWidth = (float)ImGui::GetWindowWidth();
+	//	float windowHeight = (float)ImGui::GetWindowHeight();
+	//	ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowWidth, windowHeight);
+	//	viewManipulateRight = ImGui::GetWindowPos().x + windowWidth;
+	//	viewManipulateTop = ImGui::GetWindowPos().y;
+	//	
+	//}
+	std::string childID = "##levelpanel_playops";
+	const ImVec2 windowPos = ImGui::GetWindowPos();
+	const ImVec2 windowSize = ImGui::GetWindowSize();
+	const ImRect confineRect = ImRect(windowPos, ImVec2(windowPos.x + windowSize.x, windowPos.y + windowSize.y));
+
+	const float   rounding = 4.0f;
+	const float   itemSpacingX = ImGui::GetStyle().ItemSpacing.x;
+	const float   itemSpacingY = ImGui::GetStyle().ItemSpacing.y;
+	const float   childRounding = 6.0f;
+	const ImVec2  buttonSize = ImVec2(28, 28);
+	const ImVec2  currentWindowPos = ImGui::GetWindowPos();
+	const ImVec2  contentOffset = ImVec2(0.5f, -2.0f);
+	static ImVec2 childSize = ImVec2(buttonSize.x * 6 + itemSpacingX * 7, buttonSize.y + itemSpacingY * 3);
+	ImGui::SetNextWindowBgAlpha(0.5f);
+	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, childRounding);
+	const ImVec2 defaultPos = ImVec2((confineRect.Max.x - confineRect.Min.x) - childSize.x - 12 - 10, 12);
+
+	BeginMovableChild(childID.c_str(), childSize, defaultPos, confineRect, true, ImVec2(5, 10));
+	ImGui::SameLine();
+	PushIconFontSmall();
+	ImGui::SetCursorPos(ImVec2(17, 6));
+
+	const bool isInPlayMode = false;
+	const bool isPaused = false;
+
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.9f, 0.2f, 1.0f));
+	ImGui::Button(ICON_FA_PLAY, buttonSize);
+	ImGui::PopStyleColor();
+	
+	ImGui::SameLine();
+	ImGui::SetCursorPosY(6.0f);
+	ImGui::Button(ICON_FA_PAUSE, buttonSize);
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosY(6.0f);
+	ImGui::Button(ICON_FA_FAST_FORWARD, buttonSize);
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosY(6.0f);
+	ImGui::Button(ICON_FA_CAMERA, buttonSize);
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosY(6.0f);
+	ImGui::Button(ICON_FA_EYE, buttonSize);
+	
+	ImGui::SameLine();
+	ImGui::SetCursorPosY(6.0f);
+	ImGui::Button(ICON_FA_VECTOR_SQUARE, buttonSize);
+	
+	ImGui::EndChild();
+	ImGui::PopStyleVar();
+
+
+	////////////////////
+
+	ImVec2 imageRectMin = ImGui::GetWindowPos();
+	ImVec2 imageRectMax = ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowWidth(), ImGui::GetWindowPos().y + ImGui::GetWindowHeight());
+
+
+	//ImGuiIO& io = ImGui::GetIO();
+	ImGuizmo::Enable(true);
+	ImGuizmo::SetOrthographic(false);
+	ImGuizmo::SetDrawlist();
+	ImGuizmo::SetRect(imageRectMin.x, imageRectMin.y, imageRectMax.x - imageRectMin.x, imageRectMax.y - imageRectMin.y);
+	ImGui::PushClipRect(imageRectMin, imageRectMax, false);
+
+
+	ImGuizmo::SetDrawlist();
+	float windowWidth = (float)ImGui::GetWindowWidth();
+	float windowHeight = (float)ImGui::GetWindowHeight();
+	ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowWidth, windowHeight);
+	viewManipulateRight = ImGui::GetWindowPos().x + windowWidth;
+	viewManipulateTop = ImGui::GetWindowPos().y;
+
+	
+	ImGuizmo::MODE gizmoMode = ImGuizmo::MODE::LOCAL;
+	ImGuizmo::Manipulate(cameraView.getData(), cameraProjection.getData(), mCurrentGizmoOperation, gizmoMode, matrix.getData());
+
+	auto rot = cameraComponent->obj->getTransform()->getLocalRotationDeg();
+	float _rot[] = { rot.x, rot.y, rot.z };
+	auto viewData = ImGuizmo::ViewManipulate(cameraView.getData(), _rot, camDistance, ImVec2(viewManipulateRight - 128, viewManipulateTop), ImVec2(128, 128), 0x10101010);
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	gizmoWindowFlags = ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(window->InnerRect.Min, window->InnerRect.Max) ? ImGuiWindowFlags_NoMove : 0;
+
+	if (viewData[0] == 1) {
+		//auto vm = MATHGL::Matrix4::Transpose(cameraView);
+		//vm(0, 3) = vm(1, 3) = vm(2,3) =
+		//	vm(3,0) = vm(3,1) = vm(3,2) = 0.;
+		//vm(3,3) = 1;
+		//vm = MATHGL::Matrix4::Inverse(vm);
+		//MATHGL::Quaternion q(vm);
+		//auto rot = MATHGL::Quaternion::ToEulerAngles(q);
+
+
+		//cameraComponent->obj->getTransform()->setLocalPosition(MATHGL::Vector3(viewData[1], viewData[2], viewData[3]));
+		cameraComponent->obj->getTransform()->setLocalRotationDeg({ viewData[4], viewData[5], viewData[6] });
+		//cameraComponent->getCamera().setView(MATHGL::Matrix4::Transpose(cameraView));
+	}
+	if (ImGuizmo::IsUsing())
+	{
+		float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+		ImGuizmo::DecomposeMatrixToComponents(matrix.getData(), matrixTranslation, matrixRotation, matrixScale);
+		selectObj->getTransform()->setLocalPosition(MATHGL::Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
+		selectObj->getTransform()->setLocalScale(MATHGL::Vector3(matrixScale[0], matrixScale[1], matrixScale[2]));
+		selectObj->getTransform()->setLocalRotationDeg(MATHGL::Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+	}
+
+
+}
+
+
 template<class T>
 bool drawWidget(std::string name, T& elem) {
 	using type = std::remove_reference_t<decltype(elem)>;
@@ -564,23 +968,6 @@ bool drawWidget(std::string name, MATHGL::Vector2u& elem) {
 	elem.x = arr[0];
 	elem.y = arr[1];
 	return b;
-}
-
-template<std::size_t I = 0, typename T>
-inline std::enable_if < I == serde::tuple_size_v<T>, bool>::type go(const serde::serde_struct_info<T>& t, T& val) {
-	return true;
-}
-
-template<std::size_t I = 0, typename T>
-inline std::enable_if < I < serde::tuple_size_v<T>, bool>::type go(const serde::serde_struct_info<T>& t, T& val) {
-	auto b = drawWidget(std::string(t.member_info<I>(val).name()), t.member_info<I>(val).value());
-	return b || go<I + 1, T>(t, val);
-}
-
-template<typename T>
-bool buildWidget(T& data) {
-	constexpr auto info = serde::type_info<T>;
-	return go(info, data);
 }
 
 struct DebugConfig {
@@ -771,6 +1158,114 @@ void LightTheme(ImGuiStyle* dst = nullptr) {
 	style->Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(1.00f, 0.98f, 0.95f, 0.73f);
 }
 
+
+void ArchTheme(ImGuiStyle* dst = nullptr) {
+
+	auto m_defaultWindowPadding = MATHGL::Vector2i(8, 8);
+	auto m_defaultFramePadding = MATHGL::Vector2i(8, 2);
+
+	ImGuiStyle* style = dst ? dst : &ImGui::GetStyle();
+	ImVec4* colors = ImGui::GetStyle().Colors;
+	style->FrameBorderSize = 1.0f;
+	style->PopupBorderSize = 1.0f;
+	// style.AntiAliasedFill = false;
+	// style.WindowRounding = 0.0f;
+	style->TabRounding = 3.0f;
+	// style.ChildRounding = 0.0f;
+	style->PopupRounding = 3.0f;
+	// style.FrameRounding = 0.0f;
+	// style.ScrollbarRounding = 5.0f;
+	style->FramePadding = ImVec2(m_defaultFramePadding.x, m_defaultFramePadding.y);
+	style->WindowPadding = ImVec2(m_defaultWindowPadding.x, m_defaultWindowPadding.y);
+	style->CellPadding = ImVec2(9, 2);
+	// style.ItemInnerSpacing = ImVec2(8, 4);
+	// style.ItemInnerSpacing = ImVec2(5, 4);
+	// style.GrabRounding = 6.0f;
+	// style.GrabMinSize     = 6.0f;
+	style->ChildBorderSize = 0.0f;
+	// style.TabBorderSize = 0.0f;
+	style->WindowBorderSize = 1.0f;
+	style->WindowMenuButtonPosition = ImGuiDir_None;
+	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+	colors[ImGuiCol_WindowBg] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+	colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+	colors[ImGuiCol_Border] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	///colors[ImGuiCol_PopupBorder] = ImVec4(0.21f, 0.21f, 0.21f, 1.00f);
+	colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	colors[ImGuiCol_FrameBg] = ImVec4(0.04f, 0.04f, 0.04f, 0.54f);
+	colors[ImGuiCol_FrameBgHovered] = ImVec4(0.44f, 0.26f, 0.26f, 1.00f);
+	colors[ImGuiCol_FrameBgActive] = ImVec4(0.47f, 0.19f, 0.19f, 1.00f);
+	colors[ImGuiCol_TitleBg] = ImVec4(0.06f, 0.06f, 0.06f, 1.00f);
+	colors[ImGuiCol_TitleBgActive] = ImVec4(0.06f, 0.06f, 0.06f, 1.00f);
+	colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.06f, 0.06f, 0.06f, 1.00f);
+	colors[ImGuiCol_MenuBarBg] = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
+	colors[ImGuiCol_ScrollbarBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.53f);
+	colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.23f, 0.23f, 0.23f, 1.00f);
+	colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
+	colors[ImGuiCol_CheckMark] = ImVec4(0.47f, 0.19f, 0.19f, 1.00f);
+	colors[ImGuiCol_SliderGrab] = ImVec4(0.47f, 0.19f, 0.19f, 1.00f);
+	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.74f, 0.74f, 0.74f, 1.00f);
+	colors[ImGuiCol_Button] = ImVec4(0.23f, 0.23f, 0.23f, 1.00f);
+	colors[ImGuiCol_ButtonHovered] = ImVec4(0.35f, 0.49f, 0.62f, 1.00f);
+	colors[ImGuiCol_ButtonActive] = ImVec4(0.24f, 0.37f, 0.53f, 1.00f);
+	///colors[ImGuiCol_ButtonLocked] = ImVec4(0.183f, 0.273f, 0.364f, 1.000f);
+	///colors[ImGuiCol_ButtonSecondary] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	///colors[ImGuiCol_ButtonSecondaryHovered] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	///colors[ImGuiCol_ButtonSecondaryActive] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	///colors[ImGuiCol_ButtonSecondaryLocked] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	///colors[ImGuiCol_Folder] = ImVec4(0.23f, 0.23f, 0.23f, 1.00f);
+	///colors[ImGuiCol_FolderHovered] = ImVec4(0.35f, 0.49f, 0.62f, 1.00f);
+	///colors[ImGuiCol_FolderActive] = ImVec4(0.24f, 0.37f, 0.53f, 1.00f);
+	///colors[ImGuiCol_Toolbar] = ImVec4(0.06f, 0.06f, 0.06f, 1.00f);
+	///colors[ImGuiCol_Icon] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	///colors[ImGuiCol_TitleHeader] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+	///colors[ImGuiCol_TitleHeaderHover] = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
+	///colors[ImGuiCol_TitleHeaderPressed] = ImVec4(0.09f, 0.09f, 0.09f, 1.00f);
+	///colors[ImGuiCol_TitleHeaderBorder] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	///colors[ImGuiCol_TitleHeaderDisabled] = ImVec4(0.17f, 0.00f, 0.00f, 1.00f);
+	colors[ImGuiCol_Header] = ImVec4(0.47f, 0.19f, 0.19f, 1.00f);
+	colors[ImGuiCol_HeaderHovered] = ImVec4(0.43f, 0.24f, 0.24f, 1.00f);
+	colors[ImGuiCol_HeaderActive] = ImVec4(0.49f, 0.32f, 0.32f, 1.00f);
+	colors[ImGuiCol_Separator] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	colors[ImGuiCol_SeparatorHovered] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	colors[ImGuiCol_SeparatorActive] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+	colors[ImGuiCol_ResizeGrip] = ImVec4(0.44f, 0.44f, 0.44f, 1.00f);
+	colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.58f, 0.58f, 0.58f, 1.00f);
+	colors[ImGuiCol_ResizeGripActive] = ImVec4(0.73f, 0.73f, 0.73f, 1.00f);
+	colors[ImGuiCol_Tab] = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
+	colors[ImGuiCol_TabHovered] = ImVec4(0.24f, 0.25f, 0.26f, 1.00f);
+	colors[ImGuiCol_TabActive] = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+	colors[ImGuiCol_TabUnfocused] = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
+	colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+	colors[ImGuiCol_DockingPreview] = ImVec4(0.47f, 0.19f, 0.19f, 1.00f);
+	colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+	colors[ImGuiCol_PlotLines] = ImVec4(0.61f, 0.61f, 0.61f, 1.00f);
+	colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
+	colors[ImGuiCol_PlotHistogram] = ImVec4(0.69f, 0.15f, 0.29f, 1.00f);
+	colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
+	colors[ImGuiCol_TableHeaderBg] = ImVec4(0.19f, 0.19f, 0.20f, 1.00f);
+	colors[ImGuiCol_TableBorderStrong] = ImVec4(0.16f, 0.16f, 0.16f, 1.00f);
+	colors[ImGuiCol_TableBorderLight] = ImVec4(0.23f, 0.23f, 0.25f, 1.00f);
+	colors[ImGuiCol_TableRowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.00f, 1.00f, 1.00f, 0.06f);
+	colors[ImGuiCol_TextSelectedBg] = ImVec4(0.47f, 0.20f, 0.20f, 0.71f);
+	colors[ImGuiCol_DragDropTarget] = ImVec4(0.58f, 0.23f, 0.23f, 0.71f);
+	colors[ImGuiCol_NavHighlight] = ImVec4(0.28f, 0.28f, 0.28f, 1.00f);
+	colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+	colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
+	colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.61f);
+
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+		style->WindowRounding = 0.0f;
+		style->Colors[ImGuiCol_WindowBg].w = 1.0f;
+	}
+}
+
+
 DebugRender::DebugRender() {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -781,6 +1276,20 @@ DebugRender::DebugRender() {
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 	//io.ConfigViewportsNoAutoMerge = true;
 	//io.ConfigViewportsNoTaskBarIcon = true;
+	float baseFontSize = 14.0f;
+	ImFontConfig config;
+	config.SizePixels = baseFontSize;
+	io.Fonts->AddFontDefault(&config);
+	
+	float iconFontSize = baseFontSize * 2.0f / 3.0f;
+
+	// merge in icons from Font Awesome
+	static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
+	ImFontConfig icons_config;
+	icons_config.MergeMode = true;
+	icons_config.PixelSnapH = true;
+	icons_config.GlyphMinAdvanceX = iconFontSize;
+	io.Fonts->AddFontFromFileTTF((Config::ROOT + "3rd/imgui/IconFont/" + FONT_ICON_FILE_NAME_FAS).c_str(), iconFontSize, &icons_config, icons_ranges);
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
@@ -800,7 +1309,7 @@ DebugRender::DebugRender() {
 		ImGui_ImplGlfw_InitForVulkan(win, true);
 	}
 #endif
-	DarkTheme();
+	ArchTheme();
 
 	// Setup Platform/Renderer backends
 #ifdef OPENGL_BACKEND
@@ -822,6 +1331,9 @@ DebugRender::DebugRender() {
 #endif
 
 	fileBrowser = std::make_unique<FileBrowser>(Config::ROOT + Config::ASSETS_PATH);
+
+
+	m_movableChildData["GizmoTools"] = MovableChildData{ ImVec2(0, 0) , ImVec2(0, 0) , true, false };
 }
 #ifdef VULKAN_BACKEND
 #include "../render/gameRendererVk.h"
@@ -889,10 +1401,10 @@ DebugRender::~DebugRender() {
 void DebugRender::drawWindowWidget(CORE_SYSTEM::Core& core) {
 	if (DebugConfig::check(DebugConfig::WidgetType::WINDOW)) {
 		ImGui::Begin("Window Config");
-		auto b = buildWidget(core.window->getSetting());
-		if (b) {
-			core.window->updateWindow();
-		}
+		//auto b = buildWidget(core.window->getSetting());
+		//if (b) {
+		//	core.window->updateWindow();
+		//}
 		ImGui::End();
 	}
 }
@@ -1213,6 +1725,28 @@ void DebugRender::drawMaterialWidget(RENDER::MaterialGl* material) {
 }
 #endif
 
+void drawComponent(ECS::SpotLight* component) {
+	if (ImGui::CollapsingHeader(component->getName().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+
+	}
+}
+
+void drawComponent(ECS::DirectionalLight* component) {
+
+}
+
+void drawComponent(ECS::PointLight* component) {
+
+}
+
+void drawComponent(ECS::AmbientLight* component) {
+
+}
+
+void drawComponent(ECS::AmbientSphereLight* component) {
+
+}
+
 void drawComponent(ECS::TransformComponent* component) {
 	if (ImGui::CollapsingHeader(component->getName().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 		{
@@ -1284,29 +1818,177 @@ void drawComponent(ECS::TransformComponent* component) {
 	}
 }
 
-void DebugRender::drawComponentInspector() {
-	ImGui::Begin("Component Inspector");
+template<class T>
+T getValueFromProp(ComponentType& c, rttr::property& p) {
+	return std::visit(
+		[&](auto& arg) {
+			return p.get_value(c);
+		},c);
+}
 
-	
-	if (selectObj) {
-		auto components = ECS::ComponentManager::getInstance()->getComponents(selectObj->getID());
-		for (auto component : components) {
-			if (component->getName() == "Transform") {
-				drawComponent(reinterpret_cast<ECS::TransformComponent*>(component.getPtr().get()));
+void DebugRender::drawComponentInspector() {
+	ImGui::Begin((ICON_FA_DATABASE + std::string(" Component Inspector")).c_str());
+	if (!selectObj) {
+		ImGui::End();
+		return;
+	}
+
+	static std::unordered_map<std::string, std::function<ComponentType(ECS::Component&)>> convertComp = {
+		{ "Transform", [](ECS::Component& c) { return &static_cast<ECS::TransformComponent&>(c); } },
+		{ "SpotLight", [](ECS::Component& c) { return &static_cast<ECS::SpotLight&>(c); } },
+		{ "DirectionalLight", [](ECS::Component& c) { return &static_cast<ECS::DirectionalLight&>(c); } },
+		{ "PointLight", [](ECS::Component& c) { return &static_cast<ECS::PointLight&>(c); } },
+		{ "AmbientSphereLight", [](ECS::Component& c) { return &static_cast<ECS::AmbientSphereLight&>(c); } },
+		{ "AmbientLight", [](ECS::Component& c) { return &static_cast<ECS::AmbientLight&>(c); } },
+		{ "Camera", [](ECS::Component& c) { return &static_cast<ECS::CameraComponent&>(c); } },
+	};
+
+	static std::unordered_map<std::string, std::string> iconComp = {
+		{ "Transform", ICON_FA_GLOBE },
+		{ "SpotLight", ICON_FA_LIGHTBULB },
+		{ "DirectionalLight", ICON_FA_SUN },
+		{ "PointLight", ICON_FA_LIGHTBULB },
+		{ "AmbientSphereLight", ICON_FA_CIRCLE },
+		{ "AmbientLight", ICON_FA_SQUARE },
+		{ "Camera", ICON_FA_CAMERA },
+	};
+
+	auto components = ECS::ComponentManager::getInstance()->getComponents(selectObj->getID());
+	for (auto& component : components) {
+		if (!convertComp.count(component->getName())) {
+			continue; //TODO:: write info to log
+		}
+		auto title = iconComp[component->getName()] + std::string(" ") + component->getName();
+		if (ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+			auto c = convertComp[component->getName()](component.get());
+			rttr::type t = std::visit(
+			[](auto& arg) {
+				return rttr::type::get<std::remove_reference_t<decltype(*arg)>>();
+			},
+			c);
+			for (auto& prop : t.get_properties()) {
+				const auto flags = prop.get_metadata(MetaInfo::FLAGS).get_value<MetaInfo::Flags>();
+				if ((flags & (MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR)) == (MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR)) {
+					const auto wType = prop.get_metadata(EditorMetaInfo::EDIT_WIDGET).get_value<EditorMetaInfo::WidgetType>();
+					const std::string propName = prop.get_name().to_string();
+					if (wType == EditorMetaInfo::DRAG_FLOAT_3) {
+						if (!CombineVecEdit::Data.contains(propName)) {
+							CombineVecEdit::Data.insert({ propName, CombineVecEdit(propName, 3, CombineVecEdit::MODE::POS) });
+						}
+						auto val = std::visit(
+						[&](auto& arg) {
+							return prop.get_value(*arg);
+						}, c).get_value<MATHGL::Vector3>();
+						if (CombineVecEdit::Data.at(propName).draw(val)) {
+							auto res = std::visit(
+								[&](auto& arg) {
+									return prop.set_value(*arg, val);
+								}, c);
+						}
+					}
+					else if (wType == EditorMetaInfo::DRAG_COLOR_3) {
+						if (!CombineVecEdit::Data.contains(propName)) {
+							CombineVecEdit::Data.insert({ propName, CombineVecEdit(propName, 3, CombineVecEdit::MODE::COLOR) });
+						}
+						auto val = std::visit(
+							[&](auto& arg) {
+								return prop.get_value(*arg);
+							}, c).get_value<MATHGL::Vector3>();
+							if (CombineVecEdit::Data.at(propName).draw(val)) {
+								auto res = std::visit(
+									[&](auto& arg) {
+										return prop.set_value(*arg, val);
+									}, c);
+							}
+					}
+					else if (wType == EditorMetaInfo::DRAG_FLOAT) {
+						auto val = std::visit(
+							[&](auto& arg) {
+								return prop.get_value(*arg);
+							}, c).get_value<float>();
+							if (ImGui::DragFloat(propName.c_str(), &val)) {
+								auto res = std::visit(
+									[&](auto& arg) {
+										return prop.set_value(*arg, val);
+									}, c);
+							}
+					}
+					else if (wType == EditorMetaInfo::COMBO) {
+						auto val = std::visit(
+							[&](auto& arg) {
+								return prop.get_value(*arg);
+							}, c);
+						const bool isEnum = val.get_type().is_enumeration();
+
+						if (isEnum) {
+							auto names = val.get_type().get_enumeration().get_names();
+							auto values = val.get_type().get_enumeration().get_values();
+							auto enumNames = std::vector(names.begin(), names.end());
+							auto enumValues = std::vector(values.begin(), values.end());
+
+							int item_current_idx = [&enumValues, &val]() {
+								int i = 0;
+								for (auto& e : enumValues) {
+									if (e == val) {
+										break;
+									}
+									i++;
+								}
+								return i;
+							}();
+							auto combo_label = enumNames[item_current_idx];
+							if (ImGui::BeginCombo(propName.c_str(), combo_label.to_string().c_str())) {
+								for (int n = 0; n < enumNames.size(); n++) {
+									const bool is_selected = (item_current_idx == n);
+									if (ImGui::Selectable(enumNames[n].to_string().c_str(), is_selected)) {
+										item_current_idx = n;
+										auto res = std::visit(
+											[&](auto& arg) {
+												return prop.set_value(*arg, enumValues[item_current_idx]);
+											}, c);
+									}
+									if (is_selected) {
+										ImGui::SetItemDefaultFocus();
+									}
+								}
+								ImGui::EndCombo();
+							}
+						}
+					}
+				}
 			}
 		}
 	}
+	
+	//if (selectObj) {
+	//	auto components = ECS::ComponentManager::getInstance()->getComponents(selectObj->getID());
+	//	for (auto component : components) {
+	//		if (component->getName() == "Transform") {
+	//			drawComponent(reinterpret_cast<ECS::TransformComponent*>(component.getPtr().get()));
+	//		}
+	//	}
+	//}
 
 	ImGui::End();
 
 }
 
+
 void DebugRender::drawTextureWatcher() {
 #ifdef OPENGL_BACKEND
-	ImGui::Begin("Texture Watcher");
+	ImGui::Begin("Texture Watcher", nullptr, gizmoWindowFlags);
 
 	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
 	auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
+
+	//botton panel
+
+	ImGui::Columns(2, nullptr, false);
+	ImGui::SetColumnWidth(0, 40.0f);
+	ImGui::Button(ICON_FA_ARROWS_ALT, ImVec2(36, 36));
+	ImGui::Button(ICON_FA_SYNC_ALT, ImVec2(36, 36));
+	ImGui::Button(ICON_FA_COMPRESS_ALT, ImVec2(36, 36));
+	ImGui::NextColumn();
 
 
 	const char* items[] = { "Before Post Processing", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIIIIII", "JJJJ", "KKKKKKK" };
@@ -1337,9 +2019,68 @@ void DebugRender::drawTextureWatcher() {
 		}
 	}
 
+	drawGuizmo();
+
+
+	//ImGuiWindowFlags     flags = 0 | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings;
+	//const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	//const ImVec2         pos = ImVec2(0.0f, 20.0f);
+	//const ImVec2         size = ImVec2(viewport->WorkSize.x, 0.0f);
+	//ImGui::SetNextWindowPos(pos);
+	////ImGui::SetNextWindowSize(size);
+	//ImGui::Begin("Dock", NULL, flags);
+	////ImGui::SetWindowFocus("Dock");
+	//ImGui::BeginGroup();
+	//const float itemSpacing = 0.2f;
+	//ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(itemSpacing, ImGui::GetStyle().ItemSpacing.y));
+	//if (ImGui::Button("!!!!!"))
+	//{
+	//
+	//}
+	//ImGui::PopStyleVar();
+	//ImGui::EndGroup();
+	//ImGui::End();
+
+
+
+	ImGui::Columns(1);
 	ImGui::End();
+
+	
+
+
 #endif
 }
+
+void DebugRender::drawStats() {
+	static std::vector<float> values(100, 0.0f);
+	static int valuesOffset = 0;
+	static float updateTime = 0;
+	static float timeToUpdate = 0;
+	static double fps = 0.0;
+	static double dt;
+
+	ImGui::Begin("Stats");
+	auto& timer = TIME::Timer::GetInstance();
+	if (timeToUpdate <= 0.0) {
+		fps = timer.getFPS();
+		dt = timer.getDeltaTimeUnscaled().count();
+		values[valuesOffset] = fps;
+		valuesOffset = (valuesOffset + 1) % values.size();
+		timeToUpdate = updateTime;
+	}
+	else {
+		timeToUpdate -= timer.getDeltaTimeUnscaled().count();
+	}
+	if (SliderFloatWithSteps("Update time", &updateTime, 0.0f, 1.0f, 0.10f)) {
+		timeToUpdate = updateTime;
+	}
+	ImGui::Text("FPS: %f", fps);
+	ImGui::Text("Delta: %f", dt);
+	ImGui::PlotLines("##FPSGraph", values.data(), values.size(), valuesOffset, nullptr, -10.0f, 500.0f, ImVec2(0, 80.0f));
+	ImGui::End();
+}
+
 
 void drawMainWindow()
 {
@@ -1392,146 +2133,29 @@ void drawMainWindow()
 //#include "../utils/refl.hpp"
 
 template<class T>
-void addWrappersForComponent(ANIMATION::Animation& anim, T& component) {
-	//static_assert()
-}
-
-template<>
-void addWrappersForComponent(ANIMATION::Animation& anim, ECS::TransformComponent& component) {
-	using ComponentType = ECS::TransformComponent;
-
+void addWrappersForComponent(ANIMATION::Animation& anim, const AnimationLineInfo& data, T& component) {
 	auto id = component.getObject().getID();
 	std::string prefix = std::to_string(static_cast<int>(id));
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "posX",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalPosition();
-			component->setLocalPosition({ std::get<float>(val), pos.y, pos.z });
-		},
-		[id]() { 
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalPosition();
-			return pos.x;
-		}
-	));
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "posY",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalPosition();
-			component->setLocalPosition({ pos.x, std::get<float>(val), pos.z });
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalPosition();
-			return pos.y;
-		}
-	));
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "posZ",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalPosition();
-			component->setLocalPosition({ pos.x, pos.y, std::get<float>(val) });
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalPosition();
-			return pos.z;
-		}
-	));
 
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "rotX",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto rot = MATHGL::Quaternion::ToEulerAngles(component->getLocalRotation());
-			MATHGL::Vector3 rotVec = MATHGL::Vector3{ std::get<float>(val), TO_DEGREES(rot.y), TO_DEGREES(rot.z) };
-			component->setLocalRotation(MATHGL::Quaternion({ rotVec }));
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto rot = MATHGL::Quaternion::ToEulerAngles(component->getLocalRotation());
-			return TO_DEGREES(rot.x);
-		}
-	));
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "rotY",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto rot = MATHGL::Quaternion::ToEulerAngles(component->getLocalRotation());
-			MATHGL::Vector3 rotVec = MATHGL::Vector3{ TO_DEGREES(rot.x), std::get<float>(val), TO_DEGREES(rot.z) };
-			component->setLocalRotation(MATHGL::Quaternion({ rotVec }));
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto rot = MATHGL::Quaternion::ToEulerAngles(component->getLocalRotation());
-			return TO_DEGREES(rot.y);
-		}
-	));
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "rotY",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto rot = MATHGL::Quaternion::ToEulerAngles(component->getLocalRotation());
-			MATHGL::Vector3 rotVec = MATHGL::Vector3{ TO_DEGREES(rot.x), TO_DEGREES(rot.y), std::get<float>(val) };
-			component->setLocalRotation(MATHGL::Quaternion({ rotVec }));
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto rot = MATHGL::Quaternion::ToEulerAngles(component->getLocalRotation());
-			return TO_DEGREES(rot.z);
-		}
-	));
-
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "scaleX",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalScale();
-			component->setLocalScale({ std::get<float>(val), pos.y, pos.z });
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalScale();
-			return pos.x;
-		}
-	));
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "scaleY",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalScale();
-			component->setLocalScale({ pos.x, std::get<float>(val), pos.z });
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalScale();
-			return pos.y;
-		}
-	));
-	anim.addProperty(ANIMATION::AnimationProperty(
-		prefix + "scaleZ",
-		[id](ANIMATION::PropType val) {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalScale();
-			component->setLocalScale({ pos.x, pos.y, std::get<float>(val) });
-		},
-		[id]() {
-			auto component = ECS::ComponentManager::getInstance()->getComponent<ComponentType>(id);
-			auto pos = component->getLocalScale();
-			return pos.z;
-		}
-	));
-
+	rttr::type t = rttr::type::get<std::remove_reference<T>::type>();
+	const auto prop = t.get_property(data.propName);
 	
+	anim.addProperty(ANIMATION::AnimationProperty(
+	prefix + data.propName,
+	[prop, id](ANIMATION::PropType val) {
+			auto component = ECS::ComponentManager::getInstance()->getComponent<T>(id);
+			prop.set_value(component.get(), std::get<float>(val));
+		},
+		[prop, id]() {
+			auto component = ECS::ComponentManager::getInstance()->getComponent<T>(id);
+			//TODO::
+			return prop.get_value(component.get()).get_value<float>();
+		}
+	));
 }
 
-using ComponentName = std::string;
-using PromName = std::string;
-using PropValuse = std::variant<float, int, bool, std::string>;
-std::unordered_map<ComponentName, std::map<PromName, PropValuse>> componentsProperties;
+
+//std::unordered_map<ComponentName, std::map<PromName, PropValue>> componentsProperties;
 
 
 struct MySequence : public ImSequencer::SequenceInterface {
@@ -1545,8 +2169,16 @@ struct MySequence : public ImSequencer::SequenceInterface {
 	}
 	virtual int GetItemCount() const { return (int)myItems.size(); }
 
-	virtual int GetItemTypeCount() const { return SequencerItemTypeNames.size(); }
-	virtual const std::string GetItemTypeName(int typeIndex) const { return SequencerItemTypeNames[typeIndex].name + ":" + SequencerItemTypeNames[typeIndex].componentName; }
+	virtual int GetItemTypeCount() const {
+		return SequencerItemTypeNames.size();
+	}
+
+	virtual const std::string GetItemTypeName(int typeIndex) const {
+		return SequencerItemTypeNames[typeIndex].name + ":" + 
+			SequencerItemTypeNames[typeIndex].componentName + ":" + 
+			SequencerItemTypeNames[typeIndex].propName;
+	}
+
 	virtual const char* GetItemLabel(int index) const
 	{
 		static char tmps[512];
@@ -1570,9 +2202,10 @@ struct MySequence : public ImSequencer::SequenceInterface {
 		}
 
 		std::map<std::string, ANIMATION::PropType> prop;
-		for (auto& e : myItems[eId].intervalsValues[iId]) {
-			prop[std::to_string(static_cast<int>(myItems[eId].info.id)) + e.first] = e.second;
-		}
+		//for (auto& e : myItems[eId].intervalsValues[iId]) {
+		auto& e = myItems[eId].intervalsValues[iId];
+		prop[std::to_string(static_cast<int>(myItems[eId].info.id)) + e.first] = e.second;
+		//}
 		animation->delKeyFrameProp(myItems[eId].intervals[iId].first, prop);
 
 		myItems[eId].intervals.erase(myItems[eId].intervals.begin() + iId);
@@ -1584,13 +2217,15 @@ struct MySequence : public ImSequencer::SequenceInterface {
 			return;
 		}
 		myItems[eId].intervals.push_back(std::make_pair(frame, frame));
-		myItems[eId].intervalsValues.push_back(componentsProperties[myItems[eId].info.componentName]);
+		myItems[eId].intervalsValues.push_back(std::make_pair(myItems[eId].info.propName, myItems[eId].info.value));
 		
 
 		std::map<std::string, ANIMATION::PropType> prop;
-		for (auto& e : myItems[eId].intervalsValues.back()) {
+		auto& e = myItems[eId].intervalsValues.back();
+		//for (auto& e : myItems[eId].intervalsValues.back()) {
+
 			prop[std::to_string(static_cast<int>(myItems[eId].info.id)) + e.first] = e.second;
-		}
+		//}
 		animation->delKeyFrameProp(myItems[eId].intervals.back().first, prop);
 	}
 
@@ -1618,9 +2253,14 @@ struct MySequence : public ImSequencer::SequenceInterface {
 		static int lineId = 0;
 		myItems.push_back(MySequenceItem{ data, lineId++, {}, false, {} });
 
-		if (data.componentName == "Transform") {
-			addWrappersForComponent(*animation, selectObj->getComponent<ECS::TransformComponent>().value().get());
-		}
+		//if (data.componentName == "Transform") {
+			//addWrappersForComponent(*animation, selectObj->getComponent<ECS::TransformComponent>().value().get());
+		//}
+		std::visit(
+			[&data, this](auto& arg) {
+				addWrappersForComponent(*animation, data, selectObj->getComponent<std::remove_reference<decltype(*arg)>::type>().value().get());
+			}, 
+			data.component);
 	};
 
 	//TODO: del from anim
@@ -1634,17 +2274,17 @@ struct MySequence : public ImSequencer::SequenceInterface {
 	{
 		animation = std::make_unique<ANIMATION::Animation>(mFrameMax, FPS, false);
 
-		componentsProperties["Transform"] = {
-			{"posX", 0.0f},
-			{"posY", 0.0f},
-			{"posZ", 0.0f},
-			{"rotX", 0.0f},
-			{"rotY", 0.0f},
-			{"rotZ", 0.0f},
-			{"scaleX", 0.0f},
-			{"scaleY", 0.0f},
-			{"scaleZ", 0.0f}
-		};
+		//componentsProperties["Transform"] = {
+		//	{"posX", 0.0f},
+		//	{"posY", 0.0f},
+		//	{"posZ", 0.0f},
+		//	{"rotX", 0.0f},
+		//	{"rotY", 0.0f},
+		//	{"rotZ", 0.0f},
+		//	{"scaleX", 0.0f},
+		//	{"scaleY", 0.0f},
+		//	{"scaleZ", 0.0f}
+		//};
 	}
 	int FPS = 30;
 	int mFrameMin, mFrameMax;
@@ -1654,7 +2294,7 @@ struct MySequence : public ImSequencer::SequenceInterface {
 		int mType;
 		std::vector<std::pair<int, int>> intervals;
 		bool mExpanded;
-		std::vector<std::map<PromName, PropValuse>> intervalsValues;
+		std::vector<std::pair<PromName, PropValue>> intervalsValues;
 	};
 	std::vector<MySequenceItem> myItems;
 	//RampEdit rampEdit;
@@ -1672,9 +2312,10 @@ struct MySequence : public ImSequencer::SequenceInterface {
 
 	void applyFrame(MySequenceItem& item, int intervalId) {
 		std::map<std::string, ANIMATION::PropType> prop;
-		for (auto& e : item.intervalsValues[intervalId]) {
-			prop[std::to_string(static_cast<int>(item.info.id)) + e.first] = e.second;
-		}
+		//for (auto& e : item.intervalsValues[intervalId]) {
+		auto& e = item.intervalsValues[intervalId];
+		prop[std::to_string(static_cast<int>(item.info.id)) + e.first] = e.second;
+		//}
 		animation->addKeyFrameMerge(item.intervals[intervalId].first, prop);
 	}
 
@@ -1686,9 +2327,10 @@ struct MySequence : public ImSequencer::SequenceInterface {
 
 	void updateFrame(MySequenceItem& item, int frameId, int oldId, int newId) {
 		std::map<std::string, ANIMATION::PropType> prop;
-		for (auto& e : item.intervalsValues[frameId]) {
-			prop[std::to_string(static_cast<int>(item.info.id)) + e.first] = e.second;
-		}
+		//for (auto& e : item.intervalsValues[frameId]) {
+		auto& e = item.intervalsValues[frameId];
+		prop[std::to_string(static_cast<int>(item.info.id)) + e.first] = e.second;
+		//}
 
 		animation->delKeyFrameProp(oldId, prop);
 		animation->addKeyFrameMerge(newId, prop);
@@ -1710,9 +2352,9 @@ struct MySequence : public ImSequencer::SequenceInterface {
 		ImGui::Begin("##EditFrame");
 		//static float[3];
 		auto& item = myItems[index];
-		auto& itemInterval = item.intervalsValues[intervalId];
+		auto& e = item.intervalsValues[intervalId];
 
-		for (auto& e : itemInterval) {
+		//for (auto& e : itemInterval) {
 			std::string name = e.first;
 			std::visit([this, name, &e, &item, intervalId](auto&& arg) {
 				using T = std::decay_t<decltype(arg)>;
@@ -1741,7 +2383,7 @@ struct MySequence : public ImSequencer::SequenceInterface {
 					}
 				}
 			}, e.second);
-		}
+		//}
 
 		//for (auto& e : itemInterval.second) {
 		//	std::string name = "End " + e.first;
@@ -1954,6 +2596,9 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 		drawTextureWatcher();
 		ImGui::End();
 	}
+
+	drawStats();
+
 	drawWindowWidget(core);
 	{
 		drawNodeTree(core);

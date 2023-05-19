@@ -1,5 +1,7 @@
 #include "shaderGl.h"
 
+#include <array>
+
 #include "../interface/reflectionStructs.h"
 #ifdef OPENGL_BACKEND
 #include <filesystem>

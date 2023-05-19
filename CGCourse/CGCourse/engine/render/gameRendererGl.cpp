@@ -1085,7 +1085,7 @@ GameRendererGl::EngineDirShadowUBO GameRendererGl::getLightSpaceMatrices(const M
 }
 
 bool GameRendererGl::prepareDirShadowMap(const std::string& id) {
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::DirectionalLight>()) {
 		auto lightDir = light.obj->getTransform()->getWorldForward();
 		auto lightPos = light.obj->getTransform()->getWorldPosition();
 		//const auto lightMat = getLightSpaceMatrices(lightDir, lightPos);
@@ -1157,7 +1157,7 @@ bool GameRendererGl::prepareDirShadowMap(const std::string& id) {
 
 void GameRendererGl::prepareSpotShadow() {
 	//TODO: create 4 fb
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::SpotLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::SpotLight>()) {
 		auto lightPos = light.obj->getTransform()->getWorldPosition();
 
 		float near_plane = mPipeline.mDirShadowMap.mSpotNearPlane;
@@ -1210,7 +1210,7 @@ void GameRendererGl::prepareSpotShadow() {
 
 void GameRendererGl::preparePointShadow() {
 	//TODO: create 4 fb
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::PointLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::PointLight>()) {
 		auto lightPos = light.obj->getTransform()->getWorldPosition();
 
 		float near_plane = mPipeline.mDirShadowMap.mPointNearPlane;
@@ -1437,7 +1437,7 @@ void GameRendererGl::prepareGodRaysTexture() {
 		drawDrawableWithShader(mShaders["godRaysTexture"], drawable);
 	}
 	mShaders["godRaysTexture"]->setVec3("u_Color", MATHGL::Vector3(1.0f, 1.0f, 1.0f));
-	for (auto& light : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>()) {
+	for (auto& light : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::DirectionalLight>()) {
 		Drawable d;
 		d.mesh = sphere->getMeshes()[0];
 		d.material = emptyMaterial;
@@ -1448,7 +1448,7 @@ void GameRendererGl::prepareGodRaysTexture() {
 }
 
 void GameRendererGl::applyGoodRays() {
-	auto& dirLights = *ECS::ComponentManager::getInstance()->getComponentArray<ECS::DirectionalLight>();
+	auto& dirLights = ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::DirectionalLight>();
 	if (dirLights.getSize() > 0) {
 		pingPongFb[pingPong]->bind();
 		mDriver->clear(true, true, false);
@@ -1883,7 +1883,7 @@ void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
 }
 
 void GameRendererGl::drawGUI() {
-	for (auto& guiRoot : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::RootGuiComponent>()) {
+	for (auto& guiRoot : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::RootGuiComponent>()) {
 		auto obj = guiRoot.obj;
 		drawGUISubtree(obj);
 	}

@@ -54,3 +54,28 @@ KUMA::MATHGL::Matrix4 DirectionalLight::GetMatrix(const KUMA::MATHGL::Vector3& c
     MATHGL::Matrix4 orthoProjection = MATHGL::Matrix4::CreateOrthographic(std::fabs(Low.x - High.x), std::fabs(Low.x - High.x)/ std::fabs(Low.y - High.y), Low.z, High.z);
     return orthoProjection * LightView;
 }
+
+
+#include <rttr/registration>
+
+RTTR_REGISTRATION
+{
+	rttr::registration::class_<KUMA::ECS::DirectionalLight>("DirectionalLight")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+	)
+	.property("Color", &KUMA::ECS::DirectionalLight::getColor, &KUMA::ECS::DirectionalLight::setColor)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_COLOR_3)
+	)
+	.property("Intensity", &KUMA::ECS::DirectionalLight::getIntensity, &KUMA::ECS::DirectionalLight::setIntensity)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	);
+}

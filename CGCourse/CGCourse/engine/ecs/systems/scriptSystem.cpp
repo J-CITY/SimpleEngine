@@ -4,49 +4,49 @@
 KUMA::ECS::ScriptSystem::ScriptSystem() = default;
 
 void KUMA::ECS::ScriptSystem::onAwake() {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnAwake");
 	}
 }
 
 void KUMA::ECS::ScriptSystem::onStart() {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnStart");
 	}
 }
 
 void KUMA::ECS::ScriptSystem::onEnable() {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnEnable");
 	}
 }
 
 void KUMA::ECS::ScriptSystem::onDisable() {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnDisable");
 	}
 }
 
 void KUMA::ECS::ScriptSystem::onDestroy() {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnDestroy");
 	}
 }
 
 void KUMA::ECS::ScriptSystem::onUpdate(std::chrono::duration<double> dt) {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnUpdate", static_cast<float>(dt.count()));
 	}
 }
 
 void KUMA::ECS::ScriptSystem::onFixedUpdate(std::chrono::duration<double> dt) {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnFixedUpdate", static_cast<float>(dt.count()));
 	}
 }
 
 void KUMA::ECS::ScriptSystem::onLateUpdate(std::chrono::duration<double> dt) {
-	for (auto& component : *ECS::ComponentManager::getInstance()->getComponentArray<ECS::ScriptComponent>()) {
+	for (auto& component : ECS::ComponentManager::getInstance()->getComponentArrayRef<ECS::ScriptComponent>()) {
 		luaCall(component, "OnLateUpdate", static_cast<float>(dt.count()));
 	}
 }

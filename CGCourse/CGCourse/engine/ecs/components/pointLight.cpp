@@ -48,3 +48,48 @@ void PointLight::setLinear(float linear) {
 void PointLight::setQuadratic(float quadratic) {
 	data.quadratic = quadratic;
 }
+
+#include <rttr/registration>
+
+RTTR_REGISTRATION
+{
+	rttr::registration::class_<KUMA::ECS::PointLight>("PointLight")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+	)
+	.property("Color", &KUMA::ECS::PointLight::getColor, &KUMA::ECS::PointLight::setColor)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_COLOR_3)
+	)
+	.property("Intensity", &KUMA::ECS::PointLight::getIntensity, &KUMA::ECS::PointLight::setIntensity)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Linear", &KUMA::ECS::PointLight::getLinear, &KUMA::ECS::PointLight::setLinear)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Quadratic", &KUMA::ECS::PointLight::getQuadratic, &KUMA::ECS::PointLight::setQuadratic)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Constant", &KUMA::ECS::PointLight::getConstant, &KUMA::ECS::PointLight::setConstant)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	);
+}

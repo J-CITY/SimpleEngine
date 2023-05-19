@@ -1,5 +1,7 @@
 #include "inputManager.h"
 
+#include <stdexcept>
+
 using namespace KUMA::INPUT_SYSTEM;
 
 

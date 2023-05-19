@@ -32,5 +32,6 @@ namespace KUMA::DEBUG {
 		void drawMaterialWidget(RENDER::MaterialGl* material);
 		void drawComponentInspector();
 		void drawTextureWatcher();
+		void drawStats();
 	};
 }

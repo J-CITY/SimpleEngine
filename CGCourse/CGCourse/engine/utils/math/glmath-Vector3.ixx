@@ -38,8 +38,8 @@ export namespace KUMA::MATHGL {
 		Vector3& operator*=(float p_scalar);
 		Vector3 operator/(float p_scalar) const;
 		Vector3& operator/=(float p_scalar);
-		bool operator==(const Vector3& p_other);
-		bool operator!=(const Vector3& p_other);
+		//bool operator==(const Vector3& p_other);
+		//bool operator!=(const Vector3& p_other);
 		float& operator[](unsigned i);
 		float operator[](unsigned i) const;
 
@@ -61,4 +61,7 @@ export namespace KUMA::MATHGL {
 
 	Vector3 operator*(const float f, const Vector3& V);
 	Vector3 operator/(const float f, const Vector3& V);
+
+	bool operator==(const Vector3& left, const Vector3& right);
+	bool operator!=(const Vector3& left, const Vector3& right);
 }

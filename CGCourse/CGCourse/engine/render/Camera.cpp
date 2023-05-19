@@ -99,6 +99,10 @@ void Camera::setProjectionMode(ProjectionMode p_projectionMode) {
 	projectionMode = p_projectionMode;
 }
 
+void Camera::setView(MATHGL::Matrix4& in) {
+	viewMatrix = in;
+}
+
 KUMA::MATHGL::Matrix4 Camera::calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const {
 	
 	const auto ratio = p_windowWidth / static_cast<float>(p_windowHeight);

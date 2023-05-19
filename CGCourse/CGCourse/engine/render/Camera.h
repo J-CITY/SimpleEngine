@@ -41,7 +41,7 @@ namespace KUMA {
 			void setFrustumGeometryCulling(bool p_enable);
 			void setFrustumLightCulling(bool p_enable);
 			void setProjectionMode(ProjectionMode p_projectionMode);
-
+			void setView(MATHGL::Matrix4& in);
 		//private:
 			MATHGL::Matrix4 calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const;
 			MATHGL::Matrix4 calculateViewMatrix(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const;
