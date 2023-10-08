@@ -1,0 +1,50 @@
+[submodule "3rd/assimp"]
+	path = 3rd/assimp
+	url = https://github.com/assimp/assimp.git
+[submodule "3rd/soloud"]
+	path = 3rd/soloud
+	url = https://github.com/jarikomppa/soloud.git
+[submodule "3rd/rttr"]
+	path = 3rd/rttr
+	url = https://github.com/rttrorg/rttr.git
+[submodule "3rd/glfw"]
+	path = 3rd/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "3rd/freetype"]
+	path = 3rd/freetype
+	url = https://github.com/freetype/freetype.git
+[submodule "3rd/json"]
+	path = 3rd/json
+	url = https://github.com/nlohmann/json.git
+[submodule "3rd/imgui"]
+	path = 3rd/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
+[submodule "3rd/nameof"]
+	path = 3rd/nameof
+	url = https://github.com/Neargye/nameof.git
+[submodule "3rd/stb"]
+	path = 3rd/stb
+	url = https://github.com/nothings/stb.git
+[submodule "3rd/magic_enum"]
+	path = 3rd/magic_enum
+	url = https://github.com/Neargye/magic_enum.git
+[submodule "3rd/imgui/imgui"]
+	path = 3rd/imgui/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
+[submodule "3rd/imgui/ImGuizmo"]
+	path = 3rd/imgui/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "3rd/imgui/IconFont"]
+	path = 3rd/imgui/IconFont
+	url = https://github.com/juliettef/IconFontCppHeaders.git
+[submodule "3rd/glm"]
+	path = 3rd/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "3rd/sol"]
+	path = 3rd/sol
+	url = https://github.com/ThePhD/sol2.git
+[submodule "3rd/lua"]
+	path = 3rd/lua
+	url = https://github.com/lua/lua.git
