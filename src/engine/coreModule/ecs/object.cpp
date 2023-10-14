@@ -264,28 +264,28 @@ RTTR_REGISTRATION
 {
 	rttr::registration::class_<IKIGAI::ECS::ObjectData>("ObjectData")
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
 	)
 	.property("Name", &IKIGAI::ECS::ObjectData::name)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
 	)
 	.property("Tag", &IKIGAI::ECS::ObjectData::tag)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
 		rttr::metadata(MetaInfo::DEFAULT, std::string())
 	)
 	.property("Id", &IKIGAI::ECS::ObjectData::id)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
 	)
 	.property("IsActive", &IKIGAI::ECS::ObjectData::isActive)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
 		rttr::metadata(MetaInfo::DEFAULT, true)
 	)
 	.property("Parent", &IKIGAI::ECS::ObjectData::parentId)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::OPTIONAL_PARAM)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE  | MetaInfo::OPTIONAL_PARAM)
 	);
 }

@@ -49,14 +49,14 @@ RTTR_REGISTRATION
 {
 	rttr::registration::class_<IKIGAI::ECS::Skeletal>("Skeletal")
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 	)
 	.property("AnimationPath", &IKIGAI::ECS::Skeletal::animationPath)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
 	)
 	.property("Animation", &IKIGAI::ECS::Skeletal::getCurrentAnimationName, &IKIGAI::ECS::Skeletal::setAnimation)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM)
 	);
 }

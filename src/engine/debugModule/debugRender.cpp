@@ -123,7 +123,14 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 		}
 		const auto name = node->getName();
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 0.0f });
+
+		//Visable button
+		if (ImGui::Button(node->getIsActive() ? ICON_FA_EYE : ICON_FA_EYE_SLASH)) {
+			node->setActive(!node->getIsActive());
+		}
+		ImGui::SameLine();
 		bool nodeIsOpen = ImGui::TreeNodeBehavior(ImGui::GetCurrentWindow()->GetID(node->getName().c_str()), nodeFlags, name.c_str());
+		
 		ImGui::PopStyleVar();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 5.0f, 5.0f });
@@ -242,7 +249,7 @@ void drawNodeTree(IKIGAI::CORE_SYSTEM::Core& core) {
 							c);
 						for (auto& prop : t.get_properties()) {
 							auto flags = prop.get_metadata(MetaInfo::FLAGS).get_value<MetaInfo::Flags>();
-							if (flags & (MetaInfo::USE_IN_ANIMATION | MetaInfo::USE_IN_EDITOR)) {
+							if (flags & (MetaInfo::USE_IN_EDITOR_ANIMATION)) {
 								SequencerItemTypeNames.push_back(AnimationLineInfo{ 
 									selectObj->getID(), selectObj->getName(),
 									e->getName(), std::string(prop.get_name()), 0.0f, c});
@@ -931,25 +938,24 @@ void drawGuizmo() {
 
 	auto rot = cameraComponent->obj->getTransform()->getLocalRotationDeg();
 	float _rot[] = { rot.x, rot.y, rot.z };
-	//TODO: fix it from original code
-	//auto viewData = ImGuizmo::ViewManipulate(cameraView.getData(), camDistance, ImVec2(viewManipulateRight - 128, viewManipulateTop), ImVec2(128, 128), 0x10101010);
-	//ImGuiWindow* window = ImGui::GetCurrentWindow();
-	//gizmoWindowFlags = ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(window->InnerRect.Min, window->InnerRect.Max) ? ImGuiWindowFlags_NoMove : 0;
-	//
-	//if (viewData[0] == 1) {
-	//	//auto vm = MATHGL::Matrix4::Transpose(cameraView);
-	//	//vm(0, 3) = vm(1, 3) = vm(2,3) =
-	//	//	vm(3,0) = vm(3,1) = vm(3,2) = 0.;
-	//	//vm(3,3) = 1;
-	//	//vm = MATHGL::Matrix4::Inverse(vm);
-	//	//MATHGL::Quaternion q(vm);
-	//	//auto rot = MATHGL::Quaternion::ToEulerAngles(q);
-	//
-	//
-	//	//cameraComponent->obj->getTransform()->setLocalPosition(MATHGL::Vector3(viewData[1], viewData[2], viewData[3]));
-	//	cameraComponent->obj->getTransform()->setLocalRotationDeg({ viewData[4], viewData[5], viewData[6] });
-	//	//cameraComponent->getCamera().setView(MATHGL::Matrix4::Transpose(cameraView));
-	//}
+	auto viewData = ImGuizmo::ViewManipulate(cameraView.getData(), _rot, camDistance, ImVec2(viewManipulateRight - 128, viewManipulateTop), ImVec2(128, 128), 0x10101010);
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	gizmoWindowFlags = ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(window->InnerRect.Min, window->InnerRect.Max) ? ImGuiWindowFlags_NoMove : 0;
+	
+	if (viewData[0] == 1) {
+		//auto vm = MATHGL::Matrix4::Transpose(cameraView);
+		//vm(0, 3) = vm(1, 3) = vm(2,3) =
+		//	vm(3,0) = vm(3,1) = vm(3,2) = 0.;
+		//vm(3,3) = 1;
+		//vm = MATHGL::Matrix4::Inverse(vm);
+		//MATHGL::Quaternion q(vm);
+		//auto rot = MATHGL::Quaternion::ToEulerAngles(q);
+	
+	
+		//cameraComponent->obj->getTransform()->setLocalPosition(MATHGL::Vector3(viewData[1], viewData[2], viewData[3]));
+		cameraComponent->obj->getTransform()->setLocalRotationDeg({ viewData[4], viewData[5], viewData[6] });
+		//cameraComponent->getCamera().setView(MATHGL::Matrix4::Transpose(cameraView));
+	}
 	if (ImGuizmo::IsUsing())
 	{
 		float matrixTranslation[3], matrixRotation[3], matrixScale[3];
@@ -1947,6 +1953,124 @@ void addComponentForObject(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string
 	addComponentForObject(obj, compName, ECS::ComponentsTypeProviderType{});
 }
 
+//----------------------------------
+
+
+template<typename T>
+void getInstanceImpl(UTILS::WeakPtr<ECS::Component> c, std::string_view compName, std::unique_ptr<rttr::instance>& inst) {
+	auto t = rttr::type::get<T>();
+	if (compName == t.get_name().to_string()) {
+		inst = std::make_unique<rttr::instance>(*static_cast<T*>(c.get()));
+	}
+}
+
+template<template<typename...> class Container, typename...ComponentType>
+void getInstance(UTILS::WeakPtr<ECS::Component> c, std::string_view compName, std::unique_ptr<rttr::instance>& inst, Container<ComponentType...> opt) {
+	(getInstanceImpl<ComponentType>(c, compName, inst), ...);
+}
+
+void getInstance(UTILS::WeakPtr<ECS::Component> c, std::unique_ptr<rttr::instance>& inst) {
+	getInstance(c, c->getName(), inst, ECS::ComponentsTypeProviderType{});
+}
+
+//-------------------------------------------
+
+void widgetFloat3(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	if (!CombineVecEdit::Data.contains(propName)) {
+		CombineVecEdit::Data.insert({ propName, CombineVecEdit(propName, 3, CombineVecEdit::MODE::POS) });
+	}
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	auto val = prop.get_value(*inst).get_value<MATHGL::Vector3>();
+	if (CombineVecEdit::Data.at(propName).draw(val)) {
+		std::ignore = prop.set_value(*inst, val);
+	}
+}
+
+void widgetColor3(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	if (!CombineVecEdit::Data.contains(propName)) {
+		CombineVecEdit::Data.insert({ propName, CombineVecEdit(propName, 3, CombineVecEdit::MODE::COLOR) });
+	}
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	auto val = prop.get_value(*inst).get_value<MATHGL::Vector3>();
+	if (CombineVecEdit::Data.at(propName).draw(val)) {
+		std::ignore = prop.set_value(*inst, val);
+	}
+}
+
+void widgetFloat(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	auto val = prop.get_value(*inst).get_value<float>();
+	if (ImGui::DragFloat(propName.c_str(), &val)) {
+		std::ignore = prop.set_value(*inst, val);
+	}
+}
+
+void widgetBool(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	auto val = prop.get_value(*inst).get_value<bool>();
+	if (ImGui::Checkbox(propName.c_str(), &val)) {
+		std::ignore = prop.set_value(*inst, val);
+	}
+}
+
+//TODO: add dnd and button for choose
+void widgetString(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	auto val = prop.get_value(*inst).get_value<std::string>();
+	if (ImGui::InputText(propName.c_str(), &val)) {
+		std::ignore = prop.set_value(*inst, val);
+	}
+}
+
+void widgetCombo(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	auto val = prop.get_value(*inst);
+
+	if (val.get_type().is_enumeration()) {
+		const auto names = val.get_type().get_enumeration().get_names();
+		const auto values = val.get_type().get_enumeration().get_values();
+		const auto enumNames = std::vector(names.begin(), names.end());
+		const auto enumValues = std::vector(values.begin(), values.end());
+	
+		int itemCurrentIndex = [&enumValues, &val]() {
+			int i = 0;
+			for (auto& e : enumValues) {
+				if (e == val) {
+					break;
+				}
+				i++;
+			}
+			return i;
+		}();
+		const auto comboLabel = enumNames[itemCurrentIndex].to_string();
+		if (ImGui::BeginCombo(propName.c_str(), comboLabel.c_str())) {
+			for (int n = 0; n < enumNames.size(); n++) {
+				const bool isSelected = (itemCurrentIndex == n);
+				if (ImGui::Selectable(enumNames[n].to_string().c_str(), isSelected)) {
+					itemCurrentIndex = n;
+					std::ignore = prop.set_value(*inst, enumValues[itemCurrentIndex]);
+				}
+				if (isSelected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+	}
+}
+
 void DebugRender::drawComponentInspector() {
 	ImGui::Begin((ICON_FA_DATABASE + std::string(" Component Inspector")).c_str());
 	if (!selectObj) {
@@ -1954,16 +2078,17 @@ void DebugRender::drawComponentInspector() {
 		return;
 	}
 
-	static std::unordered_map<std::string, std::function<ComponentType(ECS::Component&)>> convertComp = {
-		{ "Transform", [](ECS::Component& c) { return &static_cast<ECS::TransformComponent&>(c); } },
-		{ "SpotLight", [](ECS::Component& c) { return &static_cast<ECS::SpotLight&>(c); } },
-		{ "DirectionalLight", [](ECS::Component& c) { return &static_cast<ECS::DirectionalLight&>(c); } },
-		{ "PointLight", [](ECS::Component& c) { return &static_cast<ECS::PointLight&>(c); } },
-		{ "AmbientSphereLight", [](ECS::Component& c) { return &static_cast<ECS::AmbientSphereLight&>(c); } },
-		{ "AmbientLight", [](ECS::Component& c) { return &static_cast<ECS::AmbientLight&>(c); } },
-		{ "Camera", [](ECS::Component& c) { return &static_cast<ECS::CameraComponent&>(c); } },
-		{ "AudioListenerComponent", [](ECS::Component& c) { return &static_cast<ECS::AudioListenerComponent&>(c); } },
-		{ "AudioComponent", [](ECS::Component& c) { return &static_cast<ECS::AudioComponent&>(c); } },
+	//TODO: remove it when add all component support
+	static std::set<std::string> convertComp = {
+		"TransformComponent",
+		"SpotLight",
+		"DirectionalLight",
+		"PointLight",
+		"AmbientSphereLight",
+		"AmbientLight",
+		"CameraComponent",
+		"AudioListenerComponent",
+		"AudioComponent",
 	};
 
 	static std::unordered_map<std::string, std::string> iconComp = {
@@ -1978,6 +2103,16 @@ void DebugRender::drawComponentInspector() {
 		{ "AudioComponent", ICON_FA_MUSIC },
 	};
 
+	static std::map<EditorMetaInfo::WidgetType, std::function<void(UTILS::WeakPtr<ECS::Component>, const rttr::property&)>> widgetDrawer = {
+		{ EditorMetaInfo::DRAG_FLOAT_3, &widgetFloat3 },
+		{ EditorMetaInfo::DRAG_COLOR_3, &widgetColor3 },
+		{ EditorMetaInfo::DRAG_FLOAT, &widgetFloat },
+		{ EditorMetaInfo::BOOL, &widgetBool },
+		{ EditorMetaInfo::STRING, &widgetString },
+		{ EditorMetaInfo::COMBO, &widgetCombo },
+	};
+
+	//Add new component to object
 	static auto componentNames = genComponentsStringArray();
 	const auto& componentToAdd = drawSearchBox(componentNames);
 	if (ImGui::Button("Add")) {
@@ -1986,11 +2121,13 @@ void DebugRender::drawComponentInspector() {
 		}
 	}
 
+	//Object components
 	auto components = ECS::ComponentManager::GetInstance().getComponents(selectObj->getID());
 	for (auto& component : components) {
 		if (!convertComp.count(component->getName())) {
 			continue; //TODO:: write info to log
 		}
+
 		auto title = iconComp[component->getName()] + std::string(" ") + component->getName();
 		bool needDelComponent = true;
 		if (ImGui::CollapsingHeader(title.c_str(), &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
@@ -1998,144 +2135,25 @@ void DebugRender::drawComponentInspector() {
 				removeComponentFromObject(selectObj, component->getTypeidName());
 				break;
 			}
-
-			auto c = convertComp[component->getName()](*component.get());
-			rttr::type t = std::visit(
-			[](auto& arg) {
-				return rttr::type::get<std::remove_reference_t<decltype(*arg)>>();
-			},
-			c);
+			
+			rttr::type t = rttr::type::get_by_name(component->getName());
 			for (auto& prop : t.get_properties()) {
-				const auto flags = prop.get_metadata(MetaInfo::FLAGS).get_value<MetaInfo::Flags>();
-				if ((flags & (MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR)) == (MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR)) {
-					const auto wType = prop.get_metadata(EditorMetaInfo::EDIT_WIDGET).get_value<EditorMetaInfo::WidgetType>();
+				const auto flagsData = prop.get_metadata(MetaInfo::FLAGS);
+				if (!flagsData) {
+					LOG_INFO("drawComponentInspector: '" + prop.get_name().to_string() + "' does not have " + MetaInfo::FLAGS);
+					continue;
+				}
+				const auto flags = flagsData.get_value<MetaInfo::Flags>();
+
+				if (flags & (MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)) {
 					const std::string propName = prop.get_name().to_string();
-					if (wType == EditorMetaInfo::DRAG_FLOAT_3) {
-						if (!CombineVecEdit::Data.contains(propName)) {
-							CombineVecEdit::Data.insert({ propName, CombineVecEdit(propName, 3, CombineVecEdit::MODE::POS) });
-						}
-						auto val = std::visit(
-						[&](auto& arg) {
-							return prop.get_value(*arg);
-						}, c).get_value<MATHGL::Vector3>();
-						if (CombineVecEdit::Data.at(propName).draw(val)) {
-							auto res = std::visit(
-								[&](auto& arg) {
-									return prop.set_value(*arg, val);
-								}, c);
-						}
-					}
-					else if (wType == EditorMetaInfo::DRAG_COLOR_3) {
-						if (!CombineVecEdit::Data.contains(propName)) {
-							CombineVecEdit::Data.insert({ propName, CombineVecEdit(propName, 3, CombineVecEdit::MODE::COLOR) });
-						}
-						auto val = std::visit(
-							[&](auto& arg) {
-								return prop.get_value(*arg);
-							}, c).get_value<MATHGL::Vector3>();
-							if (CombineVecEdit::Data.at(propName).draw(val)) {
-								auto res = std::visit(
-									[&](auto& arg) {
-										return prop.set_value(*arg, val);
-									}, c);
-							}
-					}
-					else if (wType == EditorMetaInfo::DRAG_FLOAT) {
-						auto val = std::visit(
-							[&](auto& arg) {
-								return prop.get_value(*arg);
-							}, c).get_value<float>();
-							if (ImGui::DragFloat(propName.c_str(), &val)) {
-								auto res = std::visit(
-									[&](auto& arg) {
-										return prop.set_value(*arg, val);
-									}, c);
-							}
-					}
-					else if (wType == EditorMetaInfo::BOOL) {
-						auto val = std::visit(
-							[&](auto& arg) {
-								return prop.get_value(*arg);
-							}, c).get_value<bool>();
-							if (ImGui::Checkbox(propName.c_str(), &val)) {
-								auto res = std::visit(
-									[&](auto& arg) {
-										return prop.set_value(*arg, val);
-									}, c);
-							}
-					}
-					else if (wType == EditorMetaInfo::STRING) { //TODO: add dnd and button for choose
-						auto val = std::visit(
-							[&](auto& arg) {
-								return prop.get_value(*arg);
-							}, c).get_value<std::string>();
-							//if (
-							ImGui::Text((propName + val).c_str());
-							//	) {
-							//	auto res = std::visit(
-							//		[&](auto& arg) {
-							//			return prop.set_value(*arg, val);
-							//		}, c);
-							//}
-					}
-					else if (wType == EditorMetaInfo::COMBO) {
-						auto val = std::visit(
-							[&](auto& arg) {
-								return prop.get_value(*arg);
-							}, c);
-						const bool isEnum = val.get_type().is_enumeration();
-
-						if (isEnum) {
-							auto names = val.get_type().get_enumeration().get_names();
-							auto values = val.get_type().get_enumeration().get_values();
-							auto enumNames = std::vector(names.begin(), names.end());
-							auto enumValues = std::vector(values.begin(), values.end());
-
-							int item_current_idx = [&enumValues, &val]() {
-								int i = 0;
-								for (auto& e : enumValues) {
-									if (e == val) {
-										break;
-									}
-									i++;
-								}
-								return i;
-							}();
-							auto combo_label = enumNames[item_current_idx];
-							if (ImGui::BeginCombo(propName.c_str(), combo_label.to_string().c_str())) {
-								for (int n = 0; n < enumNames.size(); n++) {
-									const bool is_selected = (item_current_idx == n);
-									if (ImGui::Selectable(enumNames[n].to_string().c_str(), is_selected)) {
-										item_current_idx = n;
-										auto res = std::visit(
-											[&](auto& arg) {
-												return prop.set_value(*arg, enumValues[item_current_idx]);
-											}, c);
-									}
-									if (is_selected) {
-										ImGui::SetItemDefaultFocus();
-									}
-								}
-								ImGui::EndCombo();
-							}
-						}
-					}
+					const auto wType = prop.get_metadata(EditorMetaInfo::EDIT_WIDGET).get_value<EditorMetaInfo::WidgetType>();
+					widgetDrawer.at(wType)(component, prop);
 				}
 			}
 		}
 	}
-	
-	//if (selectObj) {
-	//	auto components = ECS::ComponentManager::getInstance()->getComponents(selectObj->getID());
-	//	for (auto component : components) {
-	//		if (component->getName() == "Transform") {
-	//			drawComponent(reinterpret_cast<ECS::TransformComponent*>(component.getPtr().get()));
-	//		}
-	//	}
-	//}
-
 	ImGui::End();
-
 }
 
 

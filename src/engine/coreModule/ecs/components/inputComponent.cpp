@@ -7,12 +7,12 @@ using namespace IKIGAI::ECS;
 InputComponent::InputComponent(Ref<ECS::Object> obj, std::function<void(std::chrono::duration<double>)> _inputEventFun):
 	Component(obj) {
 	inputEventFun = _inputEventFun;
-	__NAME__ = "Input";
+	__NAME__ = "InputComponent";
 }
 
 InputComponent::InputComponent(Ref<ECS::Object> obj) :
 	Component(obj) {
-	__NAME__ = "Input";
+	__NAME__ = "InputComponent";
 }
 
 void InputComponent::setActive(bool val) {
@@ -33,6 +33,6 @@ RTTR_REGISTRATION
 {
 	rttr::registration::class_<IKIGAI::ECS::InputComponent>("InputComponent")
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 	);
 }

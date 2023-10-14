@@ -14,7 +14,7 @@ import glmath;
 using namespace IKIGAI::ECS;
 
 CameraComponent::CameraComponent(Ref<ECS::Object> obj): Component(obj) {
-	__NAME__ = "Camera";
+	__NAME__ = "CameraComponent";
 }
 void CameraComponent::ResizeRenderTexture(size_t w, size_t h) {
 }
@@ -233,39 +233,39 @@ RTTR_REGISTRATION
 	);
 	rttr::registration::class_<IKIGAI::ECS::CameraComponent>("CameraComponent")
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_ANIMATION)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_ANIMATION)
 	)
 	.property("Far", &IKIGAI::ECS::CameraComponent::getFar, &IKIGAI::ECS::CameraComponent::setFar)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 	)
 	.property("Fov", &IKIGAI::ECS::CameraComponent::getFov, &IKIGAI::ECS::CameraComponent::setFov)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 	)
 	.property("Size", &IKIGAI::ECS::CameraComponent::getSize, &IKIGAI::ECS::CameraComponent::setSize)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 	)
 	.property("Near", &IKIGAI::ECS::CameraComponent::getNear, &IKIGAI::ECS::CameraComponent::setNear)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 	)
 	.property("ProjectionMode", &IKIGAI::ECS::CameraComponent::getProjectionMode, &IKIGAI::ECS::CameraComponent::setProjectionMode)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
 	);
 }

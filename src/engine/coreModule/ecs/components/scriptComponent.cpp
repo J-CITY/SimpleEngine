@@ -40,10 +40,10 @@ RTTR_REGISTRATION
 {
 	rttr::registration::class_<IKIGAI::ECS::ScriptComponent>("ScriptComponent")
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 	)
 	.property("Path", &IKIGAI::ECS::ScriptComponent::getName, &IKIGAI::ECS::ScriptComponent::setScript)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
 	);
 }
