@@ -194,12 +194,11 @@ struct MetaInfo {
 	constexpr static const char* DEFAULT = "DEFAULT";
 
 	enum Flags : uint32_t {
+		NONE = 0,
 		SERIALIZABLE = 1 << 0,
-		USE_IN_EDITOR = 1 << 1,
-		USE_IN_ANIMATION = 1 << 2,
-		USE_IN_COMPONENT_INSPECTOR = 1 << 3,
-		OPTIONAL_PARAM = 1 << 4,
-		SERIALIZABLE_RESOURCES = 1 << 4,
+		USE_IN_EDITOR_ANIMATION = 1 << 1,
+		USE_IN_EDITOR_COMPONENT_INSPECTOR = 1 << 2,
+		OPTIONAL_PARAM = 1 << 3,
 	};
 };
 

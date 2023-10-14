@@ -27,7 +27,7 @@ bool TransformNotifier::removeNotificationHandler(const NotificationHandlerID& p
 
 TransformComponent::TransformComponent(Ref<ECS::Object> obj, Vector3 localPosition,
 	Quaternion localRotation, Vector3 localScale): Component(obj) {
-	__NAME__ = "Transform";
+	__NAME__ = "TransformComponent";
 	transform = std::make_shared<Transform>();
 	transform->generateMatrices(localPosition, localRotation, localScale);
 }
@@ -537,29 +537,29 @@ RTTR_REGISTRATION
 {
 	rttr::registration::class_<IKIGAI::ECS::TransformComponent>("TransformComponent")
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_ANIMATION)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_ANIMATION)
 	)
 	.property("LocalScaleX", &IKIGAI::ECS::TransformComponent::getLocalScaleX, &IKIGAI::ECS::TransformComponent::setLocalScaleX)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalScaleY", &IKIGAI::ECS::TransformComponent::getLocalScaleY, &IKIGAI::ECS::TransformComponent::setLocalScaleY)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalScaleZ", &IKIGAI::ECS::TransformComponent::getLocalScaleZ, &IKIGAI::ECS::TransformComponent::setLocalScaleZ)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalScale", &IKIGAI::ECS::TransformComponent::getLocalScale_, &IKIGAI::ECS::TransformComponent::setLocalScale_)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT_3)
@@ -567,25 +567,25 @@ RTTR_REGISTRATION
 
 	.property("LocalRotationX", &IKIGAI::ECS::TransformComponent::getLocalRotationX, &IKIGAI::ECS::TransformComponent::setLocalRotationX)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalRotationY", &IKIGAI::ECS::TransformComponent::getLocalRotationY, &IKIGAI::ECS::TransformComponent::setLocalRotationY)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalRotationZ", &IKIGAI::ECS::TransformComponent::getLocalRotationZ, &IKIGAI::ECS::TransformComponent::setLocalRotationZ)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalRotation", &IKIGAI::ECS::TransformComponent::getLocalRotationDeg, &IKIGAI::ECS::TransformComponent::setLocalRotationDeg)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT_3)
@@ -593,25 +593,25 @@ RTTR_REGISTRATION
 
 	.property("LocalPositionX", &IKIGAI::ECS::TransformComponent::getLocalPositionX, &IKIGAI::ECS::TransformComponent::setLocalPositionX)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalPositionY", &IKIGAI::ECS::TransformComponent::getLocalPositionY, &IKIGAI::ECS::TransformComponent::setLocalPositionY)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalPositionZ", &IKIGAI::ECS::TransformComponent::getLocalPositionZ, &IKIGAI::ECS::TransformComponent::setLocalPositionZ)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::NONE),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f)
 	)
 	.property("LocalPosition", &IKIGAI::ECS::TransformComponent::getLocalPosition_, &IKIGAI::ECS::TransformComponent::setLocalPosition_)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
 		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT_3)

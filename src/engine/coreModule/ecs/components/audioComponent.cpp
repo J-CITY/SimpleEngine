@@ -98,46 +98,46 @@ RTTR_REGISTRATION
 {
 	rttr::registration::class_<IKIGAI::ECS::AudioListenerComponent>("AudioListenerComponent")
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 	);
 
 rttr::registration::class_<IKIGAI::ECS::AudioComponent>("AudioComponent")
 (
-	rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR)
+	rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 	)
 	.property("Source", &IKIGAI::ECS::AudioComponent::getSourcePath, &IKIGAI::ECS::AudioComponent::setSourcePath)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE || MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
 		)
 	.property("Sound", &IKIGAI::ECS::AudioComponent::getSoundPath, &IKIGAI::ECS::AudioComponent::setSoundPath)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS,MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
 		)
 	.property("3D", &IKIGAI::ECS::AudioComponent::getIs3D, &IKIGAI::ECS::AudioComponent::setIs3D)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
 		)
 	.property("Loop", &IKIGAI::ECS::AudioComponent::getIsLooped, &IKIGAI::ECS::AudioComponent::setIsLooped)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
 		)
 	.property("Volume", &IKIGAI::ECS::AudioComponent::getVolume, &IKIGAI::ECS::AudioComponent::setVolume)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 		)
 	.property("Pan", &IKIGAI::ECS::AudioComponent::getPan, &IKIGAI::ECS::AudioComponent::setPan)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 		)
 	.property("State", &IKIGAI::ECS::AudioComponent::getState, &IKIGAI::ECS::AudioComponent::setState)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR | MetaInfo::USE_IN_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
 		);
 }
