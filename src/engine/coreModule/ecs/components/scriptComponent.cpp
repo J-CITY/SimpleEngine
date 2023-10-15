@@ -28,7 +28,11 @@ const std::string& ScriptComponent::getName() const {
 	return name;
 }
 
-void ScriptComponent::setScript(const std::string& _name) {
+std::string ScriptComponent::getScriptName() {
+	return name;
+}
+
+void ScriptComponent::setScript(std::string _name) {
 	name = _name;
 	ScriptComponent::createdEvent.run(this);
 }
@@ -42,8 +46,9 @@ RTTR_REGISTRATION
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 	)
-	.property("Path", &IKIGAI::ECS::ScriptComponent::getName, &IKIGAI::ECS::ScriptComponent::setScript)
+	.property("Path", &IKIGAI::ECS::ScriptComponent::getScriptName, &IKIGAI::ECS::ScriptComponent::setScript)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
 	);
 }

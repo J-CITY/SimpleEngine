@@ -26,7 +26,8 @@ namespace IKIGAI::ECS {
 
 		[[nodiscard]] const std::string& getName() const;
 	private:
-		void setScript(const std::string& name);
+		void setScript(std::string name);
+		std::string getScriptName();
 
 		std::string name;
 		sol::table object = sol::nil;

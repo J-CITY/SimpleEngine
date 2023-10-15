@@ -221,7 +221,8 @@ struct EditorMetaInfo {
 		DRAG_COLOR_4,
 		COMBO,
 		BOOL,
-		STRING
+		STRING,
+		STRINGS_ARRAY
 	};
 };
 
