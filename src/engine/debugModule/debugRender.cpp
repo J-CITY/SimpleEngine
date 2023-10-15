@@ -97,6 +97,8 @@ struct AnimationLineInfo {
 };
 std::vector<AnimationLineInfo> SequencerItemTypeNames{};
 
+std::set<ECS::Object::Id> searchedObjectsIds;
+
 std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<IKIGAI::ECS::Object> parentEntity) {
 	std::shared_ptr<IKIGAI::ECS::Object> selectedNode;
 
@@ -129,8 +131,15 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 			node->setActive(!node->getIsActive());
 		}
 		ImGui::SameLine();
-		bool nodeIsOpen = ImGui::TreeNodeBehavior(ImGui::GetCurrentWindow()->GetID(node->getName().c_str()), nodeFlags, name.c_str());
-		
+		bool inSearch = searchedObjectsIds.contains(node->getID());
+		if (inSearch) {
+			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+		}
+		const bool nodeIsOpen = ImGui::TreeNodeBehavior(ImGui::GetCurrentWindow()->GetID(static_cast<int>(node->getID())), nodeFlags, name.c_str());
+		if (inSearch) {
+			ImGui::PopStyleColor();
+		}
+
 		ImGui::PopStyleVar();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 5.0f, 5.0f });
@@ -232,7 +241,38 @@ void drawNodeTree(IKIGAI::CORE_SYSTEM::Core& core) {
 
 	if (core.sceneManager->hasCurrentScene()) {
 		auto& scene = core.sceneManager->getCurrentScene();
+
 		if (ImGui::Begin("Scene Hierarchy", &isobjTreeOpen)) {
+			ImGui::Text("Search: ");
+			ImGui::SameLine();
+			static std::string searchInActors;
+			if (ImGui::InputText("##search_in_actors", &searchInActors)) {
+				searchedObjectsIds.clear();
+				if (!searchInActors.empty()) {
+					for (auto obj : scene.getObjects()) {
+						ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), false);
+					}
+					for (auto obj : scene.getObjects()) {
+						const auto foundInName = UTILS::toLower(obj->getName()).find(UTILS::toLower(searchInActors)) != std::string::npos;
+						const auto foundInTag = UTILS::toLower(obj->getTag()).find(UTILS::toLower(searchInActors)) != std::string::npos;
+						if (foundInName || foundInTag) {
+							searchedObjectsIds.insert(obj->getID());
+							std::function<void(std::shared_ptr<ECS::Object>)> expandAll;
+							expandAll = [&expandAll](std::shared_ptr<ECS::Object> obj) {
+								ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), true);
+								if (obj->getParent()) {
+									expandAll(obj->getParent());
+								}
+							};
+							if (obj->getParent()) {
+								expandAll(obj->getParent());
+							}
+						}
+					}
+				}
+			}
+
+
 			uniqueNodeId = 0;
 			auto _selectNode = recursiveDraw(scene, nullptr);
 			if (_selectNode) {
@@ -304,6 +344,9 @@ struct FileBrowser {
 		textureCache["__object__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png")).value();
 	}
 	int globalNodeId = 0;
+	
+
+	std::set<ECS::Object::Id> searchedFileTreeIds;
 	void draw() {
 		//ImGui::Columns(2);
 		ImGui::Begin("File Browser");
@@ -311,6 +354,37 @@ struct FileBrowser {
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			globalNodeId = 0;
+
+			//TODO: create file tree structure
+			//ImGui::Text("Search: ");
+			//ImGui::SameLine();
+			//static std::string searchInActors;
+			//if (ImGui::InputText("##search_in_file_tree", &searchInActors)) {
+			//	searchedFileTreeIds.clear();
+			//	if (!searchInActors.empty()) {
+			//		for (auto obj : scene.getObjects()) {
+			//			ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), false);
+			//		}
+			//		for (auto obj : scene.getObjects()) {
+			//			const auto foundInName = UTILS::toLower(obj->getName()).find(UTILS::toLower(searchInActors)) != std::string::npos;
+			//			const auto foundInTag = UTILS::toLower(obj->getTag()).find(UTILS::toLower(searchInActors)) != std::string::npos;
+			//			if (foundInName || foundInTag) {
+			//				searchedFileTreeIds.insert(obj->getID());
+			//				std::function<void(std::shared_ptr<ECS::Object>)> expandAll;
+			//				expandAll = [&expandAll](std::shared_ptr<ECS::Object> obj) {
+			//					ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), true);
+			//					if (obj->getParent()) {
+			//						expandAll(obj->getParent());
+			//					}
+			//				};
+			//				if (obj->getParent()) {
+			//					expandAll(obj->getParent());
+			//				}
+			//			}
+			//		}
+			//	}
+			//}
+
 			drawItem(globalNodeId, mPath);
 			
 			ImGui::TableNextColumn();
@@ -357,6 +431,13 @@ private:
 	void drawFolder(std::string_view path) {
 		ImGui::BeginChild("##FolderBar", ImVec2(0, 30));
 		ImGui::Text(std::string(path).c_str());
+		ImGui::SameLine();
+		ImGui::Text("Search: ");
+		ImGui::SameLine();
+		static std::string searchInFolder;
+		if (ImGui::InputText("##search_in_file_tree", &searchInFolder)) {
+
+		}
 		int sliderSize = 200;
 		ImGui::SameLine(ImGui::GetWindowWidth() - sliderSize);
 		ImGui::PushItemWidth(sliderSize);
@@ -376,6 +457,13 @@ private:
 		//ImGui::Columns(static_cast<int>(col1Size / elementSize));
 		int i = 0;
 		for (const auto& entry : std::filesystem::directory_iterator(path)) {
+			if (!searchInFolder.empty()) {
+				if (UTILS::toLower(entry.path().filename().string())
+					.find(UTILS::toLower(searchInFolder)) == std::string::npos) {
+					continue;
+				}
+			}
+			ImGui::PushID(("folder_item_" + std::to_string(i)).c_str());
 			bool isDirectory = std::filesystem::is_directory(entry);
 			auto ext = isDirectory ? "dir" : entry.path().extension().string();
 			auto extType = getFileType(ext);
@@ -410,6 +498,7 @@ private:
 				ImGui::SameLine();
 			}
 			//ImGui::NextColumn();
+			ImGui::PopID();
 		}
 		ImGui::EndChild();
 		//ImGui::Columns(2);
@@ -426,7 +515,7 @@ private:
 	}
 
 	void drawItem(int i, std::string_view path) {
-		ImGui::PushID(("node_" + std::to_string(i)).c_str());
+		ImGui::PushID(("fileTree_" + std::to_string(i)).c_str());
 		ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_Selected;
 
 		bool isDirectory = std::filesystem::is_directory(path);
@@ -1363,6 +1452,7 @@ DebugRender::DebugRender() {
 	});
 #endif
 
+
 	fileBrowser = std::make_unique<FileBrowser>(Config::ROOT + Config::ASSETS_PATH);
 
 
@@ -2001,12 +2091,31 @@ void widgetColor3(UTILS::WeakPtr<ECS::Component> component, const rttr::property
 	}
 }
 
+/*
+ * TODO:
+ * - Search in tree in file browser
+ * - view port for window (not screen size)
+ */
+
 void widgetFloat(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
 	const std::string propName = prop.get_name().to_string();
 	std::unique_ptr<rttr::instance> inst;
 	getInstance(component, inst);
 	auto val = prop.get_value(*inst).get_value<float>();
-	if (ImGui::DragFloat(propName.c_str(), &val)) {
+
+	const auto flagsRageData = prop.get_metadata(EditorMetaInfo::EDIT_RANGE);
+	const auto flagsStepData = prop.get_metadata(EditorMetaInfo::EDIT_STEP);
+	auto _speed = 1;
+	auto _min = 0.0f;
+	auto _max = 0.0f;
+	if (flagsRageData) {
+		_min = flagsRageData.get_value<Pair>().first;
+		_max = flagsRageData.get_value<Pair>().second;
+	}
+	if (flagsRageData) {
+		_speed = flagsStepData.get_value<float>();
+	}
+	if (ImGui::DragFloat(propName.c_str(), &val, _speed, _min, _max)) {
 		std::ignore = prop.set_value(*inst, val);
 	}
 }
@@ -2029,6 +2138,19 @@ void widgetString(UTILS::WeakPtr<ECS::Component> component, const rttr::property
 	auto val = prop.get_value(*inst).get_value<std::string>();
 	if (ImGui::InputText(propName.c_str(), &val)) {
 		std::ignore = prop.set_value(*inst, val);
+	}
+}
+
+void widgetStringArray(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	ImGui::Text(propName.c_str());
+	auto val = prop.get_value(*inst).get_value<std::vector<std::string>>();
+	for (auto& e : val) {
+		if (ImGui::InputText(propName.c_str(), &e)) {
+			std::ignore = prop.set_value(*inst, val);
+		}
 	}
 }
 
@@ -2089,18 +2211,32 @@ void DebugRender::drawComponentInspector() {
 		"CameraComponent",
 		"AudioListenerComponent",
 		"AudioComponent",
+		"InputComponent",
+		"LogicComponent",
+		"MaterialRenderer",
+		"ModelRenderer",
+		"PhysicsComponent",
+		"ScriptComponent",
+		"Skeletal",
 	};
 
 	static std::unordered_map<std::string, std::string> iconComp = {
-		{ "Transform", ICON_FA_GLOBE },
+		{ "TransformComponent", ICON_FA_GLOBE },
 		{ "SpotLight", ICON_FA_LIGHTBULB },
 		{ "DirectionalLight", ICON_FA_SUN },
 		{ "PointLight", ICON_FA_LIGHTBULB },
 		{ "AmbientSphereLight", ICON_FA_CIRCLE },
 		{ "AmbientLight", ICON_FA_SQUARE },
-		{ "Camera", ICON_FA_CAMERA },
+		{ "CameraComponent", ICON_FA_CAMERA },
 		{ "AudioListenerComponent", ICON_FA_MUSIC },
 		{ "AudioComponent", ICON_FA_MUSIC },
+		{ "InputComponent", ICON_FA_HAND_POINT_UP },
+		{ "LogicComponent", ICON_FA_CODE },
+		{ "MaterialRenderer", ICON_FA_IMAGE },
+		{ "ModelRenderer", ICON_FA_CUBE },
+		{ "PhysicsComponent", ICON_FA_WEIGHT },
+		{ "ScriptComponent", ICON_FA_CODE },
+		{ "Skeletal", ICON_FA_SKULL },
 	};
 
 	static std::map<EditorMetaInfo::WidgetType, std::function<void(UTILS::WeakPtr<ECS::Component>, const rttr::property&)>> widgetDrawer = {
@@ -2110,6 +2246,7 @@ void DebugRender::drawComponentInspector() {
 		{ EditorMetaInfo::BOOL, &widgetBool },
 		{ EditorMetaInfo::STRING, &widgetString },
 		{ EditorMetaInfo::COMBO, &widgetCombo },
+		{ EditorMetaInfo::STRINGS_ARRAY, &widgetStringArray },
 	};
 
 	//Add new component to object
@@ -2659,6 +2796,94 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 	ImGui::NewFrame();
 
 	drawMainWindow();
+
+	{//input
+		std::array keys = {
+			INPUT_SYSTEM::EKey::KEY_TAB,
+			INPUT_SYSTEM::EKey::KEY_LEFT,
+			INPUT_SYSTEM::EKey::KEY_RIGHT,
+			INPUT_SYSTEM::EKey::KEY_UP,
+			INPUT_SYSTEM::EKey::KEY_DOWN,
+			INPUT_SYSTEM::EKey::KEY_PAGE_UP,
+			INPUT_SYSTEM::EKey::KEY_PAGE_DOWN,
+			INPUT_SYSTEM::EKey::KEY_HOME,
+			INPUT_SYSTEM::EKey::KEY_END,
+			INPUT_SYSTEM::EKey::KEY_INSERT,
+			INPUT_SYSTEM::EKey::KEY_DELETE,
+			INPUT_SYSTEM::EKey::KEY_BACKSPACE,
+			INPUT_SYSTEM::EKey::KEY_SPACE,
+			INPUT_SYSTEM::EKey::KEY_ENTER,
+			INPUT_SYSTEM::EKey::KEY_ESCAPE,
+			INPUT_SYSTEM::EKey::KEY_LEFT_CONTROL,
+			INPUT_SYSTEM::EKey::KEY_LEFT_SHIFT,
+			INPUT_SYSTEM::EKey::KEY_LEFT_ALT,
+			INPUT_SYSTEM::EKey::KEY_LEFT_SUPER,
+			INPUT_SYSTEM::EKey::KEY_RIGHT_CONTROL,
+			INPUT_SYSTEM::EKey::KEY_RIGHT_SHIFT,
+			INPUT_SYSTEM::EKey::KEY_RIGHT_ALT,
+			INPUT_SYSTEM::EKey::KEY_RIGHT_SUPER,
+			INPUT_SYSTEM::EKey::KEY_MENU,
+			INPUT_SYSTEM::EKey::KEY_0,
+			INPUT_SYSTEM::EKey::KEY_1,
+			INPUT_SYSTEM::EKey::KEY_2,
+			INPUT_SYSTEM::EKey::KEY_3,
+			INPUT_SYSTEM::EKey::KEY_4,
+			INPUT_SYSTEM::EKey::KEY_5,
+			INPUT_SYSTEM::EKey::KEY_6,
+			INPUT_SYSTEM::EKey::KEY_7,
+			INPUT_SYSTEM::EKey::KEY_8,
+			INPUT_SYSTEM::EKey::KEY_9,
+			INPUT_SYSTEM::EKey::KEY_A,
+			INPUT_SYSTEM::EKey::KEY_B,
+			INPUT_SYSTEM::EKey::KEY_C,
+			INPUT_SYSTEM::EKey::KEY_D,
+			INPUT_SYSTEM::EKey::KEY_E,
+			INPUT_SYSTEM::EKey::KEY_F,
+			INPUT_SYSTEM::EKey::KEY_G,
+			INPUT_SYSTEM::EKey::KEY_H,
+			INPUT_SYSTEM::EKey::KEY_I,
+			INPUT_SYSTEM::EKey::KEY_J,
+			INPUT_SYSTEM::EKey::KEY_K,
+			INPUT_SYSTEM::EKey::KEY_L,
+			INPUT_SYSTEM::EKey::KEY_M,
+			INPUT_SYSTEM::EKey::KEY_N,
+			INPUT_SYSTEM::EKey::KEY_O,
+			INPUT_SYSTEM::EKey::KEY_P,
+			INPUT_SYSTEM::EKey::KEY_Q,
+			INPUT_SYSTEM::EKey::KEY_R,
+			INPUT_SYSTEM::EKey::KEY_S,
+			INPUT_SYSTEM::EKey::KEY_T,
+			INPUT_SYSTEM::EKey::KEY_U,
+			INPUT_SYSTEM::EKey::KEY_V,
+			INPUT_SYSTEM::EKey::KEY_W,
+			INPUT_SYSTEM::EKey::KEY_X,
+			INPUT_SYSTEM::EKey::KEY_Y,
+			INPUT_SYSTEM::EKey::KEY_Z,
+			INPUT_SYSTEM::EKey::KEY_F1,
+			INPUT_SYSTEM::EKey::KEY_F2,
+			INPUT_SYSTEM::EKey::KEY_F3,
+			INPUT_SYSTEM::EKey::KEY_F4,
+			INPUT_SYSTEM::EKey::KEY_F5,
+			INPUT_SYSTEM::EKey::KEY_F6,
+			INPUT_SYSTEM::EKey::KEY_F7,
+			INPUT_SYSTEM::EKey::KEY_F8,
+			INPUT_SYSTEM::EKey::KEY_F9,
+			INPUT_SYSTEM::EKey::KEY_F10,
+			INPUT_SYSTEM::EKey::KEY_F11,
+			INPUT_SYSTEM::EKey::KEY_F12,
+		};
+		
+		int i = 512;
+		for (auto e : keys) {
+			if (ImGui::IsKeyPressed((ImGuiKey)i, false)) {
+				RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().keyPressedEvent.run(static_cast<int>(e));
+			}
+			else if (ImGui::IsKeyReleased((ImGuiKey)i)) {
+				RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().keyReleasedEvent.run(static_cast<int>(e));
+			}
+			++i;
+		}
+	}
 
 	{//Debug
 		ImGui::Begin("Render pipeline");

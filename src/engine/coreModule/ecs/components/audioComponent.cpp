@@ -28,7 +28,10 @@ void AudioComponent::setSourcePath(std::string val) {
 std::string AudioComponent::getSoundPath() {
 	return res->data.pathSoundSource;
 }
-void AudioComponent::setSoundPath(std::string) {}
+void AudioComponent::setSoundPath(std::string)
+{
+	//TODO
+}
 
 bool AudioComponent::getIs3D() {
 	return res->data.is3D;
@@ -109,36 +112,40 @@ rttr::registration::class_<IKIGAI::ECS::AudioComponent>("AudioComponent")
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE || MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-		)
+	)
 	.property("Sound", &IKIGAI::ECS::AudioComponent::getSoundPath, &IKIGAI::ECS::AudioComponent::setSoundPath)
 	(
 		rttr::metadata(MetaInfo::FLAGS,MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-		)
+	)
 	.property("3D", &IKIGAI::ECS::AudioComponent::getIs3D, &IKIGAI::ECS::AudioComponent::setIs3D)
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
-		)
+	)
 	.property("Loop", &IKIGAI::ECS::AudioComponent::getIsLooped, &IKIGAI::ECS::AudioComponent::setIsLooped)
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
-		)
+	)
 	.property("Volume", &IKIGAI::ECS::AudioComponent::getVolume, &IKIGAI::ECS::AudioComponent::setVolume)
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-		)
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 100.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 1.0f)
+	)
 	.property("Pan", &IKIGAI::ECS::AudioComponent::getPan, &IKIGAI::ECS::AudioComponent::setPan)
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-		)
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT),
+		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 100.0f }),
+		rttr::metadata(EditorMetaInfo::EDIT_STEP, 1.0f)
+	)
 	.property("State", &IKIGAI::ECS::AudioComponent::getState, &IKIGAI::ECS::AudioComponent::setState)
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
-		);
+	);
 }
 

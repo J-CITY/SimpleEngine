@@ -80,7 +80,8 @@ RTTR_REGISTRATION
 	)
 	.property("Materials", &IKIGAI::ECS::MaterialRenderer::getMaterialsPaths, &IKIGAI::ECS::MaterialRenderer::setMaterialsByPath)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRINGS_ARRAY)
 	)
 	;
 }

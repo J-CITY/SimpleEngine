@@ -15,6 +15,7 @@ namespace IKIGAI::RENDER {
 
 	class GameRendererInterface {
 	public:
+		MATHGL::Vector2i viewPoreSize = MATHGL::Vector2i(800, 600);
 		virtual ~GameRendererInterface() = default;
 		virtual void renderScene() = 0;
 		virtual void resize() {}; //TODO: make pure virtual
