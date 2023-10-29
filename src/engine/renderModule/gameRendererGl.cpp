@@ -31,8 +31,6 @@ std::shared_ptr<UniformBufferGl<EngineUBO>> mEngineUbo;
 
 //std::shared_ptr<UniformBufferGl<GameRendererGl::EngineDirShadowUBO>> mEngineDirShadowUBO;
 
-std::shared_ptr<TextureGl> mEmptyTexture;
-std::shared_ptr<TextureGl> mHDRSkyBoxTexture;
 
 struct EnginePointShadowUBO {
 	MATHGL::Vector3 LightPos;
@@ -93,7 +91,7 @@ std::shared_ptr<FrameBufferGl> deferredPBRFb;
 
 std::shared_ptr<FrameBufferGl> resultFb;
 
-std::unordered_map<std::string, std::shared_ptr<TextureGl>> mTextures;
+
 std::unordered_map<std::string, std::shared_ptr<FrameBufferGl>> mFramebuffers;
 std::unordered_map<std::string, std::shared_ptr<ShaderGl>> mShaders;
 
@@ -106,6 +104,12 @@ void renderCube();
 #include "backends/gl/materialGl.h"
 
 
+void GameRendererGl::setSkyBoxTexture(const std::string& path) {
+	mHDRSkyBoxTexture = std::static_pointer_cast<TextureGl>(
+		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFileHDR(path, false));
+	mHDRSkyBoxTexture->mPath = path;
+}
+
 RESOURCES::ResourcePtr<RENDER::ModelInterface> sphere;
 std::shared_ptr<RENDER::MaterialGl> emptyMaterial;
 GameRendererGl::GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context): mContext(context) {
@@ -115,10 +119,8 @@ GameRendererGl::GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context): mContext(con
 
 	mEmptyTexture = std::static_pointer_cast<TextureGl>(
 		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("Textures/snow.png", true));
-	
-	mHDRSkyBoxTexture = std::static_pointer_cast<TextureGl>(
-		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFileHDR("Textures/sky.hdr", false));
 
+	setSkyBoxTexture("Textures/sky.hdr");
 	//mEngineDirShadowUBO = std::make_shared<UniformBufferGl<EngineDirShadowUBO>>("EngineDirShadowUBO", 1);
 	mEnginePointShadowUBO = std::make_shared<UniformBufferGl<EnginePointShadowUBO>>("EnginePointShadowUBO", 1);
 	mEngineSpotShadowUBO = std::make_shared<UniformBufferGl<EngineSpotShadowUBO>>("EngineSpotShadowUBO", 1);
@@ -138,13 +140,15 @@ GameRendererGl::GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context): mContext(con
 
 	emptyMaterial = std::make_shared<RENDER::MaterialGl>();
 	emptyMaterial->setShader(std::make_shared<ShaderGl>("Shaders/gl/Unlit.vs.glsl", "Shaders/gl/Unlit.fs.glsl"));
-	emptyMaterial->set("u_Diffuse", MATHGL::Vector3(1.f, 0.f, 1.f));
+	emptyMaterial->set("u_Diffuse", MATHGL::Vector4(1.f, 0.f, 1.f, 1.f));
 	emptyMaterial->set("u_DiffuseMap", nullptr);
 
 	//mEmptyTexture = TextureGl::create(IKIGAI::UTILS::getRealPath("textures/brick_albedo.jpg"));
 	//u_SpecularMap = TextureGl::create(IKIGAI::UTILS::getRealPath("Textures/brick_roughness.jpg"));
 	//u_NormalMap = TextureGl::create(IKIGAI::UTILS::getRealPath("Textures/brick_normal.jpg"));
 	//u_HeightMap = TextureGl::create(IKIGAI::UTILS::getRealPath("Textures/snow.png"));
+
+	preparePipeline();
 }
 
 MATHGL::Vector2f haltonSequence[128];
@@ -443,9 +447,7 @@ void GameRendererGl::createShaders() {
 	mShaders["label"]->bind();
 }
 
-bool pingPong = false;
 std::array<std::shared_ptr<FrameBufferGl>, 2> pingPongFb;
-std::array<std::shared_ptr<TextureGl>, 2> pingPongTex;
 
 std::array<std::shared_ptr<FrameBufferGl>, 2> pingPongBlurFb;
 std::array<std::shared_ptr<TextureGl>, 2> pingPongBlurTex;
@@ -1066,6 +1068,55 @@ MATHGL::Matrix4 GameRendererGl::getLightSpaceMatrix(float nearPlane, float farPl
 	return lightProjection * lightView;
 }
 
+void GameRendererGl::preparePipeline() {
+	ppFuncs.clear();
+	for (auto& e : UTILS::Impl::Tokens<RenderStates>) {
+		if ((renderStateMask & e.second) == e.second) {
+			if (typeToFuncPP.contains(e.second)) {
+				ppFuncs.push_back(typeToFuncPP.at(e.second));
+			}
+		}
+	}
+
+	mPipeline.mSSAO.mUseSSAO = false;
+	if ((renderStateMask & RenderStates::SSAO) == RenderStates::SSAO) {
+		mPipeline.mSSAO.mUseSSAO = true;
+	}
+
+	mPipeline.mSSR.mUse = false;
+	if ((renderStateMask & RenderStates::SSR) == RenderStates::SSR) {
+		mPipeline.mSSR.mUse = true;
+	}
+
+	mPipeline.mSSGI.mUse = false;
+	if ((renderStateMask & RenderStates::SSGI) == RenderStates::SSGI) {
+		mPipeline.mSSGI.mUse = true;
+	}
+
+	mPipeline.mSSS.mUse = false;
+	if ((renderStateMask & RenderStates::SSS) == RenderStates::SSS) {
+		mPipeline.mSSS.mUse = true;
+	}
+
+	for (auto& e : customPostProcessing) {
+		if (activeCustomPP.contains(e.first) && activeCustomPP.at(e.first)) {
+			ppFuncs.push_back([this, material=e.second]() {
+				pingPongFb[pingPong]->bind();
+				//mDriver->clear(true, true, false);
+
+				material->bind(mEmptyTexture, true);
+				std::static_pointer_cast<ShaderGl>(material->getShader())->setInt("u_engine_Scene", 0);
+				pingPongTex[!pingPong]->bind(0);
+				renderQuad();
+				material->unbind();
+
+				pingPongFb[pingPong]->unbind();
+				pingPong = !pingPong;
+			});
+		}
+	}
+}
+
 GameRendererGl::EngineDirShadowUBO GameRendererGl::getLightSpaceMatrices(const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos) {
 	EngineDirShadowUBO ret;
 	for (size_t i = 0; i < mPipeline.mDirShadowMap.mShadowCascadeLevels.size() + 1; ++i) {
@@ -1289,7 +1340,7 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 
 	const auto& cameraPosition = mainCameraComponent->obj->getTransform()->getWorldPosition();
 	std::tie(mOpaqueMeshesForward, mTransparentMeshesForward, mOpaqueMeshesDeferred, mTransparentMeshesDeferred) =
-		currentScene.findDrawables(cameraPosition, camera, nullptr, nullptr);
+		currentScene.findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
 
 	mDriver->setClearColor(mPipeline.mClearColor.x, mPipeline.mClearColor.y, mPipeline.mClearColor.z, mPipeline.mClearColor.w);
 	mDriver->clear(true, true, false);
@@ -1333,9 +1384,15 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 
 	drawDeferredGBuffer();
 
-	applySSR();
-	//applySSGI();
-	//applySSS();
+	if (mPipeline.mSSR.mUse) {
+		applySSR();
+	}
+	if (mPipeline.mSSGI.mUse) {
+		applySSGI();
+	}
+	if (mPipeline.mSSS.mUse) {
+		applySSS();
+	}
 
 	TextureGl::CopyTexture(*pingPongTex[!pingPong], *mDeferredTexture);
 	auto [winWidth, winHeight] = mContext.window->getSize();
@@ -1349,16 +1406,18 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 	TextureGl::CopyTexture(*mDeferredTexture, *pingPongTex[1]);
 	TextureGl::CopyTexture(*mDeferredTexture, *mTextures["deferredTextureSave"]);
 
-	//applyTAA();
-	//applyMotionBlur();
+	
 
 	prepareBrightTexture();
 	auto horizontal = prepareBlurTexture(mTextures["deferredTextureSave"]);
 	TextureGl::CopyTexture(*pingPongBlurTex[!horizontal], *mTextures["blur"]);
 	prepareGodRaysTexture();
 
-	applyBloom();
 
+	//applyTAA();
+	//applyMotionBlur();
+	//applyBloom();
+	//
 	//applyGoodRays();
 	//applyFXAA();
 	//applyHDR();
@@ -1372,18 +1431,24 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 	//applySharpen();
 	//applyDilation();
 	//applyFilmGrain();
+	//
+	//drawGUI();
+
+	for (auto& e : ppFuncs) {
+		e();
+	}
 
 	{//render to screen
-		//mShaders["renderToScreen"]->bind();
-		////mTextures["spotShadowMap"]->bind(0);
-		////mTextures["ssaoBlur"]->bind(0);
-		////mRenderToScreenTexture->bind(0);
-		////mDeferredTexture->bind(0);
-		//pingPongTex[!pingPong]->bind(0);
-		//renderQuad();
-		//mShaders["renderToScreen"]->unbind();
+		mShaders["renderToScreen"]->bind();
+		//mTextures["spotShadowMap"]->bind(0);
+		//mTextures["ssaoBlur"]->bind(0);
+		//mRenderToScreenTexture->bind(0);
+		//mDeferredTexture->bind(0);
+		pingPongTex[!pingPong]->bind(0);
+		renderQuad();
+		mShaders["renderToScreen"]->unbind();
 	}
-	//drawGUI();
+	
 }
 
 void GameRendererGl::sendIBLData() {
@@ -1726,7 +1791,13 @@ void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		mShaders["sprite"]->bind();
-		static_cast<TextureGl*>(_component->mTexture.get())->bind(0);
+		if (_component->mTexture) {
+			static_cast<TextureGl*>(_component->mTexture.get())->bind(0);
+		}
+		else
+		{
+			mEmptyTexture->bind(0);
+		}
 		mShaders["sprite"]->setVec4("spriteColor", _component->mColor);
 		mShaders["sprite"]->setMat4("u_engine_model", 
 			transform->getWorldMatrix() * 
@@ -1890,10 +1961,21 @@ void GameRendererGl::resize() {
 }
 
 void GameRendererGl::drawGUI() {
+	pingPongFb[!pingPong]->bind();
+
 	for (auto& guiRoot : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::RootGuiComponent>()) {
 		auto obj = guiRoot.obj;
 		drawGUISubtree(obj);
 	}
+
+	//set to default
+	pingPongFb[!pingPong]->unbind();
+	//pingPong = !pingPong;
+}
+
+void GameRendererGl::addCustomPostProcessing(const std::string& name, std::shared_ptr<MaterialGl> material, bool isActive) {
+	customPostProcessing[name] = material;
+	activeCustomPP[name] = isActive;
 }
 
 void GameRendererGl::drawDeferredGBuffer() {

@@ -28,7 +28,7 @@ namespace IKIGAI::RENDER {
 		virtual bool isColorWriting() const = 0;
 
 		virtual void setIsDeferred(bool v, std::shared_ptr<ShaderInterface> shader) = 0;
-
+		
 		std::string mPath;
 	};
 }

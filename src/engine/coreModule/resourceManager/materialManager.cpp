@@ -16,9 +16,10 @@
 #endif
 
 #include <renderModule/backends/interface/driverInterface.h>
+//TODO: delete it
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::CreateFromFile(const std::string& path) {
-	const std::string realPath = getRealPath(path);
-	auto material = Create(realPath);
+	//const std::string realPath = getRealPath(path);
+	auto material = Create(path);
 	if (material) {
 		material->mPath = path;
 	}
@@ -45,7 +46,10 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 				case RESOURCES::FileWatcher::FileStatus::CREATE: break;
 				}
 			});
-			material->watchingFilesId.push_back({ UTILS::getRealPath(path), id });
+			if (material->watchingFilesId.contains(UTILS::getRealPath(path))) {
+				RESOURCES::FileWatcher::getInstance()->remove(UTILS::getRealPath(path), material->watchingFilesId.at(UTILS::getRealPath(path)));
+			}
+			material->watchingFilesId.insert({ UTILS::getRealPath(path), id });
 
 			std::ifstream ifs(UTILS::getRealPath(path));
 			auto root = nlohmann::json::parse(ifs);

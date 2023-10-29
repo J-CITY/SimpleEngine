@@ -95,6 +95,11 @@ namespace IKIGAI::ECS {
 				if constexpr (std::is_same<T, ScriptComponent>::value) {
 					ScriptComponent::createdEvent.run(component.get());
 				}
+
+				//auto id = setModelEvent.add(std::bind(&MaterialRenderer::updateMaterialList, this));
+				//setMaterialEventId = std::shared_ptr<EVENT::EventListener>(new EVENT::EventListener(id), [this](auto* e) {
+				//	this->obj->setModelEvent.removeListener(*e);
+				//	});
 				return component;
 			}
 			else {
@@ -161,6 +166,9 @@ namespace IKIGAI::ECS {
 		static EVENT::Event<Object&>				createdEvent;
 		static EVENT::Event<Object&, Object&>		attachEvent;
 		static EVENT::Event<Object&>				dettachEvent;
+
+		//TODO: think how do it better
+		EVENT::Event<>				setModelEvent;
 
 		//for serealization
 		int getIDInt();

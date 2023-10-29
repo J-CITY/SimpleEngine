@@ -19,6 +19,9 @@ namespace IKIGAI::UTILS {
     };
 
     static std::string getRealPath(const std::string& p_path) {
+        if (std::filesystem::exists(p_path)) {
+            return p_path;
+        }
         std::string result;
         if (std::filesystem::exists(Config::ROOT + Config::ENGINE_ASSETS_PATH + p_path)) {
             result = Config::ROOT + Config::ENGINE_ASSETS_PATH + p_path;

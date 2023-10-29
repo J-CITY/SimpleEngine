@@ -13,6 +13,7 @@ ModelRenderer::ModelRenderer(Ref<ECS::Object> p_owner): Component(p_owner) {
 
 void ModelRenderer::setModel(std::shared_ptr<RENDER::ModelInterface> model) {
 	this->model = model;
+	obj->setModelEvent.run();
 }
 
 std::shared_ptr<RENDER::ModelInterface> ModelRenderer::getModel() const {
@@ -42,6 +43,13 @@ void ModelRenderer::setModelByPath(std::string path) {
 	bs.position = { 0.0f, 0.0f, 0.0f };
 	bs.radius = 1.0f;
 	setCustomBoundingSphere(bs);
+	//obj->setModelEvent.run();
+	//TODO:: remove this dependence
+	auto mat = obj->getComponent<MaterialRenderer>();
+	if (!mat) {
+		return;
+	}
+	mat->updateMaterialList();
 }
 
 std::string ModelRenderer::getModelPath() {
@@ -63,6 +71,7 @@ RTTR_REGISTRATION
 	.property("Model", &IKIGAI::ECS::ModelRenderer::getModelPath, &IKIGAI::ECS::ModelRenderer::setModelByPath)
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING_WITH_FILE_CHOOSE),
+		rttr::metadata(EditorMetaInfo::FILE_EXTENSION, std::string(".fbx,.obj"))
 	);
 }

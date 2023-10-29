@@ -3,6 +3,7 @@
 #include "modelRenderer.h"
 #include "transform.h"
 #include "../../resourceManager/materialManager.h"
+#include "coreModule/ecs/object.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
@@ -10,6 +11,31 @@ using namespace IKIGAI::ECS;
 MaterialRenderer::MaterialRenderer(Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "MaterialRenderer";
 	materials.fill(nullptr);
+}
+
+MaterialRenderer::~MaterialRenderer() {
+	//this->obj->setModelEvent.removeListener(*setMaterialEventId);
+}
+
+void MaterialRenderer::updateMaterialList() {
+	//TODO:: remove this dependence
+	auto model = obj->getComponent<ModelRenderer>();
+	if (!model) {
+		return;
+	}
+	const auto& matNames = model->getModel()->getMaterialsNames();
+
+	if (matNames.size() > 255) {
+		return;
+	}
+
+	for (auto i = 0u; i < matNames.size(); i++) {
+		//materials[i] = RESOURCES::MaterialLoader::Create("Materials/simple.mat");
+		if (!materials[i]) {
+			materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>("Materials/simple.mat");
+		}
+		materialNames[i] = matNames[i];
+	}
 }
 
 void MaterialRenderer::fillWithMaterial(std::shared_ptr<RENDER::MaterialInterface> material) {
@@ -50,10 +76,15 @@ const MaterialRenderer::MaterialList& MaterialRenderer::getMaterials() const {
 	return materials;
 }
 
+const MaterialRenderer::MaterialNames& MaterialRenderer::getMaterialNames() {
+	return materialNames;
+}
+
 void MaterialRenderer::setMaterialsByPath(std::vector<std::string> paths) {
 	int i = 0;
 	for (auto& m : paths) {
-		materials[i] = RESOURCES::MaterialLoader::Create(m);
+		materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(m);
+		//materials[i] = RESOURCES::MaterialLoader::Create(m);
 		i++;
 	}
 }
@@ -69,6 +100,31 @@ std::vector<std::string> MaterialRenderer::getMaterialsPaths() {
 	return res;
 }
 
+void MaterialRenderer::setMaterialsNames(std::vector<std::string> paths) {
+	int i = 0;
+	for (const auto& m : paths) {
+		materialNames[i] = m;
+		i++;
+	}
+}
+
+std::vector<std::string> MaterialRenderer::getMaterialsNames() {
+	std::vector<std::string> res;
+	int i = 0;
+	for (const auto& e : materialNames) {
+		if (!materials[i]) {
+			break;
+		}
+		res.push_back(e);
+		++i;
+	}
+	return res;
+}
+
+MaterialRenderer* MaterialRenderer::getMaterialRenderer() {
+	return obj->getComponent<MaterialRenderer>().get();
+}
+
 
 #include <rttr/registration>
 
@@ -80,8 +136,18 @@ RTTR_REGISTRATION
 	)
 	.property("Materials", &IKIGAI::ECS::MaterialRenderer::getMaterialsPaths, &IKIGAI::ECS::MaterialRenderer::setMaterialsByPath)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRINGS_ARRAY)
+	)
+	.property("MaterialsNames", &IKIGAI::ECS::MaterialRenderer::getMaterialsNames, &IKIGAI::ECS::MaterialRenderer::setMaterialsNames)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRINGS_ARRAY)
+	)
+	.property_readonly("Material", &IKIGAI::ECS::MaterialRenderer::getMaterialRenderer)//TODO: think about
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::MATERIAL)
 	)
 	;
 }
