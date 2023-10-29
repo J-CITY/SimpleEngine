@@ -206,6 +206,7 @@ struct EditorMetaInfo {
 	constexpr static const char* EDIT_RANGE = "EDIT_RANGE";
 	constexpr static const char* EDIT_WIDGET = "EDIT_WIDGET";
 	constexpr static const char* EDIT_STEP = "EDIT_STEP";
+	constexpr static const char* FILE_EXTENSION = "FILE_EXTENSION";
 
 	enum Flags : uint32_t {
 		SERIALIZABLE = 1 << 0,
@@ -222,7 +223,10 @@ struct EditorMetaInfo {
 		COMBO,
 		BOOL,
 		STRING,
-		STRINGS_ARRAY
+		STRING_WITH_FILE_CHOOSE,
+		STRINGS_ARRAY,
+
+		MATERIAL
 	};
 };
 

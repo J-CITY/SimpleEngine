@@ -1,4 +1,4 @@
-#include "debugRender.h"
+﻿#include "debugRender.h"
 
 #include <memory>
 
@@ -20,6 +20,7 @@
 #include <../../3rd/imgui/imgui/imgui_impl_opengl3.h>
 #include <renderModule/backends/gl/materialGl.h>
 #endif
+#include <stack>
 #include <unordered_set>
 #include <rttr/enumeration.h>
 #include <rttr/type.h>
@@ -29,9 +30,11 @@
 #include <utilsModule/imguiWidgets/ImGuizmo.h>
 #include <../../3rd/imgui/IconFont/IconsFontAwesome5.h>
 
+#include "coreModule/resourceManager/materialManager.h"
 #include "coreModule/resourceManager/textureManager.h"
 #include "utilsModule/animation.h"
 #include "utilsModule/assertion.h"
+#include "utilsModule/imguiWidgets/ImGuiFileBrowser.h"
 using namespace IKIGAI;
 using namespace IKIGAI::DEBUG;
 
@@ -55,6 +58,9 @@ int uniqueNodeId = 0;
 std::shared_ptr<IKIGAI::ECS::Object> selectObj;
 std::shared_ptr<IKIGAI::GUI::GuiObject> selectObjGui;
 std::map<std::string, MovableChildData>       m_movableChildData;
+std::string dndStringPayload;
+
+std::map<std::string, bool> popupStates;
 
 template <typename Key, typename Value, std::size_t Size>
 struct ConstexprMap {
@@ -99,6 +105,14 @@ std::vector<AnimationLineInfo> SequencerItemTypeNames{};
 
 std::set<ECS::Object::Id> searchedObjectsIds;
 
+std::shared_ptr<RENDER::MaterialInterface> editMaterial;
+
+
+std::function<void(std::string)> fileChooserCb;
+std::function<std::string()> fileFormatsCb;
+
+std::unordered_map<std::string, unsigned> textureCache;
+
 std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<IKIGAI::ECS::Object> parentEntity) {
 	std::shared_ptr<IKIGAI::ECS::Object> selectedNode;
 
@@ -135,7 +149,7 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 		if (inSearch) {
 			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
 		}
-		const bool nodeIsOpen = ImGui::TreeNodeBehavior(ImGui::GetCurrentWindow()->GetID(static_cast<int>(node->getID())), nodeFlags, name.c_str());
+		const bool nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID()), nodeFlags, name.c_str());
 		if (inSearch) {
 			ImGui::PopStyleColor();
 		}
@@ -250,7 +264,7 @@ void drawNodeTree(IKIGAI::CORE_SYSTEM::Core& core) {
 				searchedObjectsIds.clear();
 				if (!searchInActors.empty()) {
 					for (auto obj : scene.getObjects()) {
-						ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), false);
+						ImGui::TreeNodeSetOpen(static_cast<int>(obj->getID()), false);
 					}
 					for (auto obj : scene.getObjects()) {
 						const auto foundInName = UTILS::toLower(obj->getName()).find(UTILS::toLower(searchInActors)) != std::string::npos;
@@ -259,7 +273,7 @@ void drawNodeTree(IKIGAI::CORE_SYSTEM::Core& core) {
 							searchedObjectsIds.insert(obj->getID());
 							std::function<void(std::shared_ptr<ECS::Object>)> expandAll;
 							expandAll = [&expandAll](std::shared_ptr<ECS::Object> obj) {
-								ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), true);
+								ImGui::TreeNodeSetOpen(static_cast<int>(obj->getID()), true);
 								if (obj->getParent()) {
 									expandAll(obj->getParent());
 								}
@@ -332,60 +346,147 @@ std::optional<unsigned> ImGuiLoadTextureFromFile(const std::string& filename) {
 	return image_texture;
 }
 
+struct File {
+	enum class FileType {
+		DIR,
+		IMAGE,
+		MODEL,
+		TEXT,
+		FONT,
+		MATERIAL
+	};
+	FileType type;
+	std::filesystem::path path;
+	std::filesystem::path file;
+	std::string ext;
+	std::list<File> files;
+
+	int uid = 0;
+	File(std::filesystem::path path): path(path) {
+		type = File::getFileType(path);
+		ext = getExtension(path);
+		file = path.filename();
+
+		static int newid= 1;
+		uid = newid++;
+	}
+private:
+	inline static std::set<std::string> imageExt = { ".png", ".jpg", ".jpeg", ".tga", ".dds"};
+	inline static std::set<std::string> objExt = { ".obj", ".fbx", ".dae" };
+	inline static std::set<std::string> fontExt = { ".ttf" };
+	inline static std::set<std::string> materialExt = { ".mat" };
+public:
+	static FileType getFileType(const std::filesystem::path& path) {
+		auto ext = std::filesystem::is_directory(path) ? "dir":
+			path.has_extension() ? path.extension().string() : "";
+		ext = UTILS::toLower(ext);
+		if (ext == "dir") {
+			return FileType::DIR;
+		}
+		if (imageExt.contains(ext)) {
+			return FileType::IMAGE;
+		}
+		if (fontExt.contains(ext)) {
+			return FileType::TEXT;
+		}
+		if (materialExt.contains(ext)) {
+			return FileType::MATERIAL;
+		}
+		return FileType::TEXT;
+	}
+	static std::string getExtension(const std::filesystem::path& path) {
+		auto ext = std::filesystem::is_directory(path) ? "dir" :
+			path.has_extension() ? path.extension().string() : "";
+		ext = UTILS::toLower(ext);
+		return ext;
+	}
+};
+
+
 struct FileBrowser {
 	std::string mPath;
 	std::string mSelectedFolderPath;
+
+	std::stack<std::string> history;
 	int elementSize = 100;
-	FileBrowser(const std::string& path): mPath(path), mSelectedFolderPath(path) {
+	FileBrowser(const std::string& path): mPath(path), mSelectedFolderPath(path), root(path) {
 		textureCache["__image__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/image-white.png")).value();
 		textureCache["__dir__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/folder-white.png")).value();
 		textureCache["__file__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/file-white.png")).value();
 		textureCache["__font__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/font-white.png")).value();
 		textureCache["__object__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png")).value();
-	}
-	int globalNodeId = 0;
-	
 
-	std::set<ECS::Object::Id> searchedFileTreeIds;
+		initFileTree(root);
+	}
+
+	File root;
+	void initFileTree(File& fileTree) {
+		fileTree.files.clear();
+		if (std::filesystem::is_directory(fileTree.path)) {
+			for (const auto& entry : std::filesystem::directory_iterator(fileTree.path)) {
+				fileTree.files.emplace_back(entry);
+				initFileTree(fileTree.files.back());
+
+			}
+		}
+	}
+
+	std::set<int> searchedFileTreeIds;
 	void draw() {
 		//ImGui::Columns(2);
 		ImGui::Begin("File Browser");
 		if (ImGui::BeginTable("File Browser Table", 2, ImGuiTableFlags_Reorderable | ImGuiTableFlags_Resizable)) {
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			globalNodeId = 0;
 
-			//TODO: create file tree structure
-			//ImGui::Text("Search: ");
-			//ImGui::SameLine();
-			//static std::string searchInActors;
-			//if (ImGui::InputText("##search_in_file_tree", &searchInActors)) {
-			//	searchedFileTreeIds.clear();
-			//	if (!searchInActors.empty()) {
-			//		for (auto obj : scene.getObjects()) {
-			//			ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), false);
-			//		}
-			//		for (auto obj : scene.getObjects()) {
-			//			const auto foundInName = UTILS::toLower(obj->getName()).find(UTILS::toLower(searchInActors)) != std::string::npos;
-			//			const auto foundInTag = UTILS::toLower(obj->getTag()).find(UTILS::toLower(searchInActors)) != std::string::npos;
-			//			if (foundInName || foundInTag) {
-			//				searchedFileTreeIds.insert(obj->getID());
-			//				std::function<void(std::shared_ptr<ECS::Object>)> expandAll;
-			//				expandAll = [&expandAll](std::shared_ptr<ECS::Object> obj) {
-			//					ImGui::TreeNodeSetOpen(ImGui::GetCurrentWindow()->GetID(static_cast<int>(obj->getID())), true);
-			//					if (obj->getParent()) {
-			//						expandAll(obj->getParent());
-			//					}
-			//				};
-			//				if (obj->getParent()) {
-			//					expandAll(obj->getParent());
-			//				}
-			//			}
-			//		}
-			//	}
-			//}
+			if (ImGui::Button(ICON_FA_RETWEET)) {
+				initFileTree(root);
+			}
+			ImGui::SameLine();
+			ImGui::Text("Search: ");
+			ImGui::SameLine();
+			static std::string searchInActors;
+			if (ImGui::InputText("##search_in_file_tree", &searchInActors)) {
+				searchedFileTreeIds.clear();
+				if (!searchInActors.empty()) {
+					std::function<void(File&)> closeAll;
+					closeAll = [&closeAll, this](File& root) {
+						for (auto& obj : root.files) {
+							closeAll(obj);
+							ImGui::TreeNodeSetOpen(obj.uid, false);
+						}
+						ImGui::TreeNodeSetOpen(root.uid, false);
+					};
+					closeAll(root);
 
-			drawItem(globalNodeId, mPath);
+					std::function<bool(File&)> expandAll;
+					expandAll = [&expandAll, this](File& root) -> bool {
+						auto _res = false;
+						for (auto& obj : root.files) {
+							const auto foundInName = UTILS::toLower(obj.file.string()).find(UTILS::toLower(searchInActors)) != std::string::npos;
+							const auto res = expandAll(obj);
+							if (foundInName) {
+								ImGui::TreeNodeSetOpen(obj.uid, true);
+								searchedFileTreeIds.insert(obj.uid);
+								_res = true;
+							}
+							if (res) {
+								ImGui::TreeNodeSetOpen(obj.uid, true);
+								_res =  true;
+							}
+						}
+						return _res;
+					};
+					if (expandAll(root)) {
+						ImGui::TreeNodeSetOpen(root.uid, true);
+					}
+
+				}
+			}
+
+			ImGui::BeginChild("##fileTree_child_win");
+			drawItem(root);
+			ImGui::EndChild();
 			
 			ImGui::TableNextColumn();
 			drawFolder(mSelectedFolderPath);
@@ -402,44 +503,43 @@ struct FileBrowser {
 		//ImGui::End();
 	}
 private:
-	enum class FileType {
-		DIR,
-		IMAGE,
-		MODEL,
-		TEXT,
-		FONT
-	};
 
 	std::unordered_map<std::string, unsigned> textureCache;
 
-	std::unordered_set<std::string> imageExt = { ".png", ".jpg", ".jpeg" };
-	std::unordered_set<std::string> objExt = { ".obj", ".fbx", ".dae"};
-	std::unordered_set<std::string> fontExt = { ".ttf" };
-	FileType getFileType(const std::string& ext) {
-		if (ext == "dir") {
-			return FileType::DIR;
-		}
-		if (imageExt.contains(ext)) {
-			return FileType::IMAGE;
-		}
-		if (fontExt.contains(ext)) {
-			return FileType::TEXT;
-		}
-		return FileType::TEXT;
-	}
-
 	void drawFolder(std::string_view path) {
+		const int sliderSize = 200;
+
+		std::optional<std::string> newPath;
+
 		ImGui::BeginChild("##FolderBar", ImVec2(0, 30));
 		ImGui::Text(std::string(path).c_str());
 		ImGui::SameLine();
 		ImGui::Text("Search: ");
 		ImGui::SameLine();
 		static std::string searchInFolder;
+		ImGui::PushItemWidth(sliderSize);
 		if (ImGui::InputText("##search_in_file_tree", &searchInFolder)) {
 
 		}
-		int sliderSize = 200;
-		ImGui::SameLine(ImGui::GetWindowWidth() - sliderSize);
+		ImGui::PopItemWidth();
+
+		ImGui::SameLine();
+		if (ImGui::Button(ICON_FA_ARROW_LEFT)) {//back
+			if (!history.empty()) {
+				newPath = history.top();
+				history.pop();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(ICON_FA_ARROW_UP)) { //level up
+			std::filesystem::path p = mSelectedFolderPath;
+			if (mSelectedFolderPath != mPath) {
+				history.push(mSelectedFolderPath);
+				newPath = p.parent_path().string();
+			}
+		}
+		
+		ImGui::SameLine(std::max(1.0f, ImGui::GetWindowWidth() - sliderSize));
 		ImGui::PushItemWidth(sliderSize);
 		ImGui::SliderInt("##FSize", &elementSize, 20, 150);
 		ImGui::PopItemWidth();
@@ -456,7 +556,9 @@ private:
 		}
 		//ImGui::Columns(static_cast<int>(col1Size / elementSize));
 		int i = 0;
+		int uid = 0;
 		for (const auto& entry : std::filesystem::directory_iterator(path)) {
+			uid++;
 			if (!searchInFolder.empty()) {
 				if (UTILS::toLower(entry.path().filename().string())
 					.find(UTILS::toLower(searchInFolder)) == std::string::npos) {
@@ -465,13 +567,12 @@ private:
 			}
 			ImGui::PushID(("folder_item_" + std::to_string(i)).c_str());
 			bool isDirectory = std::filesystem::is_directory(entry);
-			auto ext = isDirectory ? "dir" : entry.path().extension().string();
-			auto extType = getFileType(ext);
+			auto extType = File::getFileType(entry);
 			ImGui::BeginGroup();
 			std::string imPath;
 			switch (extType) {
-			case FileType::DIR: imPath = "__dir__";  break;
-			case FileType::IMAGE: {
+			case File::FileType::DIR: imPath = "__dir__";  break;
+			case File::FileType::IMAGE: {
 				imPath = entry.path().string();
 				if (!textureCache.contains(imPath)) {
 					textureCache[imPath] = ImGuiLoadTextureFromFile(imPath).value();
@@ -479,14 +580,51 @@ private:
 				//imPath = "__image__";
 				break;
 			};
-			case FileType::MODEL: imPath = "__object__"; break;
-			case FileType::TEXT: imPath = "__file__"; break;
-			case FileType::FONT: imPath = "__font__"; break;
-			default: ;
+			case File::FileType::MODEL: imPath = "__object__"; break;
+			case File::FileType::TEXT: imPath = "__file__"; break;
+			case File::FileType::FONT: imPath = "__font__"; break;
+			default: imPath = "__file__"; break;;
 			}
-			if (ImGui::ImageButton(reinterpret_cast<ImTextureID>((uintptr_t)textureCache.at(imPath)), { static_cast<float>(elementSize), static_cast<float>(elementSize) }, ImVec2(0, 1), ImVec2(1, 0)) && isDirectory) {
-				mSelectedFolderPath = entry.path().string();
+			
+			//TODO: create withget for it
+			static int selected = -1;
+			if (ImGui::Selectable(("##" + std::to_string(uid)).c_str(), uid == selected, 0, ImVec2(elementSize, elementSize))) {
+				selected = uid;
 			}
+
+			ImGuiDragDropFlags src_flags = 0;
+			src_flags |= ImGuiDragDropFlags_SourceNoDisableHover;     // Keep the source displayed as hovered
+			//src_flags |= ImGuiDragDropFlags_SourceNoHoldToOpenOthers; // Because our dragging is local, we disable the feature of opening foreign treenodes/tabs while dragging
+			//src_flags |= ImGuiDragDropFlags_SourceNoPreviewTooltip; // Hide the tooltip
+			if (ImGui::BeginDragDropSource(src_flags)) {
+				//if (!(src_flags))
+				//	ImGui::Text("Moving \"%s\"", names[n]);
+				int a = 0;
+				if (extType == File::FileType::IMAGE) {
+					ImGui::SetDragDropPayload("DND_IMAGE_DATA", &a, sizeof(int));
+					dndStringPayload = imPath;
+				}
+				else if (extType == File::FileType::MATERIAL) {
+					ImGui::SetDragDropPayload("DND_MATERIAL_DATA", &a, sizeof(int));
+					dndStringPayload = entry.path().string();
+				}
+				ImGui::EndDragDropSource();
+			}
+
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+				if (isDirectory) {
+					history.push(mSelectedFolderPath);
+					newPath = entry.path().string();
+				}
+				else if (extType == File::FileType::MATERIAL) {
+					editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(entry.path().string());
+					//editMaterial = RESOURCES::MaterialLoader::Create(entry.path().string());
+				}
+			}
+			auto pos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(ImVec2(pos.x, pos.y - elementSize));
+			ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)textureCache.at(imPath)), { static_cast<float>(elementSize), static_cast<float>(elementSize) }, ImVec2(0, 1), ImVec2(1, 0));
+			
 			
 			ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 100);
 			ImGui::Text(entry.path().filename().string().c_str());
@@ -502,22 +640,15 @@ private:
 		}
 		ImGui::EndChild();
 		//ImGui::Columns(2);
-	}
-
-	void draw(std::string_view path) {
-		bool isDirectory = std::filesystem::is_directory(path);
-		if (isDirectory) {
-			for (const auto& entry : std::filesystem::directory_iterator(path)) {
-				drawItem(globalNodeId, entry.path().string());
-				globalNodeId++;
-			}
+		if (newPath) {
+			mSelectedFolderPath = newPath.value();
 		}
 	}
 
-	void drawItem(int i, std::string_view path) {
-		ImGui::PushID(("fileTree_" + std::to_string(i)).c_str());
+	void drawItem(File& file) {
+		ImGui::PushID(("fileTree_" + std::to_string(file.uid)).c_str());
 		ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_Selected;
-
+		auto path = file.path.string();
 		bool isDirectory = std::filesystem::is_directory(path);
 		if (!isDirectory) {
 			nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
@@ -531,8 +662,16 @@ private:
 		}
 		const auto name = std::filesystem::path(_path).filename().string();
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 0.0f });
-		bool nodeIsOpen = ImGui::TreeNodeBehavior(ImGui::GetCurrentWindow()->GetID(name.c_str()), nodeFlags, name.c_str());
+		bool inSearch = searchedFileTreeIds.contains(file.uid);
+		if (inSearch) {
+			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+		}
+		bool nodeIsOpen = ImGui::TreeNodeBehavior(file.uid, nodeFlags, name.c_str());
+		if (inSearch) {
+			ImGui::PopStyleColor();
+		}
 		ImGui::PopStyleVar();
+		
 
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 5.0f, 5.0f });
 		//if (ImGui::BeginPopupContextItem("__SCENE_TREE_CONTEXTMENU__")) {
@@ -571,6 +710,7 @@ private:
 		//}
 
 		if (isDirectory && ImGui::IsItemClicked()) {
+			history.push(mSelectedFolderPath);
 			mSelectedFolderPath = _path;
 		}
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 0.0f });
@@ -593,7 +733,9 @@ private:
 		//}
 
 		if (isDirectory && nodeIsOpen) {
-			draw(path);
+			for (auto& entry : file.files) {
+				drawItem(entry);
+			}
 			ImGui::TreePop();
 		}
 		ImGui::PopID();
@@ -830,7 +972,7 @@ float camDistance = 8.f;
 int gizmoCount = 1;
 bool useWindow = false;
 bool isPerspective = true;
-void drawGuizmo() {
+void drawGuizmo(int w, int h) {
 	if (!selectObj) {
 		return;
 	}
@@ -840,7 +982,7 @@ void drawGuizmo() {
 
 	ImGuizmo::SetID(0);
 
-	bool editTransformDecomposition = true;
+	bool editTransformDecomposition = false;
 
 	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
 	static bool useSnap = false;
@@ -1015,8 +1157,8 @@ void drawGuizmo() {
 
 
 	ImGuizmo::SetDrawlist();
-	float windowWidth = (float)ImGui::GetWindowWidth();
-	float windowHeight = (float)ImGui::GetWindowHeight();
+	float windowWidth = (float)w;// ImGui::GetWindowWidth();
+	float windowHeight = (float)h;// ImGui::GetWindowHeight();
 	ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowWidth, windowHeight);
 	viewManipulateRight = ImGui::GetWindowPos().x + windowWidth;
 	viewManipulateTop = ImGui::GetWindowPos().y;
@@ -1457,6 +1599,8 @@ DebugRender::DebugRender() {
 
 
 	m_movableChildData["GizmoTools"] = MovableChildData{ ImVec2(0, 0) , ImVec2(0, 0) , true, false };
+
+	textureCache["default_texture"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/default.png")).value();
 }
 #ifdef VULKAN_BACKEND
 #include "../render/gameRendererVk.h"
@@ -1683,7 +1827,62 @@ bool isEngineUniform(const std::string& uniformName) {
 void DebugRender::drawMaterialWidget(RENDER::MaterialGl* material) {
 	ImGui::Begin("Material Editor");
 
+	if (ImGui::Button("Save")) {
+		nlohmann::json data;
+		material->onSerialize(data);
+		std::ofstream f(UTILS::getRealPath(material->mPath));
+		f << data.dump(4) << std::endl;
+		f.close();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Reload")) {
+		auto path = material->mPath;
+		//editMaterial = RESOURCES::MaterialLoader::Create(path);
+		editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(path);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Create new")) {
+		popupStates["create_new_material"] = true;
+	}
+
+	ImGui::Text("Name:", material->mPath);
+
+	static bool isMatSettingsOpen = true;
+	if (ImGui::CollapsingHeader("Material settings", &isMatSettingsOpen, ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::Checkbox("Is Blendable", &material->mBlendable)) {
+			//material->generateStateMask();
+		}
+		if (ImGui::Checkbox("Back face culling", &material->mBackfaceCulling)) {
+			//material->generateStateMask();
+		}
+		if (ImGui::Checkbox("Front face culling", &material->mFrontfaceCulling)) {
+			//material->generateStateMask();
+		}
+		if (ImGui::Checkbox("Depth test", &material->mDepthTest)) {
+			//material->generateStateMask();
+		}
+		if (ImGui::Checkbox("Color writing", &material->mColorWriting)) {
+			//material->generateStateMask();
+		}
+		if (ImGui::DragInt("GPU Instance", &material->mGpuInstances)) {
+			//material->generateStateMask();
+		}
+	}
+
+	static std::string shaderVPath = material->mShader->vertexPath.value();
+	static std::string shaderFPath = material->mShader->fragmentPath.value();
+	if (ImGui::InputText("Shader Fragment:", &shaderVPath, ImGuiInputTextFlags_EnterReturnsTrue)) {
+		
+	}
+	if (ImGui::InputText("Shader Vertex:", &shaderFPath, ImGuiInputTextFlags_EnterReturnsTrue)) {
+
+	}
+
 	auto shader = material->getShader();
+	if (!shader) {
+		ImGui::End();
+		return;
+	}
 	const auto& refl = shader->getUniformsInfo();
 
 	for (auto& [name, data]: refl) {
@@ -1754,10 +1953,44 @@ void DebugRender::drawMaterialWidget(RENDER::MaterialGl* material) {
 			}
 			case RENDER::UNIFORM_TYPE::SAMPLER_2D: {
 				auto val = std::get<std::shared_ptr<RENDER::TextureGl>>(material->mUniformData.at(name));
+				ImGui::PushID(("##" + name).c_str());
+				
+				//auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+				if (ImGui::Selectable(("##" + name).c_str(), false, 0, ImVec2(100, 100))) {
+					
+				}
+				auto pos = ImGui::GetCursorPos();
+				ImGui::SetCursorPos(ImVec2(pos.x, pos.y - 100));
+
+				if (ImGui::BeginDragDropTarget())
+				{
+					ImGuiDragDropFlags target_flags = 0;
+					//target_flags |= ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery (release mouse button on a target) to do something
+					//target_flags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow rectangle
+					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_IMAGE_DATA", target_flags)) {
+						auto path = dndStringPayload;
+						material->set(name, std::static_pointer_cast<RENDER::TextureGl>(RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path, true)));
+						dndStringPayload.clear();
+					}
+					ImGui::EndDragDropTarget();
+				}
 				if (val) {
-					//auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 					ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)val->id), ImVec2(100, 100), ImVec2(0, 1), ImVec2(1, 0));
 				}
+				else {
+					ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)textureCache["default_texture"]), ImVec2(100, 100), ImVec2(0, 1), ImVec2(1, 0));
+				}
+				ImGui::SameLine();
+				if (ImGui::Button(ICON_FA_FILE)) {
+					popupStates["file_chooser"] = true;
+					fileFormatsCb = [] {
+						return ".png,.jpeg,.jpg";
+					};
+					fileChooserCb = [material, name](std::string path) mutable {
+						material->set(name, std::static_pointer_cast<RENDER::TextureGl>(RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path, true)));
+					};
+				}
+				ImGui::PopID();
 				//ImGui::GetWindowDrawList()->AddImage(
 				//	(void*)val->getId(),
 				//	ImVec2(ImGui::GetCursorScreenPos()),
@@ -2093,7 +2326,6 @@ void widgetColor3(UTILS::WeakPtr<ECS::Component> component, const rttr::property
 
 /*
  * TODO:
- * - Search in tree in file browser
  * - view port for window (not screen size)
  */
 
@@ -2130,7 +2362,31 @@ void widgetBool(UTILS::WeakPtr<ECS::Component> component, const rttr::property& 
 	}
 }
 
-//TODO: add dnd and button for choose
+//TODO: add dnd
+void widgetStringFixFileChoose(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+
+	auto fileExt = prop.get_metadata(EditorMetaInfo::FILE_EXTENSION).to_string();
+	auto val = prop.get_value(*inst).get_value<std::string>();
+	if (ImGui::InputText(propName.c_str(), &val)) {
+		std::ignore = prop.set_value(*inst, val);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button(ICON_FA_FILE)) {
+		popupStates["file_chooser"] = true;
+		fileFormatsCb = [fileExt] {
+			return fileExt;
+		};
+		fileChooserCb = [prop, component](std::string path) mutable {
+			std::unique_ptr<rttr::instance> inst;
+			getInstance(component, inst);
+			std::ignore = prop.set_value(*inst, path);
+		};
+	}
+}
+
 void widgetString(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
 	const std::string propName = prop.get_name().to_string();
 	std::unique_ptr<rttr::instance> inst;
@@ -2151,6 +2407,44 @@ void widgetStringArray(UTILS::WeakPtr<ECS::Component> component, const rttr::pro
 		if (ImGui::InputText(propName.c_str(), &e)) {
 			std::ignore = prop.set_value(*inst, val);
 		}
+	}
+}
+
+
+void widgetMaterial(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	ImGui::Text(propName.c_str());
+	auto val = prop.get_value(*inst).get_value<ECS::MaterialRenderer*>();
+	int i = 0;
+	const auto& names = val->getMaterialNames();
+	for (auto& e : val->getMaterials()) {
+		if (!e) {
+			break;
+		}
+		ImGui::PushID(i);
+		if (ImGui::InputText(names[i].c_str(), &e->mPath, ImGuiInputTextFlags_EnterReturnsTrue)) {
+			//TODO: check file exist
+			val->setMaterial(i, RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(e->mPath));
+			//val->setMaterial(i, RESOURCES::MaterialLoader::Create(e->mPath));
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(ICON_FA_FILE)) {
+			popupStates["file_chooser"] = true;
+			fileFormatsCb = [] {
+				return ".mat";
+			};
+			fileChooserCb = [val, i](std::string path) mutable {
+				if (val) {
+					auto mat = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(path);
+					//RESOURCES::MaterialLoader::Create(path);
+					val->setMaterial(i, mat);
+				}
+			};
+		}
+		++i;
+		ImGui::PopID();
 	}
 }
 
@@ -2196,29 +2490,10 @@ void widgetCombo(UTILS::WeakPtr<ECS::Component> component, const rttr::property&
 void DebugRender::drawComponentInspector() {
 	ImGui::Begin((ICON_FA_DATABASE + std::string(" Component Inspector")).c_str());
 	if (!selectObj) {
+		ImGui::Text("Object not selected");
 		ImGui::End();
 		return;
 	}
-
-	//TODO: remove it when add all component support
-	static std::set<std::string> convertComp = {
-		"TransformComponent",
-		"SpotLight",
-		"DirectionalLight",
-		"PointLight",
-		"AmbientSphereLight",
-		"AmbientLight",
-		"CameraComponent",
-		"AudioListenerComponent",
-		"AudioComponent",
-		"InputComponent",
-		"LogicComponent",
-		"MaterialRenderer",
-		"ModelRenderer",
-		"PhysicsComponent",
-		"ScriptComponent",
-		"Skeletal",
-	};
 
 	static std::unordered_map<std::string, std::string> iconComp = {
 		{ "TransformComponent", ICON_FA_GLOBE },
@@ -2245,9 +2520,27 @@ void DebugRender::drawComponentInspector() {
 		{ EditorMetaInfo::DRAG_FLOAT, &widgetFloat },
 		{ EditorMetaInfo::BOOL, &widgetBool },
 		{ EditorMetaInfo::STRING, &widgetString },
+		{ EditorMetaInfo::STRING_WITH_FILE_CHOOSE, &widgetStringFixFileChoose },
 		{ EditorMetaInfo::COMBO, &widgetCombo },
 		{ EditorMetaInfo::STRINGS_ARRAY, &widgetStringArray },
+		{ EditorMetaInfo::MATERIAL, &widgetMaterial },
 	};
+
+
+	ImGui::Text(("Id: " + std::to_string(static_cast<int>(selectObj->getID()))).c_str());
+	ImGui::Text("Name:");
+	ImGui::SameLine();
+	auto name = selectObj->getName();
+	if (ImGui::InputText("##object_name", &name)) {
+		selectObj->setName(name);
+	}
+	ImGui::Text("Tag:");
+	ImGui::SameLine();
+	auto tag = selectObj->getTag();
+	if (ImGui::InputText("##object_tag", &tag)) {
+		selectObj->setTag(tag);
+	}
+
 
 	//Add new component to object
 	static auto componentNames = genComponentsStringArray();
@@ -2261,10 +2554,6 @@ void DebugRender::drawComponentInspector() {
 	//Object components
 	auto components = ECS::ComponentManager::GetInstance().getComponents(selectObj->getID());
 	for (auto& component : components) {
-		if (!convertComp.count(component->getName())) {
-			continue; //TODO:: write info to log
-		}
-
 		auto title = iconComp[component->getName()] + std::string(" ") + component->getName();
 		bool needDelComponent = true;
 		if (ImGui::CollapsingHeader(title.c_str(), &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
@@ -2293,10 +2582,77 @@ void DebugRender::drawComponentInspector() {
 	ImGui::End();
 }
 
-
 void DebugRender::drawTextureWatcher() {
 #ifdef OPENGL_BACKEND
-	ImGui::Begin("Texture Watcher", nullptr, gizmoWindowFlags);
+	ImGui::Begin("Texture Watcher", nullptr);
+	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
+	auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
+
+
+	static std::vector<std::string> items = { "Before Post Processing" };
+	static bool b = false;
+	if (!b) {
+		for (auto& e : _renderer->mTextures) {
+			items.push_back(e.first);
+		}
+		b = true;
+	}
+
+
+	static int selectedIndex = 0;
+	static std::string selectedName = items[0];
+	//ImGui::Combo("combo", &item_current, items.data(), items.size());
+
+	if (ImGui::BeginCombo("##textures_combo", selectedName.c_str())) {
+		for (int i = 0; i < items.size(); ++i) {
+			const bool isSelected = (selectedIndex == i);
+			if (ImGui::Selectable(items[i].c_str(), isSelected)) {
+				selectedIndex = i;
+				selectedName = items[i];
+			}
+
+			// Set the initial focus when opening the combo
+			// (scrolling + keyboard navigation focus)
+			if (isSelected) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+
+	auto winSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	ImVec2 imWinSize = ImGui::GetWindowSize();
+
+	float w = 0.0f;
+	float h = 0.0f;
+	if (imWinSize.x < imWinSize.y) {
+		w = imWinSize.x;
+		h = (winSize.y * imWinSize.x) / winSize.x;
+	}
+	else
+	{
+		w = (imWinSize.y * winSize.x) / winSize.y;
+		h = imWinSize.y;
+	}
+	if (h > 100.0f) {
+		h -= 60.0f;
+	}
+
+	if (selectedIndex == 0) {
+		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)_renderer->mDeferredTexture->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+	}
+	else {
+		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)_renderer->mTextures[selectedName]->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+	}
+	ImGui::End();
+#endif
+}
+
+
+void DebugRender::drawScene() {
+#ifdef OPENGL_BACKEND
+	ImGui::Begin("Scene Warcher", nullptr, gizmoWindowFlags);
 
 	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
 	auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
@@ -2310,36 +2666,29 @@ void DebugRender::drawTextureWatcher() {
 	ImGui::Button(ICON_FA_COMPRESS_ALT, ImVec2(36, 36));
 	ImGui::NextColumn();
 
-
-	const char* items[] = { "Before Post Processing", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG", "HHHH", "IIIIIII", "JJJJ", "KKKKKKK" };
-	static int item_current = 0;
-	ImGui::Combo("combo", &item_current, items, IM_ARRAYSIZE(items));
-	{
-		if (item_current == 0) {
-			auto val = _renderer->mDeferredTexture;
-			if (val) {
-				auto winSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
-				ImVec2 imWinSize = ImGui::GetWindowSize();
-
-				float w = 0.0f;
-				float h = 0.0f;
-				
-				if (imWinSize.x < imWinSize.y) {
-					w = imWinSize.x;
-					h = (winSize.y * imWinSize.x) / winSize.x;
-				}
-				else
-				{
-					w = (imWinSize.y * winSize.x) / winSize.y;
-					h = imWinSize.y;
-				}
-
-				ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)val->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
-			}
+	float w = 0.0f;
+	float h = 0.0f;
+	auto val = _renderer->pingPongTex[!_renderer->pingPong];
+	if (val) {
+		auto winSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+		ImVec2 imWinSize = ImGui::GetWindowSize();
+		if (imWinSize.x < imWinSize.y) {
+			w = imWinSize.x;
+			h = (winSize.y * imWinSize.x) / winSize.x;
 		}
+		else
+		{
+			w = (imWinSize.y * winSize.x) / winSize.y;
+			h = imWinSize.y;
+		}
+
+		if (h > 100.0f) {
+			h -= 30.0f;
+		} 
+		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)val->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
 	}
 
-	drawGuizmo();
+	drawGuizmo(w, h);
 
 
 	//ImGuiWindowFlags     flags = 0 | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings;
@@ -2401,8 +2750,108 @@ void DebugRender::drawStats() {
 	ImGui::End();
 }
 
+imgui_addons::ImGuiFileBrowser file_dialog;
+void DebugRender::drawPopup() {
+	//TODO: move to init
+	//file_dialog.current_path = Config::ROOT + Config::ASSETS_PATH;
 
-void drawMainWindow()
+
+	bool open = true;
+	if (popupStates.contains("create_new_scene") && popupStates["create_new_scene"]) {
+		ImGui::OpenPopup("create_new_scene");
+		popupStates["create_new_scene"] = false;
+	}
+	if (ImGui::BeginPopupModal("create_new_scene", &open)) {
+		ImGui::TextWrapped("Write name for scene");
+		static std::string name;
+		if (ImGui::InputText("Scene name", &name)) {
+			
+		}
+
+		if (ImGui::Button("OK", ImVec2(120, 0))) {
+			RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().loadEmptyScene();
+			RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().setCurrentSceneSourcePath(name);
+			name = "";
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SetItemDefaultFocus();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	if (popupStates.contains("create_new_material") && popupStates["create_new_material"]) {
+		ImGui::OpenPopup("create_new_material");
+		popupStates["create_new_material"] = false;
+	}
+	if (ImGui::BeginPopupModal("create_new_material", &open)) {
+		ImGui::TextWrapped("Write name for material");
+		static std::string name;
+		if (ImGui::InputText("Material name", &name, ImGuiInputTextFlags_EnterReturnsTrue)) {
+			auto path = Config::ROOT + Config::USER_ASSETS_PATH + "Materials/" + name + ".mat";
+			std::ofstream outfile(path);
+			const static std::string materialConf = R"(
+{
+	"shaderFragment": "Shaders/gl/deferredGBuffer.fs.glsl",
+	"shaderVertex": "Shaders/gl/deferredGBuffer.vs.glsl",
+	"blendable": false,
+	"backfaceCulling": true,
+	"frontfaceCulling": false,
+	"depthTest": true,
+	"depthWriting": true,
+	"colorWriting": true,
+	"gpuInstances": 1,
+	"isDeferred": true,
+	"uniforms": {
+		"u_AlbedoMap": "textures\\brick_albedo.jpg",
+		"u_NormalMap": "textures\\brick_normal.jpg",
+		"u_TextureTiling": [ 1.0, 1.0 ],
+		"u_TextureOffset": [ 0.0, 0.0 ],
+		"u_Albedo": [ 1.0, 0.0, 0.0, 1.0 ],
+		"u_Specular": [ 1.0, 1.0, 1.0 ],
+		"u_Shininess": 100.0,
+		"u_HeightScale": 0.0,
+		"u_EnableNormalMapping": true
+	}
+}
+)";
+			outfile << materialConf << std::endl;
+			outfile.close();
+		}
+
+		if (ImGui::Button("OK", ImVec2(120, 0))) {
+			RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().loadEmptyScene();
+			RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().setCurrentSceneSourcePath(name);
+			name = "";
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SetItemDefaultFocus();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+
+	if (popupStates.contains("file_chooser") && popupStates["file_chooser"]) {
+		ImGui::OpenPopup("Open File");
+		popupStates["file_chooser"] = false;
+	}
+	if (fileFormatsCb && file_dialog.showFileDialog("Open File", imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(700, 310), fileFormatsCb())) {
+		fileChooserCb(file_dialog.selected_path);
+		std::cout << file_dialog.selected_fn << std::endl;      // The name of the selected file or directory in case of Select Directory dialog mode
+		std::cout << file_dialog.selected_path << std::endl;    // The absolute path to the selected file
+		fileFormatsCb = nullptr;
+		fileChooserCb = nullptr;
+	}
+
+}
+
+
+void DebugRender::drawMainWindow()
 {
 
 	static bool isOpen = true;
@@ -2419,6 +2868,9 @@ void drawMainWindow()
 						RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().saveToFile();
 					}
 				}
+				if (ImGui::MenuItem("Create new scene")) {
+					popupStates["create_new_scene"] = true;
+				}
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Examples"))
@@ -2426,8 +2878,10 @@ void drawMainWindow()
 				//ImGui::MenuItem("Main menu bar", NULL, &[](){});
 				ImGui::EndMenu();
 			}
+			ImGui::EndMainMenuBar();
 		}
-		ImGui::EndMainMenuBar();
+
+		drawPopup();
 	}
 
 #ifdef IMGUI_HAS_VIEWPORT
@@ -2888,6 +3342,86 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 	{//Debug
 		ImGui::Begin("Render pipeline");
 
+		auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
+		auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
+
+		/*
+		 BLOOM = 1 << 1,
+	GOD_RAYS = 1 << 2,
+	HDR = 1 << 3,
+	COLOR_GRADING = 1 << 4,
+	VIGNETTE = 1 << 5,
+	DEPTH_OF_FIELD = 1 << 6,
+	OUTLINE = 1 << 7,
+	CHROMATIC_ABBERATION = 1 << 8,
+	POSTERIZE = 1 << 9,
+	PIXELIZE = 1 << 10,
+	SHARPEN = 1 << 11,
+	DILATION = 1 << 12,
+	FILM_GRAIN = 1 << 13,
+	GUI = 1 << 14
+		 */
+
+		static std::map<RENDER::RenderStates, std::function<void()>> stagesSettingsDraw = {
+			{ RENDER::RenderStates::HDR, [_renderer]() {
+				ImGui::DragFloat("Exposure", &_renderer->mPipeline.hdr.exposure);
+				ImGui::DragFloat("Gamma", &_renderer->mPipeline.hdr.gamma);
+			}},
+		};
+
+		static std::map<RENDER::RenderStates, bool> pp;
+		int i = 0;
+		for (auto& e : UTILS::Impl::Tokens<RENDER::RenderStates>) {
+			if (!pp.contains(e.second)) {
+				pp[e.second] = ((_renderer->renderStateMask & e.second) == e.second);
+			}
+			ImGui::PushID(i);
+			if (ImGui::CollapsingHeader(std::string(e.first.begin(), e.first.end()).c_str())) {
+				if (ImGui::Checkbox("Is enabled", &pp[e.second])) {
+					_renderer->renderStateMask = pp[e.second] ? (_renderer->renderStateMask | e.second) : (_renderer->renderStateMask & ~e.second);
+					_renderer->preparePipeline();
+				}
+				if (stagesSettingsDraw.contains(e.second)) {
+					stagesSettingsDraw[e.second]();
+				}
+			}
+			i++;
+			ImGui::PopID();
+		}
+
+		if (!_renderer->customPostProcessing.empty()) {
+			ImGui::SeparatorText("Custom PP");
+			for (auto& e : _renderer->activeCustomPP) {
+				if (ImGui::Checkbox(e.first.c_str(), &e.second)) {
+					_renderer->preparePipeline();
+				}
+			}
+		}
+
+		if (ImGui::CollapsingHeader("Skybox")) {
+			ImGui::Text(_renderer->mHDRSkyBoxTexture->mPath.c_str());
+			ImGui::SameLine();
+			if (ImGui::Button(ICON_FA_FILE)) {
+				popupStates["file_chooser"] = true;
+				fileFormatsCb = [] {
+					return ".hdr";
+				};
+				fileChooserCb = [_renderer](std::string path) {
+					std::string _path = UTILS::ReplaceSubstrings(path, "\\", "/");
+					auto pos = _path.find("Assets/Engine/");
+					if (pos != std::string::npos) {
+						_path = _path.substr(pos + 14);
+					}
+					pos = _path.find("Assets/Game/");
+					if (pos != std::string::npos) {
+						_path = _path.substr(pos + 12);
+					}
+					_renderer->setSkyBoxTexture(_path);
+					_renderer->prepareIBL();
+				};
+			}
+		}
+		
 		/*static bool isBloom = true;
 		ImGui::Checkbox("Bloom", &isBloom);
 		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::BLOOM, isBloom);
@@ -2987,6 +3521,9 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 			core.renderer->f.rotation = MATHGL::Vector3(a, 0.0f, b);
 		}*/
 
+		ImGui::End();
+
+		ImGui::Begin("Input Manager");
 		auto& im = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>();
 		if (im.isGamepadExist(0)) {
 			for (auto e : im.getGamepad(0).buttons) {
@@ -2996,17 +3533,18 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 			ImGui::LabelText("RStick", (std::to_string(im.getGamepad(0).rightSticX) + " " + std::to_string(im.getGamepad(0).rightSticX)).c_str());
 			ImGui::LabelText("Triggers", (std::to_string(im.getGamepad(0).leftTrigger) + " " + std::to_string(im.getGamepad(0).rightTrigger)).c_str());
 		}
+		ImGui::End();
 
-		auto boxMaterial = ECS::ComponentManager::GetInstance().getComponent<ECS::MaterialRenderer>(ECS::Entity(3));
 #ifdef OPENGL_BACKEND
 		if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-			drawMaterialWidget(reinterpret_cast<RENDER::MaterialGl*>(boxMaterial->GetMaterialAtIndex(0).get()));
+			if (editMaterial) {
+				drawMaterialWidget(reinterpret_cast<RENDER::MaterialGl*>(editMaterial.get()));
+			}
 		}
 #endif
-
 		drawComponentInspector();
 		drawTextureWatcher();
-		ImGui::End();
+		drawScene();
 	}
 
 	drawStats();
@@ -3129,5 +3667,7 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 		ImGui::RenderPlatformWindowsDefault();
 		glfwMakeContextCurrent(backup_current_context);
 	}
+
+
 	//window->popGLStates();
 }

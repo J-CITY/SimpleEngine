@@ -6,12 +6,14 @@
 #include <iostream>
 
 #include "serviceManager.h"
+#include "coreModule/ecs/components/transform.h"
 #include "renderModule/backends/gl/shaderGl.h"
 
 import logger;
 
 using namespace IKIGAI;
 using namespace IKIGAI::RESOURCES;
+
 
 std::string IKIGAI::RESOURCES::ShaderLoader::FILE_PATH = "";
 
@@ -26,6 +28,16 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromFile(const std::str
 //		shader->path = path;
 	}
 	return shader;
+}
+
+std::shared_ptr<RENDER::ShaderInterface> ShaderLoader::CreateFromFiles(const std::string& vertexPath,
+                                                                const std::string& fragmentPath,
+                                                                std::optional<std::string> geometryPath,
+                                                                std::optional<std::string> tessControlPath,
+                                                                std::optional<std::string> tessEvalPath,
+                                                                std::optional<std::string> computePath, bool useBinary)
+{
+	return std::make_shared<RENDER::ShaderGl>(vertexPath, fragmentPath);
 }
 
 int ln = 1;
@@ -295,3 +307,44 @@ void ShaderLoader::Recompile(RENDER::ShaderInterface& shader, const std::string&
 	//	LOG_INFO("[COMPILE] \"" + FILE_PATH + "\": Failed! Previous shader version keept");
 	//}
 }
+
+#include <rttr/registration>
+
+RTTR_REGISTRATION
+{
+	rttr::registration::class_<IKIGAI::RESOURCES::ShaderResource>("ShaderResource")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	)
+	.property("VertexPath", &IKIGAI::RESOURCES::ShaderResource::mVertexPath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::OPTIONAL_PARAM),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	)
+	.property("FragmentPath", &IKIGAI::RESOURCES::ShaderResource::mFragmentPath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::OPTIONAL_PARAM),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	)
+	.property("GeometryPath", &IKIGAI::RESOURCES::ShaderResource::mGeometryPath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::OPTIONAL_PARAM),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	)
+	.property("TessControlPath", &IKIGAI::RESOURCES::ShaderResource::mTessControlPath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::OPTIONAL_PARAM),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	)
+	.property("TessEvalPath", &IKIGAI::RESOURCES::ShaderResource::mTessEvalPath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::OPTIONAL_PARAM),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	)
+	.property("ComputePath", &IKIGAI::RESOURCES::ShaderResource::mComputePath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::OPTIONAL_PARAM),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	);
+}
+

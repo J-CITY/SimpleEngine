@@ -13,9 +13,28 @@ namespace IKIGAI
 
 namespace IKIGAI {
 	namespace RESOURCES {
+		struct ShaderResource {
+			std::string mVertexPath;
+			std::string mFragmentPath;
+			std::string mGeometryPath;
+			std::string mTessControlPath;
+			std::string mTessEvalPath;
+			std::string mComputePath;
+		};
+
 		class ShaderLoader : public ResourceManager<RENDER::ShaderInterface> {
 		public:
 			static ResourcePtr<RENDER::ShaderInterface> CreateFromFile(const std::string& path, bool useBinary=false);
+			static std::shared_ptr<RENDER::ShaderInterface> CreateFromFiles(const std::string& vertexPath,
+			                                                         const std::string& fragmentPath,
+			                                                         std::optional<std::string> geometryPath =
+				                                                         std::nullopt,
+			                                                         std::optional<std::string> tessControlPath =
+				                                                         std::nullopt,
+			                                                         std::optional<std::string> tessEvalPath =
+				                                                         std::nullopt,
+			                                                         std::optional<std::string> computePath =
+				                                                         std::nullopt, bool useBinary = false);
 			static ResourcePtr<RENDER::ShaderInterface> CreateFromSource(const std::string& vertexShader, const std::string& fragmentShader,
 				const std::string& geometryShader = "", const std::string& tessCompShader="", const std::string& tessEvoluationShader="");
 			static void Recompile(RENDER::ShaderInterface& shader, const std::string& filePath);

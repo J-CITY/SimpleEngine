@@ -19,13 +19,22 @@ namespace IKIGAI {
 			//TODO: думаю можно сделать ресурс для текстуры с её описанием и грузить его
 			template<typename T>
 			ResourcePtr<T> loadResource(const std::string& path) {
-				if (auto resource = getResource<T>(path)) {
+				std::string _path = UTILS::ReplaceSubstrings(path, "\\", "/");
+				auto pos = _path.find("Assets/Engine/");
+				if (pos != std::string::npos) {
+					_path = _path.substr(pos + 14);
+				}
+				pos = _path.find("Assets/Game/");
+				if (pos != std::string::npos) {
+					_path = _path.substr(pos + 12);
+				}
+				if (auto resource = getResource<T>(_path)) {
 					return resource;
 				}
 				else {
-					auto newResource = createResource(path);
+					auto newResource = createResource(_path);
 					if (newResource) {
-						return registerResource(path, newResource);
+						return registerResource(_path, newResource);
 					}
 					else {
 						return nullptr;

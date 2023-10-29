@@ -49,9 +49,9 @@ namespace IKIGAI::UTILS {
 		consteval auto tokenize_enum(sv base) {
 			size_t count{};
 			std::array<std::pair<sv, T>, N> tokens;
-			std::underlying_type_t<T> val{};
+			std::underlying_type_t<T> val{0};
 			sv name;
-			for (auto&& word : std::ranges::views::split(base, std::string_view(", "))) {
+			for (auto&& word : std::ranges::views::split(base, std::string_view(","))) {
 				for (int i{}; auto && tok : std::ranges::views::split(word, std::string_view("="))) {
 					sv token{ tok.begin(), tok.end() };
 					if (!i)
@@ -60,17 +60,12 @@ namespace IKIGAI::UTILS {
 						val = to_num<T>(trim(token));
 					++i;
 				}
-				tokens[count++] = { name, static_cast<T>(val++) };
+				tokens[count++] = { name, static_cast<T>(val) };
+				++val;
 			}
 			return tokens;
 		}
 	}
-
-#define IKIGAI_ENUM(T, ...) \
-	enum class T : int { __VA_ARGS__ };	 \
-	template <> inline constexpr bool isEnum<T> = true; \
-	template <> inline constexpr auto Impl::Max<T> = Impl::enum_size(#__VA_ARGS__); \
-	template <> inline constexpr auto Impl::Tokens<T> = Impl::tokenize_enum<Impl::Max<T>, T>(#__VA_ARGS__);
 
 	template <class E>
 	requires isEnum<E>
@@ -97,6 +92,23 @@ namespace IKIGAI::UTILS {
 	constexpr E stringToEnum(Impl::sv str) {
 		return {};
 	}
+}
+
+#define IKIGAI_ENUM(T, ...) \
+	enum class T : int { __VA_ARGS__ }; \
+	template <> inline constexpr bool IKIGAI::UTILS::isEnum<T> = true; \
+	template <> inline constexpr auto IKIGAI::UTILS::Impl::Max<T> = IKIGAI::UTILS::Impl::enum_size(#__VA_ARGS__); \
+	template <> inline constexpr auto IKIGAI::UTILS::Impl::Tokens<T> = IKIGAI::UTILS::Impl::tokenize_enum<IKIGAI::UTILS::Impl::Max<T>, T>(#__VA_ARGS__);
+
+
+#define IKIGAI_ENUM_NS(NS, T, ...) \
+	namespace NS { \
+	enum class T : int { __VA_ARGS__ }; \
+	} \
+	template <> inline constexpr bool IKIGAI::UTILS::isEnum<NS::T> = true; \
+	template <> inline constexpr auto IKIGAI::UTILS::Impl::Max<NS::T> = IKIGAI::UTILS::Impl::enum_size(#__VA_ARGS__); \
+	template <> inline constexpr auto IKIGAI::UTILS::Impl::Tokens<NS::T> = IKIGAI::UTILS::Impl::tokenize_enum<IKIGAI::UTILS::Impl::Max<NS::T>, NS::T>(#__VA_ARGS__);
+
 
 #define DEFINE_ENUM_CLASS_BITWISE_OPERATORS(Enum)				   \
 	inline constexpr Enum operator|(Enum Lhs, Enum Rhs) {		   \
@@ -133,4 +145,4 @@ namespace IKIGAI::UTILS {
 				   static_cast<std::underlying_type_t<Enum>>(Lhs) ^ \
 				   static_cast<std::underlying_type_t<Enum>>(Lhs)); \
 	}
-}
+

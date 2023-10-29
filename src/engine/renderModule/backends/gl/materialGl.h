@@ -110,6 +110,7 @@ namespace IKIGAI {
 				return mShader;
 			}
 
+			//TODO: add method for unsubscribe previous texture and sunscribe new. And call it when update texture
 			void set(const std::string& name, UniformData data) {
 				//TODO: add check for uniform type
 				if (mUniformData.contains(name)) mUniformData.at(name) = data;
@@ -183,40 +184,13 @@ namespace IKIGAI {
 				return uniformName.rfind("engine_", 0) == 0;
 			}
 
-			virtual void onSerialize(nlohmann::json& j) override {
-				
-			}
+			virtual void onSerialize(nlohmann::json& j) override;
 
 			bool trySetSimpleMember(const std::string& k, const nlohmann::json& v, std::optional<std::string> subname = std::nullopt);
 			
-			std::vector<std::pair<std::string, EVENT::Event<RESOURCES::FileWatcher::FileStatus>::id>> watchingFilesId;
+			std::map<std::string, EVENT::Event<RESOURCES::FileWatcher::FileStatus>::id> watchingFilesId;
 
-			virtual void onDeserialize(nlohmann::json& j) override {
-				auto vertexPath = j["shaderVertex"].get<std::string>();
-				auto fragmentPath = j["shaderFragment"].get<std::string>();
-				//TODO: get shader from resource system
-				setShader(std::make_shared<ShaderGl>(vertexPath, fragmentPath));
-
-				mBlendable = j.value("blendable", false);
-				mBackfaceCulling = j.value("backfaceCulling", true);
-				mFrontfaceCulling = j.value("frontfaceCulling", false);
-				mDepthTest = j.value("depthTest", true);
-				mDepthWriting = j.value("depthWriting", true);
-				mColorWriting = j.value("colorWriting", true);
-				mGpuInstances = j.value("gpuInstances", 1);
-				mIsDeferred = j.value("isDeferred", false);
-
-				if (j.count("uniforms")) {
-					for (auto& [k, v] : j["uniforms"].items()) {
-						if (!trySetSimpleMember(k, v)) {
-							//uniform buffer
-							for (auto& [name, data] : v.items()) {
-								trySetSimpleMember(k, data, name);
-							}
-						}
-					}
-				}
-			}
+			virtual void onDeserialize(nlohmann::json& j) override;
 
 			uint8_t generateStateMask() const;
 		};

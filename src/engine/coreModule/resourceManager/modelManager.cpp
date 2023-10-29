@@ -89,6 +89,15 @@ ModelParserFlags ModelLoader::getAssetMetadata(const std::string& path) {
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::FLIP_UVS;
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
+	//flags |= IKIGAI::RESOURCES::ModelParserFlags::PRE_TRANSFORM_VERTICES;
+	//flags |= IKIGAI::RESOURCES::ModelParserFlags::FLIP_WINDING_ORDER;
+	flags |= IKIGAI::RESOURCES::ModelParserFlags::JOIN_IDENTICAL_VERTICES;
+	flags |= IKIGAI::RESOURCES::ModelParserFlags::IMPROVE_CACHE_LOCALITY;
+	flags |= IKIGAI::RESOURCES::ModelParserFlags::FIND_INVALID_DATA;
+	flags |= IKIGAI::RESOURCES::ModelParserFlags::FIND_INSTANCES;
+	flags |= IKIGAI::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
+	flags |= IKIGAI::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
+	flags |= IKIGAI::RESOURCES::ModelParserFlags::DEBONE;
 	return flags;
 	//ModelParserFlags flags = ModelParserFlags::NONE;
 

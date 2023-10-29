@@ -1,0 +1,42 @@
+{
+    "backfaceCulling": true,
+    "blendable": false,
+    "colorWriting": true,
+    "depthTest": true,
+    "depthWriting": true,
+    "frontfaceCulling": false,
+    "gpuInstances": 1,
+    "isDeferred": true,
+    "shaderFragment": "Shaders/gl/deferredGBuffer.fs.glsl",
+    "shaderVertex": "Shaders/gl/deferredGBuffer.vs.glsl",
+    "uniforms": {
+        "u_Albedo": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        ],
+        "u_AlbedoMap": "C:/Users/DaniilGlushchenko/Desktop/ikigaiEngine/build/../Assets/Game\\textures\\sponza\\Sponza_Roof_diffuse.tga",
+        "u_EnableNormalMapping": true,
+        "u_Metallic": 9.199999809265137,
+        "u_MetallicMap": "C:/Users/DaniilGlushchenko/Desktop/ikigaiEngine/build/../Assets/Game\\textures\\sponza\\Sponza_Roof_roughness.tga",
+        "u_NormalMap": "C:/Users/DaniilGlushchenko/Desktop/ikigaiEngine/build/../Assets/Game\\textures\\sponza\\Sponza_Roof_normal.tga",
+        "u_Roughness": 1.0,
+        "u_Shininess": 100.0,
+        "u_Specular": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "u_TextureOffset": [
+            0.0,
+            0.0
+        ],
+        "u_TextureTiling": [
+            1.0,
+            1.0
+        ],
+        "u_UseBone": false,
+        "u_engine_FinalBonesMatrices[0]": 0.0
+    }
+}

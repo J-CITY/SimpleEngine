@@ -501,7 +501,7 @@ float DirShadowCalculation(vec4 fragPosLightSpace)
     float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.001);
 	
     if (projCoords.x > 1.0 || projCoords.y > 1.0 || projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.y < 0.0 || projCoords.z < 0.0)
-        return 1.0;
+        return 0.0;
 
     // Проверка нахождения текущего фрагмента в тени
     // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;

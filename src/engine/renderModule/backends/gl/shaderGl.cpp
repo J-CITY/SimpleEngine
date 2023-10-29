@@ -108,6 +108,10 @@ ShaderGl::ShaderGl(std::string vertexPath, std::string fragmentPath,
 	std::optional<std::string> geometryPath, std::optional<std::string> tessControlPath,
 	std::optional<std::string> tessEvalPath, std::optional<std::string> computePath)
 {
+	this->vertexPath = vertexPath;
+	this->fragmentPath = fragmentPath;
+	//TODO: add other
+
 	auto readShader = [](std::string path) {
 		std::string code;
 

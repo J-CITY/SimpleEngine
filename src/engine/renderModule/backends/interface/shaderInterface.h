@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <optional>
 
 
 namespace IKIGAI::RENDER {
@@ -12,6 +13,8 @@ namespace IKIGAI::RENDER {
 
 	class ShaderInterface {
 	public:
+		std::optional<std::string> fragmentPath;
+		std::optional<std::string> vertexPath;
 
 		virtual ~ShaderInterface() = default;
 

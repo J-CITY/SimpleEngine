@@ -19,6 +19,7 @@ namespace IKIGAI::SCENE_SYSTEM {
 		bool hasCurrentScene() const;
 		Scene& getCurrentScene();
 		[[nodiscard]] std::string getCurrentSceneSourcePath() const;
+		void setCurrentSceneSourcePath(const std::string& name);
 
 	public:
 		EVENT::Event<> sceneLoadEvent;

@@ -1,5 +1,6 @@
 #pragma once
 #include "backends/gl/materialGl.h"
+#include "utilsModule/enum.h"
 #ifdef OPENGL_BACKEND
 #include "drawable.h"
 #include "frustum.h"
@@ -21,7 +22,37 @@ namespace IKIGAI::CORE_SYSTEM {
 		class Core;
 }
 
+IKIGAI_ENUM_NS(IKIGAI::RENDER, RenderStates,
+	TAA = 1,
+	MOTION_BLUR = 2,
+	BLOOM = 4,
+	GOD_RAYS = 8,
+	HDR = 16,
+	COLOR_GRADING = 32,
+	VIGNETTE = 64,
+	DEPTH_OF_FIELD = 128,
+	OUTLINE = 256,
+	CHROMATIC_ABBERATION = 512,
+	POSTERIZE = 1024,
+	PIXELIZE = 2048,
+	SHARPEN = 4096,
+	DILATION = 8192,
+	FILM_GRAIN = 16384,
+	GUI = 32768,
+	SSAO = 65536,
+	SSR = 131072,
+	SSGI = 262144,
+	SSS = 524288
+)
+
+namespace IKIGAI::RENDER
+{
+	DEFINE_ENUM_CLASS_BITWISE_OPERATORS(RenderStates)
+}
+
+
 namespace IKIGAI::RENDER {
+
 	class FrameBufferGl;
 	class TextureGl;
 	class ShaderGl;
@@ -33,6 +64,15 @@ namespace IKIGAI::RENDER {
 		struct SSAO {
 			std::vector<MATHGL::Vector3> mSSAOKernel;
 			bool mUseSSAO = true;
+		};
+		struct SSR {
+			bool mUse = true;
+		};
+		struct SSGI {
+			bool mUse = false;
+		};
+		struct SSS {
+			bool mUse = false;
 		};
 		struct DirShadowMap {
 			unsigned int mDirShadowMapResolution = 4096;
@@ -87,6 +127,9 @@ namespace IKIGAI::RENDER {
 			DirShadowMap mDirShadowMap;
 
 			SSAO mSSAO;
+			SSR mSSR;
+			SSGI mSSGI;
+			SSS mSSS;
 
 			ChromaticAbberation chromaticAbberation;
 			HDR hdr;
@@ -104,6 +147,14 @@ namespace IKIGAI::RENDER {
 		std::shared_ptr<TextureGl> mPrevDeferredTexture; //texture after deferred and forward render without post processing
 		std::shared_ptr<TextureGl> mDeferredTexture; //texture after deferred and forward render without post processing
 
+		std::shared_ptr<TextureGl> mEmptyTexture;
+		std::shared_ptr<TextureGl> mHDRSkyBoxTexture;
+
+		std::unordered_map<std::string, std::shared_ptr<TextureGl>> mTextures;
+		bool pingPong = false;
+		std::array<std::shared_ptr<TextureGl>, 2> pingPongTex;
+
+		void setSkyBoxTexture(const std::string& path);
 		GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context);
 		void createShaders();
 		void sendEngineUBO();
@@ -128,6 +179,8 @@ namespace IKIGAI::RENDER {
 		void applySharpen();
 		void applyDilation();
 		void applyFilmGrain();
+		void applyMotionBlur();
+		void applyTAA();
 		void sendSSAOData();
 		void sendBounseDataToShader(std::shared_ptr<MaterialGl> material, ECS::Skeletal& animator, std::shared_ptr<ShaderGl> shader);
 		void drawGUISubtree(Ref<ECS::Object> obj);
@@ -139,7 +192,36 @@ namespace IKIGAI::RENDER {
 		struct EngineDirShadowUBO {
 			MATHGL::Matrix4 lightSpaceMatrices[16];
 		};
-		
+
+		std::map<std::string, bool> activeCustomPP;
+		std::map<std::string, std::shared_ptr<MaterialGl>> customPostProcessing;
+		void addCustomPostProcessing(const std::string& name, std::shared_ptr<MaterialGl> material, bool isActive=true);
+
+		RenderStates renderStateMask = (RenderStates::BLOOM | RenderStates::GUI);
+
+		std::vector<std::function<void()>> ppFuncs;
+		std::map<RenderStates, std::function<void()>> typeToFuncPP {
+			{ RenderStates::TAA, [this]() { applyTAA(); }},
+			{ RenderStates::MOTION_BLUR, [this]() { applyMotionBlur(); }},
+			{ RenderStates::BLOOM, [this]() { applyBloom(); }},
+			{ RenderStates::GOD_RAYS, [this]() { applyGoodRays(); }},
+			{ RenderStates::HDR, [this]() { applyHDR(); } },
+			{ RenderStates::COLOR_GRADING, [this]() {applyColorGrading(); } },
+			{ RenderStates::VIGNETTE, [this]() {applyVignette(); } },
+			{ RenderStates::DEPTH_OF_FIELD, [this]() {applyDepthOfField(); } },
+			{ RenderStates::OUTLINE, [this]() {applyOutline(); } },
+			{ RenderStates::CHROMATIC_ABBERATION, [this]() {applyChromaticAbberation(); } },
+			{ RenderStates::POSTERIZE, [this]() {applyPosterize(); }},
+			{ RenderStates::PIXELIZE, [this]() {applyPixelize(); } },
+			{ RenderStates::SHARPEN, [this]() {applySharpen(); } },
+			{ RenderStates::DILATION, [this]() {applyDilation(); } },
+			{ RenderStates::FILM_GRAIN, [this]() {applyFilmGrain(); } },
+			{ RenderStates::GUI, [this]() {drawGUI(); } },
+		};
+
+		void preparePipeline();
+
+		void prepareIBL();
 	protected:
 		
 		EngineDirShadowUBO getLightSpaceMatrices(const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos);
@@ -149,8 +231,6 @@ namespace IKIGAI::RENDER {
 		void preparePointShadow();
 
 		void drawDeferredGBuffer();
-		void applyMotionBlur();
-		void applyTAA();
 		void drawForward();
 
 		void drawDrawableBatching(const Drawable& p_toDraw);
@@ -159,7 +239,6 @@ namespace IKIGAI::RENDER {
 		void applySSR();
 		void applySSGI();
 		void renderSkybox();
-		void prepareIBL();
 		void applySSAO();
 
 		void updateLights(IKIGAI::SCENE_SYSTEM::Scene& scene);

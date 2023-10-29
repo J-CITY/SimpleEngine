@@ -537,6 +537,7 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 							material = materials.at(mesh->getMaterialIndex());
 							if (!material || (!material->getShader() && !material->isDeferred())) {
 								material = defaultMaterial;
+								//material = materials.at(0);
 							}
 						}
 

@@ -175,3 +175,7 @@ std::string SceneManager::getCurrentSceneSourcePath() const {
 	return m_currentSceneSourcePath;
 }
 
+void SceneManager::setCurrentSceneSourcePath(const std::string& name) {
+	m_currentSceneSourcePath = "Scenes/" + name + ".xml";
+}
+

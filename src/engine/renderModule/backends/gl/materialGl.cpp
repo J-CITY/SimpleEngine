@@ -1,6 +1,7 @@
 #include "materialGl.h"
 
 #include "coreModule/resourceManager/ServiceManager.h"
+#include "coreModule/resourceManager/shaderManager.h"
 #include "coreModule/resourceManager/textureManager.h"
 #ifdef OPENGL_BACKEND
 #include "../interface/reflectionStructs.h"
@@ -73,6 +74,11 @@ void MaterialGl::generateUniformsData() {
 void MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
 	int textureSlot = 0;
 	for (auto& [name, uniform] : mUniforms) {
+
+		if (!mUniformData.contains(name)) {
+			continue;
+		}
+
 		std::visit([&textureSlot, defaultTexture, useTextures, name, this](auto& arg) {
 			using T = std::decay_t<decltype(arg)>;
 		if constexpr (std::is_same_v<T, UniformBufferGl<std::vector<unsigned char>>>) {
@@ -182,6 +188,7 @@ void MaterialGl::unbind() {
 	mShader->unbind();
 }
 
+//TODO: update FileWatcher if texture already was in uniforms
 void MaterialGl::set(const std::string& name, const std::string& memberName, UniformData data) {
 	const auto& udinfo = mShader->getUniformsInfo();
 	auto cnt = udinfo.count(name);
@@ -193,6 +200,48 @@ void MaterialGl::set(const std::string& name, const std::string& memberName, Uni
 			memcpy(startPtr, reinterpret_cast<unsigned char*>(std::addressof(data)), member.size);
 			break;
 		}
+	}
+}
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
+void MaterialGl::onSerialize(nlohmann::json& j)
+{
+	if (mShader) {
+		j["shaderVertex"] = mShader->vertexPath.value();
+		j["shaderFragment"] = mShader->fragmentPath.value();
+	}
+	j["blendable"] = mBlendable;
+	j["backfaceCulling"] = mBackfaceCulling;
+	j["frontfaceCulling"] = mFrontfaceCulling;
+	j["depthTest"] = mDepthTest;
+	j["depthWriting"] = mDepthWriting;
+	j["colorWriting"] = mColorWriting;
+	j["gpuInstances"] = mGpuInstances;
+	j["isDeferred"] = mIsDeferred;
+
+	for (auto& e : mUniformData) {
+		std::visit(overloaded{
+			[&j, name = e.first](auto arg) {
+				j["uniforms"][name] = arg;
+			},
+			[&j, name = e.first](std::shared_ptr<TextureGl> arg) {
+				if (arg)
+					j["uniforms"][name] = arg->mPath;
+			},
+			[&j, name = e.first](MATHGL::Vector2f& arg) {
+				j["uniforms"][name] = {arg.x, arg.y};
+			},
+			[&j, name = e.first](MATHGL::Vector3& arg) {
+				j["uniforms"][name] = {arg.x, arg.y, arg.z};
+			},
+			[&j, name = e.first](MATHGL::Vector4& arg) {
+				j["uniforms"][name] = {arg.x, arg.y, arg.z, arg.w};
+			},
+			[&j, name = e.first](std::vector<unsigned char>& arg) {
+				//TODO
+			},
+		}, e.second);
 	}
 }
 
@@ -240,8 +289,12 @@ bool MaterialGl::trySetSimpleMember(const std::string& k, const nlohmann::json& 
 		_set(k, subname, std::static_pointer_cast<TextureGl>(
 			RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(v.get<std::string>(), true))
 		);
-
-		auto id = RESOURCES::FileWatcher::getInstance()->add(IKIGAI::UTILS::getRealPath(v.get<std::string>()),
+		//TODO: need unubscribe from priveous
+		auto path = IKIGAI::UTILS::getRealPath(v.get<std::string>());
+		if (watchingFilesId.contains(path)) {
+			RESOURCES::FileWatcher::getInstance()->removeDeferred(path, watchingFilesId.at(path));
+		}
+		RESOURCES::FileWatcher::getInstance()->addDeferred(IKIGAI::UTILS::getRealPath(v.get<std::string>()),
 			[this, k, _path = IKIGAI::UTILS::getRealPath(v.get<std::string>())](RESOURCES::FileWatcher::FileStatus status) {
 			switch (status) {
 			case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
@@ -251,8 +304,10 @@ bool MaterialGl::trySetSimpleMember(const std::string& k, const nlohmann::json& 
 			case RESOURCES::FileWatcher::FileStatus::DEL: break;
 			case RESOURCES::FileWatcher::FileStatus::CREATE: break;
 			}
+		}, 
+		[this, path](EVENT::Event<RESOURCES::FileWatcher::FileStatus>::id id){
+			watchingFilesId.insert({ path, id });
 		});
-		watchingFilesId.push_back({ IKIGAI::UTILS::getRealPath(v.get<std::string>()), id });
 
 		//uniformsData[k] = RESOURCES::TextureLoader::CreateFromFile(v.get<std::string>());
 		return true;
@@ -271,5 +326,33 @@ uint8_t MaterialGl::generateStateMask() const {
 	if (mFrontfaceCulling)						result |= 0b0100'0000;
 	return result;
 }
+
+void MaterialGl::onDeserialize(nlohmann::json& j) {
+	if (j.contains("shaderVertex") && j.contains("shaderFragment")) {
+		auto vertexPath = j["shaderVertex"].get<std::string>();
+		auto fragmentPath = j["shaderFragment"].get<std::string>();
+		setShader(std::static_pointer_cast<ShaderGl>(RESOURCES::ShaderLoader::CreateFromFiles(vertexPath, fragmentPath)));
+	}
+	mBlendable = j.value("blendable", false);
+	mBackfaceCulling = j.value("backfaceCulling", true);
+	mFrontfaceCulling = j.value("frontfaceCulling", false);
+	mDepthTest = j.value("depthTest", true);
+	mDepthWriting = j.value("depthWriting", true);
+	mColorWriting = j.value("colorWriting", true);
+	mGpuInstances = j.value("gpuInstances", 1);
+	mIsDeferred = j.value("isDeferred", false);
+
+	if (mShader && j.count("uniforms")) {
+		for (auto& [k, v] : j["uniforms"].items()) {
+			if (!trySetSimpleMember(k, v)) {
+				//uniform buffer
+				for (auto& [name, data] : v.items()) {
+					trySetSimpleMember(k, data, name);
+				}
+			}
+		}
+	}
+}
+
 #endif
 

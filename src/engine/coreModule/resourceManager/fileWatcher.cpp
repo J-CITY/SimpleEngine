@@ -2,30 +2,59 @@
 
 using namespace IKIGAI::RESOURCES;
 
+IKIGAI::ObjectIdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::_add(const std::string& path, std::function<void(FileStatus)> cb) {
+	if (!std::filesystem::exists(path)) {
+		throw;
+	}
+	m_filesLastModifications[path] = std::filesystem::last_write_time(path);
+	if (!m_filesCallbacks.contains(path)) {
+		m_filesCallbacks[path] = EVENT::Event<FileStatus>();
+	}
+	return m_filesCallbacks[path].add(cb);
+}
+
 IKIGAI::ObjectIdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::add(const std::filesystem::path& path, std::function<void(FileStatus)> cb) {
 	const std::lock_guard lock(m_mutex);
+	const auto _path = path.string();
+	return _add(_path, cb);
+}
+
+void FileWatcher::addDeferred(const std::filesystem::path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb) {
+	const std::lock_guard lock(m_mutexDeferred);
 	if (!std::filesystem::exists(path)) {
 		throw;
 	}
 	const auto _path = path.string();
-	m_filesLastModifications[_path] = std::filesystem::last_write_time(path);
-	if (!m_filesCallbacks.contains(_path)) {
-		m_filesCallbacks[_path] = EVENT::Event<FileStatus>();
+
+	deferredEvents.push({ QueueEvent::Action::ADD, _path, cb, retCb });
+}
+
+void FileWatcher::_remove(const std::string& path, EVENT::Event<FileStatus>::id id) {
+	if (!m_filesCallbacks.contains(path)) {
+		return;
 	}
-	return m_filesCallbacks[_path].add(cb);
+	m_filesCallbacks.at(path).removeListener(id);
+	if (!m_filesCallbacks.at(path).getListenerCount()) {
+		m_filesCallbacks.erase(path);
+		m_filesLastModifications.erase(path);
+	}
 }
 
 void FileWatcher::remove(const std::filesystem::path& path, EVENT::Event<FileStatus>::id id) {
 	const std::lock_guard lock(m_mutex);
 	const auto _path = path.string();
-	if (!m_filesCallbacks.contains(_path)) {
-		return;
+	_remove(_path, id);
+}
+
+void FileWatcher::removeDeferred(const std::filesystem::path& path, EVENT::Event<FileStatus>::id id) {
+	const std::lock_guard lock(m_mutexDeferred);
+	if (!std::filesystem::exists(path)) {
+		throw;
 	}
-	m_filesCallbacks.at(_path).removeListener(id);
-	if (!m_filesCallbacks.at(_path).getListenerCount()) {
-		m_filesCallbacks.erase(_path);
-		m_filesLastModifications.erase(_path);
-	}
+	const auto _path = path.string();
+
+	deferredEvents.push({ QueueEvent::Action::REMOVE, _path, nullptr, nullptr, id });
+	return;
 }
 
 void FileWatcher::start() {
@@ -37,11 +66,28 @@ void FileWatcher::stop() {
 }
 
 void FileWatcher::applyUpdate() {
-	const std::lock_guard lock(m_mutex);
-	for (auto& e : m_events) {
-		m_filesCallbacks[e.first].run(e.second);
+	{
+		const std::lock_guard lock(m_mutex);
+		for (auto& e : m_events) {
+			m_filesCallbacks[e.first].run(e.second);
+		}
+		m_events.clear();
 	}
-	m_events.clear();
+	{
+		const std::lock_guard lock(m_mutexDeferred);
+		while (!deferredEvents.empty()) {
+			auto e = deferredEvents.front();
+			deferredEvents.pop();
+
+			if (e.action == QueueEvent::Action::ADD) {
+				e.retCb(_add(e.path, e.cb));
+			}
+			else {
+				_remove(e.path, e.id.value());
+			}
+		}
+	}
+
 }
 
 void FileWatcher::update() {

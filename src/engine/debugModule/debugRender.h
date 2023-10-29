@@ -1,5 +1,5 @@
 #pragma once
-#include <memory>
+
 
 namespace IKIGAI
 {
@@ -30,8 +30,12 @@ namespace IKIGAI::DEBUG {
 	private:
 		void drawWindowWidget(CORE_SYSTEM::Core& core);
 		void drawMaterialWidget(RENDER::MaterialGl* material);
+		//void widgetMaterial(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop);
 		void drawComponentInspector();
 		void drawTextureWatcher();
+		void drawScene();
 		void drawStats();
+		void drawPopup();
+		void drawMainWindow();
 	};
 }

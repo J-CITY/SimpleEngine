@@ -13,7 +13,7 @@ namespace IKIGAI::EVENT {
 	public:
 		Event() = default;
 		using Callback = std::function<void(ArgTypes...)>;
-
+		
 		id add(Callback p_callback) {
 			id listenerID = generateId();
 			callbacks.emplace(listenerID, p_callback);
@@ -37,6 +37,8 @@ namespace IKIGAI::EVENT {
 	private:
 		std::map<id, Callback> callbacks;
 	};
+
+	using EventListener = ObjectId<Event<>>;
 
 	class EventBroadcaster: public ObjectIdGenerator<EventBroadcaster>
 	{
