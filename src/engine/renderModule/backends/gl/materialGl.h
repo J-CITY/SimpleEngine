@@ -50,6 +50,8 @@ namespace IKIGAI {
 			bool mIsCastShadow = true;
 			bool mIsBakedShadow = false;
 
+			int textureSlot = 0;
+
 			~MaterialGl();
 
 			void generateUniformsData();

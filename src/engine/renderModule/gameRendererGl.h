@@ -195,6 +195,11 @@ namespace IKIGAI::RENDER {
 
 		std::map<std::string, bool> activeCustomPP;
 		std::map<std::string, std::shared_ptr<MaterialGl>> customPostProcessing;
+
+		std::shared_ptr<MaterialGl> skyBoxMaterial;
+
+		void setSkyBoxMaterial(std::shared_ptr<MaterialInterface> m);
+
 		void addCustomPostProcessing(const std::string& name, std::shared_ptr<MaterialGl> material, bool isActive=true);
 
 		RenderStates renderStateMask = (RenderStates::BLOOM | RenderStates::GUI);

@@ -32,6 +32,8 @@ namespace IKIGAI::RENDER
             std::optional<std::string> geometryPath = std::nullopt, std::optional<std::string> tessControlPath = std::nullopt,
             std::optional<std::string> tessEvalPath = std::nullopt, std::optional<std::string> computePath = std::nullopt);
 
+        ShaderGl(std::string computePath);
+
         ~ShaderGl() override;
     	// activate the shader
         // ------------------------------------------------------------------------
@@ -63,7 +65,7 @@ namespace IKIGAI::RENDER
         IKIGAI::MATHGL::Matrix4 getUniformMat4(const std::string& name);
         int getUniformInt(const std::string& name);
         float getUniformFloat(const std::string& name);
-        unsigned getUniformLocation(const std::string& name);
+        int getUniformLocation(const std::string& name);
 
 
         void unbind() override;;

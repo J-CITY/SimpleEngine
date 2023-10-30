@@ -29,9 +29,12 @@ namespace IKIGAI::RENDER
 		static std::shared_ptr<TextureGl> createCubemap(std::array<std::string, 6> path);
 		static std::shared_ptr<TextureGl> createDepthForAttachCubemap(int texWidth, int texHeight, int type);
 		static std::shared_ptr<TextureGl> createDepthForAttach2DArray(int texWidth, int texHeight, int arrSize);
+		static std::shared_ptr<TextureGl> createEmpty3d(int texX, int texY, int texZ);
 		void bind(int slot);
 		void unbind();
 		void generateMipmaps();
+
+		void bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format);
 	};
 }
 #endif

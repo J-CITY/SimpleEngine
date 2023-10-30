@@ -238,6 +238,42 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttach2DArray(int texWidth, 
     return tex;
 }
 
+std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ) {
+    int m_mip_levels = 1;
+    int width = texX;
+    int height = texY;
+    int depth = texZ;
+
+    while (width > 1 && height > 1 && depth > 1) {
+        width = std::max(1, (width / 2));
+        height = std::max(1, (height / 2));
+        depth = std::max(1, (depth / 2));
+        m_mip_levels++;
+    }
+
+    unsigned int id;
+    glCreateTextures(GL_TEXTURE_3D, 1, &id);
+
+    glTextureStorage3D(id, m_mip_levels, GL_RGBA16F, texX, texY, texZ);
+
+    // Default sampling options.
+    glTextureParameteri(id, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(id, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(id, GL_TEXTURE_WRAP_R, GL_REPEAT);
+    glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    if (m_mip_levels > 1)
+        glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    else
+        glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    auto tex = std::make_shared<TextureGl>();
+    tex->id = id;
+    tex->type = TextureType::TEXTURE_3D;
+    tex->width = texX;
+    tex->height = texY;
+    return tex;
+}
+
 void TextureGl::bind(int _slot) {
     slot = _slot;
     glActiveTexture(GL_TEXTURE0 + slot);
@@ -249,6 +285,9 @@ void TextureGl::bind(int _slot) {
     }
     else if (type == TextureType::TEXTURE_2D_ARRAY) {
         glBindTexture(GL_TEXTURE_2D_ARRAY, id);
+    }
+    else if (type == TextureType::TEXTURE_3D) {
+        glBindTexture(GL_TEXTURE_3D, id);
     }
 }
 
@@ -265,6 +304,20 @@ void TextureGl::generateMipmaps() {
         glBindTexture(GL_TEXTURE_CUBE_MAP, id);
         glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
     }
+    else if (type == TextureType::TEXTURE_3D) {
+        glBindTexture(GL_TEXTURE_3D, id);
+        glGenerateMipmap(GL_TEXTURE_3D);
+    }
+}
+
+void TextureGl::bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format) {
+    glActiveTexture(GL_TEXTURE0 + unit);
+    glBindTexture(GL_TEXTURE_3D, id);
+
+	if (type == TextureType::TEXTURE_3D)
+		glBindImageTexture(unit, id, mip_level, GL_TRUE, layer, access, format);
+	else
+		glBindImageTexture(unit, id, mip_level, GL_FALSE, 0, access, format);
 }
 
 std::shared_ptr<TextureGl> TextureGl::CreateHDREmptyCubemap(int width, int height) {
