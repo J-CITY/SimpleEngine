@@ -202,9 +202,9 @@ ShaderGl::ShaderGl(std::string vertexPath, std::string fragmentPath,
 	if (computePath) {
 		const char* cShaderCode = computeCode.c_str();
 		compute = glCreateShader(GL_COMPUTE_SHADER);
-		glShaderSource(vertex, 1, &cShaderCode, NULL);
-		glCompileShader(vertex);
-		checkCompileErrors(vertex, "COMPUTE");
+		glShaderSource(compute, 1, &cShaderCode, NULL);
+		glCompileShader(compute);
+		checkCompileErrors(compute, "COMPUTE");
 	}
 	// if geometry shader is given, compile geometry shader
 	//unsigned int geometry;
@@ -252,6 +252,48 @@ ShaderGl::ShaderGl(std::string vertexPath, std::string fragmentPath,
 	getReflection();
 }
 
+
+
+ShaderGl::ShaderGl(std::string computePath) {
+	auto readShader = [](std::string path) {
+		std::string code;
+
+		std::ifstream shaderFile;
+		shaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		shaderFile.open(IKIGAI::UTILS::getRealPath(path));
+		std::stringstream shaderStream;
+		shaderStream << shaderFile.rdbuf();
+		shaderFile.close();
+		// convert stream into string
+		code = shaderStream.str();
+		return code;
+	};
+
+	// 1. retrieve the vertex/fragment source code from filePath
+	std::string computeCode;
+	try {
+		computeCode = readFileWithInclude(computePath);
+	}
+	catch (std::ifstream::failure& e) {
+		std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ: " << e.what() << std::endl;
+	}
+
+	const char* cShaderCode = computeCode.c_str();
+	unsigned int compute = glCreateShader(GL_COMPUTE_SHADER);
+	glShaderSource(compute, 1, &cShaderCode, NULL);
+	glCompileShader(compute);
+	checkCompileErrors(compute, "COMPUTE");
+
+	// shader Program
+	ID = glCreateProgram();
+	glAttachShader(ID, compute);
+	glLinkProgram(ID);
+	checkCompileErrors(ID, "PROGRAM");
+	glDeleteShader(compute);
+
+	getReflection();
+}
+
 ShaderGl::~ShaderGl()
 {
 	glDeleteShader(ID);
@@ -282,7 +324,8 @@ void ShaderGl::getReflection() {
 		{ GL_SAMPLER_2D, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D },
 		{ GL_SAMPLER_3D, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_3D },
 		{ GL_SAMPLER_2D_ARRAY, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D_ARRAY},
-		{ GL_SAMPLER_CUBE, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_CUBE }
+		{ GL_SAMPLER_CUBE, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_CUBE },
+		{ GL_IMAGE_3D, IKIGAI::RENDER::UNIFORM_TYPE::IMAGE_3D }
 	};
 	const std::unordered_map<IKIGAI::RENDER::UNIFORM_TYPE, unsigned> typeToSize = {
 		{ IKIGAI::RENDER::UNIFORM_TYPE::MAT4, sizeof(float) * 16 },
@@ -297,6 +340,7 @@ void ShaderGl::getReflection() {
 		{ IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_3D, sizeof(int) * 1 },
 		{ IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_CUBE, sizeof(int) * 1 },
 		{ IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D_ARRAY, sizeof(int) * 1 },
+		{ IKIGAI::RENDER::UNIFORM_TYPE::IMAGE_3D, sizeof(int) * 1 },
 	};
 
 	std::array<IKIGAI::RENDER::SHADER_TYPE, 6> shaderTypes = {
@@ -608,7 +652,7 @@ float ShaderGl::getUniformFloat(const std::string& name) {
 	return value;
 }
 
-unsigned ShaderGl::getUniformLocation(const std::string& name) {
+int ShaderGl::getUniformLocation(const std::string& name) {
 	if (uniformLocationCache.count(name))
 		return uniformLocationCache.at(name);
 

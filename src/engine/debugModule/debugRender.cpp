@@ -2592,10 +2592,12 @@ void DebugRender::drawTextureWatcher() {
 	static std::vector<std::string> items = { "Before Post Processing" };
 	static bool b = false;
 	if (!b) {
+		items.clear();
+		items.push_back("Before Post Processing");
 		for (auto& e : _renderer->mTextures) {
 			items.push_back(e.first);
 		}
-		b = true;
+		//b = true;
 	}
 
 
@@ -3399,27 +3401,47 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 		}
 
 		if (ImGui::CollapsingHeader("Skybox")) {
-			ImGui::Text(_renderer->mHDRSkyBoxTexture->mPath.c_str());
+			if (!_renderer->skyBoxMaterial) {
+				ImGui::Text(_renderer->mHDRSkyBoxTexture->mPath.c_str());
+				ImGui::SameLine();
+				if (ImGui::Button(ICON_FA_FILE)) {
+					popupStates["file_chooser"] = true;
+					fileFormatsCb = [] {
+						return ".hdr";
+					};
+					fileChooserCb = [_renderer](std::string path) {
+						std::string _path = UTILS::ReplaceSubstrings(path, "\\", "/");
+						auto pos = _path.find("Assets/Engine/");
+						if (pos != std::string::npos) {
+							_path = _path.substr(pos + 14);
+						}
+						pos = _path.find("Assets/Game/");
+						if (pos != std::string::npos) {
+							_path = _path.substr(pos + 12);
+						}
+						_renderer->setSkyBoxTexture(_path);
+						_renderer->prepareIBL();
+					};
+				}
+			}
+			ImGui::PushID(11);
+			ImGui::Text("Material:");
 			ImGui::SameLine();
+			ImGui::Text(_renderer->skyBoxMaterial ? _renderer->skyBoxMaterial->mPath.c_str() : "");
 			if (ImGui::Button(ICON_FA_FILE)) {
 				popupStates["file_chooser"] = true;
 				fileFormatsCb = [] {
-					return ".hdr";
+					return ".mat";
 				};
 				fileChooserCb = [_renderer](std::string path) {
-					std::string _path = UTILS::ReplaceSubstrings(path, "\\", "/");
-					auto pos = _path.find("Assets/Engine/");
-					if (pos != std::string::npos) {
-						_path = _path.substr(pos + 14);
-					}
-					pos = _path.find("Assets/Game/");
-					if (pos != std::string::npos) {
-						_path = _path.substr(pos + 12);
-					}
-					_renderer->setSkyBoxTexture(_path);
-					_renderer->prepareIBL();
+					_renderer->setSkyBoxMaterial(RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(path));
 				};
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("X")) {
+				_renderer->setSkyBoxMaterial(nullptr);
+			}
+			ImGui::PopID();
 		}
 		
 		/*static bool isBloom = true;

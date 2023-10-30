@@ -1,5 +1,6 @@
 ﻿#include "gameRendererGl.h"
 
+#include "coreModule/resourceManager/materialManager.h"
 #include "coreModule/resourceManager/textureManager.h"
 
 
@@ -445,6 +446,38 @@ void GameRendererGl::createShaders() {
 	mShaders["label"]->bind();
 	mShaders["label"]->setInt("u_engine_text", 0);
 	mShaders["label"]->bind();
+
+	//START CLOUDS
+	mShaders["clouds"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/triangle_vs.glsl", "./Shaders/gl/Volumetric/clouds_fs.glsl");
+	mShaders["shape_noise"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/shape_noise_cs.glsl");
+	mShaders["detail_noise"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/detail_noise_cs.glsl");
+	mTextures["blue_noise"] = std::static_pointer_cast<TextureGl>(
+		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("Textures/LDR_LLL1_0.png", true));
+	mTextures["curl_noise"] = std::static_pointer_cast<TextureGl>(
+		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("Textures/curlNoise.png", true));
+	mTextures["shape_noise_texture"] = TextureGl::createEmpty3d(128, 128, 128);
+	mTextures["detail_noise_texture"] = TextureGl::createEmpty3d(32, 32, 32);
+		
+		
+	//run
+	mShaders["shape_noise"]->bind();
+	mShaders["shape_noise"]->setInt("u_Size", (int)mTextures["shape_noise_texture"]->width);
+	mTextures["shape_noise_texture"]->bindImage(0, 0, 0, GL_READ_WRITE, GL_RGBA16F);
+	uint32_t TEXTURE_SIZE = mTextures["shape_noise_texture"]->width;
+	uint32_t NUM_THREADS = 8;
+	glDispatchCompute(TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS);
+	glFinish();
+	glGenerateTextureMipmap(mTextures["shape_noise_texture"]->id);
+
+	mShaders["detail_noise"]->bind();
+	mShaders["detail_noise"]->setInt("u_Size", (int)mTextures["detail_noise_texture"]->width);
+	mTextures["detail_noise_texture"]->bindImage(0, 0, 0, GL_READ_WRITE, GL_RGBA16F);
+	TEXTURE_SIZE = mTextures["detail_noise_texture"]->width;
+	NUM_THREADS = 8;
+	glDispatchCompute(TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS);
+	glFinish();
+	glGenerateTextureMipmap(mTextures["detail_noise_texture"]->id);
+	//END CLOUDS
 }
 
 std::array<std::shared_ptr<FrameBufferGl>, 2> pingPongFb;
@@ -681,10 +714,59 @@ void GameRendererGl::applySSGI() {
 
 
 void GameRendererGl::renderSkybox() {
+	if (skyBoxMaterial) {
+		glEnable(GL_DEPTH_TEST);
+		mDeferredFb->bind();
 
-	glEnable(GL_DEPTH_TEST);
-	mDeferredFb->bind();
-	//if (isHDRSkybox) {
+		//mShaders["clouds"]->bind();
+		skyBoxMaterial->bind(mEmptyTexture, true);
+
+		GLint OldCullFaceMode;
+		glGetIntegerv(GL_CULL_FACE_MODE, &OldCullFaceMode);
+		GLint OldDepthFuncMode;
+		glGetIntegerv(GL_DEPTH_FUNC, &OldDepthFuncMode);
+		glDepthFunc(GL_LEQUAL);
+		//glCullFace(GL_BACK);
+
+		uint8_t stateMask = skyBoxMaterial->generateStateMask();
+		mDriver->applyStateMask(stateMask);
+
+		auto shader = std::static_pointer_cast<ShaderGl>(skyBoxMaterial->getShader());
+		auto loc = shader->getUniformLocation("engine_s_ShapeNoise");
+		if (loc >= 0) {
+			shader->setInt("engine_s_ShapeNoise", skyBoxMaterial->textureSlot);
+			mTextures["shape_noise_texture"]->bind(skyBoxMaterial->textureSlot);
+			skyBoxMaterial->textureSlot++;
+		}
+		loc = shader->getUniformLocation("engine_s_DetailNoise");
+		if (loc >= 0) {
+			shader->setInt("engine_s_DetailNoise", skyBoxMaterial->textureSlot);
+			mTextures["shape_noise_texture"]->bind(skyBoxMaterial->textureSlot);
+			skyBoxMaterial->textureSlot++;
+		}
+
+		loc = shader->getUniformLocation("engine_u_SunDir");
+		if (loc >= 0) {
+			MATHGL::Vector3 m_light_direction;
+			for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
+				m_light_direction = -light.obj->getTransform()->getWorldForward();
+				break;
+			}
+			shader->setVec3("engine_u_SunDir", m_light_direction);
+		}
+
+		renderCube();
+		glCullFace(OldCullFaceMode);
+		glDepthFunc(OldDepthFuncMode);
+		//mShaders["clouds"]->unbind();
+		skyBoxMaterial->unbind();
+		mDeferredFb->unbind();
+		return;
+	}
+	{
+		glEnable(GL_DEPTH_TEST);
+		mDeferredFb->bind();
+		//if (isHDRSkybox) {
 		mShaders["hdrSkyboxShader"]->bind();
 
 		GLint OldCullFaceMode;
@@ -703,8 +785,9 @@ void GameRendererGl::renderSkybox() {
 		glCullFace(OldCullFaceMode);
 		glDepthFunc(OldDepthFuncMode);
 		mShaders["hdrSkyboxShader"]->unbind();
-	//}
-	mDeferredFb->unbind();
+		//}
+		mDeferredFb->unbind();
+	}
 
 }
 
@@ -1438,16 +1521,16 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 		e();
 	}
 
-	{//render to screen
-		mShaders["renderToScreen"]->bind();
-		//mTextures["spotShadowMap"]->bind(0);
-		//mTextures["ssaoBlur"]->bind(0);
-		//mRenderToScreenTexture->bind(0);
-		//mDeferredTexture->bind(0);
-		pingPongTex[!pingPong]->bind(0);
-		renderQuad();
-		mShaders["renderToScreen"]->unbind();
-	}
+	//{//render to screen
+	//	mShaders["renderToScreen"]->bind();
+	//	//mTextures["spotShadowMap"]->bind(0);
+	//	//mTextures["ssaoBlur"]->bind(0);
+	//	//mRenderToScreenTexture->bind(0);
+	//	//mDeferredTexture->bind(0);
+	//	pingPongTex[!pingPong]->bind(0);
+	//	renderQuad();
+	//	mShaders["renderToScreen"]->unbind();
+	//}
 	
 }
 
@@ -1971,6 +2054,15 @@ void GameRendererGl::drawGUI() {
 	//set to default
 	pingPongFb[!pingPong]->unbind();
 	//pingPong = !pingPong;
+}
+
+void GameRendererGl::setSkyBoxMaterial(std::shared_ptr<MaterialInterface> m) {
+	if (m) {
+		skyBoxMaterial = std::static_pointer_cast<MaterialGl>(m);
+	}
+	else {
+		skyBoxMaterial = nullptr;
+	}
 }
 
 void GameRendererGl::addCustomPostProcessing(const std::string& name, std::shared_ptr<MaterialGl> material, bool isActive) {

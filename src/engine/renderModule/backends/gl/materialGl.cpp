@@ -72,14 +72,14 @@ void MaterialGl::generateUniformsData() {
 }
 
 void MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
-	int textureSlot = 0;
+	textureSlot = 0;
 	for (auto& [name, uniform] : mUniforms) {
 
 		if (!mUniformData.contains(name)) {
 			continue;
 		}
 
-		std::visit([&textureSlot, defaultTexture, useTextures, name, this](auto& arg) {
+		std::visit([defaultTexture, useTextures, name, this](auto& arg) {
 			using T = std::decay_t<decltype(arg)>;
 		if constexpr (std::is_same_v<T, UniformBufferGl<std::vector<unsigned char>>>) {
 			arg.setBytes(std::get<std::vector<unsigned char>>(mUniformData.at(name)));
