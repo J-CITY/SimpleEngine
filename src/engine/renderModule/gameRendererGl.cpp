@@ -1,6 +1,7 @@
 ﻿#include "gameRendererGl.h"
 
 #include "coreModule/resourceManager/materialManager.h"
+#include "coreModule/resourceManager/shaderManager.h"
 #include "coreModule/resourceManager/textureManager.h"
 
 
@@ -48,13 +49,12 @@ std::shared_ptr<UniformBufferGl<EngineSpotShadowUBO>> mEngineSpotShadowUBO;
 
 
 struct EngineShadowDataUBO {
-	MATHGL::Matrix4 dirMatrices[16];
-	//dir light
-	float dirCascadePlaneDistances[16];
+	MATHGL::Matrix4 dirLightSpaceMatrix;
 	int dirCascadeCount;
 	MATHGL::Vector3 dirLightDir;
 	MATHGL::Vector3 dirLightPos;
 	float dirFarPlane;
+	float dirLightShadowStrong = 13;
 	//PCSS light
 	int   dirBLOCKER_SEARCH_NUM_SAMPLES = 64;
 	int   dirPCF_NUM_SAMPLES=64;
@@ -67,6 +67,13 @@ struct EngineShadowDataUBO {
 	bool useDirBakedLightShadow = false;
 	bool useSpotLightShadow = false;
 	bool usePointLightShadow = false;
+
+
+	std::vector<MATHGL::Matrix4> dirMatrices;
+	std::vector<MATHGL::Matrix4> dirProjMatrices;
+	std::vector<MATHGL::Matrix4> dirViewMatrices;
+	//dir light
+	float dirCascadePlaneDistances[16];
 };
 std::shared_ptr<UniformBufferGl<EngineShadowDataUBO>> mEngineShadowDataUBO;
 
@@ -78,10 +85,6 @@ std::shared_ptr<TextureGl> gNormalTex;
 std::shared_ptr<TextureGl> gAlbedoSpecTex;
 std::shared_ptr<TextureGl> gRoughAOTex;
 std::shared_ptr<FrameBufferGl> gbufferFb;
-
-std::shared_ptr<FrameBufferGl> gbufferGlobalFb;
-std::shared_ptr<TextureGl> gPositionGlobalTex;
-std::shared_ptr<TextureGl> gVelocityGlobalTex;
 
 std::shared_ptr<TextureGl> deferredResTex;
 std::shared_ptr<FrameBufferGl> deferredFb;
@@ -96,7 +99,7 @@ std::shared_ptr<FrameBufferGl> resultFb;
 std::unordered_map<std::string, std::shared_ptr<FrameBufferGl>> mFramebuffers;
 std::unordered_map<std::string, std::shared_ptr<ShaderGl>> mShaders;
 
-
+EngineShadowDataUBO mEngineShadowData;
 void renderQuad();
 void renderQuadGUI();
 void renderCube();
@@ -123,11 +126,12 @@ GameRendererGl::GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context): mContext(con
 
 	setSkyBoxTexture("Textures/sky.hdr");
 	//mEngineDirShadowUBO = std::make_shared<UniformBufferGl<EngineDirShadowUBO>>("EngineDirShadowUBO", 1);
-	mEnginePointShadowUBO = std::make_shared<UniformBufferGl<EnginePointShadowUBO>>("EnginePointShadowUBO", 1);
-	mEngineSpotShadowUBO = std::make_shared<UniformBufferGl<EngineSpotShadowUBO>>("EngineSpotShadowUBO", 1);
 
+	mEngineShadowDataUBO = std::make_shared<UniformBufferGl<EngineShadowDataUBO>>("EngineShadowDataUBO", 1);
+	mEnginePointShadowUBO = std::make_shared<UniformBufferGl<EnginePointShadowUBO>>("EnginePointShadowUBO", 2);
+	mEngineSpotShadowUBO = std::make_shared<UniformBufferGl<EngineSpotShadowUBO>>("EngineSpotShadowUBO", 3);
 
-	mEngineShadowDataUBO = std::make_shared<UniformBufferGl<EngineShadowDataUBO>>("EngineShadowDataUBO", 2);
+	
 
 	mDriver = dynamic_cast<DriverGl*>(context.driver.get());
 
@@ -166,9 +170,15 @@ float CreateHaltonSequence(unsigned int index, int base) {
 	return r;
 }
 
-void GameRendererGl::createShaders() {
 
-	mShaders["deferredGBuffer"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredGBuffer.vs.glsl", "./Shaders/gl/deferredGBuffer.fs.glsl");
+
+
+void GameRendererGl::createShaders() {
+	auto& shaderLoader = RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>();
+
+	//mShaders["deferredGBuffer"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredGBuffer.vs.glsl", "./Shaders/gl/deferredGBuffer.fs.glsl");
+	mShaders["deferredGBuffer"] = std::static_pointer_cast<ShaderGl>(shaderLoader.loadResource<ShaderInterface>("./Shaders/gl/deferredGBuffer.shader"));
+
 	mShaders["deferredGBuffer"]->bind();
 	mShaders["deferredGBuffer"]->setBool("engine_Settings.useTAA", true);
 	mShaders["deferredGBuffer"]->setFloat("engine_JitterSettings.haltonScale", 1.0f);
@@ -225,6 +235,20 @@ void GameRendererGl::createShaders() {
 	mShaders["hdrSkyboxShader"] = std::make_shared<ShaderGl>(
 		"./Shaders/gl/hdrSkyboxShader.vs.glsl", "./Shaders/gl/hdrSkyboxShader.fs.glsl");
 
+	mShaders["fog"] = std::make_shared<ShaderGl>(
+		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/fog.fs.glsl");
+	mShaders["fog"]->bind();
+	mShaders["fog"]->setInt("u_Scene", 0);
+	mShaders["fog"]->setInt("positionTexture", 1);
+	mShaders["fog"]->unbind();
+
+	mShaders["volumetricLight"] = std::make_shared<ShaderGl>(
+		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/volumetricLight.fs.glsl");
+	mShaders["volumetricLight"]->bind();
+	mShaders["volumetricLight"]->setInt("cameraOutput", 0);
+	mShaders["volumetricLight"]->setInt("depthMap", 1);
+	mShaders["volumetricLight"]->setInt("lightDepthMap", 2);
+	mShaders["volumetricLight"]->unbind();
 
 
 	mShaders["ssao"] = std::make_shared<ShaderGl>("./Shaders/gl/ssao.vs.glsl", "./Shaders/gl/ssao.fs.glsl");
@@ -249,8 +273,8 @@ void GameRendererGl::createShaders() {
 
 	mShaders["ssgi"] = std::make_shared<ShaderGl>("./Shaders/gl/ssgi.vs.glsl", "./Shaders/gl/ssgi.fs.glsl");
 	mShaders["ssgi"]->bind();
-	mShaders["ssgi"]->setInt("depthTex", 0);
-	mShaders["ssgi"]->setInt("inputTex", 1);
+	mShaders["ssgi"]->setInt("inputTex", 0);
+	mShaders["ssgi"]->setInt("depthTex", 1);
 	//mShaders["ssgi"]->setInt("albedoTex", 1);
 	//mShaders["ssgi"]->setInt("normalTex", 2);
 	//mShaders["ssgi"]->setInt("depthTex", 3);
@@ -449,8 +473,8 @@ void GameRendererGl::createShaders() {
 
 	//START CLOUDS
 	mShaders["clouds"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/triangle_vs.glsl", "./Shaders/gl/Volumetric/clouds_fs.glsl");
-	mShaders["shape_noise"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/shape_noise_cs.glsl");
-	mShaders["detail_noise"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/detail_noise_cs.glsl");
+	mShaders["shape_noise"] = std::make_shared<ShaderGl>(ShaderResource{ .compute = "./Shaders/gl/Volumetric/shape_noise_cs.glsl" });
+	mShaders["detail_noise"] = std::make_shared<ShaderGl>(ShaderResource{ .compute = "./Shaders/gl/Volumetric/detail_noise_cs.glsl" });
 	mTextures["blue_noise"] = std::static_pointer_cast<TextureGl>(
 		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("Textures/LDR_LLL1_0.png", true));
 	mTextures["curl_noise"] = std::static_pointer_cast<TextureGl>(
@@ -478,12 +502,66 @@ void GameRendererGl::createShaders() {
 	glFinish();
 	glGenerateTextureMipmap(mTextures["detail_noise_texture"]->id);
 	//END CLOUDS
+
+
+	mShaders["debug3DTex"] = std::make_shared<ShaderGl>(
+		"./Shaders/gl/debug3DTex.vs.glsl", "./Shaders/gl/debug3DTex.fs.glsl");
 }
 
 std::array<std::shared_ptr<FrameBufferGl>, 2> pingPongFb;
 
 std::array<std::shared_ptr<FrameBufferGl>, 2> pingPongBlurFb;
 std::array<std::shared_ptr<TextureGl>, 2> pingPongBlurTex;
+
+
+void GameRendererGl::initDebug3dTextureFB(std::shared_ptr<TextureGl> _debug3dTexture) {
+	if (_debug3dTexture == debug3dTexture) {
+		return;
+	}
+	if (!_debug3dTexture) {
+		debug3dTexture = nullptr;
+		debug3dTextureFB = nullptr;
+		return;
+	}
+	debug3dTexture = _debug3dTexture;
+	debug3dTextureFB = std::make_shared<FrameBufferGl>();
+	mTextures["debug3dTexture"] = TextureGl::createForAttach(debug3dTexture->width, debug3dTexture->height, GL_FLOAT);
+	debug3dTextureFB->create({ mTextures["debug3dTexture"] });
+
+	debug3dTextureLayers = debug3dTexture->depth;
+	debug3dTextureLayersCur = 0;
+}
+void GameRendererGl::updateDebug3dTextureFB() {
+	if (!debug3dTextureFB) {
+		return;
+	}
+	debug3dTextureFB->bind();
+
+	mDriver->setViewport(*mShaders["debug3DTex"], 0, 0, debug3dTexture->width, debug3dTexture->height);
+	mShaders["debug3DTex"]->bind();
+	
+	if (debug3dTexture->type == TextureType::TEXTURE_2D_ARRAY) {
+		debug3dTexture->bind(0);
+	}
+	else {
+		debug3dTexture->bind(1);
+	}
+
+	mShaders["debug3DTex"]->setInt("depthMap", 0);
+	mShaders["debug3DTex"]->setInt("depthMap3D", 1);
+	mShaders["debug3DTex"]->setInt("isPerspective", debug3dTextureIsPersp);
+	mShaders["debug3DTex"]->setInt("layer", debug3dTextureLayersCur);
+	mShaders["debug3DTex"]->setInt("isRGB", debug3dTextureIsRGB);
+	mShaders["debug3DTex"]->setInt("is3D", debug3dTexture->type == TextureType::TEXTURE_3D ? 1 : 0);
+	mShaders["debug3DTex"]->setFloat("near_plane", 0.0f);
+	mShaders["debug3DTex"]->setFloat("far_plane", 0.0f);
+
+	renderQuad();
+
+	mShaders["debug3DTex"]->unbind();
+	debug3dTextureFB->unbind();
+
+}
 
 void GameRendererGl::createFrameBuffers() {
 	mFramebuffers.clear();
@@ -516,7 +594,8 @@ void GameRendererGl::createFrameBuffers() {
 	gbufferGlobalFb = std::make_shared<FrameBufferGl>();
 	gPositionGlobalTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
 	gVelocityGlobalTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	std::vector<std::shared_ptr<TextureGl>> ggtexs = std::vector{ gPositionGlobalTex, gVelocityGlobalTex };
+	gEyePositionGlobalTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	std::vector<std::shared_ptr<TextureGl>> ggtexs = std::vector{ gPositionGlobalTex, gVelocityGlobalTex, gEyePositionGlobalTex };
 	gbufferGlobalFb->create(ggtexs);
 
 	deferredFb = std::make_shared<FrameBufferGl>();
@@ -627,7 +706,9 @@ void GameRendererGl::applySSS() {
 	mShaders["sss"]->bind();
 	//gAlbedoSpecTex->bind(0);
 	//gNormalTex->bind(0);
-	gPositionTex->bind(0);
+	//gPositionTex->bind(0);
+	gEyePositionGlobalTex->bind(0);
+	mShaders["sss"]->setVec3("lightDir", mEngineShadowData.dirLightDir);
 	//mHDRSkyBoxTexture->bind(2);
 	//gAlbedoSpecTex->bind(2);
 	mDriver->clear(true, true, false);
@@ -687,8 +768,11 @@ void GameRendererGl::applySSR() {
 void GameRendererGl::applySSGI() {
 	mFramebuffers["ssgi"]->bind();
 	mShaders["ssgi"]->bind();
-	gPositionTex->bind(0);
-	mTextures["deferredTextureSave"]->bind(1);
+	mDeferredTexture->bind(0);
+	//gAlbedoSpecTex->bind(0);
+	//gPositionTex->bind(1);
+	gEyePositionGlobalTex->bind(1);
+	//gPositionGlobalTex->bind(1);
 	//gNormalTex->bind(2);
 	//gPositionTex->bind(3);
 	mDriver->clear(true, true, false);
@@ -696,7 +780,7 @@ void GameRendererGl::applySSGI() {
 	mShaders["ssgi"]->unbind();
 	mFramebuffers["ssgi"]->unbind();
 
-
+	//TODO:add blur for ssgi texture
 	//TextureGl::CopyTexture(*mDeferredTexture, *mTextures["deferredTextureSave"]);
 
 	//appy
@@ -995,7 +1079,6 @@ void GameRendererGl::sendEngineUBO() {
 	View = data.View;
 }
 
-EngineShadowDataUBO mEngineShadowData;
 void GameRendererGl::sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader) {
 		//dir light
 		int i = 0;
@@ -1017,18 +1100,20 @@ void GameRendererGl::sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader) {
 		mEngineShadowData.useDirBakedLightShadow = false;
 		mEngineShadowData.useSpotLightShadow = false;
 		mEngineShadowData.usePointLightShadow = false;
-	//mEngineShadowDataUBO->set(mEngineShadowData);
-
+		//mEngineShadowDataUBO->set(mEngineShadowData);
+		i = 0;
 		for (auto& e : mEngineShadowData.dirMatrices) {
-			shader->setMat4("engine_ShadowUBO.dirMatrices[" + std::to_string(i) + "]", e);
+			shader->setMat4("dirMatrices[" + std::to_string(i) + "]", e);
 			i++;
 		}
 		shader->setVec3("engine_ShadowUBO.dirLightPos", mEngineShadowData.dirLightPos);
 		shader->setVec3("engine_ShadowUBO.dirLightDir", mEngineShadowData.dirLightDir);
-		for (auto e : mPipeline.mDirShadowMap.mShadowCascadeLevels) {
-			shader->setMat4("engine_ShadowUBO.dirCascadePlaneDistances[" + std::to_string(i) + "]", mEngineShadowData.dirCascadePlaneDistances[i]);
+		i = 0;
+		for (auto e : mEngineShadowData.dirCascadePlaneDistances) {
+			shader->setFloat("dirCascadePlaneDistances[" + std::to_string(i) + "]", mEngineShadowData.dirCascadePlaneDistances[i]);
 			i++;
 		}
+
 		shader->setInt("engine_ShadowUBO.dirCascadeCount", mEngineShadowData.dirCascadeCount);
 		shader->setFloat("engine_ShadowUBO.dirFarPlane", mEngineShadowData.dirFarPlane);
 		shader->setInt("engine_ShadowUBO.dirBLOCKER_SEARCH_NUM_SAMPLES", mEngineShadowData.dirBLOCKER_SEARCH_NUM_SAMPLES);
@@ -1042,8 +1127,8 @@ void GameRendererGl::sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader) {
 		shader->setBool("engine_ShadowUBO.useSpotLightShadow", mEngineShadowData.useSpotLightShadow);
 		shader->setBool("engine_ShadowUBO.usePointLightShadow", mEngineShadowData.usePointLightShadow);
 
-		//shader->setInt("engine_dirShadowMap", 4);
-		//mTextures["dirShadowMap"]->bind(4);
+		shader->setInt("engine_dirBakedShadowMap", 7);
+		mTextures["dirShadowMap"]->bind(7);
 
 		shader->setInt("engine_dirShadowMap", 6);
 		mTextures["spotShadowMap"]->bind(6);
@@ -1106,15 +1191,26 @@ MATHGL::Matrix4 GameRendererGl::getLightSpaceMatrix(float nearPlane, float farPl
 	const auto proj = MATHGL::Matrix4::CreatePerspective(
 		45.0f, (float)winWidth / (float)winHeight, nearPlane,
 		farPlane);
-	const auto corners = getFrustumCornersWorldSpace(proj, mainCameraComponent.value()->getCamera().getViewMatrix());
 
-	auto center = lightPos;// MATHGL::Vector3(0, 0, 0);
+	MATHGL::Quaternion lightRot;
+	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
+		lightRot= light.obj->transform->getWorldRotation();
+		break;
+	}
+
+	//auto proj = MATHGL::Matrix4::CreateOrthographic(-50, 50, -50, 50, nearPlane, farPlane);
+	const auto corners = getFrustumCornersWorldSpace(proj,
+		//mainCameraComponent.value()->getCamera().calculateViewMatrix(lightPos, lightRot));
+		mainCameraComponent.value()->getCamera().getViewMatrix());
+
+	auto center = MATHGL::Vector3(0.0f);
 	for (const auto& v : corners) {
 		center += MATHGL::Vector3(v.x, v.y, v.z);
 	}
 	center /= corners.size();
 
-	const auto lightView = MATHGL::Matrix4::CreateView(center, lightDir /*MATHGL::Vector3(20, 50, 20)*/, MATHGL::Vector3(0.0f, 1.0f, 0.0f));
+	//const auto lightView = MATHGL::Matrix4::CreateView(center + lightPos, center, MATHGL::Vector3(0.0f, 1.0f, 0.0f));
+	const auto lightView = MATHGL::Matrix4::CreateView(center - lightDir, center, MATHGL::Vector3(0.0f, 1.0f, 0.0f));
 
 	float minX = std::numeric_limits<float>::max();
 	float maxX = std::numeric_limits<float>::lowest();
@@ -1148,6 +1244,9 @@ MATHGL::Matrix4 GameRendererGl::getLightSpaceMatrix(float nearPlane, float farPl
 	}
 
 	const auto lightProjection = MATHGL::Matrix4::CreateOrthographic(minX, maxX, minY, maxY, minZ, maxZ);
+
+	mEngineShadowData.dirProjMatrices.push_back(lightProjection);
+	mEngineShadowData.dirViewMatrices.push_back(lightView);
 	return lightProjection * lightView;
 }
 
@@ -1202,24 +1301,26 @@ void GameRendererGl::preparePipeline() {
 
 GameRendererGl::EngineDirShadowUBO GameRendererGl::getLightSpaceMatrices(const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos) {
 	EngineDirShadowUBO ret;
+	ret.lightSpaceMatrices.resize(16);
+	mEngineShadowData.dirProjMatrices.clear();
 	for (size_t i = 0; i < mPipeline.mDirShadowMap.mShadowCascadeLevels.size() + 1; ++i) {
 		if (i == 0) {
 			ret.lightSpaceMatrices[i] = (getLightSpaceMatrix(mPipeline.mDirShadowMap.mDirNearPlane, 
 				mPipeline.mDirShadowMap.mShadowCascadeLevels[i], lightDir, lightPos));
 		}
 		else if (i < mPipeline.mDirShadowMap.mShadowCascadeLevels.size()) {
-			ret.lightSpaceMatrices[i] = (getLightSpaceMatrix(mPipeline.mDirShadowMap.mShadowCascadeLevels[i - 1], 
+			ret.lightSpaceMatrices[i] = (getLightSpaceMatrix(mPipeline.mDirShadowMap.mShadowCascadeLevels[i - 1],
 				mPipeline.mDirShadowMap.mShadowCascadeLevels[i], lightDir, lightPos));
 		}
 		else {
-			ret.lightSpaceMatrices[i] = (getLightSpaceMatrix(mPipeline.mDirShadowMap.mShadowCascadeLevels[i - 1], 
+			ret.lightSpaceMatrices[i] = (getLightSpaceMatrix(mPipeline.mDirShadowMap.mShadowCascadeLevels[i - 1],
 				mPipeline.mDirShadowMap.mDirFarPlane, lightDir, lightPos));
 		}
 	}
 
-	for (auto& e : ret.lightSpaceMatrices) {
-		e = MATHGL::Matrix4::Transpose(e);
-	}
+//for (auto& e : ret.lightSpaceMatrices) {
+//	e = MATHGL::Matrix4::Transpose(e);
+//}
 
 	return ret;
 }
@@ -1294,6 +1395,87 @@ bool GameRendererGl::prepareDirShadowMap(const std::string& id) {
 		return isDrawSmth;
 	}
 	return false;
+}
+
+glm::vec3 toGLM(MATHGL::Vector3 v)
+{
+	return {v.x, v.y, v.z};
+}
+
+glm::vec4 toGLM(MATHGL::Vector4 v)
+{
+	return { v.x, v.y, v.z, v.w };
+}
+
+glm::mat4 toGLM(MATHGL::Matrix4 v)
+{
+	//auto v = MATHGL::Matrix4::Transpose(_v);
+	return {
+		v(0,0), v(0,1), v(0,2), v(0,3),
+		v(1,0), v(1,1), v(1,2), v(1,3),
+		v(2,0), v(2,1), v(2,2), v(2,3),
+		v(3,0), v(3,1), v(3,2), v(3,3)
+	};
+}
+
+
+bool GameRendererGl::prepareDirCascadeShadowMap(const std::string& id) {
+	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
+		auto lightDir = light.obj->getTransform()->getWorldForward();
+		auto lightPos = light.obj->getTransform()->getWorldPosition();
+		const auto lightMat = getLightSpaceMatrices(lightDir, lightPos);
+
+
+		auto shader = mShaders["dirShadowMap"];
+		shader->bind();
+
+
+		int i = 0;
+		for (auto& e : lightMat.lightSpaceMatrices) {
+			shader->setMat4("lightSpaceMatrices[" + std::to_string(i) + "]", e);
+			++i;
+		}
+		mEngineShadowData.dirMatrices = lightMat.lightSpaceMatrices;
+		mEngineShadowData.dirLightDir = lightDir;
+		mEngineShadowData.dirLightPos = lightPos;
+		//mEngineDirShadowUBO->set(lightMat);
+
+		mFramebuffers["dirShadowMap"]->bind();
+
+		glEnable(GL_DEPTH_TEST);
+		mDriver->setViewport(*shader, 0, 0, mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mDirShadowMapResolution);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		glCullFace(GL_FRONT);  // peter panning
+
+
+		//draw scene
+		bool isDrawSmth = false;
+		for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
+			if (drawable.material->isCastShadow()) {
+				isDrawSmth = true;
+				shader->setMat4("engine_Model.model", drawable.world);
+				drawDrawableWithShader(shader, drawable);
+			}
+		}
+		for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
+			if (drawable.material->isCastShadow()) {
+				isDrawSmth = true;
+				shader->setMat4("engine_Model.model", drawable.world);
+				drawDrawableWithShader(shader, drawable);
+			}
+		}
+
+		glCullFace(GL_BACK);
+		mFramebuffers["dirShadowMap"]->unbind();
+		shader->unbind();
+		auto [winWidth, winHeight] = mContext.window->getSize();
+		mDriver->setViewport(*shader, 0, 0, winWidth, winHeight);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		return isDrawSmth;
+	}
+	return false;
+	
 }
 
 void GameRendererGl::prepareSpotShadow() {
@@ -1432,7 +1614,9 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 		//mPipeline.mDirShadowMap.mUseShadowBaked = prepareDirShadowMap("dirShadowMapBaked");
 		mPipeline.mDirShadowMap.mIsShadowBakedInit = true;
 	}
+	//mPipeline.mDirShadowMap.mUseShadowBaked = prepareDirShadowMap("dirShadowMap");
 	mPipeline.mDirShadowMap.mUseShadowBaked = prepareDirShadowMap("spotShadowMap");
+	mPipeline.mDirShadowMap.mUseShadowBaked = prepareDirCascadeShadowMap("dirShadowMap");
 	//prepareSpotShadow();
 	//preparePointShadow();
 	pingPong = false;
@@ -1521,16 +1705,18 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 		e();
 	}
 
-	//{//render to screen
-	//	mShaders["renderToScreen"]->bind();
-	//	//mTextures["spotShadowMap"]->bind(0);
-	//	//mTextures["ssaoBlur"]->bind(0);
-	//	//mRenderToScreenTexture->bind(0);
-	//	//mDeferredTexture->bind(0);
-	//	pingPongTex[!pingPong]->bind(0);
-	//	renderQuad();
-	//	mShaders["renderToScreen"]->unbind();
-	//}
+	{//render to screen
+		mShaders["renderToScreen"]->bind();
+		//mTextures["spotShadowMap"]->bind(0);
+		//mTextures["ssaoBlur"]->bind(0);
+		//mRenderToScreenTexture->bind(0);
+		//mDeferredTexture->bind(0);
+		pingPongTex[!pingPong]->bind(0);
+		renderQuad();
+		mShaders["renderToScreen"]->unbind();
+	}
+
+	updateDebug3dTextureFB();
 	
 }
 
@@ -1726,6 +1912,94 @@ void GameRendererGl::applyOutline() {
 	renderQuad();
 	mShaders["outline"]->unbind();
 
+	pingPongFb[pingPong]->unbind();
+	pingPong = !pingPong;
+}
+
+void GameRendererGl::applyFog() {
+	pingPongFb[pingPong]->bind();
+	mDriver->clear(true, true, false);
+	mShaders["fog"]->bind();
+
+	pingPongTex[!pingPong]->bind(0);
+	gEyePositionGlobalTex->bind(1);
+	mShaders["fog"]->setVec3("u_engine_FogParams.color", mPipeline.fog.color);
+	mShaders["fog"]->setInt("u_engine_FogParams.isEnabled", mPipeline.fog.isEnabled);
+	mShaders["fog"]->setInt("u_engine_FogParams.equation", mPipeline.fog.equation);
+	mShaders["fog"]->setFloat("u_engine_FogParams.linearStart", mPipeline.fog.linearStart);
+	mShaders["fog"]->setFloat("u_engine_FogParams.linearEnd", mPipeline.fog.linearEnd);
+	mShaders["fog"]->setFloat("u_engine_FogParams.density", mPipeline.fog.density);
+
+	renderQuad();
+	mShaders["fog"]->unbind();
+	pingPongFb[pingPong]->unbind();
+	pingPong = !pingPong;
+}
+
+void GameRendererGl::applyVolumetricLight() {
+	pingPongFb[pingPong]->bind();
+	mDriver->clear(true, true, false);
+	mShaders["volumetricLight"]->bind();
+
+	sendEngineShadowUBO(mShaders["volumetricLight"]);
+
+	pingPongTex[!pingPong]->bind(0);
+	if (mPipeline.vl.tex) 
+		gEyePositionGlobalTex->bind(1);
+	else 
+		gPositionGlobalTex->bind(1);
+	mTextures["dirShadowMap"]->bind(2);
+	
+
+	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
+		mShaders["volumetricLight"]->setMat4("light.transform", light.obj->transform->getWorldMatrix());
+		mShaders["volumetricLight"]->setVec4("light.color", MATHGL::Vector4(light.getColor(), 1.0f));
+		mShaders["volumetricLight"]->setVec3("light.direction", (mPipeline.vl.dir ? -1 : 1) * light.obj->getTransform()->getWorldForward());
+		
+		
+		float maxDistance = mPipeline.vl.godRaySampleStep * (1.0 - pow(mPipeline.vl.godRayStepIncrement, mPipeline.vl.godRayMaxSteps)) / (1.0 - mPipeline.vl.godRayStepIncrement);
+		
+		mShaders["volumetricLight"]->setFloat("maxSteps", mPipeline.vl.godRayMaxSteps);
+		mShaders["volumetricLight"]->setFloat("sampleStep", mPipeline.vl.godRaySampleStep);
+		mShaders["volumetricLight"]->setFloat("stepIncrement", mPipeline.vl.godRayStepIncrement);
+		mShaders["volumetricLight"]->setFloat("maxDistance", maxDistance);
+		mShaders["volumetricLight"]->setFloat("asymmetry", mPipeline.vl.godRayAsymmetry);
+		
+		mShaders["volumetricLight"]->setInt("voutmat", mPipeline.vl.map);
+		
+		auto m = MATHGL::Matrix4::CreatePerspective(45.0f, 800.0f / 600.0f, 0.1f, 1000.0f);// *mEngineShadowData.dirViewMatrices[3];
+
+		constexpr auto ProjectionBiasMatrix = [](size_t projectionIndex)
+		{
+			float scale = 1.0f;
+			float offset = projectionIndex * scale;
+
+			MATHGL::Matrix4 Result(
+				0.5f * scale, 0.0f, 0.0f, 0.0f,
+				0.0f, 0.5f, 0.0f, 0.0f,
+				0.0f, 0.0f, 0.5f, 0.0f,
+				0.5f * scale + offset, 0.5f, 0.5f, 1.0f
+			);
+			return Result;
+		};
+
+		m = mEngineShadowData.dirProjMatrices[3];
+		mShaders["volumetricLight"]->setMat4("lightProj", m);
+
+		//auto [winWidth, winHeight] = mContext.window->getSize();
+		//mShaders["volumetricLight"]->setFloat("tex_width", winWidth);
+		//mShaders["volumetricLight"]->setFloat("tex_height", winHeight);
+		//mShaders["volumetricLight"]->setMat4("camera_transform_matrix", mainCameraComponent.value()->getCamera().getViewMatrix());
+		//mShaders["volumetricLight"]->setMat4("proj_transform_matrix", mainCameraComponent.value()->getCamera().getProjectionMatrix());
+		//
+		//
+		//mShaders["volumetricLight"]->setMat4("shadow_map_transform_mat", light.obj->transform->getWorldMatrix() * mEngineShadowData.dirProjMatrices[0] * mEngineShadowData.dirViewMatrices[0]);
+
+		break;
+	}
+
+	renderQuad();
+	mShaders["volumetricLight"]->unbind();
 	pingPongFb[pingPong]->unbind();
 	pingPong = !pingPong;
 }
