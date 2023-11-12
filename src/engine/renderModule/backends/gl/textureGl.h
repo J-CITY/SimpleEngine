@@ -8,6 +8,8 @@
 
 namespace IKIGAI::RENDER
 {
+	struct TextureResource;
+
 	class TextureGl : public TextureInterface {
 	public:
 		TextureGl() {}
@@ -18,8 +20,10 @@ namespace IKIGAI::RENDER
 
 		float width = 0.0f;
 		float height = 0.0f;
+		float depth = 1.0f;
 
 		static std::shared_ptr<TextureGl> Create(std::string path, bool generateMipmap);
+		static std::shared_ptr<TextureGl> CreateFromResource(const RENDER::TextureResource& res);
 		static std::shared_ptr<TextureGl> CreateHDREmptyCubemap(int width, int height);
 		static std::shared_ptr<TextureGl> CreateHDR(const std::string& path, bool generateMipmap);
 		static void CopyTexture(const TextureGl& from, const TextureGl& to);

@@ -225,6 +225,7 @@ struct EditorMetaInfo {
 		STRING,
 		STRING_WITH_FILE_CHOOSE,
 		STRINGS_ARRAY,
+		OPT_STRING,
 
 		MATERIAL
 	};

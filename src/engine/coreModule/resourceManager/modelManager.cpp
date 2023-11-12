@@ -2,6 +2,8 @@
 #include "ServiceManager.h"
 #include <renderModule/backends/interface/modelInterface.h>
 
+#include "utilsModule/loader.h"
+
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/modelGl.h>
 #endif
@@ -13,7 +15,9 @@
 #ifdef DX12_BACKEND
 #include <renderModule/backends/dx12/modelDx12.h>
 #endif
-
+#include "coreModule/ecs/components/transform.h"
+#include "renderModule/backends/interface/resourceStruct.h"
+#include "utilsModule/jsonParser/jsonParser.h"
 using namespace IKIGAI::RESOURCES;
 
 AssimpParser ModelLoader::_ASSIMP;
@@ -29,16 +33,31 @@ void ModelLoader::Reload(RENDER::ModelInterface& model, const std::string& fileP
 }
 
 ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromFile(const std::string& path) {
-	std::string realPath = getRealPath(path);
-	auto model = Create(realPath, getAssetMetadata(realPath));
+	std::string realPath = UTILS::getRealPath(path);
+	auto model = Create(realPath, getDefaultFlag());
 	if (model) {
 		model->setPath(path);
 	}
 	return model;
 }
 
+ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromResource(const std::string& path) {
+	auto res = UTILS::FromJson<RENDER::ModelResource>(path);
+	if (res.isErr()) {
+		//problem
+		return nullptr;
+	}
+	auto _res = res.unwrap();
+	_res.path = path;
+	ModelParserFlags parserFlags = ModelParserFlags::NONE;
+	for (auto e : _res.flags) {
+		parserFlags |= e;
+	}
+	return CreateFromFile(_res.path, parserFlags);
+}
+
 ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromFile(const std::string& path, ModelParserFlags parserFlags) {
-	std::string realPath = getRealPath(path);
+	std::string realPath = UTILS::getRealPath(path);
 	auto model = Create(realPath, parserFlags);
 	if (model) {
 		model->setPath(path);
@@ -82,7 +101,7 @@ ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::Create(const std::strin
 	return nullptr;
 }
 
-ModelParserFlags ModelLoader::getAssetMetadata(const std::string& path) {
+ModelParserFlags ModelLoader::getDefaultFlag() {
 	//auto metaFile = iniFile(path + ".meta");
 	IKIGAI::RESOURCES::ModelParserFlags flags = IKIGAI::RESOURCES::ModelParserFlags::TRIANGULATE;
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
@@ -132,10 +151,69 @@ ModelParserFlags ModelLoader::getAssetMetadata(const std::string& path) {
 }
 
 ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::createResource(const std::string& path) {
-	std::string realPath = getRealPath(path);
-	auto model = Create(realPath, getAssetMetadata(realPath));
+	std::string realPath = UTILS::getRealPath(path);
+
+	//TODO: replace to CreateFromResource
+	auto model = Create(realPath, getDefaultFlag());
 	if (model) {
 		model->setPath(path);
 	}
 	return model;
+}
+
+
+#include <rttr/registration>
+
+RTTR_REGISTRATION
+{
+	rttr::registration::enumeration<ModelParserFlags>("ModelParserFlags")
+	(
+		rttr::value("NONE", ModelParserFlags::NONE),
+		rttr::value("CALC_TANGENT_SPACE", ModelParserFlags::CALC_TANGENT_SPACE),
+		rttr::value("JOIN_IDENTICAL_VERTICES", ModelParserFlags::JOIN_IDENTICAL_VERTICES),
+		rttr::value("MAKE_LEFT_HANDED", ModelParserFlags::MAKE_LEFT_HANDED),
+		rttr::value("TRIANGULATE", ModelParserFlags::TRIANGULATE),
+		rttr::value("REMOVE_COMPONENT", ModelParserFlags::REMOVE_COMPONENT),
+		rttr::value("GEN_NORMALS", ModelParserFlags::GEN_NORMALS),
+		rttr::value("GEN_SMOOTH_NORMALS", ModelParserFlags::GEN_SMOOTH_NORMALS),
+		rttr::value("SPLIT_LARGE_MESHES", ModelParserFlags::SPLIT_LARGE_MESHES),
+		rttr::value("PRE_TRANSFORM_VERTICES", ModelParserFlags::PRE_TRANSFORM_VERTICES),
+		rttr::value("LIMIT_BONE_WEIGHTS", ModelParserFlags::LIMIT_BONE_WEIGHTS),
+		rttr::value("VALIDATE_DATA_STRUCTURE", ModelParserFlags::VALIDATE_DATA_STRUCTURE),
+		rttr::value("IMPROVE_CACHE_LOCALITY", ModelParserFlags::IMPROVE_CACHE_LOCALITY),
+		rttr::value("REMOVE_REDUNDANT_MATERIALS", ModelParserFlags::REMOVE_REDUNDANT_MATERIALS),
+		rttr::value("FIX_INFACING_NORMALS", ModelParserFlags::FIX_INFACING_NORMALS),
+		rttr::value("SORT_BY_PTYPE", ModelParserFlags::SORT_BY_PTYPE),
+		rttr::value("FIND_DEGENERATES", ModelParserFlags::FIND_DEGENERATES),
+		rttr::value("FIND_INVALID_DATA", ModelParserFlags::FIND_INVALID_DATA),
+		rttr::value("GEN_UV_COORDS", ModelParserFlags::GEN_UV_COORDS),
+		rttr::value("TRANSFORM_UV_COORDS", ModelParserFlags::TRANSFORM_UV_COORDS),
+		rttr::value("FIND_INSTANCES", ModelParserFlags::FIND_INSTANCES),
+		rttr::value("OPTIMIZE_MESHES", ModelParserFlags::OPTIMIZE_MESHES),
+		rttr::value("OPTIMIZE_GRAPH", ModelParserFlags::OPTIMIZE_GRAPH),
+		rttr::value("FLIP_UVS", ModelParserFlags::FLIP_UVS),
+		rttr::value("FLIP_WINDING_ORDER", ModelParserFlags::FLIP_WINDING_ORDER),
+		rttr::value("SPLIT_BY_BONE_COUNT", ModelParserFlags::SPLIT_BY_BONE_COUNT),
+		rttr::value("DEBONE", ModelParserFlags::DEBONE)
+	);
+
+	rttr::registration::class_<IKIGAI::RENDER::ModelResource>("ModelResource")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	)
+	.property("NeedFileWatch", &IKIGAI::RENDER::ModelResource::needFileWatch)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+	)
+	.property("PathModel", &IKIGAI::RENDER::ModelResource::pathModel)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	)
+	.property("Flags", &IKIGAI::RENDER::ModelResource::flags)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)//,
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::)
+	);
 }

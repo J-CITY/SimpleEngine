@@ -13,8 +13,13 @@ namespace IKIGAI::RENDER {
 
 	class ShaderInterface {
 	public:
+		std::string mPath;
 		std::optional<std::string> fragmentPath;
 		std::optional<std::string> vertexPath;
+		std::optional<std::string> geometryPath;
+		std::optional<std::string> tessEvalPath;
+		std::optional<std::string> tessControlPath;
+		std::optional<std::string> computePath;
 
 		virtual ~ShaderInterface() = default;
 

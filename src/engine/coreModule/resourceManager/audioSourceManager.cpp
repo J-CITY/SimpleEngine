@@ -15,7 +15,7 @@ ResourcePtr<AUDIO::SoundResource> AudioSourceLoader::createResource(const std::s
 }
 
 ResourcePtr<AUDIO::SoundResource> AudioSourceLoader::CreateFromFile(const std::string& path) {
-	std::string realPath = getRealPath(path);
+	std::string realPath = UTILS::getRealPath(path);
 
 	auto configRes = UTILS::FromJson<AUDIO::SoundConfig>(path);
 
