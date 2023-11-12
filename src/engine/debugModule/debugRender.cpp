@@ -2603,8 +2603,6 @@ void DebugRender::drawTextureWatcher() {
 
 	static int selectedIndex = 0;
 	static std::string selectedName = items[0];
-	//ImGui::Combo("combo", &item_current, items.data(), items.size());
-
 	if (ImGui::BeginCombo("##textures_combo", selectedName.c_str())) {
 		for (int i = 0; i < items.size(); ++i) {
 			const bool isSelected = (selectedIndex == i);
@@ -2645,7 +2643,17 @@ void DebugRender::drawTextureWatcher() {
 		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)_renderer->mDeferredTexture->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
 	}
 	else {
-		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)_renderer->mTextures[selectedName]->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+		auto tex = _renderer->mTextures[selectedName];
+		if (tex->type == RENDER::TextureType::TEXTURE_3D || tex->type == RENDER::TextureType::TEXTURE_2D_ARRAY) {
+			_renderer->initDebug3dTextureFB(tex);
+			ImGui::Checkbox("IsRGB", &_renderer->debug3dTextureIsRGB);
+			ImGui::Checkbox("IsPersp", &_renderer->debug3dTextureIsPersp);
+			ImGui::SliderInt("Layer", &_renderer->debug3dTextureLayersCur, 0, _renderer->debug3dTextureLayers-1);
+			ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)_renderer->mTextures["debug3dTexture"]->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+		}
+		else {
+			ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)_renderer->mTextures[selectedName]->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+		}
 	}
 	ImGui::End();
 #endif
@@ -3369,6 +3377,18 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 				ImGui::DragFloat("Exposure", &_renderer->mPipeline.hdr.exposure);
 				ImGui::DragFloat("Gamma", &_renderer->mPipeline.hdr.gamma);
 			}},
+
+			{ RENDER::RenderStates::VOLUMETRIC_LIGHT, [_renderer]() {
+				ImGui::DragFloat("Asymmetry", &_renderer->mPipeline.vl.godRayAsymmetry);
+				ImGui::DragFloat("MaxSteps", &_renderer->mPipeline.vl.godRayMaxSteps);
+				ImGui::DragFloat("SampleStep", &_renderer->mPipeline.vl.godRaySampleStep);
+				ImGui::DragFloat("Increment", &_renderer->mPipeline.vl.godRayStepIncrement);
+				ImGui::DragFloat("Max dist", &_renderer->mPipeline.vl.maxDist);
+				ImGui::Checkbox("Tex", &_renderer->mPipeline.vl.tex);
+				ImGui::Checkbox("Dir", &_renderer->mPipeline.vl.dir);
+				ImGui::Checkbox("Print Map", &_renderer->mPipeline.vl.map); 
+
+			}},
 		};
 
 		static std::map<RENDER::RenderStates, bool> pp;
@@ -3399,6 +3419,16 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 				}
 			}
 		}
+
+		ImGui::DragFloat("Dir shadow Near", &_renderer->mPipeline.mDirShadowMap.mPointNearPlane);
+		ImGui::DragFloat("Dir shadow Far", &_renderer->mPipeline.mDirShadowMap.mDirFarPlane);
+		_renderer->mPipeline.mDirShadowMap.mShadowCascadeLevels = {
+			_renderer->mPipeline.mDirShadowMap.mDirFarPlane / 50.0f,
+			_renderer->mPipeline.mDirShadowMap.mDirFarPlane / 25.0f,
+			_renderer->mPipeline.mDirShadowMap.mDirFarPlane / 10.0f,
+			_renderer->mPipeline.mDirShadowMap.mDirFarPlane / 2.0f
+		};
+
 
 		if (ImGui::CollapsingHeader("Skybox")) {
 			if (!_renderer->skyBoxMaterial) {
@@ -3546,6 +3576,42 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 		ImGui::End();
 
 		ImGui::Begin("Input Manager");
+		ImGuiIO& io = ImGui::GetIO();
+		ImGui::SeparatorText("Mouse");
+		if (ImGui::IsMousePosValid())
+			ImGui::Text("Mouse pos: (%g, %g)", io.MousePos.x, io.MousePos.y);
+		else
+			ImGui::Text("Mouse pos: <INVALID>");
+		ImGui::Text("Mouse delta: (%g, %g)", io.MouseDelta.x, io.MouseDelta.y);
+		ImGui::Text("Mouse down:");
+		for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); i++) {
+			if (ImGui::IsMouseDown(i)) {
+				ImGui::SameLine();
+				ImGui::Button(std::format("BTN {}", i).c_str(), ImVec2(0, 40));
+				//ImGui::Text("b%d (%.02f secs)", i, io.MouseDownDuration[i]);
+			}
+		}
+		ImGui::Text("Mouse wheel: %.1f", io.MouseWheel);
+		ImGui::SeparatorText("Keys");
+		struct funcs { static bool IsLegacyNativeDupe(ImGuiKey key) { return key < 512 && ImGui::GetIO().KeyMap[key] != -1; } }; // Hide Native<>ImGuiKey duplicates when both exists in the array
+		ImGuiKey start_key = (ImGuiKey)0;
+		ImGui::Text("Keys down:");
+		for (ImGuiKey key = start_key; key < ImGuiKey_NamedKey_END; key = (ImGuiKey)(key + 1)) {
+			if (funcs::IsLegacyNativeDupe(key) || !ImGui::IsKeyDown(key)) {
+				continue;
+			}
+			ImGui::SameLine();
+			ImGui::Text((key < ImGuiKey_NamedKey_BEGIN) ? "\"%s\"" : "\"%s\" %d", ImGui::GetKeyName(key), key);
+		}
+		ImGui::Text("Keys mods: %s%s%s%s", io.KeyCtrl ? "CTRL " : "", io.KeyShift ? "SHIFT " : "", io.KeyAlt ? "ALT " : "", io.KeySuper ? "SUPER " : "");
+		ImGui::Text("Chars queue:");
+		for (int i = 0; i < io.InputQueueCharacters.Size; i++) {
+			ImWchar c = io.InputQueueCharacters[i];
+			ImGui::SameLine();
+			ImGui::Text("\'%c\' (0x%04X)", (c > ' ' && c <= 255) ? (char)c : '?', c);
+		}
+
+
 		auto& im = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>();
 		if (im.isGamepadExist(0)) {
 			for (auto e : im.getGamepad(0).buttons) {

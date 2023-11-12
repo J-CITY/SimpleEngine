@@ -110,7 +110,7 @@ rttr::registration::class_<IKIGAI::ECS::AudioComponent>("AudioComponent")
 	)
 	.property("Source", &IKIGAI::ECS::AudioComponent::getSourcePath, &IKIGAI::ECS::AudioComponent::setSourcePath)
 	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE || MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
 	)
 	.property("Sound", &IKIGAI::ECS::AudioComponent::getSoundPath, &IKIGAI::ECS::AudioComponent::setSoundPath)

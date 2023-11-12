@@ -5,8 +5,11 @@
 #include "../resourceManager/ServiceManager.h"
 #include <taskModule/taskSystem.h>
 
+#include "coreModule/ecs/components/transform.h"
 #include "renderModule/backends/gl/textureGl.h"
+#include "renderModule/backends/interface/resourceStruct.h"
 #include "utilsModule/loader.h"
+#include "utilsModule/jsonParser/jsonParser.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::RESOURCES;
@@ -37,6 +40,12 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFile(const std::s
 #endif
 }
 
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const RENDER::TextureResource& res) {
+#ifdef OPENGL_BACKEND
+	return RENDER::TextureGl::CreateFromResource(res);
+#endif
+}
+
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileHDR(const std::string& filepath, bool generateMipmap) {
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::CreateHDR(IKIGAI::UTILS::getRealPath(filepath), generateMipmap);
@@ -61,103 +70,11 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, 
 #endif
 }
 
-//std::shared_ptr<RENDER::TextureInterface> TextureLoader::CreateColorCM(uint8_t r, uint8_t g, uint8_t b) {
-//	auto cubemap = std::make_shared<CubeMap>();
-//	uint8_t buffer [] = {r, g, b};
-//	std::array<uint8_t*, 6> sides = {buffer, buffer, buffer, buffer, buffer, buffer};
-//	cubemap->Load(sides, 1, 1);
-//	return cubemap;
-//}
-
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, bool generateMipmap) {
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::CreateFromMemory(data, 1, 1, generateMipmap);
 #endif
 }
-
-//ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemoryFloat(float* data, uint32_t width, uint32_t height, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
-//	GLuint textureID;
-//	glGenTextures(1, &textureID);
-//	glBindTexture(GL_TEXTURE_2D, textureID);
-//
-//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data);
-//
-//	if (generateMipmap) {
-//		glGenerateMipmap(GL_TEXTURE_2D);
-//	}
-//
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
-//
-//	glBindTexture(GL_TEXTURE_2D, 0);
-//
-//	return std::make_shared<Texture>("", textureID, width, height, 32, firstFilter, secondFilter, generateMipmap);
-//}
-
-//std::unique_ptr<RENDER::TextureInterface> TextureLoader::CreateSkybox(const std::string& path) {
-//	auto sb = std::make_unique<CubeMap>(path);
-//	glGenTextures(1, &sb->id);
-//	glBindTexture(GL_TEXTURE_CUBE_MAP, sb->id);
-//
-//	for (unsigned int i = 0; i < sb->types.size(); i++) {
-//		GLuint textureID;
-//		int textureWidth;
-//		int textureHeight;
-//		int bitsPerPixel;
-//		stbi_set_flip_vertically_on_load(true);
-//		unsigned char* dataBuffer = stbi_load((path + std::to_string(i) + ".bmp").c_str(), &textureWidth, &textureHeight, &bitsPerPixel, 4);
-//		glTexImage2D(sb->types[i], 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, dataBuffer);
-//		stbi_image_free(dataBuffer);
-//	}
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-//	return sb;
-//}
-//
-//std::unique_ptr<RENDER::TextureInterface> TextureLoader::LoadCubeMap(const int shadow_width, const int shadow_height) {
-//	auto sb = std::make_unique<CubeMap>("");
-//	glGenTextures(1, &sb->id);
-//	glBindTexture(GL_TEXTURE_CUBE_MAP, sb->id);
-//
-//	for (unsigned int i = 0; i < sb->types.size(); ++i) {
-//		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-//			0, GL_DEPTH_COMPONENT, shadow_width, shadow_height, 0,
-//			GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-//	}
-//
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-//	return sb;
-//}
-//
-//
-//std::shared_ptr<RENDER::TextureInterface> TextureLoader::CreateCubeMap(const int width, const int height,
-//	TextureFiltering firstFilter, TextureFiltering secondFilter) {
-//	auto cm = std::make_shared<CubeMap>();
-//	//glGenTextures(1, &sb->id);
-//	//glBindTexture(GL_TEXTURE_CUBE_MAP, sb->id);
-//	cm->bindWithoutAttach();
-//	for (unsigned int i = 0; i < cm->types.size(); ++i) {
-//		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-//			0, GL_RGB16F, width, height, 0,
-//			GL_RGB, GL_FLOAT, NULL);
-//	}
-//
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(firstFilter));
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(secondFilter));
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-//	return cm;
-//}
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::createResource(const std::string& path) {
 	return CreateFromFile(path, true);
@@ -167,10 +84,23 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromResource(const st
 	if (auto resource = getResource<RENDER::TextureInterface>(path)) {
 		return resource;
 	}
+	const std::string filePath = UTILS::getRealPath(path);
 
+	auto res = UTILS::FromJson<RENDER::TextureResource>(filePath);
+	if (res.isErr()) {
+		//problem
+		return nullptr;
+	}
+	auto _res = res.unwrap();
+	_res.path = filePath;
 
-
-	
+	auto newResource = CreateFromResource(_res);
+	if (newResource) {
+		return registerResource(path, newResource);
+	}
+	else {
+		return nullptr;
+	}
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromFile(const std::string& path, bool generateMipmap) {
@@ -249,119 +179,88 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromMemory(const std:
 }
 
 
-//ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFile(const std::string& path) {
-//	std::string realPath = getRealPath(path);
-//
-//	auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
-//		TextureFiltering::LINEAR_MIPMAP_LINEAR, TextureFiltering::LINEAR, true};
-//
-//	ResourcePtr<Texture> texture = Create(realPath, min, mag, mipmap);
-//	if (texture) {
-//		texture->path = path;
-//	}
-//	return texture;
-//}
+#include <rttr/registration>
 
-//std::future<ResourcePtr<RENDER::TextureInterface>> TextureLoader::CreateFromFileAsync(const std::string& path) {
-//	std::string realPath = getRealPath(path);
-//
-//	struct LoadImageData {
-//		unsigned char* data = nullptr;
-//		int textureWidth = 0;
-//		int textureHeight = 0;
-//	};
-//
-//	auto taskLoadImage = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("LoadImage", 3, nullptr, [realPath]() {
-//		int textureWidth;
-//		int textureHeight;
-//		int bitsPerPixel;
-//		stbi_set_flip_vertically_on_load(true);
-//		unsigned char* dataBuffer = stbi_load(realPath.c_str(), &textureWidth, &textureHeight, &bitsPerPixel, 4);
-//		return LoadImageData{ dataBuffer, textureWidth, textureHeight };
-//	});
-//
-//	auto f = std::async(std::launch::deferred, [taskLoadImage, realPath]() -> ResourcePtr<Texture> {
-//		auto imgData = taskLoadImage.future->get();
-//		auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
-//	TextureFiltering::LINEAR_MIPMAP_LINEAR, TextureFiltering::LINEAR, true };
-//		if (imgData.data) {
-//			auto res = CreateFromMemory(imgData.data, imgData.textureWidth, imgData.textureHeight, min, mag, mipmap);
-//			stbi_image_free(imgData.data);
-//			if (res) {
-//				res->path = realPath;
-//			}
-//			return res;
-//		}
-//		else {
-//			stbi_image_free(imgData.data);
-//			glBindTexture(GL_TEXTURE_2D, 0);
-//			return nullptr;
-//		}
-//	});
-//	return f;
-//}
-//
-//ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileFloat(const std::string& path) {
-//	std::string realPath = getRealPath(path);
-//
-//	auto [min, mag, mipmap] = std::tuple<TextureFiltering, TextureFiltering, bool>{
-//		TextureFiltering::LINEAR, TextureFiltering::LINEAR, false};
-//
-//	ResourcePtr<Texture> texture = CreateFloat(realPath, min, mag, mipmap);
-//	if (texture) {
-//		texture->path = path;
-//	}
-//	return texture;
-//}
-//
-//ResourcePtr<RENDER::TextureInterface> TextureLoader::createColor(const std::string& name, uint8_t r, uint8_t g, uint8_t b, TextureFiltering firstFilter, TextureFiltering secondFilter, bool generateMipmap) {
-//	if (auto resource = getResource<Texture>(name)) {
-//		return resource;
-//	}
-//	else {
-//		auto newResource = CreateColor(r, g, b, firstFilter, secondFilter, generateMipmap);
-//		if (newResource) {
-//			return registerResource(name, newResource);
-//		}
-//		else {
-//			return nullptr;
-//		}
-//	}
-//}
-//
-//ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateEmpty(uint32_t width, uint32_t height, bool isFloating, int channels, TextureFormat format) {
-//	auto res = std::make_shared<Texture>();
-//	res->path = "";
-//	res->width = width;
-//	res->height = height;
-//	res->textureType = GL_TEXTURE_2D;
-//	res->format = format;
-//	
-//	GLenum type = isFloating ? GL_FLOAT : GL_UNSIGNED_BYTE;
-//	
-//	GLenum dataChannels = GL_RGB;
-//	switch (channels) {
-//	case 1:
-//		dataChannels = GL_RED;
-//		break;
-//	case 2:
-//		dataChannels = GL_RG;
-//		break;
-//	case 3:
-//		dataChannels = GL_RGB;
-//		break;
-//	case 4:
-//		dataChannels = GL_RGBA;
-//		break;
-//	default:
-//		break;
-//	}
-//	
-//	glBindTexture(GL_TEXTURE_2D, res->getId());
-//	glTexImage2D(GL_TEXTURE_2D, 0, res->formatTable[(int)format],
-//		(GLsizei)width, (GLsizei)height, 0, dataChannels, type, nullptr);
-//
-//	res->generateMipmaps();
-//	return res;
-//}
+RTTR_REGISTRATION
+{
+	rttr::registration::enumeration<RENDER::TextureType>("TextureType")
+	(
+		rttr::value("TEXTURE_2D", RENDER::TextureType::TEXTURE_2D),
+		rttr::value("TEXTURE_3D", RENDER::TextureType::TEXTURE_3D),
+		rttr::value("TEXTURE_CUBE", RENDER::TextureType::TEXTURE_CUBE),
+		rttr::value("TEXTURE_2D_ARRAY", RENDER::TextureType::TEXTURE_2D_ARRAY)
+	);
+
+	rttr::registration::enumeration<RENDER::PixelDataFormat>("PixelDataFormat")
+	(
+		rttr::value("COLOR_INDEX", RENDER::PixelDataFormat::COLOR_INDEX),
+		rttr::value("STENCIL_INDEX", RENDER::PixelDataFormat::STENCIL_INDEX),
+		rttr::value("DEPTH_COMPONENT", RENDER::PixelDataFormat::DEPTH_COMPONENT),
+		rttr::value("RED", RENDER::PixelDataFormat::RED),
+		rttr::value("GREEN", RENDER::PixelDataFormat::GREEN),
+		rttr::value("BLUE", RENDER::PixelDataFormat::BLUE),
+		rttr::value("ALPHA", RENDER::PixelDataFormat::ALPHA),
+		rttr::value("RGB", RENDER::PixelDataFormat::RGB),
+		rttr::value("BGR", RENDER::PixelDataFormat::BGR),
+		rttr::value("RGBA", RENDER::PixelDataFormat::RGBA),
+		rttr::value("BGRA", RENDER::PixelDataFormat::BGRA),
+		rttr::value("LUMINANCE", RENDER::PixelDataFormat::LUMINANCE),
+		rttr::value("LUMINANCE_ALPHA", RENDER::PixelDataFormat::LUMINANCE_ALPHA)
+	);
+
+	rttr::registration::class_<IKIGAI::RENDER::TextureResource>("TextureResource")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	)
+	.property("TextureType", &IKIGAI::RENDER::TextureResource::texType)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
+	)
+	.property("NeedFileWatch", &IKIGAI::RENDER::TextureResource::needFileWatch)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+	)
+	.property("PathTexture", &IKIGAI::RENDER::TextureResource::pathTexture)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	)
+	.property("UseColor", &IKIGAI::RENDER::TextureResource::useColor)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+	)
+	.property("ColorData", &IKIGAI::RENDER::TextureResource::colorData)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)//, TODO change to str?
+		//rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+	)
+	.property("Width", &IKIGAI::RENDER::TextureResource::width)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Height", &IKIGAI::RENDER::TextureResource::height)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("Depth", &IKIGAI::RENDER::TextureResource::depth)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+	)
+	.property("PixelType", &IKIGAI::RENDER::TextureResource::pixelType)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
+	)
+	.property("UseMipmap", &IKIGAI::RENDER::TextureResource::useMipmap)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+	);
+}
 

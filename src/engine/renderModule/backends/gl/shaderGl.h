@@ -1,4 +1,5 @@
 #pragma once
+#include "renderModule/backends/interface/resourceStruct.h"
 
 #ifdef OPENGL_BACKEND
 #include <gl/glew.h>
@@ -25,14 +26,21 @@ namespace IKIGAI::RENDER
 {
     class ShaderGl : public IKIGAI::RENDER::ShaderInterface {
     public:
-        unsigned int ID;
+        unsigned int ID = 0;
         // constructor generates the shader on the fly
         // ------------------------------------------------------------------------
-        ShaderGl(std::string vertexPath, std::string fragmentPath,
-            std::optional<std::string> geometryPath = std::nullopt, std::optional<std::string> tessControlPath = std::nullopt,
-            std::optional<std::string> tessEvalPath = std::nullopt, std::optional<std::string> computePath = std::nullopt);
 
-        ShaderGl(std::string computePath);
+        explicit ShaderGl(const ShaderResource& res);
+        bool checkBinarySupport();
+        void compile(std::string vertexCode, std::string fragmentCode,
+            std::string geometryCode, std::string tessControlCode,
+            std::string tessEvalCode, std::string computeCode);
+
+        ShaderGl(std::optional<std::string> vertexPath = std::nullopt, std::optional<std::string> fragmentPath = std::nullopt,
+                 std::optional<std::string> geometryPath = std::nullopt, std::optional<std::string> tessControlPath = std::nullopt,
+                 std::optional<std::string> tessEvalPath = std::nullopt, std::optional<std::string> computePath = std::nullopt);
+
+        //ShaderGl(std::string computePath);
 
         ~ShaderGl() override;
     	// activate the shader
@@ -85,6 +93,9 @@ namespace IKIGAI::RENDER
             return mUniforms;
         }
     private:
+        std::array<std::string, 6> read(std::optional<std::string> vertexPath, std::optional<std::string> fragmentPath,
+            std::optional<std::string> geometryPath, std::optional<std::string> tessControlPath,
+            std::optional<std::string> tessEvalPath, std::optional<std::string> computePath);
         void getReflection();
 
         void checkCompileErrors(GLuint shader, std::string type);

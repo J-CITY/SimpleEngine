@@ -70,16 +70,16 @@ namespace IKIGAI {
 				return res;
 			}
 			
-			static std::string getRealPath(const std::string& p_path) {
-				std::string result;
-				if (std::filesystem::exists(ENGINE_ASSETS_PATH + p_path)) {
-					result = Config::ROOT + ENGINE_ASSETS_PATH + p_path;
-				}
-				else {
-					result = Config::ROOT + PROJECT_ASSETS_PATH + p_path;
-				}
-				return result;
-			}
+			//static std::string getRealPath(const std::string& p_path) {
+			//	std::string result;
+			//	if (std::filesystem::exists(ENGINE_ASSETS_PATH + p_path)) {
+			//		result = Config::ROOT + ENGINE_ASSETS_PATH + p_path;
+			//	}
+			//	else {
+			//		result = Config::ROOT + PROJECT_ASSETS_PATH + p_path;
+			//	}
+			//	return result;
+			//}
 		private:
 			inline static std::string PROJECT_ASSETS_PATH = "";
 			inline static std::string ENGINE_ASSETS_PATH = "";

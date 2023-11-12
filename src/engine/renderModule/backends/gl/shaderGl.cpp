@@ -12,6 +12,8 @@
 
 //#include "../../utils/shaderUtils.h"
 
+import logger;
+
 namespace IKIGAI
 {
 	namespace RENDER
@@ -104,107 +106,188 @@ std::string readFileWithInclude(const std::string& path) {
 	return content;
 }
 
-ShaderGl::ShaderGl(std::string vertexPath, std::string fragmentPath,
+ShaderGl::ShaderGl(std::optional<std::string> vertexPath, std::optional<std::string> fragmentPath,
 	std::optional<std::string> geometryPath, std::optional<std::string> tessControlPath,
 	std::optional<std::string> tessEvalPath, std::optional<std::string> computePath)
 {
 	this->vertexPath = vertexPath;
 	this->fragmentPath = fragmentPath;
+	this->geometryPath = geometryPath;
+	this->tessEvalPath = tessEvalPath;
+	this->tessControlPath = tessControlPath;
+	this->computePath = computePath;
 	//TODO: add other
 
-	auto readShader = [](std::string path) {
-		std::string code;
+	auto res = read(vertexPath, fragmentPath,
+		geometryPath, tessControlPath,
+		tessEvalPath, computePath);
+	compile(res[0], res[1],
+		res[2], res[3],
+		res[4], res[5]);
 
-		std::ifstream shaderFile;
-		shaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-		shaderFile.open(IKIGAI::UTILS::getRealPath(path));
-		std::stringstream shaderStream;
-		shaderStream << shaderFile.rdbuf();
-		shaderFile.close();
-		// convert stream into string
-		code = shaderStream.str();
-		return code;
-	};
+	getReflection();
+}
 
+
+ShaderGl::ShaderGl(const ShaderResource& res) {
+	if (!res.vertex.empty()) this->vertexPath = res.vertex;
+	if (!res.fragment.empty()) this->fragmentPath = res.fragment;
+	if (!res.geometry.empty()) this->geometryPath = res.geometry;
+	if (!res.tessEval.empty()) this->tessEvalPath = res.tessEval;
+	if (!res.tessControl.empty()) this->tessControlPath = res.tessControl;
+	if (!res.compute.empty()) this->computePath = res.compute;
+
+	auto useBinary = res.useBinary;
+	useBinary &= checkBinarySupport();
+	auto binPath = res.path + ".bin";
+	if (useBinary && std::filesystem::exists(binPath)) {
+		ID = glCreateProgram();
+		//GLenum format = 0;
+		std::ifstream inputStream(binPath, std::ios::binary);
+		std::istreambuf_iterator<char> startIt(inputStream), endIt;
+		std::vector<char> buffer(startIt, endIt);
+		inputStream.close();
+		
+		//memcpy(&format, buffer.data(), sizeof(GLenum));
+		GLint formats = 0;
+		glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
+		std::vector<GLint> binaryFormats;
+		binaryFormats.resize(formats);
+		glGetIntegerv(GL_PROGRAM_BINARY_FORMATS, binaryFormats.data());
+	
+		glProgramBinary(ID, binaryFormats[0], buffer.data(), buffer.size());
+		LOG_INFO("Reading from " + binPath + ", binary format = ");
+		// Check for success/failure
+		GLint status;
+		glGetProgramiv(ID, GL_LINK_STATUS, &status);
+		if (GL_FALSE == status) {
+			// Handle failure ...
+		}
+		//glValidateProgram(ID);
+	}
+	else {
+		auto source = read(
+			fragmentPath,
+			vertexPath,
+			geometryPath,
+			tessControlPath,
+			tessEvalPath,
+			computePath
+		);
+		compile(source[0], source[1],
+			source[2], source[3],
+			source[4], source[5]);
+	}
+	if (ID) {
+		if (useBinary && !std::filesystem::exists(binPath)) {
+			GLint length = 0;
+			glGetProgramiv(ID, GL_PROGRAM_BINARY_LENGTH, &length);
+	
+			std::vector<GLubyte> buffer(length);
+			GLenum format = 0;
+			glGetProgramBinary(ID, length, NULL, &format, buffer.data());
+			LOG_INFO("Writing to " + binPath + ", binary format = " + std::to_string(format));
+			std::ofstream out(binPath.c_str(), std::ios::binary);
+			out.write(reinterpret_cast<char*>(buffer.data()), length);
+			out.close();
+		}
+	}
+
+	getReflection();
+}
+
+bool ShaderGl::checkBinarySupport() {
+	GLint formats = 0;
+	glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
+	if (formats < 1) {
+		LOG_INFO("Driver does not support any binary formats.");
+		return false;
+	}
+	return true;
+}
+
+std::array<std::string, 6> ShaderGl::read(std::optional<std::string> vertexPath, std::optional<std::string> fragmentPath,
+	std::optional<std::string> geometryPath, std::optional<std::string> tessControlPath,
+	std::optional<std::string> tessEvalPath, std::optional<std::string> computePath) {
+	std::array<std::string, 6> res;
 	// 1. retrieve the vertex/fragment source code from filePath
-	std::string vertexCode;
-	std::string fragmentCode;
-	std::string geometryCode;
-	std::string tessControlCode;
-	std::string tessEvalCode;
-	std::string computeCode;
 	try {
-		vertexCode = readFileWithInclude(vertexPath);
-		fragmentCode = readFileWithInclude(fragmentPath);
-
+		if (vertexPath) {
+			res[0] = readFileWithInclude(vertexPath.value());
+		}
+		if (fragmentPath) {
+			res[1] = readFileWithInclude(fragmentPath.value());
+		}
 		if (geometryPath) {
-			geometryCode = readFileWithInclude(geometryPath.value());
+			res[2] = readFileWithInclude(geometryPath.value());
 		}
 		if (tessControlPath) {
-			tessControlCode = readFileWithInclude(tessControlPath.value());
+			res[3] = readFileWithInclude(tessControlPath.value());
 		}
 		if (tessEvalPath) {
-			tessEvalCode = readFileWithInclude(tessEvalPath.value());
+			res[4] = readFileWithInclude(tessEvalPath.value());
 		}
 		if (computePath) {
-			computeCode = readFileWithInclude(computePath.value());
+			res[5] = readFileWithInclude(computePath.value());
 		}
 	}
 	catch (std::ifstream::failure& e) {
-	    std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ: " << e.what() << std::endl;
+		std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << e.what() << std::endl;
 	}
-	//std::vector<uint32_t> bufferV = load_spirv_file(vertexPath);
-	//std::string resultV = SHADER_UTILS::CompileSpirvToGlsl(bufferV, false,
-	//			450, true, true);
-	//std::cout << resultV << std::endl;
-	//std::vector<uint32_t> bufferF = load_spirv_file(fragmentPath);
-	//std::string resultF = SHADER_UTILS::CompileSpirvToGlsl(bufferF, false,
-	//	450, true, true);
-	//std::cout << resultF << std::endl;
-	//const char* vShaderCode = resultV.c_str();
-	//const char* fShaderCode = resultF.c_str();
-	const char* vShaderCode = vertexCode.c_str();
-	const char* fShaderCode = fragmentCode.c_str();
-	// 2. compile shaders
-	unsigned int vertex, fragment, geometry, tessControl, tessEval, compute;
-	// vertex shader
-	vertex = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertex, 1, &vShaderCode, NULL);
-	glCompileShader(vertex);
-	checkCompileErrors(vertex, "VERTEX");
-	// fragment Shader
-	fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragment, 1, &fShaderCode, NULL);
-	glCompileShader(fragment);
-	checkCompileErrors(fragment, "FRAGMENT");
 
+	return res;
+}
+
+void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
+	std::string geometryCode, std::string tessControlCode,
+	std::string tessEvalCode, std::string computeCode) {
+	// 2. compile shaders
+	unsigned int vertex=0, fragment=0, geometry=0, tessControl=0, tessEval=0, compute=0;
+	// vertex shader
+	if (vertexPath) {
+		const char* vShaderCode = vertexCode.c_str();
+		vertex = glCreateShader(GL_VERTEX_SHADER);
+		glShaderSource(vertex, 1, &vShaderCode, NULL);
+		glCompileShader(vertex);
+		checkCompileErrors(vertex, "VERTEX: " + vertexPath.value());
+	}
+	// fragment Shader
+	if (fragmentPath) {
+		const char* fShaderCode = fragmentCode.c_str();
+		fragment = glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(fragment, 1, &fShaderCode, NULL);
+		glCompileShader(fragment);
+		checkCompileErrors(fragment, "FRAGMENT: " + fragmentPath.value());
+	}
+	//std::cout << "-------------------------------\n";
+	//std::cout << fShaderCode;
 	if (geometryPath) {
 		const char* gShaderCode = geometryCode.c_str();
 		geometry = glCreateShader(GL_GEOMETRY_SHADER);
 		glShaderSource(geometry, 1, &gShaderCode, NULL);
 		glCompileShader(geometry);
-		checkCompileErrors(geometry, "GEOMETRY");
+		checkCompileErrors(geometry, "GEOMETRY: " + geometryPath.value());
 	}
 	if (tessControlPath) {
 		const char* tcShaderCode = tessControlCode.c_str();
 		tessControl = glCreateShader(GL_TESS_CONTROL_SHADER);
 		glShaderSource(tessControl, 1, &tcShaderCode, NULL);
 		glCompileShader(tessControl);
-		checkCompileErrors(tessControl, "TESS_CONTROL");
+		checkCompileErrors(tessControl, "TESS_CONTROL: " + tessControlPath.value());
 	}
 	if (tessEvalPath) {
 		const char* teShaderCode = tessEvalCode.c_str();
 		tessEval = glCreateShader(GL_TESS_EVALUATION_SHADER);
 		glShaderSource(tessEval, 1, &teShaderCode, NULL);
 		glCompileShader(tessEval);
-		checkCompileErrors(tessEval, "TESS_EVAL");
+		checkCompileErrors(tessEval, "TESS_EVAL: " + tessEvalPath.value());
 	}
 	if (computePath) {
 		const char* cShaderCode = computeCode.c_str();
 		compute = glCreateShader(GL_COMPUTE_SHADER);
 		glShaderSource(compute, 1, &cShaderCode, NULL);
 		glCompileShader(compute);
-		checkCompileErrors(compute, "COMPUTE");
+		checkCompileErrors(compute, "COMPUTE: " + computePath.value());
 	}
 	// if geometry shader is given, compile geometry shader
 	//unsigned int geometry;
@@ -218,8 +301,12 @@ ShaderGl::ShaderGl(std::string vertexPath, std::string fragmentPath,
 	//}
 	// shader Program
 	ID = glCreateProgram();
-	glAttachShader(ID, vertex);
-	glAttachShader(ID, fragment);
+	if (vertexPath) {
+		glAttachShader(ID, vertex);
+	}
+	if (fragmentPath) {
+		glAttachShader(ID, fragment);
+	}
 	if (geometryPath) {
 		glAttachShader(ID, geometry);
 	}
@@ -234,8 +321,13 @@ ShaderGl::ShaderGl(std::string vertexPath, std::string fragmentPath,
 	}
 	glLinkProgram(ID);
 	checkCompileErrors(ID, "PROGRAM");
-	glDeleteShader(vertex);
-	glDeleteShader(fragment);
+
+	if (vertexPath) {
+		glDeleteShader(vertex);
+	}
+	if (fragmentPath) {
+		glDeleteShader(fragment);
+	}
 	if (geometryPath) {
 		glDeleteShader(geometry);
 	}
@@ -248,13 +340,9 @@ ShaderGl::ShaderGl(std::string vertexPath, std::string fragmentPath,
 	if (computePath) {
 		glDeleteShader(compute);
 	}
-
-	getReflection();
 }
 
-
-
-ShaderGl::ShaderGl(std::string computePath) {
+/*ShaderGl::ShaderGl(std::string computePath) {
 	auto readShader = [](std::string path) {
 		std::string code;
 
@@ -292,7 +380,7 @@ ShaderGl::ShaderGl(std::string computePath) {
 	glDeleteShader(compute);
 
 	getReflection();
-}
+}*/
 
 ShaderGl::~ShaderGl()
 {

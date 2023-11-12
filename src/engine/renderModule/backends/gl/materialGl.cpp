@@ -3,8 +3,9 @@
 #include "coreModule/resourceManager/ServiceManager.h"
 #include "coreModule/resourceManager/shaderManager.h"
 #include "coreModule/resourceManager/textureManager.h"
-#ifdef OPENGL_BACKEND
 #include "../interface/reflectionStructs.h"
+#include "../interface/resourceStruct.h"
+#ifdef OPENGL_BACKEND
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -331,7 +332,8 @@ void MaterialGl::onDeserialize(nlohmann::json& j) {
 	if (j.contains("shaderVertex") && j.contains("shaderFragment")) {
 		auto vertexPath = j["shaderVertex"].get<std::string>();
 		auto fragmentPath = j["shaderFragment"].get<std::string>();
-		setShader(std::static_pointer_cast<ShaderGl>(RESOURCES::ShaderLoader::CreateFromFiles(vertexPath, fragmentPath)));
+		auto res = RENDER::ShaderResource{ .vertex = vertexPath, .fragment = fragmentPath };
+		setShader(std::static_pointer_cast<ShaderGl>(RESOURCES::ShaderLoader::CreateFromResource(res)));
 	}
 	mBlendable = j.value("blendable", false);
 	mBackfaceCulling = j.value("backfaceCulling", true);

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <gl/glew.h>
 #include <coreModule/resourceManager/textureManager.h>
+#include <renderModule/backends/interface/resourceStruct.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -92,6 +93,147 @@ std::shared_ptr<TextureGl> TextureGl::Create(std::string path, bool generateMipm
     return tex;
 }
 
+std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureResource& res) {
+    auto getFormat = [](int nrComponents) {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+        return format;
+    };
+    auto getInternalFormat = [](int nrComponents, bool isFloat) {
+        GLenum format;
+        if (nrComponents == 1)
+            format = isFloat ? GL_R16F : GL_RED;
+        else if (nrComponents == 3)
+            format = isFloat ? GL_RGB16F : GL_RGB;
+        else if (nrComponents == 4)
+            format = isFloat ? GL_RGBA16F : GL_RGBA;
+        return format;
+    };
+
+    auto getFormat2 = [](PixelDataFormat dataFormat) {
+        GLenum format;
+        if (dataFormat == PixelDataFormat::RED)
+            format = GL_RED;
+        else if (dataFormat == PixelDataFormat::RGB)
+            format = GL_RGB;
+        else if (dataFormat == PixelDataFormat::RGBA)
+            format = GL_RGBA;
+        else if (dataFormat == PixelDataFormat::DEPTH_COMPONENT)
+            format = GL_DEPTH_COMPONENT;
+        return format;
+    };
+    auto getInternalFormat2 = [](PixelDataFormat dataFormat, bool isFloat) {
+        GLenum format;
+        if (dataFormat == PixelDataFormat::RED)
+            format = isFloat ? GL_R16F : GL_RED;
+        else if (dataFormat == PixelDataFormat::RGB)
+            format = isFloat ? GL_RGB16F : GL_RGB;
+        else if (dataFormat == PixelDataFormat::RGBA)
+            format = isFloat ? GL_RGBA16F : GL_RGBA;
+        else if (dataFormat == PixelDataFormat::DEPTH_COMPONENT)
+            format = isFloat ? GL_DEPTH_COMPONENT32F : GL_DEPTH_COMPONENT;
+        return format;
+    };
+
+    auto getType = [](TextureType type) {
+        switch (type)
+        {
+        case TextureType::TEXTURE_2D: return GL_TEXTURE_2D;
+        case TextureType::TEXTURE_3D: return GL_TEXTURE_3D;
+        case TextureType::TEXTURE_CUBE: return GL_TEXTURE_CUBE_MAP;
+        case TextureType::TEXTURE_2D_ARRAY: return GL_TEXTURE_2D_ARRAY;
+        }
+        return GL_TEXTURE_2D;
+    };
+    auto createTexture = [](TextureType type, int internalFormat, int format, int width, int height, int depth, bool isFloat, const void* data) {
+        switch (type)
+        {
+        case TextureType::TEXTURE_2D:
+	    {
+			glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+	    }
+        return;
+        case TextureType::TEXTURE_3D: 
+        {
+            glTexImage3D(
+                GL_TEXTURE_3D, 0, internalFormat, width, height, depth,
+                0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+        }
+        return;
+        case TextureType::TEXTURE_CUBE:
+        {
+            for (unsigned int i = 0; i < 6; ++i) {
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+            }
+
+	    }
+        return;
+        case TextureType::TEXTURE_2D_ARRAY: 
+        {
+            glTexImage3D(
+                GL_TEXTURE_2D_ARRAY, 0, internalFormat, width, height, depth,
+                0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+        }
+        return;
+        }
+    };
+
+
+    auto tex = std::make_shared<TextureGl>();
+
+    unsigned texId = 0;
+    glGenTextures(1, &texId);
+    glBindTexture(getType(res.texType), texId);
+    if (!res.path.empty()) {
+        int width=0, height=0, nrComponents=0;
+	    if (res.isFloat) {
+            RESOURCES::stbiSetFlipVerticallyOnLoad(true);
+            float* data = RESOURCES::stbiLoadf(res.path.c_str(), &width, &height, &nrComponents, 0);
+            if (data) {
+                createTexture(res.texType, getInternalFormat(nrComponents, res.isFloat), getFormat(nrComponents), width, height, res.depth, res.isFloat, data);
+                RESOURCES::stbiImageFree(data);
+            }
+	    }
+        else {
+            unsigned char* data = IKIGAI::RESOURCES::stbiLoad(res.path.c_str(), &width, &height, &nrComponents, 0);
+            if (data) {
+                createTexture(res.texType, getInternalFormat(nrComponents, res.isFloat), getFormat(nrComponents), width, height, res.depth, res.isFloat, data);
+                RESOURCES::stbiImageFree(data);
+            }
+        }
+        tex->width = width;
+        tex->height = height;
+        tex->depth = res.depth;
+    }
+    else {
+        if (res.isFloat) {
+            RESOURCES::stbiSetFlipVerticallyOnLoad(true);
+        }
+        const uint8_t* data = nullptr;
+        if (res.useColor) {
+            data = res.colorData.data();
+        }
+    	createTexture(res.texType, getInternalFormat2(res.pixelType, res.isFloat), getFormat2(res.pixelType), res.width, res.height, res.depth, res.isFloat, data);
+        tex->width = res.width;
+        tex->height = res.height;
+        tex->depth = res.depth;
+    }
+
+    if (res.useMipmap) {
+        glGenerateMipmap(getType(res.texType));
+    }
+    glBindTexture(getType(res.texType), 0);
+    
+    tex->id = texId;
+    tex->mPath = res.path;
+    return tex;
+}
+
 std::shared_ptr<TextureGl> TextureGl::CreateHDR(const std::string& path, bool generateMipmap) {
 	RESOURCES::stbiSetFlipVerticallyOnLoad(true);
     int width, height, nrComponents;
@@ -166,6 +308,8 @@ std::shared_ptr<TextureGl> TextureGl::createForAttach(int texWidth, int texHeigh
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    glGenerateMipmap(GL_TEXTURE_2D);
+
     auto tex = std::make_shared<TextureGl>();
     tex->id = texId;
     tex->width = texWidth;
@@ -224,17 +368,19 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttach2DArray(int texWidth, 
 
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    constexpr float bordercolor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, bordercolor);
+    //constexpr float bordercolor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    //glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, bordercolor);
 
     auto tex = std::make_shared<TextureGl>();
     tex->id = id;
     tex->type = TextureType::TEXTURE_2D_ARRAY;
     tex->width = texWidth;
     tex->height = texHeight;
+    tex->depth = arrSize;
     return tex;
 }
 
@@ -271,6 +417,7 @@ std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ
     tex->type = TextureType::TEXTURE_3D;
     tex->width = texX;
     tex->height = texY;
+    tex->depth = texZ;
     return tex;
 }
 
