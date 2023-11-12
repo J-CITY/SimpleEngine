@@ -101,7 +101,8 @@ void main() {
             case 1: {
                 float shadow = 0.0f;
                 if (engine_ShadowUBO.useDirLightShadow) {
-                    shadow = DirShadowCalculation(FragPosDirLightSpace);
+                    shadow = ShadowCalculationWithCascade(g_FragPos);
+                    //shadow = DirShadowCalculation(FragPosDirLightSpace);
                 }
                 lightSum += CalcDirectionalLight(ssbo_Lights[i], shadow);
                 

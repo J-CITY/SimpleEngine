@@ -422,6 +422,67 @@ float PCSS(vec2 uv, float bias, float zReceiver) {
     return PCF_Filter(uv, zReceiver, bias ,filterRadiusUV);
 }
 
+/////////////PCSS CASCADE////////////////////////////
+void FindBlockerCascade(
+        out float avgBlockerDepth,
+        out int numBlockers,
+        vec3      uv,
+        float     bias,
+        float     zReceiver) 
+{
+    float blockerSum = 0;
+    float searchWidth = engine_ShadowUBO.dirLIGHT_SIZE * (zReceiver - engine_ShadowUBO.dirNEAR_PLANE) / zReceiver;
+    for(int i = 0; i < engine_ShadowUBO.dirBLOCKER_SEARCH_NUM_SAMPLES; i++) {
+        vec2 offset = Poisson64[i];
+        //float sampleDepth = texture(engine_dirShadowMap, vec3(uv + offset *  searchWidth, g_Layer)).r;
+        float sampleDepth = texture(engine_dirBakedShadowMap, uv + vec3(offset, 0) *  searchWidth).r;
+        //texture(shadowMap, uv + offset *  searchWidth).r;
+        if(sampleDepth < (zReceiver - bias)) {
+            blockerSum += sampleDepth;
+            numBlockers++;
+        }
+    }
+    avgBlockerDepth = blockerSum / float(numBlockers);
+}
+
+float PCF_FilterCascade(
+      vec3  uv,
+      float zReceiver,
+      float bias,   //avoid
+      float filter_radius) 
+{
+    float sum = 0.0;
+    for(int i = 0; i < engine_ShadowUBO.dirPCF_NUM_SAMPLES; i++) {
+        vec2 offset = Poisson64[i] * filter_radius;
+        //float sampleDepth = texture(engine_dirShadowMap, vec3(uv + offset, g_Layer)).r;
+        float sampleDepth = texture(engine_dirBakedShadowMap, uv + vec3(offset, 0)).r;
+        if(sampleDepth < (zReceiver - bias)) {
+            sum += 1.0;
+        }
+    }
+    return sum / float(engine_ShadowUBO.dirPCF_NUM_SAMPLES);
+}
+
+
+float PCSSCascade(vec3 uv, float bias, float zReceiver) {
+    //TODO
+    // STEP 1: blocker search
+    float avgBlockerDepth = 0.0f;
+    int numBlockers = 0;
+    FindBlockerCascade(avgBlockerDepth, numBlockers, uv, bias, zReceiver);
+
+    //There are no occluders so early out (this saves filtering) 
+    if(numBlockers == 0) {
+        return 1.0;
+    }
+    // STEP 2: penumbra size 
+     float penumbraRatio = PenumbraSize(zReceiver, avgBlockerDepth);
+     float filterRadiusUV = penumbraRatio * engine_ShadowUBO.dirLIGHT_SIZE * engine_ShadowUBO.dirNEAR_PLANE / zReceiver; 
+    // STEP 3: filtering
+    return PCF_FilterCascade(uv, zReceiver, bias ,filterRadiusUV);
+}
+/////////////////////////////////////////
+
 float ShadowCalculationWithCascade(vec3 fragPosWorldSpace) {
     // select cascade layer
     vec4 fragPosViewSpace = engine_UBO.View * vec4(fragPosWorldSpace, 1.0);
@@ -429,7 +490,7 @@ float ShadowCalculationWithCascade(vec3 fragPosWorldSpace) {
 
     int layer = -1;
     for (int i = 0; i < engine_ShadowUBO.dirCascadeCount; ++i) {
-        if (depthValue < engine_ShadowUBO.dirCascadePlaneDistances[i])
+        if (depthValue < dirCascadePlaneDistances[i])
         {
             layer = i;
             break;
@@ -438,9 +499,8 @@ float ShadowCalculationWithCascade(vec3 fragPosWorldSpace) {
     if (layer == -1) {
         layer = engine_ShadowUBO.dirCascadeCount;
     }
-    g_Layer = layer;
 
-    vec4 fragPosLightSpace = engine_ShadowUBO.dirMatrices[layer] * vec4(fragPosWorldSpace, 1.0);
+    vec4 fragPosLightSpace = dirMatrices[layer] * vec4(fragPosWorldSpace, 1.0);
     // perform perspective divide
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     // transform to [0,1] range
@@ -461,22 +521,22 @@ float ShadowCalculationWithCascade(vec3 fragPosWorldSpace) {
         bias *= 1 / (engine_ShadowUBO.dirFarPlane * biasModifier);
     }
     else {
-        bias *= 1 / (engine_ShadowUBO.dirCascadePlaneDistances[layer] * biasModifier);
+        bias *= 1 / (dirCascadePlaneDistances[layer] * biasModifier);
     }
 
-    //float shadow = PCSS(projCoords.xy, bias, currentDepth);
+    //float shadow = PCSSCascade(vec3(projCoords.xy, layer), bias, currentDepth);
 
     // PCF
     float shadow = 0.0;
-    vec2 texelSize = 1.0 / vec2(textureSize(engine_dirShadowMap, 0));
+    vec2 texelSize = 1.0 / vec2(textureSize(engine_dirBakedShadowMap, 0).xy);
     for(int x = -1; x <= 1; ++x) {
         for(int y = -1; y <= 1; ++y) {
-            //float pcfDepth = texture(engine_dirShadowMap, vec3(projCoords.xy + vec2(x, y) * texelSize, layer)).r;
-            float pcfDepth = texture(engine_dirShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            float pcfDepth = texture(engine_dirBakedShadowMap, vec3(projCoords.xy + vec2(x, y) * texelSize, layer)).r;
+            //float pcfDepth = texture(engine_dirBakedShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
             shadow += (currentDepth - bias) > pcfDepth ? 1.0 : 0.0;
         }    
     }
-    shadow /= 9.0;
+    shadow /= 17.0;
     return shadow;
 }
 

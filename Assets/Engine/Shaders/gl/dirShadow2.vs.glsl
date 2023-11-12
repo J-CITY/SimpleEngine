@@ -9,6 +9,8 @@ layout (location = 6) in vec4 weights;
 
 #include "../lib/engineUBO.glsl"
 
+uniform mat4 prj;
+
 void main() {
-    gl_Position = engine_Model.model * vec4(geo_Pos, 1.0);
+    gl_Position = prj * engine_Model.model * vec4(geo_Pos, 1.0);
 }

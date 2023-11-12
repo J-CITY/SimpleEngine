@@ -9,6 +9,7 @@ const float PI = 3.14159265359;
 #include "../lib/engineUBO.glsl"
 
 uniform sampler2D depthTex;
+uniform vec3 lightDir;
 
 const uint  g_sss_max_steps                     = 12;    // Max ray steps, affects quality and performance.
 const float g_sss_ray_max_distance              = 0.05; // Max shadow length, longer shadows are less accurate.
@@ -37,7 +38,7 @@ float get_noise_interleaved_gradient(vec2 screen_pos) {
     return fract(magic.z * fract(dot(screen_pos, magic.xy)));
 }
 
-vec2 view_to_uv(vec3 x, bool is_position = true) {
+vec2 view_to_uv(vec3 x, bool is_position) {
     vec4 uv = engine_UBO.Projection * vec4(x, float(is_position));
     return (uv.xy / uv.w) * vec2(0.5f, -0.5f) + 0.5f;
 }
@@ -96,7 +97,7 @@ float ScreenSpaceShadows(vec2 uv, vec3 position, vec3 lightDir) {
     for (uint i = 0; i < g_sss_max_steps; i++) {
         // Step the ray
         ray_pos += ray_step;
-        ray_uv  = view_to_uv(ray_pos);
+        ray_uv  = view_to_uv(ray_pos, true);
 
         // Ensure the UV coordinates are inside the screen
         if (!is_saturated(ray_uv))
@@ -125,5 +126,5 @@ float ScreenSpaceShadows(vec2 uv, vec3 position, vec3 lightDir) {
 }
 
 void main() {
-    FragColor = vec4(ScreenSpaceShadows(TexCoords, texture(depthTex, TexCoords).rgb, vec3(0,0,0)));
+    FragColor = vec4(ScreenSpaceShadows(TexCoords, texture(depthTex, TexCoords).rgb, lightDir));
 }

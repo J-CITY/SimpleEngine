@@ -1,13 +1,12 @@
-//layout(std140, binding = 2) 
+//layout (std140, binding = 1) 
 uniform struct EngineShadowUBO {
 //dir light
-    mat4 dirMatrices[16];
     mat4 dirLightSpaceMatrix;
-    float dirCascadePlaneDistances[16];
     int dirCascadeCount;
     vec3 dirLightDir;
     vec3 dirLightPos;
     float dirFarPlane;
+    float dirLightShadowStrong;
 //PCSS light
     int   dirBLOCKER_SEARCH_NUM_SAMPLES;//64
     int   dirPCF_NUM_SAMPLES ;//64;
@@ -23,3 +22,6 @@ uniform struct EngineShadowUBO {
     bool useSpotLightShadow;
     bool usePointLightShadow;
 } engine_ShadowUBO;
+
+uniform float dirCascadePlaneDistances[16];
+uniform mat4 dirMatrices[16];

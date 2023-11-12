@@ -16,7 +16,7 @@ void main() {
 
     vec3 albedo = texture(albedoTex, TexCoords).rgb;
     //TODO: uncoment (this support only for PBR)
-    float metallic = 0.1;//texture(albedoTex, TexCoords).a;
+    float metallic = 0.3;//texture(albedoTex, TexCoords).a;
     vec3 color = mix(albedo, originalColor, metallic * 0.5);
 
     FragColor = vec4(originalColor + color * ssgiColor, 1.0);

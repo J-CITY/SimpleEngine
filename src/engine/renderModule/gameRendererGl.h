@@ -26,23 +26,25 @@ IKIGAI_ENUM_NS(IKIGAI::RENDER, RenderStates,
 	TAA = 1,
 	MOTION_BLUR = 2,
 	BLOOM = 4,
-	GOD_RAYS = 8,
-	HDR = 16,
-	COLOR_GRADING = 32,
-	VIGNETTE = 64,
-	DEPTH_OF_FIELD = 128,
-	OUTLINE = 256,
-	CHROMATIC_ABBERATION = 512,
-	POSTERIZE = 1024,
-	PIXELIZE = 2048,
-	SHARPEN = 4096,
-	DILATION = 8192,
-	FILM_GRAIN = 16384,
-	GUI = 32768,
-	SSAO = 65536,
-	SSR = 131072,
-	SSGI = 262144,
-	SSS = 524288
+	VOLUMETRIC_LIGHT = 8,
+	GOD_RAYS = 16,
+	HDR = 32,
+	COLOR_GRADING = 64,
+	VIGNETTE = 128,
+	DEPTH_OF_FIELD = 256,
+	OUTLINE = 512,
+	CHROMATIC_ABBERATION = 1024,
+	POSTERIZE = 2048,
+	PIXELIZE = 4096,
+	SHARPEN = 8192,
+	DILATION = 16384,
+	FILM_GRAIN = 32768,
+	FOG = 65536,
+	GUI = 131072,
+	SSAO = 262144,
+	SSR = 524288,
+	SSGI = 1048576,
+	SSS = 2097152
 )
 
 namespace IKIGAI::RENDER
@@ -119,6 +121,28 @@ namespace IKIGAI::RENDER {
 			bool useIBL = true;
 		};
 
+		struct Fog {
+			MATHGL::Vector3 color = MATHGL::Vector3(0.7f, 0.7f, 0.7f);
+			float linearStart = 20.0f;
+			float linearEnd = 75.0f;
+			float density = 0.01f;
+			int equation = 1;
+			bool isEnabled = true;
+		};
+
+		struct VolumetricLight {
+			float godRayMaxSteps = 150.0f;
+			float godRaySampleStep = 0.15f;
+			float godRayStepIncrement = 1.01f;
+			float godRayAsymmetry = 0.5f;
+			float maxDist= 10.0f;
+
+			//debug
+			bool tex = true;
+			bool dir = true;
+			bool map = false;
+		};
+
 		struct Pipeline {
 			MATHGL::Vector4 mClearColor = MATHGL::Vector4(0.0f, 0.0f, 0.50f, 1.0f);
 
@@ -136,8 +160,11 @@ namespace IKIGAI::RENDER {
 			ColorGrading colorGrading;
 			Vignette vignette;
 			IBL ibl;
+			Fog fog;
+			VolumetricLight vl;
 
 		};
+
 		Pipeline mPipeline;
 
 		std::shared_ptr<TextureGl> mRenderToScreenTexture;
@@ -173,6 +200,7 @@ namespace IKIGAI::RENDER {
 		void applyVignette();
 		void applyDepthOfField();
 		void applyOutline();
+		void applyFog();
 		void applyChromaticAbberation();
 		void applyPosterize();
 		void applyPixelize();
@@ -182,6 +210,7 @@ namespace IKIGAI::RENDER {
 		void applyMotionBlur();
 		void applyTAA();
 		void sendSSAOData();
+		void applyVolumetricLight();
 		void sendBounseDataToShader(std::shared_ptr<MaterialGl> material, ECS::Skeletal& animator, std::shared_ptr<ShaderGl> shader);
 		void drawGUISubtree(Ref<ECS::Object> obj);
 
@@ -189,8 +218,17 @@ namespace IKIGAI::RENDER {
 
 		void drawGUI();
 
+		std::shared_ptr<FrameBufferGl> debug3dTextureFB;
+		std::shared_ptr<TextureGl> debug3dTexture;
+		int debug3dTextureLayers = 0;
+		int debug3dTextureLayersCur = 0;
+		bool debug3dTextureIsPersp = false;
+		bool debug3dTextureIsRGB = false;
+		void initDebug3dTextureFB(std::shared_ptr<TextureGl> _debug3dTexture);
+		void updateDebug3dTextureFB();
+
 		struct EngineDirShadowUBO {
-			MATHGL::Matrix4 lightSpaceMatrices[16];
+			std::vector<MATHGL::Matrix4> lightSpaceMatrices;
 		};
 
 		std::map<std::string, bool> activeCustomPP;
@@ -209,6 +247,7 @@ namespace IKIGAI::RENDER {
 			{ RenderStates::TAA, [this]() { applyTAA(); }},
 			{ RenderStates::MOTION_BLUR, [this]() { applyMotionBlur(); }},
 			{ RenderStates::BLOOM, [this]() { applyBloom(); }},
+			{ RenderStates::VOLUMETRIC_LIGHT, [this]() { applyVolumetricLight(); }},
 			{ RenderStates::GOD_RAYS, [this]() { applyGoodRays(); }},
 			{ RenderStates::HDR, [this]() { applyHDR(); } },
 			{ RenderStates::COLOR_GRADING, [this]() {applyColorGrading(); } },
@@ -221,17 +260,25 @@ namespace IKIGAI::RENDER {
 			{ RenderStates::SHARPEN, [this]() {applySharpen(); } },
 			{ RenderStates::DILATION, [this]() {applyDilation(); } },
 			{ RenderStates::FILM_GRAIN, [this]() {applyFilmGrain(); } },
+			{ RenderStates::FOG, [this]() {applyFog(); } },
 			{ RenderStates::GUI, [this]() {drawGUI(); } },
 		};
 
 		void preparePipeline();
 
 		void prepareIBL();
+
+
+		std::shared_ptr<FrameBufferGl> gbufferGlobalFb;
+		std::shared_ptr<TextureGl> gPositionGlobalTex;
+		std::shared_ptr<TextureGl> gEyePositionGlobalTex;
+		std::shared_ptr<TextureGl> gVelocityGlobalTex;
 	protected:
 		
 		EngineDirShadowUBO getLightSpaceMatrices(const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos);
 		MATHGL::Matrix4 getLightSpaceMatrix(float nearPlane, float farPlane, const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos);
 		bool prepareDirShadowMap(const std::string& id);
+		bool prepareDirCascadeShadowMap(const std::string& id);
 		void prepareSpotShadow();
 		void preparePointShadow();
 
@@ -239,6 +286,7 @@ namespace IKIGAI::RENDER {
 		void drawForward();
 
 		void drawDrawableBatching(const Drawable& p_toDraw);
+		
 		void createFrameBuffers();
 		void applySSS();
 		void applySSR();
