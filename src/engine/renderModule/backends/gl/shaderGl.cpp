@@ -167,8 +167,8 @@ ShaderGl::ShaderGl(const ShaderResource& res) {
 	}
 	else {
 		auto source = read(
-			fragmentPath,
 			vertexPath,
+			fragmentPath,
 			geometryPath,
 			tessControlPath,
 			tessEvalPath,

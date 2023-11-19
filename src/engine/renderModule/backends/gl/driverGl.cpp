@@ -147,6 +147,7 @@ void DriverGl::drawIndexed(std::shared_ptr<ShaderInterface> shader, size_t index
 }
 
 void DriverGl::initGlew() {
+	glewExperimental = GL_TRUE;
 	const GLenum error = glewInit();
 	if (error != GLEW_OK) {
 		std::string message = "GlManager::ERROR init GLEW: ";

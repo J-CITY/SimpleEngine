@@ -35,7 +35,8 @@ namespace IKIGAI::ECS {
 		std::shared_ptr<PHYSICS::RigidBody> body;
 		IKIGAI::RENDER::BoundingSphere boundingSphere;
 
-		std::unique_ptr<PHYSICS::CollisionPrimitive> collider;
+		std::shared_ptr<PHYSICS::CollisionPrimitive> collider;
+		//std::unique_ptr<PHYSICS::CollisionPrimitive> collider;
 
 		CollisionType collisionType = CollisionType::NONE;
 	private:

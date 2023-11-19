@@ -18,6 +18,7 @@ namespace IKIGAI::ECS {
 		template<class T>
 		friend Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
 	public:
+		//Component();
 		Component(Ref<ECS::Object> obj);
 		virtual ~Component();
 

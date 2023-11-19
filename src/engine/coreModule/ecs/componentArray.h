@@ -65,6 +65,23 @@ namespace IKIGAI::ECS {
 			return componentArray[entityToIndexInArray[entity]];
 		}
 
+		void insertDataAny(Entity entity, std::any component) override {
+			if (!component.has_value()) {
+				throw;
+				return;
+			}
+			auto data = std::any_cast<T>(component);
+			insertData(entity, data);
+		}
+
+		std::any removeDataAny(Entity entity) override {
+			return removeData(entity);
+		}
+
+		std::any getDataAny(Entity entity) override {
+			return getData(entity);
+		}
+
 		UTILS::WeakPtr<T> getDataPtr(Entity entity) {
 			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
 			assert(entityToIndexInArray.contains(entity) && "Retrieving non-existent component.");
@@ -85,12 +102,27 @@ namespace IKIGAI::ECS {
 			}
 		}
 
+		std::shared_ptr<ComponentArrayInterface> createEmptyFromThis() override {
+			return std::make_shared<ComponentArray<T>>();
+		}
+
 		[[nodiscard]] bool count(Entity entity) const {
 			return entityToIndexInArray.contains(entity);
 		}
 
-		[[nodiscard]] int getSize() const {
+		[[nodiscard]] int getSize() const override {
 			return size;
+		}
+
+		T& at(size_t i) {
+			if (i >= getSize()) {
+				throw;
+			}
+			return componentArray[i];
+		}
+
+		bool empty() {
+			return size == 0;
 		}
 
 		auto begin() { return componentArray.begin(); }
