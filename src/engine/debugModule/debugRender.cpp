@@ -1,5 +1,5 @@
 ﻿#include "debugRender.h"
-
+#define NOMINMAX
 #include <memory>
 
 
@@ -20,6 +20,7 @@
 #include <../../3rd/imgui/imgui/imgui_impl_opengl3.h>
 #include <renderModule/backends/gl/materialGl.h>
 #endif
+#include <SomeLogger.h>
 #include <stack>
 #include <unordered_set>
 #include <rttr/enumeration.h>
@@ -35,6 +36,7 @@
 #include "utilsModule/animation.h"
 #include "utilsModule/assertion.h"
 #include "utilsModule/imguiWidgets/ImGuiFileBrowser.h"
+#include "utilsModule/imguiWidgets/TextEditor.h"
 using namespace IKIGAI;
 using namespace IKIGAI::DEBUG;
 
@@ -2915,6 +2917,110 @@ void DebugRender::drawMainWindow()
 	ImGui::End();
 }
 
+
+struct ImGuiLogger {
+	std::list<TextEditor::Record> mBuffer;
+	int mBufferSize = 10;
+	std::string mSearch;
+
+	TextEditor editor;
+
+	ImGuiLogger() {
+		editor.SetReadOnly(true);\
+		auto lang = TextEditor::LanguageDefinition::Logger();
+		editor.SetLanguageDefinition(lang);
+		editor.SetPalette(TextEditor::GetLoggerPalette());
+	}
+	
+	bool ScrollToBottom = true;
+
+	void addLog(const TextEditor::Record& record) {
+		mBuffer.push_back(record);
+		while (mBuffer.size() > mBufferSize) {
+			mBuffer.pop_front();
+		}
+		editor.SetTextLogLines(mBuffer, mLogLevels, mSearch);
+	}
+
+	void addLog(SomeLogger::LoggerLevel level, const std::string& word) {
+		addLog({
+			std::format("{:<8} {:<7.3f} - {}", mLogLevelsToString.at(level), ImGui::GetTime(), word),
+			level
+		});
+	}
+
+	void clear() {
+		mBuffer.clear();
+	}
+
+	std::map<SomeLogger::LoggerLevel, bool> mLogLevels = {
+		{SomeLogger::LoggerLevel::DEBUG, true},
+		{SomeLogger::LoggerLevel::ERR, true},
+		{SomeLogger::LoggerLevel::INFO, true},
+		{SomeLogger::LoggerLevel::WARNING, true},
+	};
+	const std::map<SomeLogger::LoggerLevel, std::string> mLogLevelsToString = {
+		{SomeLogger::LoggerLevel::DEBUG, "DEBUG:"},
+		{SomeLogger::LoggerLevel::ERR, "ERROR:"},
+		{SomeLogger::LoggerLevel::INFO, "INFO:"},
+		{SomeLogger::LoggerLevel::WARNING, "WARNING:"},
+	};
+
+	void draw() {
+		ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+		static bool isOpen = true;
+		ImGui::Begin("Logger", &isOpen);
+
+		if (ImGui::Button("Clear")) {
+			clear();
+		}
+		ImGui::SameLine();
+		if (ImGui::Checkbox("ERROR", &mLogLevels[SomeLogger::LoggerLevel::ERR])) { editor.SetTextLogLines(mBuffer, mLogLevels, mSearch); }
+		ImGui::SameLine();
+		if (ImGui::Checkbox("DEBUG", &mLogLevels[SomeLogger::LoggerLevel::DEBUG])) { editor.SetTextLogLines(mBuffer, mLogLevels, mSearch); }
+		ImGui::SameLine();
+		if (ImGui::Checkbox("INFO", &mLogLevels[SomeLogger::LoggerLevel::INFO])) { editor.SetTextLogLines(mBuffer, mLogLevels, mSearch); }
+		ImGui::SameLine();
+		if (ImGui::Checkbox("WARNING", &mLogLevels[SomeLogger::LoggerLevel::WARNING])) { editor.SetTextLogLines(mBuffer, mLogLevels, mSearch); }
+		ImGui::SameLine();
+		if (ImGui::InputText("Search", &mSearch)) { editor.SetTextLogLines(mBuffer, mLogLevels, mSearch); }
+
+		ImGui::Separator();
+
+		if (ImGui::InputText("Run", &mSearch, ImGuiInputTextFlags_EnterReturnsTrue)) {
+			//TODO: run script
+		}
+		ImGui::Separator();
+
+		ImGui::BeginChild("##logscrolling");
+		editor.Render("TextEditor");
+		ImGui::EndChild();
+
+		ImGui::End();
+	}
+};
+
+void DebugRender::drawConsole() {
+	static ImGuiLogger log;
+
+	ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Example: Log");
+	if (ImGui::SmallButton("[Debug] Add 5 entries"))
+	{
+		static int counter = 0;
+		const SomeLogger::LoggerLevel categories[4] = { SomeLogger::LoggerLevel::DEBUG, SomeLogger::LoggerLevel::INFO, SomeLogger::LoggerLevel::ERR, SomeLogger::LoggerLevel::WARNING };
+		const std::string words[] = { "Bumfuzzled", "Cattywampus", "Snickersnee", "Abibliophobia", "Absquatulate", "Nincompoop", "Paucaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaailoquent" };
+		for (int n = 0; n < 5; n++) {
+			auto category = categories[counter % IM_ARRAYSIZE(categories)];
+			const auto& word = words[counter % IM_ARRAYSIZE(words)];
+			log.addLog(category, word);
+			counter++;
+		}
+	}
+	ImGui::End();
+	log.draw();
+}
+
 #include <../../3rd/imgui/imgui/ImCurveEdit.h>
 #include <utilsModule/imguiWidgets/ImSequencer.h>
 
@@ -3636,6 +3742,7 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 	}
 
 	drawStats();
+	drawConsole();
 
 	drawWindowWidget(core);
 	{

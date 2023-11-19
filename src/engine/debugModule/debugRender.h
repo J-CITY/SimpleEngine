@@ -37,5 +37,6 @@ namespace IKIGAI::DEBUG {
 		void drawStats();
 		void drawPopup();
 		void drawMainWindow();
+		void drawConsole();
 	};
 }
