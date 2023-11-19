@@ -105,93 +105,82 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 
 #if defined(VULKAN_BACKEND) || defined(OPENGL_BACKEND)
 
-#include <rttr/registration>
+
 #include <utilsModule/jsonParser/jsonParser.h>
-enum class color
-{
-	red,
-	green,
-	blue
-};
-
-struct point2d
-{
-	point2d() {}
-	point2d(int x_, int y_) : x(x_), y(y_) {}
-	int x = 0;
-	int y = 0;
-};
-
-struct shape
-{
-	shape(){}
-	shape(std::string n) : name(n) {}
-
-	void set_visible(bool v) { visible = v; }
-	bool get_visible() const { return visible; }
-
-	color color_ = color::blue;
-	std::string name = "";
-	point2d position;
-	std::map<color, point2d> dictionary;
-
-	RTTR_ENABLE()
-private:
-	bool visible = false;
-};
-
-struct circle : shape
-{
-	circle(){}
-	circle(std::string n) : shape(n) {}
-
-	double radius = 5.2;
-	std::vector<point2d> points;
-
-	int no_serialize = 100;
-
-	RTTR_ENABLE(shape)
-};
-
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<shape>("shape")
-		.property("visible", &shape::get_visible, &shape::set_visible)
-		.property("color", &shape::color_)
-		.property("name", &shape::name)
-		.property("position", &shape::position)
-		.property("dictionary", &shape::dictionary)
-	;
-
-	rttr::registration::class_<circle>("circle")
-		.property("radius", &circle::radius)
-		.property("points", &circle::points)
-		.property("no_serialize", &circle::no_serialize)
-		(
-			rttr::metadata("NO_SERIALIZE", true)
-		)
-		;
-
-	rttr::registration::class_<point2d>("point2d")
-		.constructor()(rttr::detail::as_object{})
-		.property("x", &point2d::x)
-		.property("y", &point2d::y)
-		;
 
 
-	rttr::registration::enumeration<color>("color")
-		(
-			rttr::value("red", color::red),
-			rttr::value("blue", color::blue),
-			rttr::value("green", color::green)
-		);
-}
+//namespace rttr
+//{
+//	template<typename T>
+//	struct wrapper_mapper<std::optional<T>>
+//	{
+//		using wrapped_type = const T&;
+//		using type = std::optional<T>;
+//
+//		static RTTR_INLINE const T& get(const type& obj)
+//		{
+//			return obj.value();
+//		}
+//
+//		static RTTR_INLINE type create(const wrapped_type& t)
+//		{
+//			return type(t);
+//		}
+//	};
+//
+//	template<typename ...T>
+//	struct wrapper_mapper<std::variant<T...>>
+//	{
+//		using wrapped_type = const std::variant<T...>&;
+//		using type = std::variant<T...>;
+//
+//		static RTTR_INLINE const std::variant<T...>& get(const type& obj)
+//		{
+//			return obj;
+//		}
+//
+//		static RTTR_INLINE type create(const wrapped_type& t)
+//		{
+//			return type(t);
+//		}
+//	};
+//}
+
+
 #include "soloud.h"
 #include "soloud_thread.h"
 #include "soloud_wavstream.h"
 int main() {
-	
-
+	//{
+	//	auto t = rttr::type::get<std::optional<circle>>();
+	//
+	//	std::cout << t.is_template_instantiation() << std::endl;
+	//
+	//	auto arr = t.get_template_arguments();
+	//	for (auto e : arr)
+	//		std::cout << e.get_name().to_string() << std::endl;
+	//	std::cout << t.get_name() << std::endl;
+	//	std::cout << t.is_wrapper() << std::endl;
+	//}
+	//
+	//{
+	//	auto t = rttr::type::get<std::variant<circle, std::string, std::optional<circle>>>();
+	//
+	//	std::cout << t.is_template_instantiation() << std::endl;
+	//
+	//	auto arr = t.get_template_arguments();
+	//	for (auto e : arr)
+	//		std::cout << e.get_name().to_string() << std::endl;
+	//	std::cout << t.get_name() << std::endl;
+	//	std::cout << t.is_wrapper() << std::endl;
+	//}
+	//
+	//
+	//
+	//
+	//IKIGAI::UTILS::Test();
+	//IKIGAI::ECS::TestECS();
+	//return 0;
 	/*
 	std::string json_string;
 	

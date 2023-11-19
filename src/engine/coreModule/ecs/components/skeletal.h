@@ -25,8 +25,8 @@ namespace IKIGAI::ECS {
 		std::string getCurrentAnimationName();
 
 		std::map<std::string, std::shared_ptr<IKIGAI::RESOURCES::Animation>> animations;
-		//std::vector<std::shared_ptr<IKIGAI::RESOURCES::Animation>> animationsVec;
-		std::unique_ptr<IKIGAI::RESOURCES::Animator> animator;
+		//std::unique_ptr<IKIGAI::RESOURCES::Animator> animator;
+		std::shared_ptr<IKIGAI::RESOURCES::Animator> animator;
 		std::string animationPath;
 		std::optional<std::string> curAnimation;
 	};
