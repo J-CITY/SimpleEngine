@@ -219,7 +219,7 @@ int main() {
 	*/
 
 	IKIGAI::CORE_SYSTEM::App app;
-	app.getCore()->sceneManager->loadFromFile("Scenes/scene0.json");
+	app.getCore()->sceneManager->loadFromFile("Scenes/scene0vk2.json");
 	auto& scene = app.getCore()->sceneManager->getCurrentScene();
 
 	auto sprite1 = IKIGAI::GUI::GuiHelper::CreateSprite("sprite1", std::string("Textures/btn.png"), true);

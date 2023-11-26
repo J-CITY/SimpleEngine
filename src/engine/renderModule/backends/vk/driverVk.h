@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 
 #ifdef VULKAN_BACKEND
 #include <queue>
@@ -9,11 +10,13 @@
 
 import glmath;
 
+
+struct ImDrawData;
+
 namespace IKIGAI::RENDER {
 	class MeshInterface;
 	class ShaderVk;
 	class FrameBufferVk;
-	struct ImDrawData;
 	class CommandBuffer;
 	
 	class DriverVk : public DriverInterface {

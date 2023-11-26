@@ -67,13 +67,13 @@ void AssimpParser::processMaterials(const aiScene* scene, std::vector<std::strin
 }
 #include <renderModule/backends/interface/driverInterface.h>
 #ifdef VULKAN_BACKEND
-#include "../../render/backends/vk/meshVk.h"
-#include "../../render/backends/vk/modelVk.h"
+#include <renderModule/backends/vk/meshVk.h>
+#include <renderModule/backends/vk/modelVk.h>
 #endif
 
 #ifdef DX12_BACKEND
-#include "../../render/backends/dx12/meshDx12.h"
-#include "../../render/backends/dx12/modelDx12.h"
+#include <renderModule/backends/dx12/meshDx12.h>
+#include <renderModule/backends/dx12/modelDx12.h>
 #endif
 
 void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model) {

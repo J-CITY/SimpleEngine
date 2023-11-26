@@ -81,11 +81,13 @@ IKIGAI::RENDER::Camera& CameraComponent::getCamera() {
 VrCameraComponent::VrCameraComponent(Ref<ECS::Object> obj): Component(obj) {
 	__NAME__ = "VrCamera";
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+#ifdef OPENGL_BACKEND
 	leftTexture = RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//leftTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 
 	rightTexture = RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//rightTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+#endif
 }
 
 void VrCameraComponent::onUpdate(std::chrono::duration<double> dt) {

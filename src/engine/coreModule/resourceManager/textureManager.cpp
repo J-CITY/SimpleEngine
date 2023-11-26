@@ -38,18 +38,24 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFile(const std::s
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::Create(IKIGAI::UTILS::getRealPath(filepath), generateMipmap);
 #endif
+	//TODO: other backend
+	return nullptr;
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const RENDER::TextureResource& res) {
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::CreateFromResource(res);
 #endif
+	//TODO: other backend
+	return nullptr;
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileHDR(const std::string& filepath, bool generateMipmap) {
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::CreateHDR(IKIGAI::UTILS::getRealPath(filepath), generateMipmap);
 #endif
+	//TODO: other backend
+	return nullptr;
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, bool generateMipmap) {
@@ -57,6 +63,8 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint8_t r, uint
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::CreateFromMemory(&buffer[0], 1, 1, generateMipmap);
 #endif
+	//TODO: other backend
+	return nullptr;
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, bool generateMipmap) {
@@ -68,12 +76,16 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, 
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::CreateFromMemory(&buffer[0], 1, 1, generateMipmap);
 #endif
+	//TODO: other backend
+	return nullptr;
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, bool generateMipmap) {
 #ifdef OPENGL_BACKEND
 	return RENDER::TextureGl::CreateFromMemory(data, 1, 1, generateMipmap);
 #endif
+	//TODO: other backend
+	return nullptr;
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::createResource(const std::string& path) {

@@ -1,5 +1,7 @@
 #include "shaderVk.h"
 
+#include <cassert>
+
 #ifdef VULKAN_BACKEND
 #include <fstream>
 #include <stdexcept>

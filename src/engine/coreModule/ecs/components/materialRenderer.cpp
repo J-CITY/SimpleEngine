@@ -32,7 +32,9 @@ void MaterialRenderer::updateMaterialList() {
 	for (auto i = 0u; i < matNames.size(); i++) {
 		//materials[i] = RESOURCES::MaterialLoader::Create("Materials/simple.mat");
 		if (!materials[i]) {
+#ifdef OPENGL_BACKEND
 			materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>("Materials/simple.mat");
+#endif
 		}
 		materialNames[i] = matNames[i];
 	}

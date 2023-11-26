@@ -1,4 +1,6 @@
 ﻿#include "gameRendererVk.h"
+
+#include "backends/imgui_impl_vulkan.h"
 #ifdef VULKAN_BACKEND
 
 #include "backends/vk/materialVk.h"
@@ -171,7 +173,17 @@ void GameRendererVk::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 			mShaders["renderToScreen"]->bindDescriptorSets();
 		}
 		mDriver->draw(mShaders["renderToScreen"], 3);
-		//ImGui_ImplVulkan_RenderDrawData(draw_data, std::dynamic_pointer_cast<ShaderVk>(renderToScreenShader)->m_CommandHandler.m_CommandBuffers[imageIndex]);
+
+		static bool b = false;
+		if (!b)
+		{
+			b = true;
+			//ImGui_ImplVulkan_CreatePipeline(mDriver->m_MainDevice.LogicalDevice, nullptr, VK_NULL_HANDLE, wd->RenderPass, VK_SAMPLE_COUNT_1_BIT, &wd->Pipeline, g_VulkanInitInfo.Subpass);
+		}
+
+		ImDrawData* draw_data = ImGui::GetDrawData();
+		ImGui_ImplVulkan_RenderDrawData(draw_data, std::dynamic_pointer_cast<ShaderVk>(mShaders["renderToScreen"])->m_CommandHandler.m_CommandBuffers[imageIndex]);
+
 		mDriver->defaultFb->unbind(*mShaders["renderToScreen"]);
 		mShaders["renderToScreen"]->unbind();
 	}
@@ -218,7 +230,7 @@ void GameRendererVk::drawDrawableDeferred(const Drawable& p_toDraw) {
 	if (p_toDraw.material->getGPUInstances() > 0) {
 		reinterpret_cast<MaterialVk*>(p_toDraw.material.get())->fillUniformsWithShader(mShaders["deferredRender"], mEmptyTexture, true);
 		mShaders["deferredRender"]->setUniform(*mEngineUbo);
-		mShaders["deferredRender"]->setPushConstant(MATHGL::Matrix4::Transpose(p_toDraw.world));
+		mShaders["deferredRender"]->setPushConstant(p_toDraw.world);
 		mShaders["deferredRender"]->bindDescriptorSets();
 		mDriver->draw(mShaders["deferredRender"] , *p_toDraw.mesh, p_toDraw.material->getGPUInstances());
 	}

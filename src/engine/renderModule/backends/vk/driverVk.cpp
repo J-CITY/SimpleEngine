@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <assimp/Importer.hpp>
 
-#include "imgui/imgui.h"
+#include <../../3rd/imgui/imgui/imgui.h>
 #include "DebugMessanger.h"
 #include "uniformBufferVk.h"
 #include <assimp/postprocess.h>
@@ -263,11 +263,10 @@ int DriverVk::init() {
 //	}
 //}
 
-
 void DriverVk::begin() {
 	VkResult result = vkWaitForFences(m_MainDevice.LogicalDevice, 1, 
-		&m_SyncObjects[m_CurrentFrame].InFlight, VK_TRUE, 
-		10000 /*std::numeric_limits<uint64_t>::max()*/);
+		&m_SyncObjects[m_CurrentFrame].InFlight, VK_TRUE,
+		std::numeric_limits<uint64_t>::max());
 
 	vkResetFences(m_MainDevice.LogicalDevice, 1, &m_SyncObjects[m_CurrentFrame].InFlight);
 
@@ -304,7 +303,7 @@ void DriverVk::submit() {
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &shader->sync[m_CurrentFrame];
 
-		auto result = vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		auto result = vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, callShaderSequence.empty() ? m_SyncObjects[m_CurrentFrame].InFlight : VK_NULL_HANDLE);
 		if (result != VK_SUCCESS) {
 			throw std::runtime_error("Failed to submit Command Buffer to Queue!");
 		}
@@ -722,7 +721,7 @@ void DriverVk::CreateLogicalDevice()
 		&m_PresentationQueue);
 }
 
-#include "../../../resourceManager/ServiceManager.h"
+#include <coreModule/resourceManager/ServiceManager.h>
 #include <GLFW/glfw3.h>
 void DriverVk::CreateSurface()
 {

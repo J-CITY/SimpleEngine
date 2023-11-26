@@ -1,3 +1,5 @@
+# cmake -G "Visual Studio 17 2022" ./ -Bbuild
+
 cmake_minimum_required(VERSION 3.8)
 
 set(APP_NAME "IkigaiEngine")
@@ -8,10 +10,14 @@ set (CMAKE_CXX_STANDARD 20)
 add_subdirectory(./3rd/assimp ./3rd/assimp/build)
 add_custom_target(rttr cmake -G "Visual Studio 17 2022" ./3rd/rttr #-Bbuild
     WORKING_DIRECTORY ./3rd/rttr
-    )
+)
 add_subdirectory(./3rd/glfw ./3rd/glfw/build)
 #add_subdirectory(./3rd/lua ./3rd/lua/build)
 add_subdirectory(./3rd/freetype ./3rd/freetype/build)
+#add_custom_target(freetype cmake -G "Visual Studio 17 2022" ./3rd/freetype #-Bbuild
+#    WORKING_DIRECTORY ./3rd/freetype
+#)
+
 
 # Set project name
 project(${APP_NAME})
@@ -40,9 +46,15 @@ file(GLOB_RECURSE IMGUI_FILES
      "3rd/imgui/imgui/imgui_draw.cpp"
      "3rd/imgui/imgui/imgui_impl_glfw.cpp"
      "3rd/imgui/imgui/imgui_impl_glfw.h"
-     "3rd/imgui/imgui/imgui_impl_opengl3.h"
-     "3rd/imgui/imgui/imgui_impl_opengl3.cpp"
-     "3rd/imgui/imgui/imgui_impl_opengl3_loader.h"
+
+     #OPENGL
+     # "3rd/imgui/imgui/imgui_impl_opengl3.h"
+     # "3rd/imgui/imgui/imgui_impl_opengl3.cpp"
+     # "3rd/imgui/imgui/imgui_impl_opengl3_loader.h"
+     #VULKAN
+     "3rd/imgui/imgui/imgui_impl_vulkan.h"
+     "3rd/imgui/imgui/imgui_impl_vulkan.cpp"
+
      "3rd/imgui/imgui/imgui_internal.h"
      "3rd/imgui/imgui/imgui_tables.cpp"
      "3rd/imgui/imgui/imgui_widgets.cpp"
@@ -142,6 +154,14 @@ target_include_directories(engine  PUBLIC "./3rd/glfw/include")
 target_link_libraries(${APP_NAME}  PUBLIC "C:/libs/glew/lib/Release/x64/glew32.lib")
 target_include_directories(engine  PUBLIC "C:/libs/glew/include")
 
+
+
+# vulkan
+target_link_libraries(${APP_NAME}  PUBLIC "C:/libs/VulkanSDK/Lib/vulkan-1.lib")
+target_include_directories(engine  PUBLIC "C:/libs/VulkanSDK/Include")
+
+
+
 # sol
 #target_link_libraries(${APP_NAME}  PUBLIC ./3rd/sol/single)
 target_include_directories(engine  PUBLIC "./3rd/sol/single/include")
@@ -179,6 +199,8 @@ target_link_libraries(${APP_NAME} PUBLIC imgui)
 target_include_directories(engine PUBLIC "./3rd/imgui/imgui")
 target_include_directories(imgui PUBLIC "./3rd/imgui/imgui")
 target_include_directories(imgui  PUBLIC "./3rd/glfw/include")
+# VULKAN
+target_include_directories(imgui  PUBLIC "C:/libs/VulkanSDK/Include")
 
 # glm
 target_include_directories(engine  PUBLIC "./3rd/glm")
@@ -197,7 +219,8 @@ FILE(GLOB_RECURSE modules "*.ixx")
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${sources} ${headers} ${modules})
 
 
-add_compile_definitions(OPENGL_BACKEND)
+# add_compile_definitions(OPENGL_BACKEND)
+add_compile_definitions(VULKAN_BACKEND)
 
 # if MSVC
 #add_compile_options(/bigobj)

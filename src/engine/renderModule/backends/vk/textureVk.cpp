@@ -393,6 +393,72 @@ std::shared_ptr<TextureVk> TextureVk::createForAttach(int texWidth, int texHeigh
 			texture->Sampler.push_back(UtilityVk::CreateSampler(samplerCreateInfo));
 		}
 	}
+
+	///
+
+
+	VkDescriptorPoolSize samplerPoolSize = {};
+	samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerPoolSize.descriptorCount = MAX_OBJECTS;
+
+	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = {};
+	samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	samplerPoolCreateInfo.maxSets = MAX_OBJECTS;
+	samplerPoolCreateInfo.poolSizeCount = 1;
+	samplerPoolCreateInfo.pPoolSizes = &samplerPoolSize;
+
+	auto result = vkCreateDescriptorPool(UtilityVk::device->LogicalDevice, &samplerPoolCreateInfo, nullptr, &texture->m_TexDescriptorPool);
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create a Descriptor Pool!");
+	}
+
+	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+	samplerLayoutBinding.binding = 0;
+	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerLayoutBinding.descriptorCount = 1;
+	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = {};
+	textureLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	textureLayoutCreateInfo.bindingCount = 1;
+	textureLayoutCreateInfo.pBindings = &samplerLayoutBinding;
+
+	result = vkCreateDescriptorSetLayout(UtilityVk::device->LogicalDevice, &textureLayoutCreateInfo, nullptr, &texture->m_TextureLayout);
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create the Texture Descriptor Set Layout!");
+	}
+	//descriptor set
+	VkDescriptorSet descriptor_set;
+
+	VkDescriptorSetAllocateInfo set_alloc_info = {};
+	set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	set_alloc_info.descriptorPool = texture->m_TexDescriptorPool;
+	set_alloc_info.descriptorSetCount = 1;
+	set_alloc_info.pSetLayouts = &texture->m_TextureLayout;
+
+	result = vkAllocateDescriptorSets(UtilityVk::device->LogicalDevice, &set_alloc_info, &descriptor_set);
+	if (result != VK_SUCCESS) {
+		throw std::runtime_error("Failed to allocate Texture Descriptor Set!");
+	}
+
+	VkDescriptorImageInfo imageInfo = {};
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfo.imageView = texture->ImageView.back();
+	imageInfo.sampler = texture->Sampler.back();
+
+	VkWriteDescriptorSet descriptorWrite = {};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = descriptor_set;
+	descriptorWrite.dstBinding = 0;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pImageInfo = &imageInfo;
+
+	vkUpdateDescriptorSets(UtilityVk::device->LogicalDevice, 1, &descriptorWrite, 0, nullptr);
+	texture->descriptor_set = descriptor_set;
+	///
 	return texture;
 }
 
