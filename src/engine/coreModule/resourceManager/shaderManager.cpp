@@ -11,6 +11,15 @@
 #include "renderModule/backends/gl/shaderGl.h"
 #include "renderModule/backends/interface/resourceStruct.h"
 
+#ifdef OPENGL_BACKEND
+#include "renderModule/backends/gl/shaderGl.h"
+#endif
+
+
+#ifdef VULKAN_BACKEND
+#include "renderModule/backends/vk/shaderVk.h"
+#endif
+
 import logger;
 
 using namespace IKIGAI;
@@ -116,7 +125,15 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::Create(const std::string& _fi
 }
 
 ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromResource(const RENDER::ShaderResource& res) {
+#ifdef OPENGL_BACKEND
 	return std::make_shared<RENDER::ShaderGl>(res);
+#endif
+#ifdef VULKAN_BACKEND
+	//TODO:
+	//return std::make_shared<RENDER::ShaderVk>(res);
+	return nullptr;
+#endif
+
 }
 
 ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateWithEmptyDeleter(const std::string& filePath) {
@@ -131,22 +148,28 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateWithEmptyDeleter(const 
 	const auto _res = res.unwrap();
 	AddFileWatchSubscribe(_res, filePath);
 	//TODO:: add other backends
+#ifdef OPENGL_BACKEND
 	return ResourcePtr<RENDER::ShaderGl>(new RENDER::ShaderGl(_res), [](RENDER::ShaderGl* m) {	});
+#endif
+#ifdef VULKAN_BACKEND
+	//TODO:
+	return nullptr;
+#endif
 }
 
 ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromSource(const std::string& vertexShader, const std::string& fragmentShader,
 	const std::string& geometryShader, const std::string& tessCompShader, const std::string& tessEvoluationShader, const std::string& computeShader) {
-
-	auto shared = ResourcePtr<RENDER::ShaderInterface>(new RENDER::ShaderGl(), [](RENDER::ShaderInterface* m) {
-		ServiceManager::Get<ShaderLoader>().unloadResource<ShaderLoader>(m->mPath);
-		delete m;
-	});
+	//TODO:
+	//auto shared = ResourcePtr<RENDER::ShaderInterface>(new RENDER::ShaderGl(), [](RENDER::ShaderInterface* m) {
+	//	ServiceManager::Get<ShaderLoader>().unloadResource<ShaderLoader>(m->mPath);
+	//	delete m;
+	//});
 #ifdef OPENGL_BACKEND
 	std::static_pointer_cast<RENDER::ShaderGl>(shared)->compile(vertexShader, fragmentShader, geometryShader,
 		tessCompShader, tessEvoluationShader, computeShader);
 
 #endif
-	return shared;
+	return nullptr;
 }
 
 void ShaderLoader::Recompile(RENDER::ShaderInterface& shader) {

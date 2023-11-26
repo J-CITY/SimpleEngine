@@ -7,8 +7,9 @@
 
 #ifdef VULKAN_BACKEND
 #include <vulkan/vulkan_core.h>
-#include "imgui/imgui_impl_vulkan.h"
+#include <../../3rd/imgui/imgui/imgui_impl_vulkan.h>
 #include <renderModule/backends/vk/driverVk.h>
+#include <renderModule/backends/vk/textureVk.h>
 #include <renderModule/backends/vk/frameBufferVk.h>
 #endif
 
@@ -113,7 +114,12 @@ std::shared_ptr<RENDER::MaterialInterface> editMaterial;
 std::function<void(std::string)> fileChooserCb;
 std::function<std::string()> fileFormatsCb;
 
+#ifdef OPENGL_BACKEND
 std::unordered_map<std::string, unsigned> textureCache;
+#endif
+#ifdef VULKAN_BACKEND
+std::unordered_map<std::string, std::shared_ptr<RENDER::TextureVk>> textureCache;
+#endif
 
 std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<IKIGAI::ECS::Object> parentEntity) {
 	std::shared_ptr<IKIGAI::ECS::Object> selectedNode;
@@ -318,8 +324,8 @@ void drawNodeTree(IKIGAI::CORE_SYSTEM::Core& core) {
 		ImGui::End();
 	}
 }
-
-std::optional<unsigned> ImGuiLoadTextureFromFile(const std::string& filename) {
+#ifdef OPENGL_BACKEND
+std::optional<unsigned> ImGuiLoadTextureFromFileGl(const std::string& filename) {
 	// Load from file
 	int image_width = 0;
 	int image_height = 0;
@@ -347,7 +353,15 @@ std::optional<unsigned> ImGuiLoadTextureFromFile(const std::string& filename) {
 
 	return image_texture;
 }
+#endif
 
+#ifdef VULKAN_BACKEND
+std::shared_ptr<RENDER::TextureVk> ImGuiLoadTextureFromFileVk(const std::string& filename) {
+	// Load from file
+	auto texture = RENDER::TextureVk::create(filename);
+	return texture;
+}
+#endif
 struct File {
 	enum class FileType {
 		DIR,
@@ -412,12 +426,20 @@ struct FileBrowser {
 	std::stack<std::string> history;
 	int elementSize = 100;
 	FileBrowser(const std::string& path): mPath(path), mSelectedFolderPath(path), root(path) {
-		textureCache["__image__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/image-white.png")).value();
-		textureCache["__dir__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/folder-white.png")).value();
-		textureCache["__file__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/file-white.png")).value();
-		textureCache["__font__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/font-white.png")).value();
-		textureCache["__object__"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png")).value();
-
+#ifdef OPENGL_BACKEND
+		textureCache["__image__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/image-white.png")).value();
+		textureCache["__dir__"] = ImGuiLoadTextureFromFilGle(UTILS::getRealPath("Textures/Debug/Editor/folder-white.png")).value();
+		textureCache["__file__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/file-white.png")).value();
+		textureCache["__font__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/font-white.png")).value();
+		textureCache["__object__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png")).value();
+#endif
+#ifdef VULKAN_BACKEND
+		textureCache["__image__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/image-white.png"));
+		textureCache["__dir__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/folder-white.png"));
+		textureCache["__file__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/file-white.png"));
+		textureCache["__font__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/font-white.png"));
+		textureCache["__object__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png"));
+#endif
 		initFileTree(root);
 	}
 
@@ -505,9 +527,12 @@ struct FileBrowser {
 		//ImGui::End();
 	}
 private:
-
+#ifdef OPENGL_BACKEND
 	std::unordered_map<std::string, unsigned> textureCache;
-
+#endif
+#ifdef VULKAN_BACKEND
+	std::unordered_map<std::string, std::shared_ptr<RENDER::TextureVk>> textureCache;
+#endif
 	void drawFolder(std::string_view path) {
 		const int sliderSize = 200;
 
@@ -577,7 +602,12 @@ private:
 			case File::FileType::IMAGE: {
 				imPath = entry.path().string();
 				if (!textureCache.contains(imPath)) {
-					textureCache[imPath] = ImGuiLoadTextureFromFile(imPath).value();
+#ifdef OPENGL_BACKEND
+					textureCache[imPath] = ImGuiLoadTextureFromFileGl(imPath).value();
+#endif
+#ifdef VULKAN_BACKEND
+					textureCache[imPath] = ImGuiLoadTextureFromFileVk(imPath);
+#endif
 				}
 				//imPath = "__image__";
 				break;
@@ -625,8 +655,12 @@ private:
 			}
 			auto pos = ImGui::GetCursorPos();
 			ImGui::SetCursorPos(ImVec2(pos.x, pos.y - elementSize));
+#ifdef OPENGL_BACKEND
 			ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)textureCache.at(imPath)), { static_cast<float>(elementSize), static_cast<float>(elementSize) }, ImVec2(0, 1), ImVec2(1, 0));
-			
+#endif
+#ifdef VULKAN_BACKEND
+			ImGui::Image((ImTextureID)textureCache.at(imPath)->descriptor_set, { static_cast<float>(elementSize), static_cast<float>(elementSize) });
+#endif
 			
 			ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 100);
 			ImGui::Text(entry.path().filename().string().c_str());
@@ -1570,9 +1604,9 @@ DebugRender::DebugRender() {
 
 #ifdef VULKAN_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-		initForVk();
 		auto win = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getGLFWWin();
-		ImGui_ImplGlfw_InitForVulkan(win, true);
+		ImGui_ImplGlfw_InitForVulkan(win, false);
+		initForVk();
 	}
 #endif
 	ArchTheme();
@@ -1601,13 +1635,60 @@ DebugRender::DebugRender() {
 
 
 	m_movableChildData["GizmoTools"] = MovableChildData{ ImVec2(0, 0) , ImVec2(0, 0) , true, false };
-
-	textureCache["default_texture"] = ImGuiLoadTextureFromFile(UTILS::getRealPath("Textures/default.png")).value();
+#ifdef OPENGL_BACKEND
+	textureCache["default_texture"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/default.png")).value();
+#endif
+#ifdef VULKAN_BACKEND
+	textureCache["default_texture"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/default.png"));
+#endif
 }
 #ifdef VULKAN_BACKEND
-#include "../render/gameRendererVk.h"
+#include <renderModule/gameRendererVk.h>
+static ImGui_ImplVulkanH_Window g_MainWindowData;
+static VkAllocationCallbacks* g_Allocator = nullptr;
+static int                      g_MinImageCount = 2;
+
+static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface, int width, int height)
+{
+	auto render = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).getDriver();
+
+	wd->Surface = surface;
+
+	// Check for WSI support
+	VkBool32 res;
+	vkGetPhysicalDeviceSurfaceSupportKHR(render->m_MainDevice.PhysicalDevice, render->m_QueueFamilyIndices.GraphicsFamily, wd->Surface, &res);
+	if (res != VK_TRUE)
+	{
+		fprintf(stderr, "Error no WSI support on physical device 0\n");
+		exit(-1);
+	}
+
+	// Select Surface Format
+	const VkFormat requestSurfaceImageFormat[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
+	const VkColorSpaceKHR requestSurfaceColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+	wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(render->m_MainDevice.PhysicalDevice, wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
+
+	// Select Present Mode
+#ifdef IMGUI_UNLIMITED_FRAME_RATE
+	VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_FIFO_KHR };
+#else
+	VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_FIFO_KHR };
+#endif
+	wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(render->m_MainDevice.PhysicalDevice, wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
+	//printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
+
+	// Create SwapChain, RenderPass, Framebuffer, etc.
+	//IM_ASSERT(g_MinImageCount >= 2);
+	ImGui_ImplVulkanH_CreateOrResizeWindow(render->m_VulkanInstance, render->m_MainDevice.PhysicalDevice, render->m_MainDevice.LogicalDevice, wd, render->m_QueueFamilyIndices.GraphicsFamily, g_Allocator, width, height, g_MinImageCount);
+}
+
 void DebugRender::initForVk() {
 	auto render = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).getDriver();
+
+	//ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+	//auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	//SetupVulkanWindow(wd, render->m_Surface, size.x, size.y);
+	
 
 	auto rd = render->GetRenderData();
 
@@ -2585,6 +2666,33 @@ void DebugRender::drawComponentInspector() {
 }
 
 void DebugRender::drawTextureWatcher() {
+	
+#ifdef VULKAN_BACKEND
+	ImGui::Begin("Texture Watcher", nullptr);
+	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
+	auto _renderer = reinterpret_cast<RENDER::GameRendererVk*>(&renderer);
+
+	auto winSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	ImVec2 imWinSize = ImGui::GetWindowSize();
+
+	float w = 0.0f;
+	float h = 0.0f;
+	if (imWinSize.x < imWinSize.y) {
+		w = imWinSize.x;
+		h = (winSize.y * imWinSize.x) / winSize.x;
+	}
+	else
+	{
+		w = (imWinSize.y * winSize.x) / winSize.y;
+		h = imWinSize.y;
+	}
+	if (h > 100.0f) {
+		h -= 60.0f;
+	}
+
+	ImGui::Image((ImTextureID)_renderer->mTextures["deferredResult"]->descriptor_set, ImVec2(w, h));
+	ImGui::End();
+#endif
 #ifdef OPENGL_BACKEND
 	ImGui::Begin("Texture Watcher", nullptr);
 	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
@@ -2625,7 +2733,7 @@ void DebugRender::drawTextureWatcher() {
 
 	auto winSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 	ImVec2 imWinSize = ImGui::GetWindowSize();
-
+	
 	float w = 0.0f;
 	float h = 0.0f;
 	if (imWinSize.x < imWinSize.y) {
@@ -3456,27 +3564,11 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 	}
 
 	{//Debug
+#ifdef OPENGL_BACKEND
 		ImGui::Begin("Render pipeline");
 
 		auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
 		auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
-
-		/*
-		 BLOOM = 1 << 1,
-	GOD_RAYS = 1 << 2,
-	HDR = 1 << 3,
-	COLOR_GRADING = 1 << 4,
-	VIGNETTE = 1 << 5,
-	DEPTH_OF_FIELD = 1 << 6,
-	OUTLINE = 1 << 7,
-	CHROMATIC_ABBERATION = 1 << 8,
-	POSTERIZE = 1 << 9,
-	PIXELIZE = 1 << 10,
-	SHARPEN = 1 << 11,
-	DILATION = 1 << 12,
-	FILM_GRAIN = 1 << 13,
-	GUI = 1 << 14
-		 */
 
 		static std::map<RENDER::RenderStates, std::function<void()>> stagesSettingsDraw = {
 			{ RENDER::RenderStates::HDR, [_renderer]() {
@@ -3579,107 +3671,9 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 			}
 			ImGui::PopID();
 		}
-		
-		/*static bool isBloom = true;
-		ImGui::Checkbox("Bloom", &isBloom);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::BLOOM, isBloom);
-
-		static bool isGodRay = true;
-		ImGui::Checkbox("God ray", &isGodRay);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::GOOD_RAYS, isGodRay);
-
-		static bool isMotionBlur = true;
-		ImGui::Checkbox("Motion blur", &isMotionBlur);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::MOTION_BLUR, isMotionBlur);
-
-		static bool isFXAA = true;
-		ImGui::Checkbox("FXAA", &isFXAA);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::FXAA, isFXAA);
-
-		static bool isHDR = true;
-		ImGui::Checkbox("HDR", &isHDR);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::HDR, isHDR);
-
-		static bool isVIGNETTE = true;
-		ImGui::Checkbox("VIGNETTE", &isVIGNETTE);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::VIGNETTE, isVIGNETTE);
-
-		static bool isCOLOR_GRADING = true;
-		ImGui::Checkbox("COLOR_GRADING", &isCOLOR_GRADING);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::COLOR_GRADING, isCOLOR_GRADING);
-
-		static bool isCHROMATIC_ABBERATION = true;
-		ImGui::Checkbox("CHROMATIC_ABBERATION", &isCHROMATIC_ABBERATION);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::CHROMATIC_ABBERATION, isCHROMATIC_ABBERATION);
-
-		static bool isVOLUMETRIC_LIGHT = true;
-		ImGui::Checkbox("VOLUMETRIC_LIGHT", &isVOLUMETRIC_LIGHT);
-		core.renderer->setPostProcessing(RENDER::Renderer::PostProcessing::VOLUMETRIC_LIGHT, isVOLUMETRIC_LIGHT);
-
-		//func(core.renderer->pipeline.vignette);
-		//constexpr auto info = serde::type_info<RENDER::Vignette>;
-		buildWidget(core.renderer->pipeline.vignette);
-
-		if (selectObjGui) {
-			{
-				ImGui::DragFloat("PivotX", &selectObjGui->transform->pivot.x, 0.1f, 0.0f, 1.0f);
-				ImGui::DragFloat("PivotY", &selectObjGui->transform->pivot.y, 0.1f, 0.0f, 1.0f);
-			}
-			{
-				ImGui::DragFloat("AnchorX", &selectObjGui->transform->anchor.x, 0.1f, 0.0f, 1.0f);
-				ImGui::DragFloat("AnchorY", &selectObjGui->transform->anchor.y, 0.1f, 0.0f, 1.0f);
-			}
-			{
-				ImGui::DragFloat("PoxX", &selectObjGui->transform->position.x, 1.0f);;
-				ImGui::DragFloat("PosY", &selectObjGui->transform->position.y, 1.0f);
-			}
-			{
-				ImGui::DragFloat("ScaleX", &selectObjGui->transform->scale.x, 1.0f);
-				ImGui::DragFloat("ScaleY", &selectObjGui->transform->scale.y, 1.0f);
-			}
-			{
-				ImGui::DragFloat("RotX", &selectObjGui->transform->rotation.x, 1.0f);
-				ImGui::DragFloat("RotY", &selectObjGui->transform->rotation.z, 1.0f);
-			}
-		}*/
-
-		/* {
-			static float a = 0.00f;
-			ImGui::DragFloat("PivotX", &a, 0.1f, 0.0f, 1.0f);
-			static float b = 0.00f;
-			ImGui::DragFloat("PivotY", &b, 0.1f, 0.0f, 1.0f);
-			core.renderer->f.pivot = MATHGL::Vector2f(a, b);
-		}
-		{
-			static float a = 0.00f;
-			ImGui::DragFloat("AnchorX", &a, 0.1f, 0.0f, 1.0f);
-			static float b = 0.00f;
-			ImGui::DragFloat("AnchorY", &b, 0.1f, 0.0f, 1.0f);
-			core.renderer->f.anchor = MATHGL::Vector2f(a, b);
-		}
-		{
-			static float a = 0.00f;
-			ImGui::DragFloat("PoxX", &a, 1.0f);
-			static float b = 0.00f;
-			ImGui::DragFloat("PosY", &b, 1.0f);
-			core.renderer->f.position = MATHGL::Vector3(a, b, 0.0f);
-		}
-		{
-			static float a = 1.00f;
-			ImGui::DragFloat("ScaleX", &a, 1.0f);
-			static float b = 1.00f;
-			ImGui::DragFloat("ScaleY", &b, 1.0f);
-			core.renderer->f.scale = MATHGL::Vector3(a, b, 1.0f);
-		}
-		{
-			static float a = 0.00f;
-			ImGui::DragFloat("RotX", &a, 1.0f);
-			static float b = 0.00f;
-			ImGui::DragFloat("RotY", &b, 1.0f);
-			core.renderer->f.rotation = MATHGL::Vector3(a, 0.0f, b);
-		}*/
-
 		ImGui::End();
+#endif
+
 
 		ImGui::Begin("Input Manager");
 		ImGuiIO& io = ImGui::GetIO();

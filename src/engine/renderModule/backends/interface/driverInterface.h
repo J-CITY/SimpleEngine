@@ -8,7 +8,7 @@ namespace IKIGAI::RENDER {
 		enum class Backend {
 			OPENGL, VULKAN, DIRECTX12
 		};
-		Backend backend = Backend::OPENGL;
+		Backend backend = Backend::VULKAN;
 
 	};
 

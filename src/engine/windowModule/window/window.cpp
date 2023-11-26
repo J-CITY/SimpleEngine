@@ -9,7 +9,13 @@
 #include <coreModule/gui/guiObject.h>
 #include <sceneModule/sceneManager.h>
 #include <renderModule/gameRenderer.h>
+
+#ifdef OPENGL_BACKEND
 #include <renderModule/gameRendererGl.h>
+#endif
+#ifdef VULKAN_BACKEND
+#include "renderModule/gameRendererVk.h"
+#endif
 
 import logger;
 
@@ -259,8 +265,16 @@ void Window::create() {
 
 	glfwSetFramebufferSizeCallback(window.get(), [](GLFWwindow* window, int width, int height) {
 		auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
+#ifdef OPENGL_BACKEND
 		auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
 		_renderer->resize();
+#endif
+#ifdef VULKAN_BACKEND
+		auto _renderer = reinterpret_cast<RENDER::GameRendererVk*>(&renderer);
+		_renderer->resize();
+#endif
+		//TODO:
+
 	});
 }
 

@@ -10,7 +10,7 @@ namespace IKIGAI::RENDER {
 	class SwapChain;
 	class DriverVk;
 	int constexpr MAX_OBJECTS = 20;
-	int constexpr MAX_FRAMES_IN_FLIGHT = 2;
+	int constexpr MAX_FRAMES_IN_FLIGHT = 3;
 	class TextureVk;
 
 	struct QueueFamilyIndices {

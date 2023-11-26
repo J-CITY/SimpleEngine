@@ -37,6 +37,9 @@ bool App::isRunning() const {
 }
 
 void App::preUpdate(std::chrono::duration<double> dt) {
+#ifdef VULKAN_BACKEND
+	core.debugRender->draw(core);
+#endif
 }
 
 void App::update(std::chrono::duration<double> dt) {
@@ -94,7 +97,9 @@ void App::update(std::chrono::duration<double> dt) {
 
 void App::postUpdate(std::chrono::duration<double> dt) {
 	core.window->pollEvent();
+#ifdef OPENGL_BACKEND
 	core.debugRender->draw(core);
+#endif
 	core.window->draw();
 }
 
