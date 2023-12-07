@@ -7,6 +7,8 @@
 #include <coreModule/resourceManager/parser/assimpParser.h>
 #include <renderModule/backends/interface/renderEnums.h>
 
+#include "physicsModule/broadPhase.h"
+
 namespace IKIGAI
 {
 	namespace ECS
@@ -127,6 +129,12 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ObjectId<ECS::Object> a
 			instance->onStart();
 		}
 	}
+
+	if (isSceneReady) {
+		instance->componentAddedEvent.add(std::bind(&Scene::addToBVH, this, std::placeholders::_1));
+		instance->componentRemovedEvent.add(std::bind(&Scene::removeFromBVH, this, std::placeholders::_1));
+		instance->componentChangedEvent.add(std::bind(&Scene::updateInBVH, this, std::placeholders::_1));
+	}
 	return instance;
 }
 
@@ -164,6 +172,106 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const std::string& name
 		}
 	}
 	return instance;
+}
+
+struct BVHData {
+	Ref<ECS::Object> obj;
+	std::shared_ptr<RENDER::MeshInterface> mesh;
+
+	BVHData(Ref<ECS::Object> obj,
+		std::shared_ptr<RENDER::MeshInterface> mesh): obj(obj), mesh(mesh) {}
+
+	const ECS::Transform& getTransform() {
+		//if (!obj) {
+		//	return MATHGL::Matrix4::Identity;
+		//}
+		return obj->transform->getTransform();
+	}
+};
+
+PHYSICS::BVHTree<RENDER::BoundingSphere, std::shared_ptr<BVHData>> meshesTree;
+std::unordered_map<ECS::Object::Id, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
+
+//TODO: move to utils
+RENDER::BoundingSphere getGlobalBoundingSphere(const RENDER::BoundingSphere& boundingSphere, const ECS::Transform& transform) {
+	const auto& position = transform.getWorldPosition();
+	const auto& rotation = transform.getWorldRotation();
+	const auto& scale = transform.getWorldScale();
+
+	float maxScale = std::max(std::max(std::max(scale.x, scale.y), scale.z), 0.0f);
+	float scaledRadius = boundingSphere.radius * maxScale;
+	auto sphereOffset = MATHGL::Quaternion::RotatePoint(boundingSphere.position, rotation) * maxScale;
+
+	MATHGL::Vector3 worldCenter = position + sphereOffset;
+
+	return RENDER::BoundingSphere{ worldCenter, scaledRadius };
+}
+
+void Scene::addToBVH(object_ptr<ECS::Component> component) {
+	if (component->getName() != "ModelRenderer") {
+		return;
+	}
+
+	auto modelRenderer = component->obj->getComponent<ECS::ModelRenderer>();
+	if (auto model = modelRenderer->getModel()) {
+		RENDER::CullingOptions cullingOptions = RENDER::CullingOptions::NONE;
+
+		if (modelRenderer->getFrustumBehaviour() != ECS::EFrustumBehaviour::DISABLED) {
+			cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MODEL;
+		}
+
+		if (modelRenderer->getFrustumBehaviour() == ECS::EFrustumBehaviour::CULL_MESHES) {
+			cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MESH;
+		}
+
+		const auto& modelBoundingSphere = modelRenderer->getFrustumBehaviour() == ECS::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer->getCustomBoundingSphere() : model->getBoundingSphere();
+		//TODO: add support RENDER::CullingOptions::FRUSTUM_PER_MESH
+		//TODO: add event for change CullingOptions
+		auto gbs = getGlobalBoundingSphere(modelBoundingSphere, modelRenderer->obj->transform->getTransform());
+		for (auto mesh : model->getMeshes()) {
+			auto node = std::make_shared<BVHData>(component->obj, mesh);
+			meshesTree.Insert(node, gbs);
+			objectToBVHElements[component->obj->getID()].push_back(node);
+		}
+	}
+}
+
+void Scene::removeFromBVH(object_ptr<ECS::Component> component) {
+	if (component->getName() != "ModelRenderer" || component->getName() != "TransformComponent") {
+		return;
+	}
+	if (!component->obj->getComponent<ECS::ModelRenderer>()) {
+		return;
+	}
+
+	if (objectToBVHElements.contains(component->obj->getID())) {
+		for (auto e : objectToBVHElements[component->obj->getID()]) {
+			meshesTree.Remove(e);
+		}
+		objectToBVHElements.erase(component->obj->getID());
+	}
+}
+
+//TODO: add subscribe for it
+void Scene::updateInBVH(object_ptr<ECS::Component> component) {
+	if (component->getName() != "ModelRenderer") {
+		return;
+	}
+
+	removeFromBVH(component);
+	addToBVH(component);
+}
+
+void Scene::postLoad() {
+	for (auto obj : objects) {
+		obj->componentAddedEvent.add(std::bind(&Scene::addToBVH, this, std::placeholders::_1));
+		obj->componentRemovedEvent.add(std::bind(&Scene::removeFromBVH, this, std::placeholders::_1));
+		obj->componentChangedEvent.add(std::bind(&Scene::updateInBVH, this, std::placeholders::_1));
+		if (auto component = obj->getComponent<ECS::ModelRenderer>()) {
+			addToBVH(component.get());
+		}
+	}
+	isSceneReady = true;
 }
 
 std::shared_ptr<ECS::Object> Scene::createObjectAfter(ECS::Object::Id parentId, const std::string& name, const std::string& tag) {
@@ -426,6 +534,69 @@ std::vector<std::shared_ptr<RENDER::MeshInterface>> Scene::getMeshesInFrustum(
 	return {};
 }
 
+std::tuple<IKIGAI::RENDER::OpaqueDrawables,
+	IKIGAI::RENDER::TransparentDrawables,
+	IKIGAI::RENDER::OpaqueDrawables,
+	IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledBVHDrawables
+	(
+		const MATHGL::Vector3& cameraPosition,
+		const RENDER::Frustum& frustum,
+		std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
+	) {
+	RENDER::OpaqueDrawables opaqueDrawablesForward;
+	RENDER::TransparentDrawables transparentDrawablesForward;
+	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
+	RENDER::TransparentDrawables transparentDrawablesDeferred;
+
+	std::vector<std::shared_ptr<BVHData>> toDraw;
+	meshesTree.GetNodeToDraw(toDraw, frustum);
+
+	for (const auto& meshData : toDraw) {
+		auto owner = meshData->obj;
+
+		if (owner->getIsActive()) {
+			if (auto materialRenderer = owner->getComponent<ECS::MaterialRenderer>()) {
+				auto& transform = owner->getTransform()->getTransform();
+				auto animator = owner->getComponent<ECS::Skeletal>();
+
+				
+				float distanceToActor = MATHGL::Vector3::Distance(transform.getWorldPosition(), cameraPosition);
+				const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
+					
+				std::shared_ptr<RENDER::MaterialInterface> material;
+				if (meshData->mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
+					material = materials.at(meshData->mesh->getMaterialIndex());
+					if (!material || (!material->getShader() && !material->isDeferred())) {
+						material = defaultMaterial;
+					}
+				}
+
+				if (material) {
+					RENDER::Drawable element = { transform.getPrevWorldMatrix(), transform.getWorldMatrix(), meshData->mesh, material, animator };
+					transform.setPrevWorldMatrix(transform.getWorldMatrix());
+					if (material->isBlendable()) {
+						if (!material->isDeferred()) {
+							transparentDrawablesForward.emplace(distanceToActor, element);
+						}
+						else {
+							transparentDrawablesDeferred.emplace(distanceToActor, element);
+						}
+					}
+					else {
+						if (!material->isDeferred()) {
+							opaqueDrawablesForward.emplace(distanceToActor, element);
+						}
+						else {
+							opaqueDrawablesDeferred.emplace(distanceToActor, element);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return { opaqueDrawablesForward, transparentDrawablesForward, opaqueDrawablesDeferred, transparentDrawablesDeferred };
+}
 
 std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 IKIGAI::RENDER::TransparentDrawables,
@@ -452,15 +623,15 @@ IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 
 					RENDER::CullingOptions cullingOptions = RENDER::CullingOptions::NONE;
 
-					if (modelRenderer.getFrustumBehaviour() != ECS::ModelRenderer::EFrustumBehaviour::DISABLED) {
+					if (modelRenderer.getFrustumBehaviour() != ECS::EFrustumBehaviour::DISABLED) {
 						cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MODEL;
 					}
 
-					if (modelRenderer.getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_MESHES) {
+					if (modelRenderer.getFrustumBehaviour() == ECS::EFrustumBehaviour::CULL_MESHES) {
 						cullingOptions |= RENDER::CullingOptions::FRUSTUM_PER_MESH;
 					}
 
-					const auto& modelBoundingSphere = modelRenderer.getFrustumBehaviour() == ECS::ModelRenderer::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer.getCustomBoundingSphere() : model->getBoundingSphere();
+					const auto& modelBoundingSphere = modelRenderer.getFrustumBehaviour() == ECS::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer.getCustomBoundingSphere() : model->getBoundingSphere();
 					
 					auto meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
 
@@ -481,7 +652,7 @@ IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 								RENDER::Drawable element = { transform.getPrevWorldMatrix(), transform.getWorldMatrix(), mesh, material, animator};
 								transform.setPrevWorldMatrix(transform.getWorldMatrix());
 								if (material->isBlendable()) {
-									if (material->getShader()) {
+									if (!material->isDeferred()) {
 										transparentDrawablesForward.emplace(distanceToActor, element);
 									}
 									else {
@@ -489,7 +660,7 @@ IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 									}
 								}
 								else {
-									if (material->getShader()) {
+									if (!material->isDeferred()) {
 										opaqueDrawablesForward.emplace(distanceToActor, element);
 									}
 									else {
@@ -567,6 +738,53 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 		}
 	}
 
+	//TODO: refactor it
+	for (auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelLODRenderer>()) {
+		if (modelRenderer.obj->getIsActive()) {
+			float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
+			if (auto model = modelRenderer.getModelByDistance(distanceToActor)) {
+				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
+					auto& transform = modelRenderer.obj->getTransform()->getTransform();
+					auto animator = modelRenderer.obj->getComponent<ECS::Skeletal>();
+
+					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
+
+					for (const auto mesh : model->getMeshes()) {
+						std::shared_ptr<RENDER::MaterialInterface> material;
+						if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
+							material = materials.at(mesh->getMaterialIndex());
+							if (!material || (!material->getShader() && !material->isDeferred())) {
+								material = defaultMaterial;
+								//material = materials.at(0);
+							}
+						}
+
+						if (material) {
+							RENDER::Drawable element = { transform.getPrevWorldMatrix(),transform.getWorldMatrix(), mesh, material, animator };
+							transform.setPrevWorldMatrix(transform.getWorldMatrix());
+							if (material->isBlendable()) {
+								if (!material->isDeferred()) {
+									transparentDrawablesForward.emplace(distanceToActor, element);
+								}
+								else {
+									transparentDrawablesDeferred.emplace(distanceToActor, element);
+								}
+							}
+							else {
+								if (!material->isDeferred()) {
+									opaqueDrawablesForward.emplace(distanceToActor, element);
+								}
+								else {
+									opaqueDrawablesDeferred.emplace(distanceToActor, element);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return {opaqueDrawablesForward, transparentDrawablesForward, opaqueDrawablesDeferred, transparentDrawablesDeferred};
 }
 
@@ -580,7 +798,11 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 	const RENDER::Frustum* customFrustum,
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
-	if (camera.isFrustumGeometryCulling()) {
+	if (camera.isFrustumGeometryBVHCulling()) {
+		const auto& frustum = customFrustum ? *customFrustum : camera.getFrustum();
+		return findAndSortFrustumCulledBVHDrawables(cameraPosition, frustum, defaultMaterial);
+	}
+	else if (camera.isFrustumGeometryCulling()) {
 		const auto& frustum = customFrustum ? *customFrustum : camera.getFrustum();
 		return findAndSortFrustumCulledDrawables(cameraPosition, frustum, defaultMaterial);
 	}

@@ -17,6 +17,10 @@ namespace IKIGAI {
 			float linear;
 			float quadratic;
 			float intensity;
+#ifdef OPENGL_BACKEND
+			float radius;
+			float padding[3];
+#endif
 		};
 		
 		struct Light {

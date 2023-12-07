@@ -140,3 +140,68 @@ std::array<float, 4> Frustum::getNearPlane() const {
 std::array<float, 4> Frustum::getFarPlane() const {
 	return {data[BACK][0], data[BACK][1], data[BACK][2], data[BACK][3]};
 }
+
+COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere, const ECS::Transform& transform) const
+{
+	const auto& position = transform.getWorldPosition();
+	const auto& rotation = transform.getWorldRotation();
+	const auto& scale = transform.getWorldScale();
+
+	float maxScale = std::max(std::max(std::max(scale.x, scale.y), scale.z), 0.0f);
+	float scaledRadius = boundingSphere.radius * maxScale;
+	auto sphereOffset = MATHGL::Quaternion::RotatePoint(boundingSphere.position, rotation) * maxScale;
+
+	MATHGL::Vector3 worldCenter = position + sphereOffset;
+
+	// various distances
+	float fDistance;
+
+	// calculate our distances to each of the planes
+	for (int i = 0; i < 6; ++i) {
+
+		// find the distance to this plane
+		MATHGL::Vector3 n(data[i][A], data[i][B], data[i][C]);
+		fDistance = n.dot(MATHGL::Vector3(worldCenter.x, worldCenter.y, worldCenter.z)) + data[i][D];
+		// m_plane[i].Normal().dotProduct(refSphere.Center()) + m_plane[i].Distance();
+
+		// if this distance is < -sphere.radius, we are outside
+		if (fDistance < -scaledRadius)
+			return COLLISION::TYPE::OUTSIDE;
+
+		// else if the distance is between +- radius, then we intersect
+		if ((float)fabs(fDistance) < scaledRadius)
+			return COLLISION::TYPE::INTERSECTION;
+	}
+
+	// otherwise we are fully in view
+	return COLLISION::TYPE::INSIDE;
+}
+
+
+COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere) const {
+	float scaledRadius = boundingSphere.radius;
+	MATHGL::Vector3 worldCenter = boundingSphere.position;
+
+	// various distances
+	float fDistance;
+
+	// calculate our distances to each of the planes
+	for (int i = 0; i < 6; ++i) {
+
+		// find the distance to this plane
+		MATHGL::Vector3 n(data[i][A], data[i][B], data[i][C]);
+		fDistance = n.dot(MATHGL::Vector3(worldCenter.x, worldCenter.y, worldCenter.z)) + data[i][D];
+		// m_plane[i].Normal().dotProduct(refSphere.Center()) + m_plane[i].Distance();
+
+		// if this distance is < -sphere.radius, we are outside
+		if (fDistance < -scaledRadius)
+			return COLLISION::TYPE::OUTSIDE;
+
+		// else if the distance is between +- radius, then we intersect
+		if ((float)fabs(fDistance) < scaledRadius)
+			return COLLISION::TYPE::INTERSECTION;
+	}
+
+	// otherwise we are fully in view
+	return COLLISION::TYPE::INSIDE;
+}

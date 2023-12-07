@@ -63,6 +63,10 @@ bool Camera::isFrustumGeometryCulling() const {
 	return frustumGeometryCulling;
 }
 
+bool Camera::isFrustumGeometryBVHCulling() const {
+	return frustumGeometryBVHCulling;
+}
+
 bool Camera::isFrustumLightCulling() const {
 	return frustumLightCulling;
 }
@@ -89,6 +93,10 @@ void Camera::setFar(float p_value) {
 
 void Camera::setFrustumGeometryCulling(bool p_enable) {
 	frustumGeometryCulling = p_enable;
+}
+
+void Camera::setFrustumGeometryBVHCulling(bool p_enable) {
+	frustumGeometryBVHCulling = p_enable;
 }
 
 void Camera::setFrustumLightCulling(bool p_enable) {

@@ -227,7 +227,8 @@ struct EditorMetaInfo {
 		STRINGS_ARRAY,
 		OPT_STRING,
 
-		MATERIAL
+		MATERIAL,
+		MODEL_LOD
 	};
 };
 

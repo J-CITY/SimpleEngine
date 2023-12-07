@@ -38,6 +38,10 @@ void CameraComponent::setFrustumGeometryCulling(bool enable) {
 	camera.setFrustumGeometryCulling(enable);
 }
 
+void CameraComponent::setFrustumGeometryBVHCulling(bool enable) {
+	camera.setFrustumGeometryBVHCulling(enable);
+}
+
 void CameraComponent::setFrustumLightCulling(bool enable) {
 	camera.setFrustumLightCulling(enable);
 }
@@ -64,6 +68,10 @@ float CameraComponent::getFar() const {
 
 bool CameraComponent::isFrustumGeometryCulling() const {
 	return camera.isFrustumGeometryCulling();
+}
+
+bool CameraComponent::isFrustumGeometryBVHCulling() const {
+	return camera.isFrustumGeometryBVHCulling();
 }
 
 bool CameraComponent::isFrustumLightCulling() const {
@@ -269,5 +277,20 @@ RTTR_REGISTRATION
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
+	)
+	.property("FrustumCulling", &IKIGAI::ECS::CameraComponent::isFrustumGeometryCulling, &IKIGAI::ECS::CameraComponent::setFrustumGeometryCulling)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+		)
+	.property("FrustumLight", &IKIGAI::ECS::CameraComponent::isFrustumLightCulling, &IKIGAI::ECS::CameraComponent::setFrustumLightCulling)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+	)
+	.property("FrustumCullingBVH", &IKIGAI::ECS::CameraComponent::isFrustumGeometryBVHCulling, &IKIGAI::ECS::CameraComponent::setFrustumGeometryBVHCulling)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
 	);
 }

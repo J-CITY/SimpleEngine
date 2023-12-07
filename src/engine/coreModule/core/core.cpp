@@ -24,6 +24,8 @@
 #include "../resourceManager/textureManager.h"
 #include <renderModule/gameRendererInterface.h>
 #include <renderModule/backends/interface/driverInterface.h>
+
+#include "coreModule/ecs/components/batchComponent.h"
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/driverGl.h>
 #include <renderModule/gameRendererGl.h>
@@ -143,6 +145,8 @@ Core::Core(
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::Skeletal>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpotLight>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::PhysicsComponent>();
+	ECS::ComponentManager::GetInstance().registerComponent<ECS::ModelLODRenderer>();
+	ECS::ComponentManager::GetInstance().registerComponent<ECS::BatchComponent>();
 	//GUI
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::RootGuiComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteComponent>();
@@ -151,6 +155,7 @@ Core::Core(
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::ClipComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::ScrollComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::LayoutComponent>();
+	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpineComponent>();
 
 	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::ScriptSystem>();
 	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::LogicSystem>();

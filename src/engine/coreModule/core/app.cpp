@@ -9,8 +9,12 @@
 #include <debugModule/debugRender.h>
 #include "../ecs/componentManager.h"
 #include "../resourceManager/fileWatcher.h"
+#include "utilsModule/profiler/profilerSpy.h"
+#include "utilsModule/profiler/profiler.h"
 
 using namespace IKIGAI::CORE_SYSTEM;
+
+IKIGAI::PROFILER::Profiler profiler;
 
 App::App(): core(
 #ifdef DX12_BACKEND
@@ -24,10 +28,12 @@ App::~App() = default;
 
 void App::run() {
 	while (isRunning()) {
+		profiler.Update(TIME::Timer::GetInstance().getDeltaTime().count());
 		preUpdate(TIME::Timer::GetInstance().getDeltaTime());
 		update(TIME::Timer::GetInstance().getDeltaTime());
 		postUpdate(TIME::Timer::GetInstance().getDeltaTime());
 		TIME::Timer::GetInstance().update();
+		profiler.UpdateEnd();
 	}
 	
 }
@@ -37,12 +43,17 @@ bool App::isRunning() const {
 }
 
 void App::preUpdate(std::chrono::duration<double> dt) {
+	PROFILER_EVENT();
 #ifdef VULKAN_BACKEND
+	core.debugRender->draw(core);
+#endif
+#ifdef DX12_BACKEND
 	core.debugRender->draw(core);
 #endif
 }
 
 void App::update(std::chrono::duration<double> dt) {
+	PROFILER_EVENT();
 	//core.renderer->getUBO().setSubData(static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count()), 
 	//	3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
 
@@ -71,6 +82,7 @@ void App::update(std::chrono::duration<double> dt) {
 	}
 
 	if (core.sceneManager->hasCurrentScene()) {
+		PROFILER_EVENT();
 		auto& currentScene = core.sceneManager->getCurrentScene();
 		currentScene.fixedUpdate(dt);
 		for (auto& system : ECS::ComponentManager::GetInstance().getSystemManager().getSystems()) {
@@ -96,10 +108,12 @@ void App::update(std::chrono::duration<double> dt) {
 }
 
 void App::postUpdate(std::chrono::duration<double> dt) {
+	PROFILER_EVENT();
 	core.window->pollEvent();
 #ifdef OPENGL_BACKEND
 	core.debugRender->draw(core);
 #endif
+	core.debugRender->postDraw();
 	core.window->draw();
 }
 

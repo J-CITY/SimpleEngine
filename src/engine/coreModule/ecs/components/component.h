@@ -40,6 +40,7 @@ namespace IKIGAI::ECS {
 		const ECS::Object& getObject();
 
 		//make it private
+		//TODO: use weak_ptr
 		Ref<ECS::Object> obj;
 
 		virtual void onDeserialize(nlohmann::json& j) override {

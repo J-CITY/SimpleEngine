@@ -5,6 +5,9 @@
 #include <utilsModule/pointers/objPtr.h>
 
 #ifdef DX12_BACKEND
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
 #endif
 
