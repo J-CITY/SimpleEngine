@@ -15,6 +15,7 @@
 #include "components/scriptComponent.h"
 #include "components/spotLight.h"
 #include "components/physicsComponent.h"
+#include "components/batchComponent.h"
 #include "../gui/components/spriteComponent.h"
 
 namespace IKIGAI::ECS {
@@ -29,6 +30,7 @@ namespace IKIGAI::ECS {
 		LogicComponent,\
 		MaterialRenderer,\
 		ModelRenderer,\
+		ModelLODRenderer,\
 		PointLight,\
 		ScriptComponent,\
 		Skeletal,\
@@ -37,7 +39,9 @@ namespace IKIGAI::ECS {
 		AudioListenerComponent,\
 		VrCameraComponent,\
 		RootGuiComponent,\
-		SpriteComponent
+		SpriteComponent,\
+		SpineComponent,\
+		BatchComponent
 
 	//ArCameraComponent,\
 

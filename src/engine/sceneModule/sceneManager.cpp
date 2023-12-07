@@ -33,6 +33,8 @@ void SceneManager::loadEmptyScene() {
 	m_currentScene = std::make_unique<Scene>();
 
 	sceneLoadEvent.run();
+
+	m_currentScene->postLoad();
 }
 
 void SceneManager::loadDefaultScene() {
@@ -54,6 +56,8 @@ void SceneManager::loadDefaultScene() {
 	camera->addComponent<ECS::CameraComponent>();
 	camera->getTransform()->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{ 20.0f, 180.0f, 0.0f }));
 	camera->getTransform()->setLocalPosition({0.0f, 3.0f, 8.0f});
+
+	m_currentScene->postLoad();
 }
 
 #include <fstream>
@@ -126,6 +130,8 @@ void SceneManager::loadFromFile(const std::string& sceneFilePath) {
 			}
 		}
 	}
+
+	m_currentScene->postLoad();
 }
 
 void SceneManager::saveToFile() {

@@ -9,6 +9,13 @@ namespace IKIGAI::MATHGL {
 
 namespace IKIGAI {
 	namespace RENDER {
+		namespace COLLISION {
+			enum class TYPE {
+				OUTSIDE = 0,
+				INSIDE,
+				INTERSECTION,
+			};
+		}
 		class Frustum {
 		public:
 			void make(const MATHGL::Matrix4& viewProjection);
@@ -18,6 +25,9 @@ namespace IKIGAI {
 			[[nodiscard]] bool boundingSphereInFrustum(const BoundingSphere& boundingSphere, const ECS::Transform& transform) const;
 			[[nodiscard]] std::array<float, 4> getNearPlane() const;
 			[[nodiscard]] std::array<float, 4> getFarPlane() const;
+			[[nodiscard]] COLLISION::TYPE boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere, const ECS::Transform& transform) const;
+			COLLISION::TYPE boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere) const;
+
 		private:
 			float data[6][4] = {};
 		};

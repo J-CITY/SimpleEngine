@@ -30,6 +30,7 @@ namespace IKIGAI::ECS {
 		void setNear(float value);
 		void setFar(float value);
 		void setFrustumGeometryCulling(bool enable);
+		void setFrustumGeometryBVHCulling(bool enable);
 		void setFrustumLightCulling(bool enable);
 		void setProjectionMode(RENDER::Camera::ProjectionMode projectionMode);
 		float getFov() const;
@@ -37,6 +38,7 @@ namespace IKIGAI::ECS {
 		float getNear() const;
 		float getFar() const;
 		bool isFrustumGeometryCulling() const;
+		bool isFrustumGeometryBVHCulling() const;
 		bool isFrustumLightCulling() const;
 		RENDER::Camera::ProjectionMode getProjectionMode() const;
 		RENDER::Camera& getCamera();

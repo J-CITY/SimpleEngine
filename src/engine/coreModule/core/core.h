@@ -90,6 +90,9 @@ namespace IKIGAI
 }
 
 #ifdef DX12_BACKEND
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
 #endif
 namespace IKIGAI {

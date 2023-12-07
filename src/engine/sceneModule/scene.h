@@ -93,6 +93,15 @@ namespace IKIGAI::SCENE_SYSTEM {
 		std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 			IKIGAI::RENDER::TransparentDrawables,
 			IKIGAI::RENDER::OpaqueDrawables,
+			IKIGAI::RENDER::TransparentDrawables>  findAndSortFrustumCulledBVHDrawables(
+				const MATHGL::Vector3& cameraPosition,
+				const RENDER::Frustum& frustum,
+				std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
+			);
+
+		std::tuple<IKIGAI::RENDER::OpaqueDrawables,
+			IKIGAI::RENDER::TransparentDrawables,
+			IKIGAI::RENDER::OpaqueDrawables,
 			IKIGAI::RENDER::TransparentDrawables>  findAndSortFrustumCulledDrawables(
 			const MATHGL::Vector3& cameraPosition,
 			const RENDER::Frustum& frustum,
@@ -114,6 +123,13 @@ namespace IKIGAI::SCENE_SYSTEM {
 
 		std::vector<std::shared_ptr<IKIGAI::GUI::GuiObject>> guiObjs;
 
+
+		void addToBVH(object_ptr<ECS::Component> component);
+		void removeFromBVH(object_ptr<ECS::Component> component);
+		void updateInBVH(object_ptr<ECS::Component> component);
+
+		bool isSceneReady = false;
+		void postLoad();
 	private:
 		IdGenerator idGenerator;
 		

@@ -41,6 +41,11 @@ LightOGL Light::generateOGLStruct() const {
 	result.quadratic = quadratic;
 	result.intensity = intensity;
 
+	//TODO: update LightOGL in vulkan and dx12
+#ifdef OPENGL_BACKEND
+	result.radius = getEffectRange();
+#endif
+
 	/*
 	auto position = transform.getWorldPosition();
 	result.data[0] = position.x;

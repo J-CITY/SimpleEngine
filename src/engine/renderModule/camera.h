@@ -12,10 +12,6 @@ namespace IKIGAI {
 				ORTHOGRAPHIC,
 				PERSPECTIVE
 			};
-			//NLOHMANN_JSON_SERIALIZE_ENUM(Camera::ProjectionMode, {
-			//	{Camera::ProjectionMode::ORTHOGRAPHIC, "ORTHOGRAPHIC"},
-			//	{Camera::ProjectionMode::PERSPECTIVE, "PERSPECTIVE"}
-			//})
 			
 			Camera();
 			void cacheMatrices(unsigned int winWidth, unsigned int winHeight, 
@@ -32,6 +28,7 @@ namespace IKIGAI {
 			const MATHGL::Matrix4& getViewMatrix() const;
 			const Frustum& getFrustum() const;
 			bool isFrustumGeometryCulling() const;
+			bool isFrustumGeometryBVHCulling() const;
 			bool isFrustumLightCulling() const;
 			ProjectionMode getProjectionMode() const;
 			void setFov(float p_value);
@@ -39,6 +36,7 @@ namespace IKIGAI {
 			void setNear(float p_value);
 			void setFar(float p_value);
 			void setFrustumGeometryCulling(bool p_enable);
+			void setFrustumGeometryBVHCulling(bool p_enable);
 			void setFrustumLightCulling(bool p_enable);
 			void setProjectionMode(ProjectionMode p_projectionMode);
 			void setView(MATHGL::Matrix4& in);
@@ -58,6 +56,7 @@ namespace IKIGAI {
 			float _far;
 
 			bool frustumGeometryCulling = false;
+			bool frustumGeometryBVHCulling = false;
 			bool frustumLightCulling = false;
 		};
 	}

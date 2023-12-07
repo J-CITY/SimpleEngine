@@ -2,6 +2,8 @@
 #include "../../resourceManager/ServiceManager.h"
 #include <windowModule/window/window.h>
 
+#include "coreModule/ecs/object.h"
+
 using namespace IKIGAI::ECS;
 using namespace IKIGAI::MATHGL;
 
@@ -46,26 +48,32 @@ bool TransformComponent::hasParent() const {
 
 void TransformComponent::setLocalPosition(Vector3 newPosition) {
 	transform->setLocalPosition(newPosition);
+	obj->componentChangedEvent.run(this);
 }
 
 void TransformComponent::setLocalRotation(Quaternion newRotation) {
 	transform->setLocalRotation(newRotation);
+	obj->componentChangedEvent.run(this);
 }
 
 void TransformComponent::setLocalScale(Vector3 newScale) {
 	transform->setLocalScale(newScale);
+	obj->componentChangedEvent.run(this);
 }
 
 void TransformComponent::translateLocal(const Vector3 & translation) {
 	transform->translateLocal(translation);
+	obj->componentChangedEvent.run(this);
 }
 
 void TransformComponent::rotateLocal(const Quaternion & p_rotation) {
 	transform->rotateLocal(p_rotation);
+	obj->componentChangedEvent.run(this);
 }
 
 void TransformComponent::scaleLocal(const Vector3 & p_scale) {
 	transform->scaleLocal(p_scale);
+	obj->componentChangedEvent.run(this);
 }
 
 const Vector3 & TransformComponent::getLocalPosition() const {
