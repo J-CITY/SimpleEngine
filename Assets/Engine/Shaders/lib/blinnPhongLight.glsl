@@ -32,6 +32,9 @@ float LuminosityFromAttenuation(LightOGL p_Light)
 vec3 CalcPointLight(LightOGL p_Light, float shadow)
 {
     const vec3 lightPosition  = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
+    if (distance(lightPosition, fs_in.FragPos) <= p_Light.radius) {
+        return vec3(0);
+    }
     const vec3 lightColor     = vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]);
     const float intensity     = p_Light.intensity;
 
@@ -50,6 +53,9 @@ vec3 CalcDirectionalLight(LightOGL p_Light, float shadow)
 vec3 CalcSpotLight(LightOGL p_Light, float shadow)
 {
     const vec3  lightPosition   = vec3(p_Light.pos[0], p_Light.pos[1], p_Light.pos[2]);
+    if (distance(lightPosition, fs_in.FragPos) <= p_Light.radius) {
+        return vec3(0);
+    }
     const vec3  lightForward    = vec3(p_Light.forward[0], p_Light.forward[1], p_Light.forward[2]);
     const vec3  lightColor      = vec3(p_Light.color[0], p_Light.color[1], p_Light.color[2]);
     const float intensity       = p_Light.intensity;

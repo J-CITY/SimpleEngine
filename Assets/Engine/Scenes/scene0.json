@@ -1,611 +1,713 @@
 {
-    "Actors": [
+  "Actors": [
+    {
+      "Components": [
         {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 10.0,
-                        "Z": -10.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Far": 1000.0,
-                    "Fov": 45.0,
-                    "Near": 0.10000000149011612,
-                    "ProjectionMode": "PERSPECTIVE",
-                    "Size": 5.0,
-                    "Type": "class IKIGAI::ECS::CameraComponent"
-                },
-                {
-                    "Path": "Controller",
-                    "Type": "class IKIGAI::ECS::ScriptComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::AudioListenerComponent"
-                }
-            ],
-            "Id": 1,
-            "IsActive": true,
-            "Name": "Camera12",
-            "Parent": -1,
-            "Tag": ""
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 10.0,
+            "Z": -10.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
         },
         {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": -20.0,
-                        "Y": 40.0,
-                        "Z": 10.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.8137978315353394,
-                        "Y": -0.171007439494133,
-                        "Z": 0.29619815945625305
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Color": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Distance": 100.0,
-                    "Intensity": 1.0,
-                    "Type": "class IKIGAI::ECS::DirectionalLight"
-                }
-            ],
-            "Id": 2,
-            "IsActive": true,
-            "Name": "DirLight212",
-            "Parent": -1,
-            "Tag": ""
+          "Far": 1000.0,
+          "Fov": 45.0,
+          "Near": 0.10000000149011612,
+          "ProjectionMode": "PERSPECTIVE",
+          "Size": 5.0,
+          "FrustumCulling": false,
+          "FrustumLight": false,
+          "FrustumCullingBVH": false,
+          "Type": "class IKIGAI::ECS::CameraComponent"
         },
         {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": -1.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 40.0,
-                        "Y": 0.009999999776482582,
-                        "Z": 40.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-              {
-                "Materials": [
-                  "Materials/box.mat"
-                ],
-                "MaterialsNames": [
-                  "Def"
-                ],
-                "Type": "class IKIGAI::ECS::MaterialRenderer"
-              },
-                {
-                    "Model": "Models/Cube.fbx",
-                    "Type": "class IKIGAI::ECS::ModelRenderer"
-                }
-            ],
-            "Id": 3,
-            "IsActive": true,
-            "Name": "Box1",
-            "Parent": -1,
-            "Tag": ""
+          "Path": "Controller",
+          "Type": "class IKIGAI::ECS::ScriptComponent"
         },
         {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 0.1,
-                        "Y": 0.1,
-                        "Z": 0.1
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-              {
-                "Materials": [
-                  "Materials/box1.mat"
-                ],
-                "MaterialsNames": [
-                  "Def"
-                ],
-                "Type": "class IKIGAI::ECS::MaterialRenderer"
-              },
-                {
-                  "Model": "models/sponza.obj",
-                  "Type": "class IKIGAI::ECS::ModelRenderer"
-                }
-            ],
-            "Id": 4,
-            "IsActive": true,
-            "Name": "Box2",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 10.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Source": "Audio/test.sound",
-                    "Type": "class IKIGAI::ECS::AudioComponent"
-                },
-              {
-                "Materials": [
-                  "Materials/box2.mat"
-                ],
-                "MaterialsNames": [
-                  "Def"
-                ],
-                "Type": "class IKIGAI::ECS::MaterialRenderer"
-              },
-                {
-                    "Model": "Models/Cube.fbx",
-                    "Type": "class IKIGAI::ECS::ModelRenderer"
-                }
-            ],
-            "Id": 5,
-            "IsActive": true,
-            "Name": "Box3",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-              {
-                "Materials": [
-                  "Materials/box2.mat"
-                ],
-                "MaterialsNames": [
-                  "Def"
-                ],
-                "Type": "class IKIGAI::ECS::MaterialRenderer"
-              },
-                {
-                    "Model": "Models/Cube.fbx",
-                    "Type": "class IKIGAI::ECS::ModelRenderer"
-                }
-            ],
-            "Id": 6,
-            "IsActive": true,
-            "Name": "Box4",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Color": {
-                        "X": 0.10000000149011612,
-                        "Y": 0.10000000149011612,
-                        "Z": 0.10000000149011612
-                    },
-                    "Intensity": 0.5,
-                    "Radius": 1.0,
-                    "Type": "class IKIGAI::ECS::AmbientSphereLight"
-                }
-            ],
-            "Id": 7,
-            "IsActive": true,
-            "Name": "AmbientSphere",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::RootGuiComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::SpriteComponent"
-                }
-            ],
-            "Id": 100,
-            "IsActive": true,
-            "Name": "sprite1",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::RootGuiComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::SpriteComponent"
-                }
-            ],
-            "Id": 101,
-            "IsActive": true,
-            "Name": "btn1",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                }
-            ],
-            "Id": 102,
-            "IsActive": true,
-            "Name": "label1",
-            "Parent": 100,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::RootGuiComponent"
-                }
-            ],
-            "Id": 103,
-            "IsActive": true,
-            "Name": "c",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                }
-            ],
-            "Id": 104,
-            "IsActive": true,
-            "Name": "scroll",
-            "Parent": 103,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                }
-            ],
-            "Id": 105,
-            "IsActive": true,
-            "Name": "l",
-            "Parent": 104,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::SpriteComponent"
-                }
-            ],
-            "Id": 106,
-            "IsActive": true,
-            "Name": "s0",
-            "Parent": 105,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::SpriteComponent"
-                }
-            ],
-            "Id": 107,
-            "IsActive": true,
-            "Name": "s1",
-            "Parent": 105,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::SpriteComponent"
-                }
-            ],
-            "Id": 108,
-            "IsActive": true,
-            "Name": "s2",
-            "Parent": 105,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::SpriteComponent"
-                }
-            ],
-            "Id": 109,
-            "IsActive": true,
-            "Name": "s3",
-            "Parent": 105,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 1.0,
-                        "Y": 1.0,
-                        "Z": 1.0
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-                {
-                    "Type": "class IKIGAI::ECS::SpriteComponent"
-                }
-            ],
-            "Id": 110,
-            "IsActive": true,
-            "Name": "s4",
-            "Parent": 105,
-            "Tag": ""
+          "Type": "class IKIGAI::ECS::AudioListenerComponent"
         }
-    ]
+      ],
+      "Id": 1,
+      "IsActive": true,
+      "Name": "Camera12",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": -20.0,
+            "Y": 40.0,
+            "Z": 10.0
+          },
+          "LocalRotation": {
+            "X": 0.8137978315353394,
+            "Y": -0.171007439494133,
+            "Z": 0.29619815945625305
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Color": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Distance": 100.0,
+          "Intensity": 1.0,
+          "Type": "class IKIGAI::ECS::DirectionalLight"
+        }
+      ],
+      "Id": 2,
+      "IsActive": true,
+      "Name": "DirLight212",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": -1.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 40.0,
+            "Y": 0.009999999776482582,
+            "Z": 40.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Materials": [
+            "Materials/box.mat"
+          ],
+          "MaterialsNames": [
+            "Def"
+          ],
+          "Type": "class IKIGAI::ECS::MaterialRenderer"
+        },
+        {
+          "Model": "Models/Cube.fbx",
+          "Type": "class IKIGAI::ECS::ModelRenderer"
+        }
+      ],
+      "Id": 3,
+      "IsActive": true,
+      "Name": "Box1",
+      "Parent": -1,
+      "Tag": ""
+    },
+
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 10.0,
+            "Y": 10.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 10.0,
+            "Y": 1.0,
+            "Z": 10.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Materials": [
+            "Materials/box.mat"
+          ],
+          "MaterialsNames": [
+            "Def"
+          ],
+          "Type": "class IKIGAI::ECS::MaterialRenderer"
+        },
+        {
+          "Models": [
+            {
+              "Distance": 10.0,
+              "Path": "Models/Cube.fbx"
+            },
+            {
+              "Distance": 100.0,
+              "Path": "Models/Cube.fbx"
+            },
+            {
+              "Distance": 500.0,
+              "Path": "Models/Cube.fbx"
+            }
+          ],
+          "Type": "class IKIGAI::ECS::ModelLODRenderer"
+        }
+      ],
+      "Id": 222,
+      "IsActive": true,
+      "Name": "BoxLod",
+      "Parent": -1,
+      "Tag": ""
+    },
+
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 0.1,
+            "Y": 0.1,
+            "Z": 0.1
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Materials": [
+            "Materials/box1.mat"
+          ],
+          "MaterialsNames": [
+            "Def"
+          ],
+          "Type": "class IKIGAI::ECS::MaterialRenderer"
+        },
+        {
+          "Model": "models/sponza.obj",
+          "Type": "class IKIGAI::ECS::ModelRenderer"
+        }
+      ],
+      "Id": 4,
+      "IsActive": true,
+      "Name": "Box2",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 10.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Source": "Audio/test.sound",
+          "Type": "class IKIGAI::ECS::AudioComponent"
+        },
+        {
+          "Materials": [
+            "Materials/box2.mat"
+          ],
+          "MaterialsNames": [
+            "Def"
+          ],
+          "Type": "class IKIGAI::ECS::MaterialRenderer"
+        },
+        {
+          "Model": "Models/Cube.fbx",
+          "Type": "class IKIGAI::ECS::ModelRenderer"
+        }
+      ],
+      "Id": 5,
+      "IsActive": true,
+      "Name": "Box3",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Materials": [
+            "Materials/box2.mat"
+          ],
+          "MaterialsNames": [
+            "Def"
+          ],
+          "Type": "class IKIGAI::ECS::MaterialRenderer"
+        },
+        {
+          "Model": "Models/Cube.fbx",
+          "Type": "class IKIGAI::ECS::ModelRenderer"
+        }
+      ],
+      "Id": 6,
+      "IsActive": true,
+      "Name": "Box4",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Color": {
+            "X": 0.10000000149011612,
+            "Y": 0.10000000149011612,
+            "Z": 0.10000000149011612
+          },
+          "Intensity": 0.5,
+          "Radius": 1.0,
+          "Type": "class IKIGAI::ECS::AmbientSphereLight"
+        }
+      ],
+      "Id": 7,
+      "IsActive": true,
+      "Name": "AmbientSphere",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::RootGuiComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpriteComponent",
+          "TexturePath": "textures/gui/btn.png"
+        }
+      ],
+      "Id": 100,
+      "IsActive": true,
+      "Name": "sprite1",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::RootGuiComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpriteComponent",
+          "TexturePath": "textures/gui/btn.png"
+        }
+      ],
+      "Id": 101,
+      "IsActive": true,
+      "Name": "btn1",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        }
+      ],
+      "Id": 102,
+      "IsActive": true,
+      "Name": "label1",
+      "Parent": 100,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::RootGuiComponent"
+        }
+      ],
+      "Id": 103,
+      "IsActive": true,
+      "Name": "c",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        }
+      ],
+      "Id": 104,
+      "IsActive": true,
+      "Name": "scroll",
+      "Parent": 103,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        }
+      ],
+      "Id": 105,
+      "IsActive": true,
+      "Name": "l",
+      "Parent": 104,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpriteComponent",
+          "TexturePath": "textures/gui/btn.png"
+        }
+      ],
+      "Id": 106,
+      "IsActive": true,
+      "Name": "s0",
+      "Parent": 105,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpriteComponent",
+          "TexturePath": "textures/gui/btn.png"
+        }
+      ],
+      "Id": 107,
+      "IsActive": true,
+      "Name": "s1",
+      "Parent": 105,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::RootGuiComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpineComponent",
+          "Spine": {
+            "Skel": "Spine/spineboy-ess.json",
+            "Atlas": "Spine/spineboy.atlas"
+          }
+        }
+      ],
+      "Id": 1077,
+      "IsActive": true,
+      "Name": "spine1",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpriteComponent",
+          "TexturePath": "textures/gui/btn.png"
+        }
+      ],
+      "Id": 108,
+      "IsActive": true,
+      "Name": "s2",
+      "Parent": 105,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpriteComponent",
+          "TexturePath": "textures/gui/btn.png"
+        }
+      ],
+      "Id": 109,
+      "IsActive": true,
+      "Name": "s3",
+      "Parent": 105,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Type": "class IKIGAI::ECS::SpriteComponent",
+          "TexturePath": "textures/gui/btn.png"
+        }
+      ],
+      "Id": 110,
+      "IsActive": true,
+      "Name": "s4",
+      "Parent": 105,
+      "Tag": ""
+    }
+  ]
 }

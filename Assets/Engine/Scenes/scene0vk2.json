@@ -20,14 +20,17 @@
                     },
                     "Type": "class IKIGAI::ECS::TransformComponent"
                 },
-                {
-                    "Far": 1000.0,
-                    "Fov": 45.0,
-                    "Near": 0.10000000149011612,
-                    "ProjectionMode": "PERSPECTIVE",
-                    "Size": 5.0,
-                    "Type": "class IKIGAI::ECS::CameraComponent"
-                },
+              {
+                "Far": 1000.0,
+                "Fov": 45.0,
+                "Near": 0.10000000149011612,
+                "ProjectionMode": "PERSPECTIVE",
+                "Size": 5.0,
+                "FrustumCulling": false,
+                "FrustumLight": false,
+                "FrustumCullingBVH": false,
+                "Type": "class IKIGAI::ECS::CameraComponent"
+              },
                 {
                     "Path": "Controller",
                     "Type": "class IKIGAI::ECS::ScriptComponent"
@@ -123,46 +126,6 @@
             "Components": [
                 {
                     "LocalPosition": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalRotation": {
-                        "X": 0.0,
-                        "Y": 0.0,
-                        "Z": 0.0
-                    },
-                    "LocalScale": {
-                        "X": 0.1,
-                        "Y": 0.1,
-                        "Z": 0.1
-                    },
-                    "Type": "class IKIGAI::ECS::TransformComponent"
-                },
-              {
-                "Materials": [
-                    "Materials/box0Vk.mat"
-                ],
-                "MaterialsNames": [
-                  "Def"
-                ],
-                "Type": "class IKIGAI::ECS::MaterialRenderer"
-              },
-                {
-                  "Model": "models/sponza.obj",
-                  "Type": "class IKIGAI::ECS::ModelRenderer"
-                }
-            ],
-            "Id": 4,
-            "IsActive": true,
-            "Name": "Box2",
-            "Parent": -1,
-            "Tag": ""
-        },
-        {
-            "Components": [
-                {
-                    "LocalPosition": {
                         "X": 10.0,
                         "Y": 0.0,
                         "Z": 0.0
@@ -180,18 +143,14 @@
                     "Type": "class IKIGAI::ECS::TransformComponent"
                 },
                 {
-                    "Source": "Audio/test.sound",
-                    "Type": "class IKIGAI::ECS::AudioComponent"
+                  "Materials": [
+                      "Materials/box0Vk.mat"
+                  ],
+                  "MaterialsNames": [
+                    "Def"
+                  ],
+                  "Type": "class IKIGAI::ECS::MaterialRenderer"
                 },
-              {
-                "Materials": [
-                    "Materials/box0Vk.mat"
-                ],
-                "MaterialsNames": [
-                  "Def"
-                ],
-                "Type": "class IKIGAI::ECS::MaterialRenderer"
-              },
                 {
                     "Model": "Models/Cube.fbx",
                     "Type": "class IKIGAI::ECS::ModelRenderer"

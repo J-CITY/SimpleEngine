@@ -9,6 +9,8 @@ struct LightOGL {
     float linear;
     float quadratic;
     float intensity;
+    float radius;
+    vec3 padding;
 };
 
 layout(std430, binding = 0) buffer LightSSBO {

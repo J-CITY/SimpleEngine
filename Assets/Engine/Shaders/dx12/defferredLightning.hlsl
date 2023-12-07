@@ -76,7 +76,23 @@ float4 PS(VertexOut pin) : SV_Target
 {
     float4 FRAGMENT_COLOR = float4(1.0f, 0.0f, 0.0f, 1.0f);
 
+    //float3 normal = u_NormalMap.Sample(gsamPointClamp, pin.TexC).xyz;
+
     float3 color = u_AlbedoSpecMap.Sample(gsamPointClamp, pin.TexC).xyz;
+
+    //float3 lighting = color * 0.1;
+    ////float3 viewDir = normalize(PosH - engine_UBO.ViewPos);
+    ////for (int i = 0; i < NR_LIGHTS; ++i)
+    ////{
+    //    // diffuse
+    //float3 lightDir = normalize(l[0].pos - ViewPos);
+    //
+    //float3 color1 = color * l[0].color;
+    //float factor = max(dot(normal, lightDir), 0.0);
+    //float3 diffuse = color1 * factor;
+    //    lighting += diffuse;
+    ////}
+
 
     FRAGMENT_COLOR = float4(color, 1.0f);
     return FRAGMENT_COLOR;
