@@ -18,6 +18,9 @@ using namespace IKIGAI::RESOURCES;
 
 unsigned int ID=0;
 
+bool needSaveVerts = false;
+std::vector<std::vector<Vertex>>* globalVerticesPerMesh;
+std::vector< std::vector<uint32_t>>* globalIndicesPerMesh;
 //if batchin we use this vectors
 std::vector<Vertex> globalVertices;
 std::vector<uint32_t> globalIndices;
@@ -52,6 +55,43 @@ bool AssimpParser::LoadModel(const std::string& fileName,
 	//	m->imp = imp;
 	//}
 	delete import;
+	return true;
+}
+
+bool AssimpParser::LoadVertexes(const std::string& fileName, 
+	RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags,
+	std::vector<std::vector<Vertex>>& _globalVerticesPerMesh,
+	std::vector< std::vector<uint32_t>>& _globalIndicesPerMesh) {
+	needSaveVerts = true;
+	globalVerticesPerMesh = &_globalVerticesPerMesh;
+	globalIndicesPerMesh = &_globalIndicesPerMesh;
+	Assimp::Importer* import = new Assimp::Importer();
+	auto scene = import->ReadFile(fileName, static_cast<int>(parserFlags));
+
+	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+		delete import;
+		needSaveVerts = false;
+		return false;
+	}
+	//processMaterials(scene, model->getMaterialsNames());
+
+	aiMatrix4x4 identity;
+
+	globalVertices.clear();
+	globalIndices.clear();
+	//if (scene->HasAnimations()) {
+	processNode(&identity, scene->mRootNode, scene, model);
+	//}
+
+
+	//std::shared_ptr<Assimp::Importer> imp = std::shared_ptr<Assimp::Importer>(import);
+	//for (auto m : meshes) {
+	//	m->imp = imp;
+	//}
+	delete import;
+	needSaveVerts = false;
+	globalVerticesPerMesh = nullptr;
+	globalIndicesPerMesh = nullptr;
 	return true;
 }
 
@@ -117,6 +157,10 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 		std::shared_ptr<RENDER::MeshInterface> newMash;
 #ifdef OPENGL_BACKEND
 		if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
+			if (needSaveVerts) {
+				globalVerticesPerMesh->push_back(vertices);
+				globalIndicesPerMesh->push_back(indices);
+			}
 			if (model->getUseBatching()) {
 				newMash = std::make_shared<RENDER::MeshGl>(vertices, indices, globalIndices.size(), mesh->mMaterialIndex);
 				globalVertices.insert(globalVertices.end(), vertices.begin(), vertices.end());

@@ -1,8 +1,9 @@
 ﻿#include "gameRendererVk.h"
 
-#include "backends/imgui_impl_vulkan.h"
 #ifdef VULKAN_BACKEND
 
+#include "backends/imgui_impl_vulkan.h"
+#include "backends/vk/rt/rt.h"
 #include "backends/vk/materialVk.h"
 #include "backends/vk/frameBufferVk.h"
 #include "backends/vk/storageBufferVk.h"
@@ -84,9 +85,16 @@ void GameRendererVk::createVkResources() {
 		std::vector<std::shared_ptr<TextureInterface>>{ mTextures["deferredResult"] });
 
 }
-
-
+HybridRendering* hr = nullptr;
 void GameRendererVk::renderScene() {
+	//if (!hr)
+	//{
+	//	hr = new HybridRendering();
+	//	if (!hr->init_base())
+	//		return;
+	//}
+	//hr->update_base(TIME::Timer::GetInstance().getDeltaTime().count());
+	//return;
 	mainCameraComponentVk = std::nullopt;
 	if (mContext.sceneManager->hasCurrentScene()) {
 		mainCameraComponentVk = mContext.sceneManager->getCurrentScene().findMainCamera();
@@ -173,14 +181,6 @@ void GameRendererVk::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 			mShaders["renderToScreen"]->bindDescriptorSets();
 		}
 		mDriver->draw(mShaders["renderToScreen"], 3);
-
-		static bool b = false;
-		if (!b)
-		{
-			b = true;
-			//ImGui_ImplVulkan_CreatePipeline(mDriver->m_MainDevice.LogicalDevice, nullptr, VK_NULL_HANDLE, wd->RenderPass, VK_SAMPLE_COUNT_1_BIT, &wd->Pipeline, g_VulkanInitInfo.Subpass);
-		}
-
 		ImDrawData* draw_data = ImGui::GetDrawData();
 		ImGui_ImplVulkan_RenderDrawData(draw_data, std::dynamic_pointer_cast<ShaderVk>(mShaders["renderToScreen"])->m_CommandHandler.m_CommandBuffers[imageIndex]);
 

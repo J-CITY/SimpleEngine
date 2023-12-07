@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 
 #ifdef OPENGL_BACKEND
 #include <memory>
@@ -21,6 +22,7 @@ namespace IKIGAI::RENDER
 		float width = 0.0f;
 		float height = 0.0f;
 		float depth = 1.0f;
+		float chanels = 1.0f;
 
 		static std::shared_ptr<TextureGl> Create(std::string path, bool generateMipmap);
 		static std::shared_ptr<TextureGl> CreateFromResource(const RENDER::TextureResource& res);
@@ -34,6 +36,7 @@ namespace IKIGAI::RENDER
 		static std::shared_ptr<TextureGl> createDepthForAttachCubemap(int texWidth, int texHeight, int type);
 		static std::shared_ptr<TextureGl> createDepthForAttach2DArray(int texWidth, int texHeight, int arrSize);
 		static std::shared_ptr<TextureGl> createEmpty3d(int texX, int texY, int texZ);
+		static std::vector<unsigned char> getPixels(const std::string& path);
 		void bind(int slot);
 		void unbind();
 		void generateMipmaps();

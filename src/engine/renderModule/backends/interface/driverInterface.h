@@ -2,13 +2,14 @@
 
 
 #include "../interface/shaderInterface.h"
+#include <memory>
 
 namespace IKIGAI::RENDER {
 	struct RenderSettings {
 		enum class Backend {
 			OPENGL, VULKAN, DIRECTX12
 		};
-		Backend backend = Backend::VULKAN;
+		Backend backend = Backend::OPENGL;
 
 	};
 

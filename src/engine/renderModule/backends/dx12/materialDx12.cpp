@@ -17,6 +17,7 @@ void MaterialDx12::setShader(std::shared_ptr<ShaderDx12> shader) {
 MaterialDx12::MaterialDx12()
 {
 	dataUBO = std::make_shared<UploadBuffer<DataUBODX12>>(1, true);
+	pushModel = std::make_shared<UploadBuffer<MATHGL::Matrix4>>(1, true);
 }
 
 void MaterialDx12::generateUniformsData() {
@@ -84,7 +85,7 @@ void MaterialDx12::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture
 	//}
 }
 #include "../../gameRendererDx12.h"
-#include "../../../resourceManager/ServiceManager.h"
+#include <coreModule/resourceManager/ServiceManager.h>
 
 void MaterialDx12::fillUniformsWithShader(std::shared_ptr<ShaderDx12> shader, std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
 	//int textureSlot = 0;
@@ -113,13 +114,16 @@ void MaterialDx12::fillUniformsWithShader(std::shared_ptr<ShaderDx12> shader, st
 	auto& data = shader->uniformNameToSlotId;
 	gameRenderer.mDriver->mCommandList->SetGraphicsRootConstantBufferView(data["dataUBO"], dataUBO->Resource()->GetGPUVirtualAddress());
 	
-	ID3D12DescriptorHeap* descriptorHeaps[] = { u_AlbedoMap->UploadHeap.Get() };
-	gameRenderer.mDriver->mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
-	gameRenderer.mDriver->mCommandList->SetGraphicsRootDescriptorTable(data["u_AlbedoMap"], u_AlbedoMap->UploadHeap->GetGPUDescriptorHandleForHeapStart());
+	//ID3D12DescriptorHeap* descriptorHeaps[] = { u_AlbedoMap->UploadHeap.Get() };
+	//gameRenderer.mDriver->mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
+	gameRenderer.mDriver->mCommandList->SetGraphicsRootDescriptorTable(data["u_AlbedoMap"], u_AlbedoMap->mGpuSrv);
 	
-	ID3D12DescriptorHeap* descriptorHeaps1[] = { u_NormalMap->UploadHeap.Get() };
-	gameRenderer.mDriver->mCommandList->SetDescriptorHeaps(1, descriptorHeaps1);
-	gameRenderer.mDriver->mCommandList->SetGraphicsRootDescriptorTable(data["u_NormalMap"], u_NormalMap->UploadHeap->GetGPUDescriptorHandleForHeapStart());
+	//ID3D12DescriptorHeap* descriptorHeaps1[] = { u_NormalMap->UploadHeap.Get() };
+	//gameRenderer.mDriver->mCommandList->SetDescriptorHeaps(1, descriptorHeaps1);
+	gameRenderer.mDriver->mCommandList->SetGraphicsRootDescriptorTable(data["u_NormalMap"], u_NormalMap->mGpuSrv);
+
+
+	//gameRenderer.mDriver->mCommandList->SetGraphicsRootConstantBufferView(data["pushModel"], pushModel->Resource()->GetGPUVirtualAddress());
 }
 
 void MaterialDx12::bind(std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {

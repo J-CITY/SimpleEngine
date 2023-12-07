@@ -1,5 +1,6 @@
 ﻿#include "gameRendererDx12.h"
 
+
 #include "backends/dx12/materialDx12.h"
 
 #ifdef DX12_BACKEND
@@ -18,6 +19,9 @@
 #include <windowModule/window/window.h>
 #include <utilsModule/loader.h>
 #include <utilsModule/vertex.h>
+#include "imgui_impl_dx12.h"
+#include "imgui_impl_win32.h"
+
 const int gNumFrameResources = 3;
 
 import glmath;
@@ -37,9 +41,15 @@ using namespace DirectX;
 using namespace DirectX::PackedVector;
 std::optional<IKIGAI::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponentDx = std::nullopt;
 
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+
 LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	// Forward hwnd on because we can get messages (e.g., WM_CREATE)
 	// before CreateWindow returns, and thus before mhMainWnd is valid.
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+		return true;
+
 	return GameRendererDx12::GetApp()->MsgProc(hwnd, msg, wParam, lParam);
 }
 
@@ -353,7 +363,7 @@ void GameRendererDx12::Update()
 
 
 	if (mCurrFrameResource->Fence != 0 && mDriver->mFence->GetCompletedValue() < mCurrFrameResource->Fence) {
-		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+		HANDLE eventHandle = CreateEventEx(nullptr, L"", false, EVENT_ALL_ACCESS);
 		ThrowIfFailed(mDriver->mFence->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle));
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
@@ -439,21 +449,27 @@ void GameRendererDx12::Draw()
 	ThrowIfFailed(cmdListAlloc->Reset());
 	ThrowIfFailed(mDriver->mCommandList->Reset(cmdListAlloc.Get(), shader1->mPSO.Get()));
 
-	mDriver->mCommandList->RSSetViewports(1, &mGBuffer->Viewport());
-	mDriver->mCommandList->RSSetScissorRects(1, &mGBuffer->ScissorRect());
+	auto v = mGBuffer->Viewport();
+	mDriver->mCommandList->RSSetViewports(1, &v);
+	auto sr = mGBuffer->ScissorRect();
+	mDriver->mCommandList->RSSetScissorRects(1, &sr);
 	
-	mDriver->mCommandList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gPositionTex"]->Resource.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
-	mDriver->mCommandList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gNormalTex"]->Resource.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
-	mDriver->mCommandList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gAlbedoSpecTex"]->Resource.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
-	mDriver->mCommandList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gRoughAOTex"]->Resource.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	auto b1 = CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gPositionTex"]->Resource.Get(), 
+		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mDriver->mCommandList->ResourceBarrier(1, &b1);
+	auto b2 = CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gNormalTex"]->Resource.Get(),
+		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mDriver->mCommandList->ResourceBarrier(1, &b2);
+	auto b3 = CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gAlbedoSpecTex"]->Resource.Get(),
+		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mDriver->mCommandList->ResourceBarrier(1, &b3);
+	auto b4 = CD3DX12_RESOURCE_BARRIER::Transition(mTextures["gRoughAOTex"]->Resource.Get(),
+		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mDriver->mCommandList->ResourceBarrier(1, &b4);
+
+
+	ID3D12DescriptorHeap* dh0[] = { mDriver->mTexturesDescHeap.Get() };
+	mDriver->mCommandList->SetDescriptorHeaps(1, dh0);
 
 
 	for (int i = 0; i < 4; i++) {
@@ -463,11 +479,12 @@ void GameRendererDx12::Draw()
 
 	mDriver->mCommandList->ClearDepthStencilView(mDriver->depthStencilView(),
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
+	auto handler = mGBuffer->Rtv(BufferType(0));
+	auto sv = mDriver->depthStencilView();
 	mDriver->mCommandList->OMSetRenderTargets(4,
-		&mGBuffer->Rtv(BufferType(0)),
+		&handler,
 		true,
-		&mDriver->depthStencilView());
+		&sv);
 	//std::vector<ID3D12DescriptorHeap*> descriptorHeaps;
 	//ID3D12DescriptorHeap* descriptorHeaps0[] = { mSrvDescriptorHeap.Get() };
 	//mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps0), descriptorHeaps0);
@@ -498,11 +515,12 @@ void GameRendererDx12::Draw()
 	//mDriver->mCommandList->SetGraphicsRootDescriptorTable(data["gTextureMapsNormal"], mTextures["bricksNormalMap"]->UploadHeap->GetGPUDescriptorHandleForHeapStart());
 
 	DrawRenderItems(mDriver->mCommandList.Get());
-
+	auto vb = mDriver->currentBackBufferView();
+	auto sv2 = mDriver->depthStencilView();
 	mDriver->mCommandList->OMSetRenderTargets(1,
-		&mDriver->currentBackBufferView(),
+		&vb,
 		true,
-		&mDriver->depthStencilView());
+		&sv2);
 	mDriver->mCommandList->SetGraphicsRootSignature(shader2->mRootSignature.Get());
 	mDriver->mCommandList->SetPipelineState(shader2->mPSO.Get());
 
@@ -510,32 +528,63 @@ void GameRendererDx12::Draw()
 
 	mDriver->mCommandList->SetGraphicsRootConstantBufferView(data["engineUBO"], engineUBO->Resource()->GetGPUVirtualAddress());
 
-	ID3D12DescriptorHeap* dh0[] = { mTextures["gPositionTex"]->UploadHeap.Get() };
-	mDriver->mCommandList->SetDescriptorHeaps(1, dh0);
-	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_PositionMap"], mTextures["gPositionTex"]->UploadHeap->GetGPUDescriptorHandleForHeapStart());
+	//ID3D12DescriptorHeap* dh0[] = { mTextures["gPositionTex"]->UploadHeap.Get() };
+	//mDriver->mCommandList->SetDescriptorHeaps(1, dh0);
+	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_PositionMap"], mTextures["gPositionTex"]->mGpuSrv);
 
-	ID3D12DescriptorHeap* dh1[] = { mTextures["gNormalTex"]->UploadHeap.Get() };
-	mDriver->mCommandList->SetDescriptorHeaps(1, dh1);
-	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_NormalMap"], mTextures["gNormalTex"]->UploadHeap->GetGPUDescriptorHandleForHeapStart());
+	//ID3D12DescriptorHeap* dh1[] = { mTextures["gNormalTex"]->UploadHeap.Get() };
+	//mDriver->mCommandList->SetDescriptorHeaps(1, dh1);
+	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_NormalMap"], mTextures["gNormalTex"]->mGpuSrv);
 
-	ID3D12DescriptorHeap* dh2[] = { mTextures["gAlbedoSpecTex"]->UploadHeap.Get() };
-	mDriver->mCommandList->SetDescriptorHeaps(1, dh2);
-	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_AlbedoSpecMap"], mTextures["gAlbedoSpecTex"]->UploadHeap->GetGPUDescriptorHandleForHeapStart());
+	//ID3D12DescriptorHeap* dh2[] = { mTextures["gAlbedoSpecTex"]->UploadHeap.Get() };
+	//mDriver->mCommandList->SetDescriptorHeaps(1, dh2);
+	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_AlbedoSpecMap"], mTextures["gAlbedoSpecTex"]->mGpuSrv);
 
-	ID3D12DescriptorHeap* dh3[] = { mTextures["gRoughAOTex"]->UploadHeap.Get() };
-	mDriver->mCommandList->SetDescriptorHeaps(1, dh3);
-	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_RoughAO"], mTextures["gRoughAOTex"]->UploadHeap->GetGPUDescriptorHandleForHeapStart());
+	//ID3D12DescriptorHeap* dh3[] = { mTextures["gRoughAOTex"]->UploadHeap.Get() };
+	//mDriver->mCommandList->SetDescriptorHeaps(1, dh3);
+	mDriver->mCommandList->SetGraphicsRootDescriptorTable(data2["u_RoughAO"], mTextures["gRoughAOTex"]->mGpuSrv);
 
 	DrawFullscreenQuad(mDriver->mCommandList.Get());
 
-	mDriver->mCommandList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(mDriver->currentBackBuffer(),
-			D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	auto b5 = CD3DX12_RESOURCE_BARRIER::Transition(mDriver->currentBackBuffer(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+		mDriver->mCommandList->ResourceBarrier(1,
+		&b5);
+
+	//imgui
+	mDriver->mCommandList->OMSetRenderTargets(1,
+		&vb,
+		false,
+		nullptr);
+	mDriver->mCommandList->SetGraphicsRootSignature(nullptr);
+	
+	//ID3D12DescriptorHeap* dh4[] = { mDriver->mSrvDescHeap.Get() };
+	//mDriver->imguiHeaps.insert(mDriver->imguiHeaps.begin(), mDriver->mSrvDescHeap.Get());
+	//mDriver->mCommandList->SetDescriptorHeaps(2, mDriver->imguiHeaps.data());
+	//mDriver->mCommandList->SetDescriptorHeaps(1, mDriver->imguiHeaps.data() + 2 * sizeof(ID3D12DescriptorHeap*));
+	//auto b6 = CD3DX12_RESOURCE_BARRIER::Transition(mDriver->currentBackBuffer(),
+	//	D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	D3D12_RESOURCE_BARRIER barrier = {};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barrier.Transition.pResource = mDriver->currentBackBuffer();
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mDriver->mCommandList.Get());
+	mDriver->mCommandList->ResourceBarrier(1, &barrier);
+	//end imgui
 
 	ThrowIfFailed(mDriver->mCommandList->Close());
 
 	ID3D12CommandList* cmdLists[] = { mDriver->mCommandList.Get() };
 	mDriver->mCommandQueue->ExecuteCommandLists(1, cmdLists);
+
+	//if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	//{
+	//	ImGui::UpdatePlatformWindows();
+	//	ImGui::RenderPlatformWindowsDefault(nullptr, (void*)mDriver->mCommandList.Get());
+	//}
 
 	ThrowIfFailed(mDriver->mSwapChain->Present(0, 0));
 	mDriver->mCurrBackBuffer = (mDriver->mCurrBackBuffer + 1) % mDriver->SwapChainBufferCount;
@@ -543,6 +592,9 @@ void GameRendererDx12::Draw()
 	mCurrFrameResource->Fence = ++mDriver->mCurrentFence;
 
 	mDriver->mCommandQueue->Signal(mDriver->mFence.Get(), mDriver->mCurrentFence);
+
+
+	//mDriver->imguiHeaps.clear();
 }
 
 void GameRendererDx12::OnMouseDown(WPARAM btnState, int x, int y)
@@ -573,7 +625,7 @@ void GameRendererDx12::OnMouseMove(WPARAM btnState, int x, int y)
 	mLastMousePos.x = x;
 	mLastMousePos.y = y;
 }
-#include "../inputManager/inputManager.h"
+#include <windowModule/inputManager/inputManager.h>
 std::unordered_map<INPUT_SYSTEM::EKey, int> toDx12Key = {
 	{INPUT_SYSTEM::EKey::KEY_W, 'W'},
 	{INPUT_SYSTEM::EKey::KEY_S, 'S'},
@@ -700,13 +752,15 @@ void GameRendererDx12::DrawRenderItems(ID3D12GraphicsCommandList* cmdList)
 			//mShaders["deferredRender"]->setUniform(*mEngineUbo);
 			//mShaders["deferredRender"]->setPushConstant(MATHGL::Matrix4::Transpose(p_toDraw.world));
 
-			pushModel->CopyData(0, (drawable.world));
-			mDriver->mCommandList->SetGraphicsRootConstantBufferView(data["pushModel"], pushModel->Resource()->GetGPUVirtualAddress());
+			reinterpret_cast<MaterialDx12*>(drawable.material.get())->pushModel->CopyData(0, (drawable.world));
+			mDriver->mCommandList->SetGraphicsRootConstantBufferView(data["pushModel"], reinterpret_cast<MaterialDx12*>(drawable.material.get())->pushModel->Resource()->GetGPUVirtualAddress());
 
 			auto ri = reinterpret_cast<MeshDx12*>(drawable.mesh.get());
 
-			cmdList->IASetVertexBuffers(0, 1, &std::dynamic_pointer_cast<VertexBufferDx12<Vertex>>(ri->vertexBuffer)->VertexBufferView());
-			cmdList->IASetIndexBuffer(&std::dynamic_pointer_cast<IndexBufferDx12>(ri->indexBuffer)->IndexBufferView());
+			auto bv = std::dynamic_pointer_cast<VertexBufferDx12<Vertex>>(ri->vertexBuffer)->VertexBufferView();
+			auto ibv = std::dynamic_pointer_cast<IndexBufferDx12>(ri->indexBuffer)->IndexBufferView();
+			cmdList->IASetVertexBuffers(0, 1, &bv);
+			cmdList->IASetIndexBuffer(&ibv);
 			cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			cmdList->DrawIndexedInstanced(std::dynamic_pointer_cast<IndexBufferDx12>(ri->indexBuffer)->mSize,
 				1, 0, 0, 0);
@@ -745,7 +799,7 @@ void GameRendererDx12::DrawFullscreenQuad(ID3D12GraphicsCommandList* cmdList) {
 	cmdList->IASetIndexBuffer(nullptr);
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	cmdList->DrawInstanced(24, 1, 0, 0);
+	cmdList->DrawInstanced(6, 1, 0, 0);
 }
 
 

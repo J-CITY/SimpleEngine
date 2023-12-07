@@ -23,12 +23,12 @@ namespace IKIGAI::RENDER {
 		CD3DX12_CPU_DESCRIPTOR_HANDLE mCpuSrv;
 		CD3DX12_GPU_DESCRIPTOR_HANDLE mGpuSrv;
 		//CD3DX12_CPU_DESCRIPTOR_HANDLE mCpuRtv;
-		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mRtvHeap = nullptr;
+		//Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mRtvHeap = nullptr;
 
-		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> UploadHeap = nullptr;
+		//Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> UploadHeap = nullptr;
 
 		static std::shared_ptr<TextureDx12> Create(std::string path);
-		static std::shared_ptr<TextureDx12> TextureDx12::CreateForAttach(size_t width, size_t height);
+		static std::shared_ptr<TextureDx12> CreateForAttach(size_t width, size_t height);
 		size_t mWidth = 0;
 		size_t mHeight = 0;
 

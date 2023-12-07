@@ -54,6 +54,10 @@ namespace IKIGAI {
 		class AssimpParser {
 		public:
 			bool LoadModel(const std::string& fileName, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags);
+			bool LoadVertexes(const std::string& fileName, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags,
+				std::vector<std::vector<Vertex>>& globalVerticesPerMesh,
+				std::vector< std::vector<uint32_t>>& globalIndicesPerMesh);
+
 		private:
 			const unsigned int MAX_BONE_WEIGHTS = 4;
 			void processMaterials(const struct aiScene* scene, std::vector<std::string>& materials);;

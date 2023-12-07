@@ -51,6 +51,7 @@ namespace IKIGAI::RENDER {
 
 		std::shared_ptr<UploadBuffer<DataUBODX12>> dataUBO;
 		DataUBODX12 _dataUBO;
+		std::shared_ptr<UploadBuffer<MATHGL::Matrix4>> pushModel;
 
 		bool mBlendable = false;
 		bool mBackfaceCulling = true;

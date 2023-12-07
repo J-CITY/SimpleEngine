@@ -47,6 +47,12 @@ void DriverDx12::createRtvAndDsvDescriptorHeaps()
 	dsvHeapDesc.NodeMask = 0;
 	ThrowIfFailed(mDevice->CreateDescriptorHeap(
 		&dsvHeapDesc, IID_PPV_ARGS(mDsvHeap.GetAddressOf())));
+
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	desc.NumDescriptors = 10000;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(mDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(mTexturesDescHeap.GetAddressOf())) != S_OK);
 }
 
 void DriverDx12::onResize() {
@@ -99,8 +105,9 @@ void DriverDx12::onResize() {
 	optClear.Format = mDepthStencilFormat;
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
+	auto prop = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 	ThrowIfFailed(mDevice->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		&prop,
 		D3D12_HEAP_FLAG_NONE,
 		&depthStencilDesc,
 		D3D12_RESOURCE_STATE_COMMON,
@@ -111,8 +118,8 @@ void DriverDx12::onResize() {
 	mDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), nullptr, depthStencilView());
 
 	// Transition the resource from its initial state to be used as a depth buffer.
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBuffer.Get(),
-		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
+	auto b = CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	mCommandList->ResourceBarrier(1, &b);
 
 	// Execute the resize commands.
 	ThrowIfFailed(mCommandList->Close());
@@ -225,7 +232,7 @@ void DriverDx12::flushCommandQueue() {
 	ThrowIfFailed(mCommandQueue->Signal(mFence.Get(), mCurrentFence));
 
 	if (mFence->GetCompletedValue() < mCurrentFence) {
-		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+		HANDLE eventHandle = CreateEventEx(nullptr, L"", false, EVENT_ALL_ACCESS);
 
 		ThrowIfFailed(mFence->SetEventOnCompletion(mCurrentFence, eventHandle));
 
@@ -288,7 +295,7 @@ void DriverDx12::logAdapters() {
 		text += desc.Description;
 		text += L"\n";
 
-		OutputDebugString(text.c_str());
+		OutputDebugStringW(text.c_str());
 
 		adapterList.push_back(adapter);
 
@@ -311,7 +318,7 @@ void DriverDx12::logAdapterOutputs(IDXGIAdapter* adapter) {
 		std::wstring text = L"***Output: ";
 		text += desc.DeviceName;
 		text += L"\n";
-		OutputDebugString(text.c_str());
+		OutputDebugStringW(text.c_str());
 
 		logOutputDisplayModes(output, mBackBufferFormat);
 
@@ -340,7 +347,7 @@ void DriverDx12::logOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format) 
 			L"Refresh = " + std::to_wstring(n) + L"/" + std::to_wstring(d) +
 			L"\n";
 
-		::OutputDebugString(text.c_str());
+		OutputDebugStringW(text.c_str());
 	}
 }
 

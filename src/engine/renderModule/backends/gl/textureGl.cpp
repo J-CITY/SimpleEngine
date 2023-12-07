@@ -55,7 +55,7 @@ std::shared_ptr<TextureGl> TextureGl::Create(std::string path, bool generateMipm
 
     int width=0, height=0, nrComponents=0;
 
-    
+    //IKIGAI::RESOURCES::stbiSetFlipVerticallyOnLoad(true);
     //stbi_set_flip_vertically_on_load(true);
     unsigned char* data = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &width, &height, &nrComponents, 0);
     if (data)
@@ -73,9 +73,9 @@ std::shared_ptr<TextureGl> TextureGl::Create(std::string path, bool generateMipm
         if (generateMipmap) {
             glGenerateMipmap(GL_TEXTURE_2D);
         }
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         IKIGAI::RESOURCES::stbiImageFree(data);
@@ -90,10 +90,12 @@ std::shared_ptr<TextureGl> TextureGl::Create(std::string path, bool generateMipm
     tex->mPath = path;
     tex->width = width;
     tex->height = height;
+    tex->chanels = nrComponents;
     return tex;
 }
 
 std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureResource& res) {
+    int chanels = 4;
     auto getFormat = [](int nrComponents) {
         GLenum format;
         if (nrComponents == 1)
@@ -115,28 +117,44 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
         return format;
     };
 
-    auto getFormat2 = [](PixelDataFormat dataFormat) {
+    auto getFormat2 = [&](PixelDataFormat dataFormat) {
         GLenum format;
-        if (dataFormat == PixelDataFormat::RED)
+        if (dataFormat == PixelDataFormat::RED) {
             format = GL_RED;
-        else if (dataFormat == PixelDataFormat::RGB)
+            chanels = 1;
+        }
+        else if (dataFormat == PixelDataFormat::RGB) {
             format = GL_RGB;
-        else if (dataFormat == PixelDataFormat::RGBA)
+            chanels = 3;
+        }
+        else if (dataFormat == PixelDataFormat::RGBA) {
             format = GL_RGBA;
-        else if (dataFormat == PixelDataFormat::DEPTH_COMPONENT)
+            chanels = 4;
+        }
+        else if (dataFormat == PixelDataFormat::DEPTH_COMPONENT) {
             format = GL_DEPTH_COMPONENT;
+            chanels = 1;
+        }
         return format;
     };
-    auto getInternalFormat2 = [](PixelDataFormat dataFormat, bool isFloat) {
+    auto getInternalFormat2 = [&](PixelDataFormat dataFormat, bool isFloat) {
         GLenum format;
-        if (dataFormat == PixelDataFormat::RED)
+        if (dataFormat == PixelDataFormat::RED) {
             format = isFloat ? GL_R16F : GL_RED;
-        else if (dataFormat == PixelDataFormat::RGB)
+            chanels = 1;
+        }
+        else if (dataFormat == PixelDataFormat::RGB) {
             format = isFloat ? GL_RGB16F : GL_RGB;
-        else if (dataFormat == PixelDataFormat::RGBA)
+            chanels = 3;
+        }
+        else if (dataFormat == PixelDataFormat::RGBA) {
             format = isFloat ? GL_RGBA16F : GL_RGBA;
-        else if (dataFormat == PixelDataFormat::DEPTH_COMPONENT)
+            chanels = 4;
+        }
+        else if (dataFormat == PixelDataFormat::DEPTH_COMPONENT) {
             format = isFloat ? GL_DEPTH_COMPONENT32F : GL_DEPTH_COMPONENT;
+            chanels = 1;
+        }
         return format;
     };
 
@@ -209,6 +227,7 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
         tex->width = width;
         tex->height = height;
         tex->depth = res.depth;
+        tex->chanels = chanels;
     }
     else {
         if (res.isFloat) {
@@ -231,6 +250,7 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
     
     tex->id = texId;
     tex->mPath = res.path;
+    
     return tex;
 }
 
@@ -314,6 +334,7 @@ std::shared_ptr<TextureGl> TextureGl::createForAttach(int texWidth, int texHeigh
     tex->id = texId;
     tex->width = texWidth;
     tex->height = texHeight;
+    tex->chanels = 4;
     return tex;
 }
 
@@ -419,6 +440,14 @@ std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ
     tex->height = texY;
     tex->depth = texZ;
     return tex;
+}
+
+std::vector<unsigned char> TextureGl::getPixels(const std::string& path) {
+    int width = 0, height = 0, nrComponents = 0;
+    unsigned char* data = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &width, &height, &nrComponents, 0);
+    std::vector<unsigned char> res(data, data + width * height * nrComponents);
+    IKIGAI::RESOURCES::stbiImageFree(data);
+    return res;
 }
 
 void TextureGl::bind(int _slot) {

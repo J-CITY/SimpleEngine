@@ -44,7 +44,7 @@ void OneTimeSubmit(ID3D12Device* device, const std::function<void(ID3D12Graphics
 }
 
 #include "../../gameRendererDx12.h"
-#include "../../../resourceManager/textureManager.h"
+#include <coreModule/resourceManager/textureManager.h>
 std::shared_ptr<TextureDx12> TextureDx12::Create(std::string path) {
     int texWidth, texHeight, texChannels;
     unsigned char* pixels = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &texWidth, &texHeight, &texChannels, 4);
@@ -64,18 +64,30 @@ std::shared_ptr<TextureDx12> TextureDx12::Create(std::string path) {
 	GameRendererDx12::mApp->mDriver->mDevice->CreateCommittedResource(&prop, D3D12_HEAP_FLAG_NONE, &desc,
 		D3D12_RESOURCE_STATE_COMMON, NULL, IID_PPV_ARGS(texture->Resource.GetAddressOf()));
 
-	D3D12_DESCRIPTOR_HEAP_DESC heap_desc = {};
-	heap_desc.NumDescriptors = 1;
-	heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	GameRendererDx12::mApp->mDriver->mDevice->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(texture->UploadHeap.GetAddressOf()));
+	//D3D12_DESCRIPTOR_HEAP_DESC heap_desc = {};
+	//heap_desc.NumDescriptors = 1;
+	//heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	//heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	//GameRendererDx12::mApp->mDriver->mDevice->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(texture->UploadHeap.GetAddressOf()));
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srv_desc.Format = format;
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srv_desc.Texture2D.MipLevels = 1;
-	GameRendererDx12::mApp->mDriver->mDevice->CreateShaderResourceView(texture->Resource.Get(), &srv_desc, texture->UploadHeap->GetCPUDescriptorHandleForHeapStart());
+
+	auto device = GameRendererDx12::mApp->mDriver->mDevice;
+	auto& offset = GameRendererDx12::mApp->mDriver->mTesturesDescOffset;
+	auto mCbvSrvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	auto mRtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	auto cpuSrv = CD3DX12_CPU_DESCRIPTOR_HANDLE(
+		GameRendererDx12::mApp->mDriver->mTexturesDescHeap->GetCPUDescriptorHandleForHeapStart()).Offset(offset, mCbvSrvDescriptorSize);;
+	texture->mCpuSrv = cpuSrv;
+	GameRendererDx12::mApp->mDriver->mDevice->CreateShaderResourceView(texture->Resource.Get(), &srv_desc, cpuSrv);
+
+	auto gpuSrv = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+		GameRendererDx12::mApp->mDriver->mTexturesDescHeap->GetGPUDescriptorHandleForHeapStart()).Offset(offset, mCbvSrvDescriptorSize);;
+	texture->mGpuSrv = gpuSrv;
 
 	auto upload_size = GetRequiredIntermediateSize(texture->Resource.Get(), 0, 1);
 	auto upload_desc = CD3DX12_RESOURCE_DESC::Buffer(upload_size);
@@ -91,7 +103,7 @@ std::shared_ptr<TextureDx12> TextureDx12::Create(std::string path) {
 	subersource_data.RowPitch = texWidth * texChannels;
 	subersource_data.SlicePitch = texWidth * texHeight * texChannels;
 
-
+	offset++;
 	//auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture->Resource.Get(),
 	//	D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
 	//
@@ -117,7 +129,7 @@ std::shared_ptr<TextureDx12> TextureDx12::Create(std::string path) {
 
 		cmdlist->ResourceBarrier(1, &barrier);
 	});
-
+	
 	//if (mipmap)
 	//{
 	//	generateMips();
@@ -168,8 +180,9 @@ void TextureDx12::BuildResource(std::shared_ptr<TextureDx12> texture) {
 	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	
+	auto prop = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 	ThrowIfFailed(device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		&prop,
 		D3D12_HEAP_FLAG_NONE,
 		&texDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
@@ -181,19 +194,19 @@ void TextureDx12::BuildDescriptors(std::shared_ptr<TextureDx12> texture) {
 	auto device = GameRendererDx12::mApp->mDriver->mDevice;
 
 	
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.NumDescriptors = 1;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&texture->UploadHeap)));
+	//D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	//srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	//srvHeapDesc.NumDescriptors = 1;
+	//srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	//ThrowIfFailed(device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&texture->UploadHeap)));
 
-
+	auto& offset = GameRendererDx12::mApp->mDriver->mTesturesDescOffset;
 	auto mCbvSrvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	auto mRtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	auto cpuSrv = CD3DX12_CPU_DESCRIPTOR_HANDLE(
-		texture->UploadHeap->GetCPUDescriptorHandleForHeapStart()).Offset(0, mCbvSrvDescriptorSize);
+		GameRendererDx12::mApp->mDriver->mTexturesDescHeap->GetCPUDescriptorHandleForHeapStart()).Offset(offset, mCbvSrvDescriptorSize);
 	auto gpuSrv = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-		texture->UploadHeap->GetGPUDescriptorHandleForHeapStart()).Offset(0, mCbvSrvDescriptorSize);
+		GameRendererDx12::mApp->mDriver->mTexturesDescHeap->GetGPUDescriptorHandleForHeapStart()).Offset(offset, mCbvSrvDescriptorSize);
 	//auto cpuRtv = CD3DX12_CPU_DESCRIPTOR_HANDLE(
 	//	texture->mRtvHeap->GetCPUDescriptorHandleForHeapStart()).Offset(0, mRtvDescriptorSize);
 
@@ -217,7 +230,7 @@ void TextureDx12::BuildDescriptors(std::shared_ptr<TextureDx12> texture) {
 	srvDesc.Texture2D.MipLevels = 1;
 	device->CreateShaderResourceView(texture->Resource.Get(), &srvDesc, _cpuSrv);
 	
-	
+	offset++;
 	//D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
 	//rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 	//rtvDesc.Format = texture->mNormalPosFormat;

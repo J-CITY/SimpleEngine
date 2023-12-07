@@ -7,7 +7,9 @@
 #pragma once
 
 #ifdef DX12_BACKEND
-
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
 #include <DirectXMath.h>
 #include <cstdint>

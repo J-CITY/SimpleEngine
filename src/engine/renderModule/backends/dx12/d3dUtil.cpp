@@ -45,18 +45,23 @@ ComPtr<ID3DBlob> d3dUtil::LoadBinary(const std::wstring& filename)
 ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer)
 {
     ComPtr<ID3D12Resource> defaultBuffer;
+    auto prop = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    auto b = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
     ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        &prop,
         D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+        &b,
 		D3D12_RESOURCE_STATE_COMMON,
         nullptr,
         IID_PPV_ARGS(defaultBuffer.GetAddressOf())));
     
+
+    auto prop1 = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    auto b1 = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
     ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+        &prop1,
 		D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+        &b1,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(uploadBuffer.GetAddressOf())));
@@ -66,14 +71,16 @@ ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(ID3D12Device* device, ID3D12
     subResourceData.RowPitch = byteSize;
     subResourceData.SlicePitch = subResourceData.RowPitch;
     
-	cmdList->ResourceBarrier(1, 
-        &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), 
-		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST));
+    auto b3 = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
+        D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
+	cmdList->ResourceBarrier(1, &b3);
     UpdateSubresources<1>(cmdList, defaultBuffer.Get(), uploadBuffer.Get(),
         0, 0, 1, &subResourceData);
+
+    auto b4 = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
 	cmdList->ResourceBarrier(1, 
-        &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
-		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ));
+        &b4);
 
 
     return defaultBuffer;
@@ -84,18 +91,23 @@ ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(ID3D12Device* device, ID3D12
 ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer)
 {
     ComPtr<ID3D12Resource> defaultBuffer;
+    auto prop = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    auto buff = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
     ThrowIfFailed(GameRendererDx12::mApp->mDriver->mDevice->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        &prop,
         D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+        &buff,
         D3D12_RESOURCE_STATE_COMMON,
         nullptr,
         IID_PPV_ARGS(defaultBuffer.GetAddressOf())));
 
+
+    auto prop1 = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    auto buff1 = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
     ThrowIfFailed(GameRendererDx12::mApp->mDriver->mDevice->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+        &prop1,
         D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+        &buff1,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(uploadBuffer.GetAddressOf())));
@@ -105,14 +117,17 @@ ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(const void* initData, UINT64
     subResourceData.RowPitch = byteSize;
     subResourceData.SlicePitch = subResourceData.RowPitch;
 
+    auto t1 = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
     GameRendererDx12::mApp->mDriver->mCommandList->ResourceBarrier(1,
-        &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
-            D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST));
+        &t1);
     UpdateSubresources<1>(GameRendererDx12::mApp->mDriver->mCommandList.Get(), defaultBuffer.Get(), uploadBuffer.Get(),
         0, 0, 1, &subResourceData);
+
+
+    auto t2 = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
     GameRendererDx12::mApp->mDriver->mCommandList->ResourceBarrier(1,
-        &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
-            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ));
+        &t2);
 
 
     return defaultBuffer;

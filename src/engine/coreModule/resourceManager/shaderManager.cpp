@@ -20,6 +20,10 @@
 #include "renderModule/backends/vk/shaderVk.h"
 #endif
 
+#ifdef DX12_BACKEND
+#include "renderModule/backends/dx12/shaderDx12.h"
+#endif
+
 import logger;
 
 using namespace IKIGAI;
@@ -133,6 +137,11 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromResource(const REND
 	//return std::make_shared<RENDER::ShaderVk>(res);
 	return nullptr;
 #endif
+#ifdef DX12_BACKEND
+	//TODO:
+	//return std::make_shared<RENDER::ShaderVk>(res);
+	return nullptr;
+#endif
 
 }
 
@@ -165,8 +174,8 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromSource(const std::s
 	//	delete m;
 	//});
 #ifdef OPENGL_BACKEND
-	std::static_pointer_cast<RENDER::ShaderGl>(shared)->compile(vertexShader, fragmentShader, geometryShader,
-		tessCompShader, tessEvoluationShader, computeShader);
+//	std::static_pointer_cast<RENDER::ShaderGl>(shared)->compile(vertexShader, fragmentShader, geometryShader,
+//		tessCompShader, tessEvoluationShader, computeShader);
 
 #endif
 	return nullptr;

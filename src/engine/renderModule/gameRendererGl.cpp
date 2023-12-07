@@ -3,6 +3,7 @@
 #include "coreModule/resourceManager/materialManager.h"
 #include "coreModule/resourceManager/shaderManager.h"
 #include "coreModule/resourceManager/textureManager.h"
+#include "debugModule/debugRender.h"
 
 
 #ifdef OPENGL_BACKEND
@@ -103,6 +104,7 @@ EngineShadowDataUBO mEngineShadowData;
 void renderQuad();
 void renderQuadGUI();
 void renderCube();
+void renderQuadSpineGUI(std::vector<SPINE::SpineVertex>& vertexes);
 
 #include <coreModule/resourceManager/modelManager.h>
 #include "backends/gl/materialGl.h"
@@ -194,7 +196,9 @@ void GameRendererGl::createShaders() {
 
 	mShaders["deferredLightning"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredLightning.vs.glsl", "./Shaders/gl/deferredLightning.fs.glsl");
 	mShaders["deferredLightningPbr"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredLightningPbr.vs.glsl", "./Shaders/gl/deferredLightningPbr.fs.glsl");
-	
+
+	mShaders["debugMeshShader"] = std::make_shared<ShaderGl>("./Shaders/gl/standardLines.vs.glsl", "./Shaders/gl/standardLines.fs.glsl");
+
 	//TODO: update it when mPipeline.mIsPbr change
 	mDeferredShader = mShaders["deferredLightning"];
 	mDeferredShader->bind();
@@ -465,11 +469,20 @@ void GameRendererGl::createShaders() {
 	mShaders["sprite"]->setInt("image", 0);
 	mShaders["sprite"]->bind();
 
+	mShaders["spine"] = std::make_shared<ShaderGl>(
+		"./Shaders/gui/spine.vs.glsl", "./Shaders/gui/spine.fs.glsl");
+	mShaders["sprite"]->bind();
+	mShaders["sprite"]->setInt("image", 0);
+	mShaders["sprite"]->bind();
+
 	mShaders["label"] = std::make_shared<ShaderGl>(
 		"./Shaders/gui/text.vs.glsl", "./Shaders/gui/text.fs.glsl");
 	mShaders["label"]->bind();
 	mShaders["label"]->setInt("u_engine_text", 0);
 	mShaders["label"]->bind();
+
+	mShaders["grid"] = std::make_shared<ShaderGl>(
+		"./Shaders/gl/grid.vs.glsl", "./Shaders/gl/grid.fs.glsl");
 
 	//START CLOUDS
 	mShaders["clouds"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/triangle_vs.glsl", "./Shaders/gl/Volumetric/clouds_fs.glsl");
@@ -482,7 +495,7 @@ void GameRendererGl::createShaders() {
 	mTextures["shape_noise_texture"] = TextureGl::createEmpty3d(128, 128, 128);
 	mTextures["detail_noise_texture"] = TextureGl::createEmpty3d(32, 32, 32);
 		
-		
+
 	//run
 	mShaders["shape_noise"]->bind();
 	mShaders["shape_noise"]->setInt("u_Size", (int)mTextures["shape_noise_texture"]->width);
@@ -644,6 +657,9 @@ void GameRendererGl::createFrameBuffers() {
 	mTextures["ssaoBlur"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["ssaoBlur"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["ssaoBlur"]->create({ mTextures["ssaoBlur"] });
+
+	//FOR EDITOR
+	mEditorTexture = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
 
 	//mFramebuffers["equirectangularToCubemap"] = std::make_shared<FrameBufferGl>();
 	//mFramebuffers["equirectangularToCubemap"]->create();
@@ -1137,6 +1153,16 @@ void GameRendererGl::sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader) {
 }
 
 void GameRendererGl::renderScene() {
+	//DEBUG::DebugRender::debugCamera->setActive(true);
+	DEBUG::DebugRender::debugCamera->setActive(false);
+	if (mContext.sceneManager->hasCurrentScene()) {
+		mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera();
+	}
+	//renderEditorScene(*DEBUG::DebugRender::debugCamera->getComponent<ECS::CameraComponent>());
+	renderEditorScene(*mainCameraComponent);
+	DEBUG::DebugRender::debugCamera->setActive(false);
+
+
 	mainCameraComponent = std::nullopt;
 	if (mContext.sceneManager->hasCurrentScene()) {
 		mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera();
@@ -1155,6 +1181,8 @@ void GameRendererGl::renderScene() {
 		//sendEngineShadowUBO(nullptr);
 
 		renderScene(mainCameraComponent.value());
+		renderToScreen();
+		updateDebug3dTextureFB();
 
 		//Return state back
 		mDriver->applyStateMask(glState);
@@ -1165,6 +1193,41 @@ void GameRendererGl::renderScene() {
 	}
 	frameCount++;
 	frameCount %= 10000;
+}
+
+void GameRendererGl::renderEditorScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> editorCamera) {
+	mainCameraComponent = editorCamera;
+	
+	if (mainCameraComponent) {
+		auto [winWidth, winHeight] = mContext.window->getSize();
+		const auto& cameraPosition = mainCameraComponent.value()->obj->getTransform()->getWorldPosition();
+		const auto& cameraRotation = mainCameraComponent.value()->obj->getTransform()->getWorldRotation();
+		mainCameraComponent->getPtr()->getCamera().cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
+
+		//Save current state
+		auto glState = mDriver->fetchGLState();
+
+		sendEngineUBO();
+		renderScene(mainCameraComponent.value());
+
+		//grid
+		//pingPongFb[pingPong]->bind();
+		//mDriver->clear(true, true, false);
+		//mShaders["grid"]->bind();
+		//renderQuad();
+		//mShaders["grid"]->unbind();
+		//pingPongFb[pingPong]->unbind();
+		//pingPong = !pingPong;
+
+		TextureGl::CopyTexture(*pingPongTex[!pingPong], *mEditorTexture);
+
+		//Return state back
+		mDriver->applyStateMask(glState);
+	}
+	//else {
+	//	mDriver->setClearColor(mPipeline.mClearColor.x, mPipeline.mClearColor.y, mPipeline.mClearColor.z, mPipeline.mClearColor.w);
+	//	mDriver->clear(true, true, false);
+	//}
 }
 
 std::vector<MATHGL::Vector4> getFrustumCornersWorldSpace(const MATHGL::Matrix4& projview) {
@@ -1669,6 +1732,53 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 	
 	renderSkybox();
 
+	//Debug render
+	/*
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	mDeferredFb->bind();
+	mShaders["grid"]->bind();
+	renderQuad();
+	mShaders["grid"]->unbind();
+	mDeferredFb->unbind();
+
+	mDeferredFb->bind();
+	mShaders["debugMeshShader"]->bind();
+	for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
+		drawDrawableDebug(drawable);
+	}
+	for (const auto& [distance, drawable] : mTransparentMeshesDeferred) {
+		drawDrawableDebug(drawable);
+	}
+	for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
+		drawDrawableDebug(drawable);
+	}
+	for (const auto& [distance, drawable] : mTransparentMeshesForward) {
+		drawDrawableDebug(drawable);
+	}
+
+	for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
+		Drawable d;
+		d.mesh = sphere->getMeshes()[0];
+		d.material = emptyMaterial;
+		d.world = drawable.world;
+		//d.world *= MATHGL::Matrix4::Scaling(drawable.mesh->getBoundingSphere().radius);
+		drawDrawableDebug(d);
+	}
+	for (const auto& [distance, drawable] : mTransparentMeshesDeferred) {
+		drawDrawableDebug(drawable);
+	}
+	for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
+		drawDrawableDebug(drawable);
+	}
+	for (const auto& [distance, drawable] : mTransparentMeshesForward) {
+		drawDrawableDebug(drawable);
+	}
+
+	mShaders["debugMeshShader"]->unbind();
+	mDeferredFb->unbind();
+	*/
+
 	pingPong = false;
 	TextureGl::CopyTexture(*mDeferredTexture, *pingPongTex[1]);
 	TextureGl::CopyTexture(*mDeferredTexture, *mTextures["deferredTextureSave"]);
@@ -1704,20 +1814,17 @@ void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainC
 	for (auto& e : ppFuncs) {
 		e();
 	}
+}
 
-	{//render to screen
-		mShaders["renderToScreen"]->bind();
-		//mTextures["spotShadowMap"]->bind(0);
-		//mTextures["ssaoBlur"]->bind(0);
-		//mRenderToScreenTexture->bind(0);
-		//mDeferredTexture->bind(0);
-		pingPongTex[!pingPong]->bind(0);
-		renderQuad();
-		mShaders["renderToScreen"]->unbind();
-	}
-
-	updateDebug3dTextureFB();
-	
+void GameRendererGl::renderToScreen() {
+	mShaders["renderToScreen"]->bind();
+	//mTextures["spotShadowMap"]->bind(0);
+	//mTextures["ssaoBlur"]->bind(0);
+	//mRenderToScreenTexture->bind(0);
+	//mDeferredTexture->bind(0);
+	pingPongTex[!pingPong]->bind(0);
+	renderQuad();
+	mShaders["renderToScreen"]->unbind();
 }
 
 void GameRendererGl::sendIBLData() {
@@ -2165,6 +2272,35 @@ void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
 		mShaders["sprite"]->unbind();
 	}
 
+	if (auto component = obj->getComponent<ECS::SpineComponent>()) {
+		auto _component = component;
+
+		_component->spine->spineDraw(TIME::Timer::GetInstance().getDeltaTime().count());
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
+		
+		glEnable(GL_BLEND);
+		glBlendFunc(component->spine->_drawable->_states.blendSrc, component->spine->_drawable->_states.blendDst);
+
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		mShaders["spine"]->bind();
+
+		auto texture = component->spine->_drawable->_states.texture;
+		if (texture) {
+			texture->bind(0);
+		}
+		else {
+			mEmptyTexture->bind(0);
+		}
+		//mShaders["spine"]->setVec4("spriteColor", _component->mColor);
+		mShaders["spine"]->setMat4("u_engine_model",
+			transform->getWorldMatrix());
+		mShaders["spine"]->setMat4("u_engine_projection", projection);
+
+		renderQuadSpineGUI(component->spine->_drawable->vertexArray);
+		mShaders["spine"]->unbind();
+	}
+
 	if (auto component = obj->getComponent<ECS::LabelComponent>()) {
 
 		glDisable(GL_DEPTH_TEST);
@@ -2491,6 +2627,21 @@ void GameRendererGl::drawDrawable(const Drawable& p_toDraw) {
 	}
 }
 
+void GameRendererGl::drawDrawableDebug(const Drawable& p_toDraw) {
+	if (p_toDraw.material->hasShader() && p_toDraw.material->getGPUInstances() > 0) {
+		sendEngineUBO(*mShaders["debugMeshShader"], p_toDraw.world);
+		if (p_toDraw.animator) {
+			sendBounseDataToShader(std::static_pointer_cast<MaterialGl>(p_toDraw.material),
+				*p_toDraw.animator,
+				mShaders["debugMeshShader"]);
+		}
+		else {
+			mShaders["debugMeshShader"]->setInt("u_UseBone", false);
+		}
+		mDriver->draw(*p_toDraw.mesh, PrimitiveMode::LINES, p_toDraw.material->getGPUInstances());
+	}
+}
+
 //use external shader
 void GameRendererGl::drawMesh(const Drawable& p_toDraw) {
 	if (p_toDraw.material->getGPUInstances() > 0) {
@@ -2580,6 +2731,31 @@ void renderQuad() {
 	glBindVertexArray(0);
 }
 
+unsigned int quadSpineVAOGUI = 0;
+unsigned int quadSpineVBOGUI;
+void renderQuadSpineGUI(std::vector<SPINE::SpineVertex>& vertexes) {
+	if (quadSpineVAOGUI == 0) {
+
+		// Установка VAO плоскости
+		glGenVertexArrays(1, &quadSpineVAOGUI);
+		glGenBuffers(1, &quadSpineVBOGUI);
+		glBindVertexArray(quadSpineVAOGUI);
+		glBindBuffer(GL_ARRAY_BUFFER, quadSpineVBOGUI);
+		//glBufferData(GL_ARRAY_BUFFER, vertexes.size(), vertexes.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(2 * sizeof(float)));
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	}
+	glBindVertexArray(quadSpineVAOGUI);
+	glBindBuffer(GL_ARRAY_BUFFER, quadSpineVBOGUI);
+	glBufferData(GL_ARRAY_BUFFER, vertexes.size() * 8 * sizeof(float), vertexes.data(), GL_STATIC_DRAW);
+	glDrawArrays(GL_TRIANGLES, 0, vertexes.size());
+	glBindVertexArray(0);
+}
+
 unsigned int quadVAOGUI = 0;
 unsigned int quadVBOGUI;
 void renderQuadGUI() {
@@ -2608,6 +2784,8 @@ void renderQuadGUI() {
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
 }
+
+
 
 
 unsigned int cubeVAO = 0;

@@ -105,6 +105,8 @@ namespace IKIGAI::RENDER {
 		QueueFamilyIndices m_QueueFamilyIndices;
 		VkQueue	m_GraphicsQueue;
 		VkQueue	m_PresentationQueue;
+		VkQueue	m_ComputeQueue;
+		VkQueue	m_TransferQueue;
 		
 		std::shared_ptr<TextureVk> m_DepthBufferImage;
 

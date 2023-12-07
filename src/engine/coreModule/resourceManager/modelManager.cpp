@@ -101,6 +101,28 @@ ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::Create(const std::strin
 	return nullptr;
 }
 
+
+ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateVerts(const std::string& filepath, ModelParserFlags parserFlags,
+	std::vector<std::vector<Vertex>>& _globalVerticesPerMesh,
+	std::vector< std::vector<uint32_t>>& _globalIndicesPerMesh) {
+
+	ResourcePtr<RENDER::ModelInterface> result;
+
+#ifdef OPENGL_BACKEND
+	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
+		result = ResourcePtr<RENDER::ModelInterface>(new RENDER::ModelGl(filepath), [](RENDER::ModelGl* m) {
+			ServiceManager::Get<ModelLoader>().unloadResource<ModelLoader>(m->getPath());
+			});
+	}
+#endif
+
+	if (_ASSIMP.LoadVertexes(filepath, result, parserFlags, _globalVerticesPerMesh, _globalIndicesPerMesh)) {
+		result->computeBoundingSphere();
+		return result;
+	}
+	return nullptr;
+}
+
 ModelParserFlags ModelLoader::getDefaultFlag() {
 	//auto metaFile = iniFile(path + ".meta");
 	IKIGAI::RESOURCES::ModelParserFlags flags = IKIGAI::RESOURCES::ModelParserFlags::TRIANGULATE;
