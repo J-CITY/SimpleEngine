@@ -18,12 +18,21 @@ using namespace IKIGAI::ECS;
 SpriteComponent::SpriteComponent(Object& obj) : Component(obj) {
 }
 
-SpriteComponent::SpriteComponent(Object& obj, const std::string& path): Component(obj), mPath(path) {
+SpriteComponent::SpriteComponent(Object& obj, const std::string& path): Component(obj) {
+	setTexture(path);
+}
+
+void SpriteComponent::setTexture(std::string path) {
+	mPath = path;
 #ifdef OPENGL_BACKEND
 	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path, true);
-	obj.getTransform()->getTransform().setLocalSize(
+	obj->getTransform()->getTransform().setLocalSize(
 		{ static_cast<RENDER::TextureGl*>(mTexture.get())->width, static_cast<RENDER::TextureGl*>(mTexture.get())->height });
 #endif
+}
+
+std::string SpriteComponent::getTexture() {
+	return mPath;
 }
 
 LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font) :
@@ -57,6 +66,27 @@ LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<G
 	//glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
 	//glBindBuffer(GL_ARRAY_BUFFER, 0);
 	//glBindVertexArray(0);
+}
+
+void SpineComponent::setSpine(SpineRefl data)
+{
+	skelPath = data.skelPath;
+	atlasPath = data.atlasPath;
+	spine = std::make_shared<RENDER::SPINE::SpineController>(skelPath, atlasPath);
+
+	spine->setAnimation("idle", true);
+}
+
+SpineRefl SpineComponent::getSpine()
+{
+	return { skelPath, atlasPath };
+}
+
+SpineComponent::SpineComponent(Object& obj) : Component(obj) {
+}
+
+SpineComponent::SpineComponent(Object& obj, std::string skelPath, std::string atlasPath): Component(obj), skelPath(skelPath), atlasPath(atlasPath){
+	spine = std::make_shared<RENDER::SPINE::SpineController>(skelPath, atlasPath);
 }
 
 //void LabelComponentGui::draw() {
@@ -200,4 +230,43 @@ ScrollComponent::ScrollComponent(Object& obj, float w, float h): Component(obj),
 //}
 
 
+
+
+#include <rttr/registration>
+
+RTTR_REGISTRATION
+{
+	rttr::registration::class_<IKIGAI::ECS::SpriteComponent>("SpriteComponent")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	)
+	.property("TexturePath", &IKIGAI::ECS::SpriteComponent::getTexture, &IKIGAI::ECS::SpriteComponent::setTexture)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+	);
+
+
+	rttr::registration::class_<IKIGAI::ECS::SpineRefl>("SpineRefl")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	)
+	.property("Skel", &IKIGAI::ECS::SpineRefl::skelPath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	)
+	.property("Atlas", &IKIGAI::ECS::SpineRefl::atlasPath)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	);
+
+	rttr::registration::class_<IKIGAI::ECS::SpineComponent>("SpineComponent")
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	)
+	.property("Spine", &IKIGAI::ECS::SpineComponent::getSpine, &IKIGAI::ECS::SpineComponent::setSpine)
+	(
+		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+	);
+}
 

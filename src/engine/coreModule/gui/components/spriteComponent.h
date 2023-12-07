@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../../ecs/components/component.h"
+#include <renderModule/spine/spineDrawable.h>
+#include <rttr/registration_friend.h>
 
 namespace IKIGAI
 {
@@ -38,6 +40,8 @@ namespace IKIGAI {
 		public:
 			SpriteComponent(Object& obj);
 			SpriteComponent(Object& obj, const std::string& path);
+			void setTexture(std::string path);
+			std::string getTexture();
 			MATHGL::Vector4 mColor = {1, 1, 1, 1};
 			std::string mPath;
 			std::shared_ptr<RENDER::TextureInterface> mTexture;
@@ -49,6 +53,27 @@ namespace IKIGAI {
 			std::string mLabel;
 			std::shared_ptr<GUI::Font> font;
 			MATHGL::Vector4 color = {1, 1, 1, 1};
+		};
+
+		struct SpineRefl
+		{
+			std::string skelPath;
+			std::string atlasPath;
+		};
+		class SpineComponent : public Component {
+			RTTR_REGISTRATION_FRIEND
+
+			void setSpine(SpineRefl data);
+
+			SpineRefl getSpine();
+
+		public:
+			SpineComponent(Object& obj);
+			SpineComponent(Object& obj, std::string skelPath, std::string atlasPath);
+			std::shared_ptr<RENDER::SPINE::SpineController> spine;
+
+			std::string skelPath;
+			std::string atlasPath;
 		};
 
 		enum class GuiEventType {
