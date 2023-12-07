@@ -14,6 +14,7 @@ namespace IKIGAI::PROFILER {
 
 		struct Node {
 			std::string mName;
+			double mStart = 0.0;
 			double mDuration = 0.0;
 			int level = 0;
 		};

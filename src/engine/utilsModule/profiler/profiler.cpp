@@ -2,6 +2,7 @@
 #include <map>
 #include <string>
 #include "profilerSpy.h"
+#include "profilerReport.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::PROFILER;
@@ -49,11 +50,22 @@ void Profiler::ClearHistory() {
 	__WORKING_THREADS_CALLS.clear();
 	__ELAPSED_FRAMES = 0;
 	mLastTime = std::chrono::high_resolution_clock::now();
+	__REPORT_HISTORY.clear();
 }
 
 void Profiler::Update(float p_deltaTime) {
 	if (IsEnabled()) {
+		__WORKING_THREADS_CALLS.clear();
+		mFrameStart = std::chrono::steady_clock::now();
 		__ELAPSED_FRAMES++;
+	}
+}
+
+void Profiler::UpdateEnd() {
+	if (IsEnabled()) {
+		__REPORT_HISTORY.push_back(GenerateReport());
+		std::chrono::duration<double> dur = std::chrono::high_resolution_clock::now() - mFrameStart;
+		__REPORT_HISTORY_DURATIONS.push_back(dur.count());
 	}
 }
 
@@ -75,8 +87,8 @@ void Profiler::Save(ProfilerSpy& p_spy) {
 	else {
 		__CALLS_COUNTER[p_spy.mName] = 1;
 	}
-
-	__WORKING_THREADS_CALLS[std::this_thread::get_id()].push_back({ p_spy.mName , delta,  __WORKING_THREADS_LEVEL[std::this_thread::get_id()]});
+	std::chrono::duration<double> start = mFrameStart - p_spy.mStart;
+	__WORKING_THREADS_CALLS[std::this_thread::get_id()].push_back({ p_spy.mName , start.count(), delta,  __WORKING_THREADS_LEVEL[std::this_thread::get_id()]});
 
 	__SAVE_MUTEX.unlock();
 }
@@ -118,4 +130,12 @@ void Profiler::DecreaseLevel() {
 		__WORKING_THREADS_LEVEL[std::this_thread::get_id()]--;
 	}
 	__SAVE_MUTEX.unlock();
+}
+
+const std::vector<ProfilerReport>& Profiler::getReportHistory() {
+	return __REPORT_HISTORY;
+}
+
+const std::vector<float>& Profiler::getReportHistoryDurations() {
+	return __REPORT_HISTORY_DURATIONS;
 }

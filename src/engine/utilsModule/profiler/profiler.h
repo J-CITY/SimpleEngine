@@ -16,6 +16,7 @@ namespace IKIGAI::PROFILER {
 		
 		void ClearHistory();
 		void Update(float p_deltaTime);
+		void UpdateEnd();
 		static void Save(ProfilerSpy& p_spy);
 		static bool IsEnabled();
 		static void ToggleEnable();
@@ -25,7 +26,11 @@ namespace IKIGAI::PROFILER {
 		static void IncreaseLevel();
 		static void DecreaseLevel();
 
+		static const std::vector<ProfilerReport>& getReportHistory();
+		static const std::vector<float>& getReportHistoryDurations();
+
 	private:
+		inline static std::chrono::steady_clock::time_point mFrameStart;
 		std::chrono::steady_clock::time_point mLastTime;
 		
 		static bool __ENABLED;
@@ -36,5 +41,8 @@ namespace IKIGAI::PROFILER {
 		static uint32_t __ELAPSED_FRAMES;
 
 		static std::unordered_map<std::thread::id, std::vector<ProfilerReport::Node>> __WORKING_THREADS_CALLS;
+
+		static inline std::vector<ProfilerReport> __REPORT_HISTORY;
+		static inline std::vector<float> __REPORT_HISTORY_DURATIONS;
 	};
 }
