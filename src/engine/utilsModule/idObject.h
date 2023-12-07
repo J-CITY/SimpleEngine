@@ -31,7 +31,7 @@ namespace IKIGAI {
 		}
 
 	private:
-		unsigned int m_id;
+		int m_id;
 	};
 
 	template<typename T>
