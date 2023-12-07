@@ -73,6 +73,9 @@ namespace IKIGAI::MATHGL {
 //}
 
 #ifdef DX12_BACKEND
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
 #include <iostream>
 #include <dxgi1_4.h>
@@ -95,7 +98,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 #endif
 	IKIGAI::CORE_SYSTEM::App::hInstance = hInstance;
 	IKIGAI::CORE_SYSTEM::App app;
-	app.getCore()->sceneManager->loadFromFile("Scenes/scene0Vk.json");
+	app.getCore()->sceneManager->loadFromFile("Scenes/scene0Vk2.json");
 
 	app.run();
 	return 0;
@@ -219,7 +222,7 @@ int main() {
 	*/
 
 	IKIGAI::CORE_SYSTEM::App app;
-	app.getCore()->sceneManager->loadFromFile("Scenes/scene0vk2.json");
+	app.getCore()->sceneManager->loadFromFile("Scenes/scene0.json");
 	auto& scene = app.getCore()->sceneManager->getCurrentScene();
 
 	auto sprite1 = IKIGAI::GUI::GuiHelper::CreateSprite("sprite1", std::string("Textures/btn.png"), true);

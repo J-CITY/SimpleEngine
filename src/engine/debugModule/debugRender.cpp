@@ -1,5 +1,4 @@
 ﻿#include "debugRender.h"
-#define NOMINMAX
 #include <memory>
 
 
@@ -21,6 +20,14 @@
 #include <../../3rd/imgui/imgui/imgui_impl_opengl3.h>
 #include <renderModule/backends/gl/materialGl.h>
 #endif
+
+#ifdef DX12_BACKEND
+#include <renderModule/backends/dx12/textureDx12.h>
+#include <renderModule/backends/dx12/driverDx12.h>
+#include "renderModule/gameRendererDx12.h"
+#include <../../3rd/imgui/imgui/imgui_impl_dx12.h>
+#include <../../3rd/imgui/imgui/imgui_impl_win32.h>
+#endif
 #include <SomeLogger.h>
 #include <stack>
 #include <unordered_set>
@@ -37,7 +44,9 @@
 #include "utilsModule/animation.h"
 #include "utilsModule/assertion.h"
 #include "utilsModule/imguiWidgets/ImGuiFileBrowser.h"
+#include "utilsModule/imguiWidgets/imgui_widget_flamegraph.h"
 #include "utilsModule/imguiWidgets/TextEditor.h"
+#include "utilsModule/profiler/profiler.h"
 using namespace IKIGAI;
 using namespace IKIGAI::DEBUG;
 
@@ -119,6 +128,9 @@ std::unordered_map<std::string, unsigned> textureCache;
 #endif
 #ifdef VULKAN_BACKEND
 std::unordered_map<std::string, std::shared_ptr<RENDER::TextureVk>> textureCache;
+#endif
+#ifdef DX12_BACKEND
+std::unordered_map<std::string, std::shared_ptr<RENDER::TextureDx12>> textureCache;
 #endif
 
 std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<IKIGAI::ECS::Object> parentEntity) {
@@ -362,6 +374,14 @@ std::shared_ptr<RENDER::TextureVk> ImGuiLoadTextureFromFileVk(const std::string&
 	return texture;
 }
 #endif
+
+#ifdef DX12_BACKEND
+std::shared_ptr<RENDER::TextureDx12> ImGuiLoadTextureFromFileDx12(const std::string& filename) {
+	// Load from file
+	auto texture = RENDER::TextureDx12::Create(filename);
+	return texture;
+}
+#endif
 struct File {
 	enum class FileType {
 		DIR,
@@ -428,7 +448,7 @@ struct FileBrowser {
 	FileBrowser(const std::string& path): mPath(path), mSelectedFolderPath(path), root(path) {
 #ifdef OPENGL_BACKEND
 		textureCache["__image__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/image-white.png")).value();
-		textureCache["__dir__"] = ImGuiLoadTextureFromFilGle(UTILS::getRealPath("Textures/Debug/Editor/folder-white.png")).value();
+		textureCache["__dir__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/folder-white.png")).value();
 		textureCache["__file__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/file-white.png")).value();
 		textureCache["__font__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/font-white.png")).value();
 		textureCache["__object__"] = ImGuiLoadTextureFromFileGl(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png")).value();
@@ -439,6 +459,13 @@ struct FileBrowser {
 		textureCache["__file__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/file-white.png"));
 		textureCache["__font__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/font-white.png"));
 		textureCache["__object__"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png"));
+#endif
+#ifdef DX12_BACKEND
+		textureCache["__image__"] = ImGuiLoadTextureFromFileDx12(UTILS::getRealPath("Textures/Debug/Editor/image-white.png"));
+		textureCache["__dir__"] = ImGuiLoadTextureFromFileDx12(UTILS::getRealPath("Textures/Debug/Editor/folder-white.png"));
+		textureCache["__file__"] = ImGuiLoadTextureFromFileDx12(UTILS::getRealPath("Textures/Debug/Editor/file-white.png"));
+		textureCache["__font__"] = ImGuiLoadTextureFromFileDx12(UTILS::getRealPath("Textures/Debug/Editor/font-white.png"));
+		textureCache["__object__"] = ImGuiLoadTextureFromFileDx12(UTILS::getRealPath("Textures/Debug/Editor/cube-white.png"));
 #endif
 		initFileTree(root);
 	}
@@ -608,6 +635,9 @@ private:
 #ifdef VULKAN_BACKEND
 					textureCache[imPath] = ImGuiLoadTextureFromFileVk(imPath);
 #endif
+#ifdef DX12_BACKEND
+					textureCache[imPath] = ImGuiLoadTextureFromFileDx12(imPath);
+#endif
 				}
 				//imPath = "__image__";
 				break;
@@ -661,7 +691,21 @@ private:
 #ifdef VULKAN_BACKEND
 			ImGui::Image((ImTextureID)textureCache.at(imPath)->descriptor_set, { static_cast<float>(elementSize), static_cast<float>(elementSize) });
 #endif
-			
+#ifdef DX12_BACKEND
+			auto device = RENDER::GameRendererDx12::mApp->mDriver;
+			//UINT handle_increment = device->mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			//int descriptor_index = 1; // The descriptor table index to use (not normally a hard-coded constant, but in this case we'll assume we have slot 1 reserved for us)
+			//D3D12_CPU_DESCRIPTOR_HANDLE my_texture_srv_cpu_handle = device->mSrvDescHeap->GetCPUDescriptorHandleForHeapStart();
+			//my_texture_srv_cpu_handle.ptr += (handle_increment * descriptor_index);
+			//D3D12_GPU_DESCRIPTOR_HANDLE my_texture_srv_gpu_handle = device->mSrvDescHeap->GetGPUDescriptorHandleForHeapStart();
+			//my_texture_srv_gpu_handle.ptr += (handle_increment * descriptor_index);
+			//ImGui::Image((ImTextureID)my_texture_srv_gpu_handle.ptr, { static_cast<float>(elementSize), static_cast<float>(elementSize) });
+
+			//ID3D12DescriptorHeap* dh4[] = { device->mTexturesDescHeap.Get() };
+			//device->imguiHeaps.push_back(textureCache.at(imPath)->UploadHeap.Get());
+			//device->mCommandList->SetDescriptorHeaps(1, dh4);
+			ImGui::Image((ImTextureID)textureCache.at(imPath)->mGpuSrv.ptr, { static_cast<float>(elementSize), static_cast<float>(elementSize) });
+#endif
 			ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + 100);
 			ImGui::Text(entry.path().filename().string().c_str());
 			ImGui::PopTextWrapPos();
@@ -1573,7 +1617,9 @@ DebugRender::DebugRender() {
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+#if defined  OPENGL_BACKEND || defined  VULKAN_BACKEND
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+#endif
 	//io.ConfigViewportsNoAutoMerge = true;
 	//io.ConfigViewportsNoTaskBarIcon = true;
 	float baseFontSize = 14.0f;
@@ -1621,6 +1667,19 @@ DebugRender::DebugRender() {
 	}
 #endif
 
+#ifdef DX12_BACKEND
+	auto& gr = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
+	auto render = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).mDriver;
+
+
+	ImGui_ImplWin32_Init(gr.mhMainWnd);
+	ImGui_ImplDX12_Init(render->mDevice.Get(), 1,
+		DXGI_FORMAT_R8G8B8A8_UNORM, render->mTexturesDescHeap.Get(),
+		render->mTexturesDescHeap->GetCPUDescriptorHandleForHeapStart(),
+		render->mTexturesDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+#endif
+
 #if defined  OPENGL_BACKEND || defined  VULKAN_BACKEND
 	RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().keyEvent.add([](GLFWwindow* window, int key, int scancode, int action, int mods){
 		ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
@@ -1629,6 +1688,22 @@ DebugRender::DebugRender() {
 		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
 	});
 #endif
+
+	//DEBUG CAMERA
+	debugCamera = std::make_unique<ECS::Object>(ECS::Object::Id(-123100), "DEBUG_CAMERA", "EDITOR");
+	auto cam = debugCamera->addComponent<IKIGAI::ECS::CameraComponent>();
+	cam->setFov(45.0f);
+	cam->setSize(5.0f);
+	cam->setNear(0.1f);
+	cam->setFar(1000.0f);
+	cam->setFrustumGeometryCulling(false);
+	cam->setFrustumLightCulling(false);
+	cam->setProjectionMode(IKIGAI::RENDER::Camera::ProjectionMode::PERSPECTIVE);
+	debugCamera->getTransform()->setLocalPosition({ 0.f, 140.0f, 0.0f });
+	debugCamera->getTransform()->setLocalRotation({ 0.0f, 0.98480773f, -0.17364819f, 0.0f });
+	debugCamera->getTransform()->setLocalScale({ 1.0f, 1.0f, 1.0f });
+	//END DEBUG CAMERA
+
 
 
 	fileBrowser = std::make_unique<FileBrowser>(Config::ROOT + Config::ASSETS_PATH);
@@ -1640,6 +1715,9 @@ DebugRender::DebugRender() {
 #endif
 #ifdef VULKAN_BACKEND
 	textureCache["default_texture"] = ImGuiLoadTextureFromFileVk(UTILS::getRealPath("Textures/default.png"));
+#endif
+#ifdef DX12_BACKEND
+	textureCache["default_texture"] = ImGuiLoadTextureFromFileDx12(UTILS::getRealPath("Textures/default.png"));
 #endif
 }
 #ifdef VULKAN_BACKEND
@@ -1743,6 +1821,14 @@ DebugRender::~DebugRender() {
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+	}
+#endif
+
+#ifdef DX12_BACKEND
+	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
+		ImGui_ImplDX12_Shutdown();
+		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
 	}
 #endif
@@ -2493,6 +2579,36 @@ void widgetStringArray(UTILS::WeakPtr<ECS::Component> component, const rttr::pro
 	}
 }
 
+void widgetModelLod(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
+	const std::string propName = prop.get_name().to_string();
+	std::unique_ptr<rttr::instance> inst;
+	getInstance(component, inst);
+	ImGui::Text(propName.c_str());
+	auto val = prop.get_value(*inst).get_value<std::vector<ECS::ModelLODRenderer::ModelLodRefl>>();
+	int i = 0;
+	for (auto& e : val) {
+		ImGui::PushID(i);
+		if (ImGui::DragFloat("Distance", &e.m_distance)) {
+			std::ignore = prop.set_value(*inst, val);
+		}
+		ImGui::SameLine();
+		if (ImGui::InputText("Model", &e.m_path, ImGuiInputTextFlags_EnterReturnsTrue)) {
+			std::ignore = prop.set_value(*inst, val);
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("X")) {
+			val.erase(val.begin() + i);
+			std::ignore = prop.set_value(*inst, val);
+		}
+		ImGui::PopID();
+		i++;
+	}
+	if (ImGui::Button("Add")) {
+		val.push_back({});
+		std::ignore = prop.set_value(*inst, val);
+	}
+}
+
 
 void widgetMaterial(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
 	const std::string propName = prop.get_name().to_string();
@@ -2607,6 +2723,7 @@ void DebugRender::drawComponentInspector() {
 		{ EditorMetaInfo::COMBO, &widgetCombo },
 		{ EditorMetaInfo::STRINGS_ARRAY, &widgetStringArray },
 		{ EditorMetaInfo::MATERIAL, &widgetMaterial },
+		{ EditorMetaInfo::MODEL_LOD, &widgetModelLod },
 	};
 
 
@@ -2693,6 +2810,40 @@ void DebugRender::drawTextureWatcher() {
 	ImGui::Image((ImTextureID)_renderer->mTextures["deferredResult"]->descriptor_set, ImVec2(w, h));
 	ImGui::End();
 #endif
+
+
+#ifdef DX12_BACKEND
+	ImGui::Begin("Texture Watcher", nullptr);
+	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
+	auto _renderer = reinterpret_cast<RENDER::GameRendererDx12*>(&renderer);
+
+	auto winSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	ImVec2 imWinSize = ImGui::GetWindowSize();
+
+	float w = 0.0f;
+	float h = 0.0f;
+	if (imWinSize.x < imWinSize.y) {
+		w = imWinSize.x;
+		h = (winSize.y * imWinSize.x) / winSize.x;
+	}
+	else
+	{
+		w = (imWinSize.y * winSize.x) / winSize.y;
+		h = imWinSize.y;
+	}
+	if (h > 100.0f) {
+		h -= 60.0f;
+	}
+	auto device = RENDER::GameRendererDx12::mApp->mDriver;
+
+	//ID3D12DescriptorHeap* dh4[] = { device->mTexturesDescHeap.Get() };
+	//device->mCommandList->SetDescriptorHeaps(1, dh4);
+	if (_renderer->mTextures["gAlbedoSpecTex"])
+	ImGui::Image((ImTextureID)_renderer->mTextures["gAlbedoSpecTex"]->mGpuSrv.ptr, ImVec2(w, h));
+	
+	ImGui::End();
+#endif
+
 #ifdef OPENGL_BACKEND
 	ImGui::Begin("Texture Watcher", nullptr);
 	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
@@ -2750,6 +2901,8 @@ void DebugRender::drawTextureWatcher() {
 	}
 
 	if (selectedIndex == 0) {
+		//unsigned id = *ECS::BatchComponent::ids.begin();
+		//ImGui::Image(reinterpret_cast<ImTextureID>(id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
 		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)_renderer->mDeferredTexture->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
 	}
 	else {
@@ -2769,10 +2922,117 @@ void DebugRender::drawTextureWatcher() {
 #endif
 }
 
+static MATHGL::Vector3 ProjectPointOntoRay(const MATHGL::Vector3& rayOrigin, const MATHGL::Vector3& rayDirection, const MATHGL::Vector3& point)
+{
+	MATHGL::Vector3 originToPoint = point - rayOrigin;
+
+	// assume the direction is not normalized
+	float dist = (rayDirection.dot(originToPoint)) / MATHGL::Vector3::Length(rayDirection);
+
+	MATHGL::Vector3 result = rayDirection * dist;
+	result = rayOrigin + result;
+
+	return result;
+}
+
+static bool RaySphereIntersection(const MATHGL::Vector3& rayOrigin, const MATHGL::Vector3& rayDirection, const MATHGL::Vector3& sphereCenter, float radius, std::vector<MATHGL::Vector3>& hits)
+{
+	// make sure the direction is a unit vector
+	MATHGL::Vector3 direction = MATHGL::Vector3::Normalize(rayDirection);
+
+	MATHGL::Vector3 originToCenter = sphereCenter - rayOrigin;
+
+	// check whether the center of the sphere is behind the ray origin
+	if (MATHGL::Vector3::Dot(originToCenter, direction) < 0.0f)
+	{
+		// the sphere center is behind the ray -> intersection is only possible if the ray is within the sphere
+
+		float distance = MATHGL::Vector3::Length(originToCenter);
+		if (distance > radius)
+		{
+			// ray origin is outside the sphere
+			return false;
+		}
+		else if (distance > (radius - 0.000001f) && distance < (radius + 0.000001f))
+		{
+			// ray origin is on the sphere
+			hits.push_back(rayOrigin);
+			return true;
+		}
+		else
+		{
+			// get the projection point from the sphere center onto the ray
+			MATHGL::Vector3 projected = ProjectPointOntoRay(rayOrigin, direction, sphereCenter);
+
+			// get the intersection point
+			float lengthProjCenter = MATHGL::Vector3::Length(projected - sphereCenter);
+			float dist = sqrtf((radius * radius) + (lengthProjCenter * lengthProjCenter));
+
+			float lengthOriginIntersection = dist - MATHGL::Vector3::Length(projected - rayOrigin);
+
+			MATHGL::Vector3 hit = rayOrigin + (direction * lengthOriginIntersection);
+			hits.push_back(hit);
+
+			return true;
+		}
+
+	}
+	else
+	{
+		// the sphere center is in front of the ray
+
+		MATHGL::Vector3 projected = ProjectPointOntoRay(rayOrigin, direction, sphereCenter);
+
+		float lengthProjCenter = MATHGL::Vector3::Length(sphereCenter - projected);
+		if (lengthProjCenter > radius)
+		{
+			// the projection point is outside the sphere -> no intersection
+			return false;
+		}
+		else if (lengthProjCenter > (radius - 0.000001f) && lengthProjCenter < (radius + 0.000001f))
+		{
+			// the projection point is on the sphere
+			hits.push_back(projected);
+			return true;
+		}
+
+		float lengthProjIntersection1 = sqrtf((radius * radius) + (lengthProjCenter * lengthProjCenter));
+
+		// check whether the ray origin is within the sphere
+		if (MATHGL::Vector3::Length(originToCenter) < radius)
+		{
+			// there is only one intersection
+			float lengthOriginIntersection = MATHGL::Vector3::Length(projected - rayOrigin) + lengthProjIntersection1;
+
+			MATHGL::Vector3 hit = rayOrigin + (direction * lengthOriginIntersection);
+			hits.push_back(hit);
+
+			return true;
+		}
+		else
+		{
+			// there are two intersections
+			// get the first intersection
+			float lengthProjOrigin = MATHGL::Vector3::Length(projected - rayOrigin);
+			float lengthOriginIntersection = lengthProjOrigin - lengthProjIntersection1;
+			MATHGL::Vector3 hit = rayOrigin + (direction * lengthOriginIntersection);
+			hits.push_back(hit);
+
+			// get the second intersection point
+			lengthOriginIntersection = lengthProjOrigin + lengthProjIntersection1;
+			hit = rayOrigin + (direction * lengthOriginIntersection);
+			hits.push_back(hit);
+
+			return true;
+		}
+
+	}
+}
+
 
 void DebugRender::drawScene() {
 #ifdef OPENGL_BACKEND
-	ImGui::Begin("Scene Warcher", nullptr, gizmoWindowFlags);
+	ImGui::Begin("Scene Watcher", nullptr, gizmoWindowFlags);
 
 	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
 	auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
@@ -2806,6 +3066,91 @@ void DebugRender::drawScene() {
 			h -= 30.0f;
 		} 
 		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)val->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+		if (ImGui::IsItemHovered()) 
+		{
+			if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+				ImVec2 screen_pos = ImGui::GetMousePos();
+
+				ImGuiWindow* window = ImGui::GetCurrentWindowRead();
+				screen_pos.x = screen_pos.x - window->Pos.x;
+				screen_pos.y = screen_pos.y - window->Pos.y;
+
+
+				auto startXY = ImGui::GetCursorPos();
+				//startXY.x -= w;
+				startXY.y -= h;
+
+				auto x = (screen_pos.x - startXY.x);
+				auto y = (screen_pos.y -	 startXY.y);
+
+				auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+				auto camera = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene().findMainCamera().value();
+				auto scale = w / screenRes.x;
+
+				x *= scale;
+				y *= scale;
+
+				MATHGL::Vector4 lRayStart_NDC(
+					(x / screenRes.x - 0.5f) * 2.0f, // [0,1024] -> [-1,1]
+					(y / screenRes.y - 0.5f) * 2.0f, // [0, 768] -> [-1,1]
+					-1.0, // The near plane maps to Z=-1 in Normalized Device Coordinates
+					1.0f
+				);
+				MATHGL::Vector4 lRayEnd_NDC(
+					(x / screenRes.x - 0.5f) * 2.0f,
+					(y / screenRes.y - 0.5f) * 2.0f,
+					0.0,
+					1.0f
+				);
+
+				auto InverseProjectionMatrix = MATHGL::Matrix4::Inverse(camera->getCamera().getProjectionMatrix());
+				
+				auto InverseViewMatrix = MATHGL::Matrix4::Inverse(camera->getCamera().getViewMatrix());
+
+
+				MATHGL::Vector4 lRayStart_camera = InverseProjectionMatrix * lRayStart_NDC;
+				lRayStart_camera = lRayStart_camera / lRayStart_camera.w;
+
+				MATHGL::Vector4 lRayStart_world = InverseViewMatrix * lRayStart_camera;
+				lRayStart_world = lRayStart_world / lRayStart_world.w;
+
+				MATHGL::Vector4 lRayEnd_camera = InverseProjectionMatrix * lRayEnd_NDC;
+				lRayEnd_camera = lRayEnd_camera / lRayEnd_camera.w;
+				MATHGL::Vector4 lRayEnd_world = InverseViewMatrix * lRayEnd_camera;
+				lRayEnd_world = lRayEnd_world / lRayEnd_world.w;
+
+				auto v = lRayEnd_world - lRayStart_world;
+				MATHGL::Vector3 lRayDir_world(v.x, v.y, v.z);
+				lRayDir_world = (lRayDir_world);
+				//lRayDir_world = MATHGL::Vector3::Normalize(lRayDir_world);
+
+				auto origin = camera->obj->transform->getWorldPosition();
+				//MATHGL::Vector3 out_end = origin + lRayDir_world * 1000.0f;
+
+				std::vector<Ref<ECS::Object>> objs;
+
+				for (const auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelRenderer>()) {
+					if (modelRenderer.obj.get().getIsActive()) {
+						auto bs = modelRenderer.getModel()->getBoundingSphere();
+						std::vector<MATHGL::Vector3> hits;
+						auto _pos = bs.position + modelRenderer.obj.get().transform->getWorldPosition();
+						auto scale = modelRenderer.obj.get().transform->getWorldScale();
+						auto _r = bs.radius * std::max(scale.x, std::max(scale.y, scale.z));
+						if (RaySphereIntersection(origin, lRayDir_world, _pos, _r, hits)) {
+							objs.push_back(modelRenderer.obj);
+						}
+					}
+				}
+
+				std::sort(objs.begin(), objs.end(), [origin](Ref<ECS::Object> a, Ref<ECS::Object> b) {
+					auto _a = std::abs(MATHGL::Vector3::Distance(a->getTransform()->getWorldPosition(), origin));
+					auto _b = std::abs(MATHGL::Vector3::Distance(b->getTransform()->getWorldPosition(), origin));
+
+					return _a > _b;
+				});
+				std::cout << objs.size() << std::endl;
+			}
+		}
 	}
 
 	drawGuizmo(w, h);
@@ -2840,6 +3185,60 @@ void DebugRender::drawScene() {
 
 #endif
 }
+
+
+void DebugRender::drawEditorScene() {
+#ifdef OPENGL_BACKEND
+	ImGui::Begin("Scene Editor Watcher", nullptr, gizmoWindowFlags);
+
+	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
+	auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
+
+	//botton panel
+
+	ImGui::Columns(2, nullptr, false);
+	ImGui::SetColumnWidth(0, 40.0f);
+	ImGui::Button(ICON_FA_ARROWS_ALT, ImVec2(36, 36));
+	ImGui::Button(ICON_FA_SYNC_ALT, ImVec2(36, 36));
+	ImGui::Button(ICON_FA_COMPRESS_ALT, ImVec2(36, 36));
+	ImGui::NextColumn();
+
+	float w = 0.0f;
+	float h = 0.0f;
+	auto val = _renderer->mEditorTexture;
+	if (val) {
+		auto winSize = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+		ImVec2 imWinSize = ImGui::GetWindowSize();
+		if (imWinSize.x < imWinSize.y) {
+			w = imWinSize.x;
+			h = (winSize.y * imWinSize.x) / winSize.x;
+		}
+		else
+		{
+			w = (imWinSize.y * winSize.x) / winSize.y;
+			h = imWinSize.y;
+		}
+
+		if (h > 100.0f) {
+			h -= 30.0f;
+		}
+		ImGui::Image(reinterpret_cast<ImTextureID>((uintptr_t)val->id), ImVec2(w, h), ImVec2(0, 1), ImVec2(1, 0));
+	}
+
+	drawGuizmo(w, h);
+
+
+
+
+	ImGui::Columns(1);
+	ImGui::End();
+
+
+
+
+#endif
+}
+
 
 void DebugRender::drawStats() {
 	static std::vector<float> values(100, 0.0f);
@@ -3127,6 +3526,55 @@ void DebugRender::drawConsole() {
 	}
 	ImGui::End();
 	log.draw();
+}
+
+int frameId = 0;
+std::thread::id frameThreadId;
+
+
+static void ProfilerValueGetter(float* startTimestamp, float* endTimestamp, ImU8* level, const char** caption, const void* _data, int idx) {
+	auto& reports = PROFILER::Profiler::getReportHistory();
+
+	auto& frame = reports[frameId];
+	auto& data =  frame.mCallsTree.at(frameThreadId);
+
+	if (caption) *caption = data[idx].mName.c_str();
+	if (level) *level = data[idx].level;
+	if (startTimestamp) *startTimestamp = data[idx].mStart;
+	if (endTimestamp) *endTimestamp = data[idx].mStart + data[idx].mDuration;
+}
+
+
+
+void DebugRender::drawProfiler() {
+	static bool isOpen = true;
+	auto& reports = PROFILER::Profiler::getReportHistory();
+
+	ImGui::Begin("Profiler Window", &isOpen);
+	static bool isProfileOn = false;
+	if (ImGui::Checkbox("Is Enabled", &isProfileOn)) {
+		PROFILER::Profiler::ToggleEnable();
+		//PROFILER::Profiler::ClearHistory();
+	}
+	if (/*!isProfileOn ||*/ reports.size() < frameId + 1) {
+		ImGui::Text("Profiler is off");
+		ImGui::End();
+		return;
+	}
+
+	auto fid = ImGuiWidgetFlameGraph::PlotHistogramPressed("Histogram", PROFILER::Profiler::getReportHistoryDurations().data(),
+		PROFILER::Profiler::getReportHistoryDurations().size(), 0, NULL, 0.001f, 1.0f, ImVec2(400, 80.0f));
+	if (fid >= 0) {
+		frameId = fid;
+	}
+
+	auto& frame = reports[frameId];
+	for (auto& e : frame.mCallsTree) {
+		frameThreadId = e.first;
+		ImGuiWidgetFlameGraph::PlotFlame("CPU", &ProfilerValueGetter, nullptr, e.second.size(), 0, "Main Thread", FLT_MAX, FLT_MAX, ImVec2(400, 0));
+		break;
+	}
+	ImGui::End();
 }
 
 #include <../../3rd/imgui/imgui/ImCurveEdit.h>
@@ -3463,18 +3911,29 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 #ifdef OPENGL_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
 		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
 	}
 #endif
 #ifdef VULKAN_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
 		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
 	}
 #endif
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
 
+#ifdef DX12_BACKEND
+	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
+		ImGui_ImplDX12_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
+	}
+#endif
+
+#if defined(OPENGL_BACKEND) || defined(VULKAN_BACKEND)
 	drawMainWindow();
-
+#endif
 	{//input
 		std::array keys = {
 			INPUT_SYSTEM::EKey::KEY_TAB,
@@ -3733,10 +4192,12 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 		drawComponentInspector();
 		drawTextureWatcher();
 		drawScene();
+		drawEditorScene();
 	}
 
 	drawStats();
 	drawConsole();
+	drawProfiler();
 
 	drawWindowWidget(core);
 	{
@@ -3849,14 +4310,31 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 		//ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	}
 #endif
-	
+#ifdef DX12_BACKEND
+	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
+		
+	}
+#endif
+#if defined(OPENGL_BACKEND) || defined(VULKAN_BACKEND)
 	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 		GLFWwindow* backup_current_context = glfwGetCurrentContext();
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 		glfwMakeContextCurrent(backup_current_context);
 	}
-
-
+#endif
+#if defined(DX12_BACKEND)
+	//if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+	//	auto& gr = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
+	//	auto render = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).mDriver;
+	//
+	//	ImGui::UpdatePlatformWindows();
+	//	ImGui::RenderPlatformWindowsDefault(nullptr, (void*)render->mCommandList.Get());
+	//}
+#endif
 	//window->popGLStates();
+}
+
+void DebugRender::postDraw() {
+
 }

@@ -161,6 +161,7 @@ namespace IKIGAI::ECS {
 	public:
 		EVENT::Event<object_ptr<Component>>	componentAddedEvent;
 		EVENT::Event<object_ptr<Component>>	componentRemovedEvent;
+		EVENT::Event<object_ptr<Component>>	componentChangedEvent;
 
 		static EVENT::Event<Object&>				destroyedEvent;
 		static EVENT::Event<Object&>				createdEvent;

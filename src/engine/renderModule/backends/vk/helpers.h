@@ -17,10 +17,12 @@ namespace IKIGAI::RENDER {
 
 		uint32_t GraphicsFamily = UINT_MAX;
 		uint32_t PresentationFamily = UINT_MAX;
+		uint32_t ComputeFamily = UINT_MAX;
+		uint32_t TransferFamily = UINT_MAX;
 
 		bool isValid() const
 		{
-			return GraphicsFamily >= 0 && PresentationFamily >= 0;
+			return GraphicsFamily >= 0 && PresentationFamily >= 0 && TransferFamily >= 0 && ComputeFamily >= 0;
 		}
 	};
 	struct SubmissionSyncObjects {

@@ -310,6 +310,14 @@ void UtilityVk::GetPossibleQueueFamilyIndices(VkSurfaceKHR& surface, const VkPhy
 			{
 				queue_family_indices.PresentationFamily = queue_index;
 			}
+			if (queue_family.queueFlags & VK_QUEUE_COMPUTE_BIT)
+			{
+				queue_family_indices.ComputeFamily = queue_index;
+			}
+			if (queue_family.queueFlags & VK_QUEUE_TRANSFER_BIT)
+			{
+				queue_family_indices.TransferFamily = queue_index;
+			}
 
 			if (queue_family_indices.isValid())
 			{

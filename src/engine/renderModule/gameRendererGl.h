@@ -175,6 +175,7 @@ namespace IKIGAI::RENDER {
 		std::shared_ptr<TextureGl> mDeferredTexture; //texture after deferred and forward render without post processing
 
 		std::shared_ptr<TextureGl> mEmptyTexture;
+		std::shared_ptr<TextureGl> mEditorTexture;
 		std::shared_ptr<TextureGl> mHDRSkyBoxTexture;
 
 		std::unordered_map<std::string, std::shared_ptr<TextureGl>> mTextures;
@@ -187,7 +188,9 @@ namespace IKIGAI::RENDER {
 		void sendEngineUBO();
 		void sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader);
 		void renderScene();
+		void renderEditorScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> editorCamera);
 		void renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
+		void renderToScreen();
 		void sendIBLData();
 		void prepareBrightTexture();
 		bool prepareBlurTexture(std::shared_ptr<TextureGl> tex);
@@ -297,6 +300,7 @@ namespace IKIGAI::RENDER {
 		void updateLights(IKIGAI::SCENE_SYSTEM::Scene& scene);
 		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
 		void drawDrawable(const Drawable& p_toDraw);
+		void drawDrawableDebug(const Drawable& p_toDraw);
 		void drawMesh(const Drawable& p_toDraw);
 		void drawDrawableDeferred(const Drawable& p_toDraw);
 		void drawDrawableWithShader(std::shared_ptr<ShaderGl> shader, const Drawable& p_toDraw);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stack>
+#include <renderModule/frustum.h>
 
 import glmath;
 
@@ -10,13 +11,6 @@ namespace IKIGAI
 	{
 		struct BoundingSphere;
 	}
-}
-namespace COLLISION {
-	enum TYPE {
-		OUTSIDE = 0,
-		INSIDE,
-		INTERSECTION,
-	};
 }
 namespace IKIGAI
 {
@@ -41,6 +35,10 @@ namespace IKIGAI
 			unsigned int GetPotentialContactsWith(const BVHNode<BoundingVolumeClass, RigidBody>* other, PotentialContact<RigidBody>* contacts, unsigned int limit) const;
 			void Insert(RigidBody body, const BoundingVolumeClass& volume);
 
+			void GetNodeToDraw(std::vector<RigidBody>& toDraw, const RENDER::Frustum& frustum, bool useFrustum = true) const;
+
+			RENDER::COLLISION::TYPE checkFrustum(const RENDER::Frustum& f);
+
 			BVHNode() = default;
 			BVHNode(BVHNode<BoundingVolumeClass, RigidBody>* parent, const BoundingVolumeClass& volume, RigidBody body);
 			~BVHNode();
@@ -60,7 +58,7 @@ namespace IKIGAI
 
 		template <typename BoundingVolumeClass, typename RigidBody>
 		bool BVHNode<BoundingVolumeClass, RigidBody>::Overlaps(const BVHNode<BoundingVolumeClass, RigidBody>* other) const {
-			return (m_volume.intersect(other->m_volume) > COLLISION::OUTSIDE);
+			return (m_volume.intersect(other->m_volume) > static_cast<int>(RENDER::COLLISION::TYPE::OUTSIDE));
 		}
 
 		template <typename BoundingVolumeClass, typename RigidBody>
@@ -142,6 +140,47 @@ namespace IKIGAI
 					m_children[1]->Insert(body, volume);
 				}
 			}
+		}
+
+		template <typename BoundingVolumeClass, typename RigidBody>
+		void BVHNode<BoundingVolumeClass, RigidBody>::GetNodeToDraw(std::vector<RigidBody>& toDraw, const RENDER::Frustum& frustum, bool useFrustum) const {
+			if (IsLeaf()) {
+				if (m_body)
+					toDraw.push_back(m_body);
+				return;
+			}
+			if (!useFrustum) {
+				if (m_children[0]) {
+					m_children[0]->GetNodeToDraw(toDraw, frustum, false);
+				}
+				if (m_children[1]) {
+					m_children[1]->GetNodeToDraw(toDraw, frustum, false);
+				}
+			}
+			else {
+				for (int i = 0; i < 2; i++) {
+					if (!m_children[i]) {
+						continue;
+					}
+					auto state = m_children[i]->checkFrustum(frustum);
+					switch (state)
+					{
+					case RENDER::COLLISION::TYPE::INSIDE:
+						m_children[i]->GetNodeToDraw(toDraw, frustum, false);
+						break;
+					case RENDER::COLLISION::TYPE::INTERSECTION:
+						m_children[i]->GetNodeToDraw(toDraw, frustum);
+						break;
+					case RENDER::COLLISION::TYPE::OUTSIDE:
+						break;
+					}
+				}
+			}
+		}
+
+		template <typename BoundingVolumeClass, typename RigidBody>
+		RENDER::COLLISION::TYPE BVHNode<BoundingVolumeClass, RigidBody>::checkFrustum(const RENDER::Frustum& frustum) {
+			return frustum.boundingSphereInFrustumCollide(m_volume);
 		}
 
 		template<typename BoundingVolumeClass, typename RigidBody>
@@ -289,7 +328,7 @@ namespace IKIGAI
 			size_t LeafSize() const { return m_leafSize; }
 
 			unsigned int GetPotentialContacts(PotentialContact<RigidBody>* contacts, unsigned int limit) const;
-
+			void GetNodeToDraw(std::vector<RigidBody>& toDraw, const RENDER::Frustum& frustum) const;
 		private:
 			BVHNode<BoundingVolumeClass, RigidBody> m_root;
 			size_t m_leafSize = 0;
@@ -370,6 +409,14 @@ namespace IKIGAI
 			}
 
 			return m_root.m_children[0]->GetPotentialContacts(contacts, limit);
+		}
+
+		template<typename BoundingVolumeClass, typename RigidBody>
+		inline void BVHTree<BoundingVolumeClass, RigidBody>::GetNodeToDraw(std::vector<RigidBody>& toDraw, const RENDER::Frustum& frustum) const {
+			if (m_root.m_children[0] == nullptr) {
+				return;
+			}
+			m_root.m_children[0]->GetNodeToDraw(toDraw, frustum);
 		}
 
 

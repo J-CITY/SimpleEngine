@@ -126,6 +126,10 @@ namespace IKIGAI::RENDER {
 
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mRtvHeap;
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mDsvHeap;
+		//imgui
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mTexturesDescHeap;
+		int mTesturesDescOffset = 0;
+		//std::vector<ID3D12DescriptorHeap*> imguiHeaps;
 
 		Microsoft::WRL::ComPtr<ID3D12Fence> mFence;
 

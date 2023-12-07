@@ -1,5 +1,14 @@
 #pragma once
+#include <memory>
 
+
+namespace IKIGAI
+{
+	namespace ECS
+	{
+		class Object;
+	}
+}
 
 namespace IKIGAI
 {
@@ -21,12 +30,15 @@ namespace IKIGAI::DEBUG {
 	class DebugRender {
 
 	public:
+		inline static std::unique_ptr<ECS::Object> debugCamera;
+
 		DebugRender();
 		~DebugRender();
 #ifdef VULKAN_BACKEND
 		void initForVk();
 #endif
 		void draw(CORE_SYSTEM::Core& core);
+		void postDraw();
 	private:
 		void drawWindowWidget(CORE_SYSTEM::Core& core);
 		void drawMaterialWidget(RENDER::MaterialGl* material);
@@ -34,9 +46,11 @@ namespace IKIGAI::DEBUG {
 		void drawComponentInspector();
 		void drawTextureWatcher();
 		void drawScene();
+		void drawEditorScene();
 		void drawStats();
 		void drawPopup();
 		void drawMainWindow();
 		void drawConsole();
+		void drawProfiler();
 	};
 }

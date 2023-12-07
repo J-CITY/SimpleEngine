@@ -22,11 +22,18 @@ namespace IKIGAI {
 			static ResourcePtr<RENDER::ModelInterface> CreateFromFile(const std::string& path, ModelParserFlags parserFlags);
 			//move to private
 			static ResourcePtr<RENDER::ModelInterface> Create(const std::string& filepath, ModelParserFlags parserFlags = ModelParserFlags::NONE);
+			static ResourcePtr<IKIGAI::RENDER::ModelInterface> CreateVerts(const std::string& filepath,
+			                                                        ModelParserFlags parserFlags,
+			                                                        std::vector<std::vector<Vertex>>&
+			                                                        _globalVerticesPerMesh,
+			                                                        std::vector<std::vector<uint32_t>>&
+			                                                        _globalIndicesPerMesh);
+			static ModelParserFlags getDefaultFlag();
 		protected:
 			static AssimpParser _ASSIMP;
 
 			//TODO: load from file
-			static ModelParserFlags getDefaultFlag();
+			
 
 			virtual ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path) override;
 		};

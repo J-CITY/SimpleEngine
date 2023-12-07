@@ -2,7 +2,7 @@
 
 #include "driverVk.h"
 
-
+import logger;
 //#include "raytracing/dw/include/extensions_vk.h"
 //#include "Render/vk/raytracing/dw/include/macros.h"
 #ifdef VULKAN_BACKEND
@@ -427,6 +427,8 @@ void DriverVk::HandleMinimization()
 void DriverVk::enableExtensions(std::vector<const char*>& enabledDeviceExtensions)
 {
 	bool require_ray_tracing = true;
+	enabledDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
 	if (require_ray_tracing)
 	{
 		enabledDeviceExtensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
@@ -624,6 +626,8 @@ void DriverVk::RetrievePhysicalDevice()
 	vkGetPhysicalDeviceProperties(m_MainDevice.PhysicalDevice, &deviceProperties);
 
 	m_MainDevice.MinUniformBufferOffset = deviceProperties.limits.minUniformBufferOffsetAlignment;// serve per DYNAMIC UBO
+	
+	LOG_INFO("(Vulkan) Name   : " + std::string(deviceProperties.deviceName));
 }
 
 bool DriverVk::CheckDeviceSuitable(VkPhysicalDevice possibleDevice)
@@ -655,29 +659,71 @@ bool DriverVk::CheckDeviceSuitable(VkPhysicalDevice possibleDevice)
 		swapChainValid = !swapChainDetails.presentationModes.empty() && !swapChainDetails.formats.empty();
 	}
 
-	return m_QueueFamilyIndices.isValid() && extensionSupported && swapChainValid /*&& deviceFeatures.samplerAnisotropy*/;	// Il dispositivo è considerato adatto se :
-																					// 1. Gli indici delle sue Queue Families sono validi
-																					// 2. Se le estensioni richieste sono supportate
-																					// 3. Se la Swap Chain è valida 
-																					// 4. Supporta il sampler per l'anisotropy (basta controllare una volta che lo supporti la mia scheda video poi contrassegno l'esistenza nel createLogicalDevice)
+	return m_QueueFamilyIndices.isValid() && extensionSupported && swapChainValid;
 }
-
+bool require_ray_tracing = true;
 void DriverVk::CreateLogicalDevice()
 {
-	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	std::set<uint32_t> queueFamilyIndices = { m_QueueFamilyIndices.GraphicsFamily , m_QueueFamilyIndices.PresentationFamily };
+	VkPhysicalDeviceRayQueryFeaturesKHR device_ray_query_features;
+	
+	device_ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+	device_ray_query_features.pNext = nullptr;
+	device_ray_query_features.rayQuery = VK_TRUE;
 
-	// DEVICE QUEUE (Queue utilizzate nel device logico)
+	// Acceleration Structure Features
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR device_acceleration_structure_features;
+	
+	device_acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	device_acceleration_structure_features.pNext = &device_ray_query_features;
+	device_acceleration_structure_features.accelerationStructure = VK_TRUE;
+
+	// Ray Tracing Features
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR device_ray_tracing_pipeline_features;
+	
+	device_ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+	device_ray_tracing_pipeline_features.pNext = &device_acceleration_structure_features;
+	device_ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
+
+	// Vulkan 1.1/1.2 Features
+	VkPhysicalDeviceVulkan11Features features11;
+	VkPhysicalDeviceVulkan12Features features12;
+
+	features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+	features11.pNext = &features12;
+
+	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+
+	if (require_ray_tracing)
+		features12.pNext = &device_ray_tracing_pipeline_features;
+
+	// Physical Device Features 2
+	VkPhysicalDeviceFeatures2 physical_device_features_2;
+
+	physical_device_features_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	physical_device_features_2.pNext = &features11;
+
+	vkGetPhysicalDeviceFeatures2(m_MainDevice.PhysicalDevice, &physical_device_features_2);
+
+	physical_device_features_2.features.robustBufferAccess = VK_FALSE;
+
+
+
+	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+	std::set<uint32_t> queueFamilyIndices = {
+		m_QueueFamilyIndices.GraphicsFamily , m_QueueFamilyIndices.PresentationFamily,
+		m_QueueFamilyIndices.ComputeFamily, m_QueueFamilyIndices.TransferFamily
+	};
+
 	for (int queueFamilyIndex : queueFamilyIndices)
 	{
 		VkDeviceQueueCreateInfo queueCreateInfo = {};
-		queueCreateInfo.sType			 = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO; // Tipo di struttura dati
-		queueCreateInfo.queueFamilyIndex = queueFamilyIndex;	// Indice della QueueFamily da utilizzare su questo dispositivo
-		queueCreateInfo.queueCount		 = 1;					// Numero di QueueFamily
-		float const priority			 = 1.f;			// La priorità è un valore (o più) che serve a Vulkan per gestire molteplici Queue
-		queueCreateInfo.pQueuePriorities = &priority;	// che lavorano in contemporanea. Andrebbe fornita una lista di priority, ma per il momento passiamo soltanto un valore.
+		queueCreateInfo.sType			 = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+		queueCreateInfo.queueCount		 = 1;
+		const float priority			 = 1.f;
+		queueCreateInfo.pQueuePriorities = &priority;
 	
-		queueCreateInfos.push_back(queueCreateInfo);	// Carico la create info dentro un vettore
+		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
 	//for RT
@@ -685,20 +731,20 @@ void DriverVk::CreateLogicalDevice()
 
 	// LOGICAL DEVICE
 	VkDeviceCreateInfo deviceCreateInfo = {};
-	deviceCreateInfo.sType					 = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;			// Tipo di strutturadati da utilizzare.
-	deviceCreateInfo.queueCreateInfoCount	 = static_cast<uint32_t>(queueCreateInfos.size());	// Numero di queue utilizzate nel device logico (corrispondono al numero di strutture "VkDeviceQueueCreateInfo").
-	deviceCreateInfo.pQueueCreateInfos		 = queueCreateInfos.data();							// Puntatore alle createInfo delle Queue
-	deviceCreateInfo.enabledExtensionCount   = static_cast<uint32_t>(m_RequestedDeviceExtensions.size());	// Numero di estensioni da utilizzare sul dispositivo logico.
-	deviceCreateInfo.ppEnabledExtensionNames = m_RequestedDeviceExtensions.data();							// Puntatore ad un array che contiene le estensioni abilitate (SwapChain, ...).
-	
-	// Informazioni rispetto ai servizi che offre il dispositvo (GEFORCE 1070 STRIX supporto l'anisotropy)
+	deviceCreateInfo.sType					 = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+	deviceCreateInfo.pQueueCreateInfos		 = queueCreateInfos.data();
+	deviceCreateInfo.enabledExtensionCount   = static_cast<uint32_t>(m_RequestedDeviceExtensions.size());
+	deviceCreateInfo.ppEnabledExtensionNames = m_RequestedDeviceExtensions.data();
+
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 	deviceFeatures.samplerAnisotropy	= VK_TRUE;
 	deviceFeatures.geometryShader = true;
 	deviceFeatures.tessellationShader = true;
 
-	deviceCreateInfo.pEnabledFeatures	= &deviceFeatures;					// Features del dispositivo fisico che verranno utilizzate nel device logico (al momento nessuna).
-
+	//deviceCreateInfo.pEnabledFeatures	= &deviceFeatures;
+	deviceCreateInfo.pEnabledFeatures = nullptr;
+	deviceCreateInfo.pNext = &physical_device_features_2;
 
 	
 	//vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
@@ -708,17 +754,29 @@ void DriverVk::CreateLogicalDevice()
 	if (result != VK_SUCCESS)	// Nel caso in cui il Dispositivo Logico non venga creato con successo alzo un eccezione a runtime.
 		throw std::runtime_error("Failed to create Logical Device!");
 
-	vkGetDeviceQueue(							// Salvo il riferimento della queue grafica del device logico
-		m_MainDevice.LogicalDevice,				// nella variabile m_GraphicsQueue
+	vkGetDeviceQueue(
+		m_MainDevice.LogicalDevice,
 		m_QueueFamilyIndices.GraphicsFamily, 
 		0,
 		&m_GraphicsQueue);
 		
-	vkGetDeviceQueue(							 // Salvo il riferimento alla Presentation Queue del device logico
-		m_MainDevice.LogicalDevice,				 // nella variabile 'm_PresentationQueue'. Siccome è la medesima cosa della
-		m_QueueFamilyIndices.PresentationFamily, // queue grafica, nel caso in cui sia presente una sola Queue nel device 
-		0,										 // allora si avranno due riferimenti 'm_PresentationQueue' e 'm_GraphicsQueue' alla stessa queue
+	vkGetDeviceQueue(
+		m_MainDevice.LogicalDevice,
+		m_QueueFamilyIndices.PresentationFamily,
+		0,
 		&m_PresentationQueue);
+
+	vkGetDeviceQueue(
+		m_MainDevice.LogicalDevice,
+		m_QueueFamilyIndices.ComputeFamily,
+		0,
+		&m_ComputeQueue);
+
+	vkGetDeviceQueue(
+		m_MainDevice.LogicalDevice,
+		m_QueueFamilyIndices.TransferFamily,
+		0,
+		&m_TransferQueue);
 }
 
 #include <coreModule/resourceManager/ServiceManager.h>

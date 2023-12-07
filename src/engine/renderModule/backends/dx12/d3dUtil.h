@@ -8,6 +8,9 @@
 
 #pragma once
 #ifdef DX12_BACKEND
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <wrl.h>
 #include <dxgi1_4.h>
@@ -117,7 +120,7 @@ namespace IKIGAI::RENDER
         }
 
         static ComPtr<ID3DBlob> LoadBinary(const std::wstring& filename);
-        static ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
+        static ComPtr<ID3D12Resource> CreateDefaultBuffer(const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
         static ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device,
             ID3D12GraphicsCommandList* cmdList,
             const void* initData, UINT64 byteSize,
