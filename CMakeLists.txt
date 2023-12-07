@@ -48,12 +48,17 @@ file(GLOB_RECURSE IMGUI_FILES
      "3rd/imgui/imgui/imgui_impl_glfw.h"
 
      #OPENGL
-     # "3rd/imgui/imgui/imgui_impl_opengl3.h"
-     # "3rd/imgui/imgui/imgui_impl_opengl3.cpp"
-     # "3rd/imgui/imgui/imgui_impl_opengl3_loader.h"
+     "3rd/imgui/imgui/imgui_impl_opengl3.h"
+     "3rd/imgui/imgui/imgui_impl_opengl3.cpp"
+     "3rd/imgui/imgui/imgui_impl_opengl3_loader.h"
      #VULKAN
-     "3rd/imgui/imgui/imgui_impl_vulkan.h"
-     "3rd/imgui/imgui/imgui_impl_vulkan.cpp"
+     # "3rd/imgui/imgui/imgui_impl_vulkan.h"
+     # "3rd/imgui/imgui/imgui_impl_vulkan.cpp"
+     # DX12
+     #"3rd/imgui/imgui/imgui_impl_dx12.h"
+     #"3rd/imgui/imgui/imgui_impl_dx12.cpp"
+     #"3rd/imgui/imgui/imgui_impl_win32.h"
+     #"3rd/imgui/imgui/imgui_impl_win32.cpp"
 
      "3rd/imgui/imgui/imgui_internal.h"
      "3rd/imgui/imgui/imgui_tables.cpp"
@@ -78,8 +83,15 @@ file(GLOB_RECURSE IMGUI_FILES
      # "src/3rd/imgui/imgui/ImSequencer.cpp"
      "3rd/imgui/imgui/ImZoomSlider.h"
 )
+
+file(GLOB_RECURSE SPINE_FILES
+     "3rd/spine/spine/*.h"
+     "3rd/spine/spine/*.cpp"
+)
+
 add_library(engine STATIC ${ENGINE_MODULE_FILES})
 add_library(imgui STATIC ${IMGUI_FILES})
+add_library(spine STATIC ${SPINE_FILES})
 
 
 
@@ -154,12 +166,12 @@ target_include_directories(engine  PUBLIC "./3rd/glfw/include")
 target_link_libraries(${APP_NAME}  PUBLIC "C:/libs/glew/lib/Release/x64/glew32.lib")
 target_include_directories(engine  PUBLIC "C:/libs/glew/include")
 
-
-
 # vulkan
 target_link_libraries(${APP_NAME}  PUBLIC "C:/libs/VulkanSDK/Lib/vulkan-1.lib")
 target_include_directories(engine  PUBLIC "C:/libs/VulkanSDK/Include")
 
+
+#dx12
 
 
 # sol
@@ -199,8 +211,14 @@ target_link_libraries(${APP_NAME} PUBLIC imgui)
 target_include_directories(engine PUBLIC "./3rd/imgui/imgui")
 target_include_directories(imgui PUBLIC "./3rd/imgui/imgui")
 target_include_directories(imgui  PUBLIC "./3rd/glfw/include")
+
+# spine
+target_link_libraries(${APP_NAME}  PUBLIC spine)
+target_include_directories(engine  PUBLIC "./3rd/spine")
+target_include_directories(spine  PUBLIC "./3rd/spine")
+
 # VULKAN
-target_include_directories(imgui  PUBLIC "C:/libs/VulkanSDK/Include")
+# target_include_directories(imgui  PUBLIC "C:/libs/VulkanSDK/Include")
 
 # glm
 target_include_directories(engine  PUBLIC "./3rd/glm")
@@ -218,9 +236,19 @@ FILE(GLOB_RECURSE sources "*.cpp")
 FILE(GLOB_RECURSE modules "*.ixx")
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${sources} ${headers} ${modules})
 
+#OGL
+add_compile_definitions(OPENGL_BACKEND)
 
-# add_compile_definitions(OPENGL_BACKEND)
-add_compile_definitions(VULKAN_BACKEND)
+#VK
+# add_compile_definitions(VULKAN_BACKEND)
+
+#DX12
+# add_compile_definitions(DX12_BACKEND)
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
+# add_compile_definitions(UNICODE)
+
+# if MSVC
+add_compile_definitions(NOMINMAX)
 
 # if MSVC
 #add_compile_options(/bigobj)
