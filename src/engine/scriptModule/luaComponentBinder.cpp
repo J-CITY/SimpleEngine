@@ -13,6 +13,14 @@
 #include <coreModule/ecs/components/ModelRenderer.h>
 #include <coreModule/ecs/components/MaterialRenderer.h>
 
+namespace IKIGAI
+{
+	namespace MATHGL
+	{
+		struct Quaternion;
+	}
+}
+
 using namespace IKIGAI::SCRIPTING;
 
 void LuaComponentBinder::BindComponent(sol::state & p_luaState)
@@ -53,12 +61,12 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
 		"GetWorldRight", &TransformComponent::getWorldRight
 		);
     
-    p_luaState.new_enum<IKIGAI::ECS::ModelRenderer::EFrustumBehaviour>("FrustumBehaviour",
+    p_luaState.new_enum<IKIGAI::ECS::EFrustumBehaviour>("FrustumBehaviour",
         {
-            {"DISABLED",		IKIGAI::ECS::ModelRenderer::EFrustumBehaviour::DISABLED},
-            {"CULL_MODEL",		IKIGAI::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL},
-            {"CULL_MESHES",		IKIGAI::ECS::ModelRenderer::EFrustumBehaviour::CULL_MESHES},
-            {"CULL_CUSTOM",		IKIGAI::ECS::ModelRenderer::EFrustumBehaviour::CULL_CUSTOM}
+            {"DISABLED",		IKIGAI::ECS::EFrustumBehaviour::DISABLED},
+            {"CULL_MODEL",		IKIGAI::ECS::EFrustumBehaviour::CULL_MODEL},
+            {"CULL_MESHES",		IKIGAI::ECS::EFrustumBehaviour::CULL_MESHES},
+            {"CULL_CUSTOM",		IKIGAI::ECS::EFrustumBehaviour::CULL_CUSTOM}
         });
 
 	p_luaState.new_usertype<ModelRenderer>("ModelRenderer",
