@@ -323,8 +323,9 @@ std::unique_ptr<Animation> Animation::Builder::build() {
 	return std::move(anim);
 }
 
-Animation::Animation(unsigned int frameCount, unsigned int fps, bool isLooped) :
-	framesCount(frameCount), FPS(fps) {
+Animation::Animation(unsigned int frameCount, unsigned int fps, bool isLooped) : AnimationBase(),
+	framesCount(frameCount), FPS(fps)
+{
 	time = static_cast<float>(frameCount * fps);
 	this->isLooped = isLooped;
 }
@@ -464,7 +465,7 @@ void Animation::update(float dt) {
 							curState[p.first] = linearFunc(*val1, *val2, p.second.getInterpolation()(progress));
 						}
 					},
-					[this, &p, a1, a2, progress](const std::string& val) {
+					[this, &p, a1, a2, progress](const auto& val) {
 						
 					}
 				}, frames[a1][p.first]);

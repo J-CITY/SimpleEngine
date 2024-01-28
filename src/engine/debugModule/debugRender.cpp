@@ -101,7 +101,7 @@ using ComponentType = std::variant<ECS::TransformComponent*, ECS::AmbientLight*,
 	ECS::AudioListenerComponent*, ECS::AudioComponent*>;
 using ComponentName = std::string;
 using PromName = std::string;
-using PropValue = std::variant<float, int, bool, std::string>;
+using PropValue = std::variant<float, int, bool, std::string, MATHGL::Vector2f, MATHGL::Vector2u, MATHGL::Vector2i, MATHGL::Vector3, MATHGL::Vector4>;
 
 struct AnimationLineInfo {
 	ObjectId<ECS::Object> id;

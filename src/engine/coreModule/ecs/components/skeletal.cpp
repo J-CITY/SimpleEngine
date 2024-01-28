@@ -35,6 +35,16 @@ void Skeletal::setAnimation(std::string id) {
 	//}
 }
 
+void Skeletal::setAnimationPath(std::string id) {
+	animationPath = id;
+	auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
+	animations = RESOURCES::Animation::LoadAnimations(animationPath, model->getModel().get());
+}
+
+std::string Skeletal::getAnimationPath() {
+	return animationPath;
+}
+
 std::string Skeletal::getCurrentAnimationName() {
 	if (!curAnimation) {
 		return "";
@@ -51,7 +61,7 @@ RTTR_REGISTRATION
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 	)
-	.property("AnimationPath", &IKIGAI::ECS::Skeletal::animationPath)
+	.property("AnimationPath", &IKIGAI::ECS::Skeletal::getAnimationPath, &IKIGAI::ECS::Skeletal::setAnimationPath)
 	(
 		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
