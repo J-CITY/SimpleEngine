@@ -20,6 +20,9 @@ namespace IKIGAI::ECS {
 
 		void onUpdate(std::chrono::duration<double> dt) override;
 		void setAnimation(std::string id);
+
+		void setAnimationPath(std::string id);
+		std::string getAnimationPath();
 		//void setAnimation(int id);
 
 		std::string getCurrentAnimationName();

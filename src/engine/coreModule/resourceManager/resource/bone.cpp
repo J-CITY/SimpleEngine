@@ -4,6 +4,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include "../parser/assimpParser.h"
+#include "utilsModule/loader.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::RESOURCES;
@@ -220,7 +221,7 @@ std::map<std::string, std::shared_ptr<Animation>> Animation::LoadAnimations(cons
     std::map<std::string, std::shared_ptr<Animation>> res;
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(animationPath, aiProcess_Triangulate);
+    const aiScene* scene = importer.ReadFile(UTILS::getRealPath(animationPath), aiProcess_Triangulate);
     assert(scene && scene->mRootNode);
 
     for (auto i = 0u; i < scene->mNumAnimations; i++) {
