@@ -221,6 +221,51 @@
       "Components": [
         {
           "LocalPosition": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalRotation": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "LocalScale": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Type": "class IKIGAI::ECS::TransformComponent"
+        },
+        {
+          "Materials": [
+            "Materials/vampire.mat"
+          ],
+          "MaterialsNames": [
+            "Def"
+          ],
+          "Type": "class IKIGAI::ECS::MaterialRenderer"
+        },
+        {
+          "Model": "models/dancing_vampire.dae",
+          "Type": "class IKIGAI::ECS::ModelRenderer"
+        },
+        {
+          "AnimationPath": "models/dancing_vampire.dae",
+          "Animation": "Hips",
+          "Type": "class IKIGAI::ECS::Skeletal"
+        }
+      ],
+      "Id": 44,
+      "IsActive": true,
+      "Name": "Skelet",
+      "Parent": -1,
+      "Tag": ""
+    },
+    {
+      "Components": [
+        {
+          "LocalPosition": {
             "X": 10.0,
             "Y": 0.0,
             "Z": 0.0
