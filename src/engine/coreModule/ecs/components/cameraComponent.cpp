@@ -11,6 +11,7 @@ import glmath;
 #include <windowModule/window/window.h>
 
 #include "renderModule/backends/gl/textureGl.h"
+#include "sceneModule/sceneManager.h"
 using namespace IKIGAI::ECS;
 
 CameraComponent::CameraComponent(Ref<ECS::Object> obj): Component(obj) {
@@ -86,16 +87,54 @@ IKIGAI::RENDER::Camera& CameraComponent::getCamera() {
 	return camera;
 }
 
-VrCameraComponent::VrCameraComponent(Ref<ECS::Object> obj): Component(obj) {
+VrCameraComponent::VrCameraComponent(Ref<ECS::Object> obj): CameraComponent(obj) {
 	__NAME__ = "VrCamera";
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 #ifdef OPENGL_BACKEND
-	leftTexture = RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	leftTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, GL_FLOAT); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//leftTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 
-	rightTexture = RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	rightTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, GL_FLOAT); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//rightTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 #endif
+	
+	{
+		auto camLeft = createObject("__VrCamera_CameraLeft");
+		auto cam = camLeft->addComponent<CameraComponent>();
+		cam->setFov(45.0f);
+		cam->setSize(5.0f);
+		cam->setNear(0.1f);
+		cam->setFar(1000.0f);
+		cam->setFrustumGeometryCulling(false);
+		cam->setFrustumLightCulling(false);
+		cam->setProjectionMode(RENDER::Camera::ProjectionMode::PERSPECTIVE);
+		left = camLeft;
+	}
+	{
+		auto camRight = createObject("__VrCamera_CameraRight");
+		auto cam = camRight->addComponent<CameraComponent>();
+		cam->setFov(45.0f);
+		cam->setSize(5.0f);
+		cam->setNear(0.1f);
+		cam->setFar(1000.0f);
+		cam->setFrustumGeometryCulling(false);
+		cam->setFrustumLightCulling(false);
+		cam->setProjectionMode(RENDER::Camera::ProjectionMode::PERSPECTIVE);
+		right = camRight;
+	}
+}
+
+std::shared_ptr<IKIGAI::ECS::Object> VrCameraComponent::createObject(const std::string& name) {
+	static int id = 0;
+	auto instance = std::make_shared<ECS::Object>(Object::Id(id), name, "");
+	//if (isExecute) {
+		instance->setActive(true);
+		if (instance->getIsActive()) {
+			instance->onEnable();
+			instance->onStart();
+		}
+	//}
+	return instance;
 }
 
 void VrCameraComponent::onUpdate(std::chrono::duration<double> dt) {

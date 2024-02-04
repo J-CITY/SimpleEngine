@@ -214,6 +214,13 @@ void GameRendererGl::createShaders() {
 	mShaders["renderToScreen"]->bind();
 	mShaders["renderToScreen"]->setInt("inputTexture", 0);
 	mShaders["renderToScreen"]->unbind();
+
+
+	mShaders["renderToScreenVr"] = std::make_shared<ShaderGl>("./Shaders/gl/vrCamera.vs.glsl", "./Shaders/gl/vrCamera.fs.glsl");
+	mShaders["renderToScreenVr"]->bind();
+	mShaders["renderToScreenVr"]->setInt("leftEyeTex", 0);
+	mShaders["renderToScreenVr"]->setInt("rightEyeTex", 1);
+	mShaders["renderToScreenVr"]->unbind();
 	
 	mShaders["dirShadowMap"] = std::make_shared<ShaderGl>(
 		"./Shaders/gl/dirShadow.vs.glsl", "./Shaders/gl/dirShadow.fs.glsl", "./Shaders/gl/dirShadow.gs.glsl");
@@ -1175,15 +1182,38 @@ void GameRendererGl::renderScene() {
 
 		PrevView = View;
 		//Save current state
-		auto glState = mDriver->fetchGLState();
+		const auto glState = mDriver->fetchGLState();
 
 		sendEngineUBO();
 		//sendEngineShadowUBO(nullptr);
 
-		renderScene(mainCameraComponent.value());
-		renderToScreen();
-		updateDebug3dTextureFB();
+		if (mainCameraComponent->getPtr()->getName() == "VrCamera") {
+			auto _mainCameraComponent = mainCameraComponent;
 
+			mainCameraComponent = *static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->left->getComponent<ECS::CameraComponent>();
+			renderScene(*static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->left->getComponent<ECS::CameraComponent>().get());
+			TextureGl::CopyTexture(*pingPongTex[!pingPong], *std::static_pointer_cast<TextureGl>(
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->leftTexture));
+
+
+			mainCameraComponent = *static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->right->getComponent<ECS::CameraComponent>();
+			renderScene(*static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->right->getComponent<ECS::CameraComponent>().get());
+			TextureGl::CopyTexture(*pingPongTex[!pingPong], *std::static_pointer_cast<TextureGl>(
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->rightTexture));
+			
+			mShaders["renderToScreenVr"]->bind();
+			std::static_pointer_cast<TextureGl>(
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->leftTexture)->bind(0);
+			std::static_pointer_cast<TextureGl>(
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->rightTexture)->bind(1);
+			renderQuad();
+			mShaders["renderToScreenVr"]->unbind();
+		}
+		else {
+			renderScene(mainCameraComponent.value());
+			renderToScreen();
+			updateDebug3dTextureFB();
+		}
 		//Return state back
 		mDriver->applyStateMask(glState);
 	}

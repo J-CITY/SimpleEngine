@@ -3372,7 +3372,7 @@ void DebugRender::drawPopup() {
 
 void DebugRender::drawMainWindow()
 {
-
+	return;
 	static bool isOpen = true;
 	//static const ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
 	//ImGuiID dockSpace = ImGui::GetID("MainWindowDockspace");

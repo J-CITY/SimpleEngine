@@ -373,6 +373,14 @@ std::span<std::shared_ptr<IKIGAI::ECS::Object>> Scene::getObjects() {
 std::optional<IKIGAI::Ref<IKIGAI::ECS::CameraComponent>> Scene::findMainCamera() {
 	for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::CameraComponent>()) {
 		if (camera.obj->getIsActive()) {
+			if (camera.obj->getName().rfind("__", 0) == 0) { //TODO: refactor VR component and remove it
+				continue;
+			}
+			return camera;
+		}
+	}
+	for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::VrCameraComponent>()) {
+		if (camera.obj->getIsActive()) {
 			return camera;
 		}
 	}

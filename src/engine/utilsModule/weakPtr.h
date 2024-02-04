@@ -111,7 +111,7 @@ namespace IKIGAI::UTILS {
 			return *static_cast<T*>(m_cb->m_ptr);
 		}
 
-		T* operator->() {
+		T* operator->() const {
 			return static_cast<T*>(m_cb->m_ptr);
 		}
 

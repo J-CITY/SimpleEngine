@@ -43,11 +43,11 @@ namespace IKIGAI::ECS {
 		RENDER::Camera::ProjectionMode getProjectionMode() const;
 		RENDER::Camera& getCamera();
 		
-	private:
+	protected:
 		RENDER::Camera camera;
 	};
 
-	class VrCameraComponent : public Component {
+	class VrCameraComponent : public CameraComponent {
 	public:
 		int blurAmount = 0;
 		float exposure = 1.0f;
@@ -55,7 +55,8 @@ namespace IKIGAI::ECS {
 		std::shared_ptr<RENDER::TextureInterface> leftTexture;
 		std::shared_ptr<RENDER::TextureInterface> rightTexture;
 
-		VrCameraComponent(Ref<ECS::Object> obj);;
+		VrCameraComponent(Ref<ECS::Object> obj);
+		std::shared_ptr<IKIGAI::ECS::Object> createObject(const std::string& name);
 		~VrCameraComponent() override = default;
 
 		void onUpdate(std::chrono::duration<double> dt) override;
@@ -64,7 +65,6 @@ namespace IKIGAI::ECS {
 		std::shared_ptr<ECS::Object> left;
 		std::shared_ptr<ECS::Object> right;
 
-		RENDER::Camera camera;
 		
 		float EyeDistance = 0.1f;
 		float FocusDistance = 10.0f;
