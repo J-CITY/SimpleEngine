@@ -9,8 +9,6 @@ import glmath;
 #include <unordered_set>
 
 #include "audioMixerSource.h"
-
-#define NOMINMAX
 #include "soloud.h"
 #include "soloud_wav.h"
 #include "soloud_wavstream.h"

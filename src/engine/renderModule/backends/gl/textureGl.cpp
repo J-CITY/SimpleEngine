@@ -3,6 +3,8 @@
 #include <array>
 #include <vector>
 
+#include "coreModule/ecs/components/transform.h"
+
 
 #ifdef OPENGL_BACKEND
 #include <iostream>
@@ -12,7 +14,7 @@
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
-
+using namespace rttr;
 TextureGl::~TextureGl() {
     glDeleteTextures(1, &id);
 }
@@ -47,7 +49,7 @@ enum class TextureFilter
 
 };
 
-std::shared_ptr<TextureGl> TextureGl::Create(std::string path, bool generateMipmap) {
+std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool generateMipmap) {
     auto tex = std::make_shared<TextureGl>();
 
     unsigned int textureID;
@@ -546,4 +548,139 @@ std::shared_ptr<TextureGl> TextureGl::createCubemap(std::array<std::string, 6> p
     tex->type = TextureType::TEXTURE_CUBE;
     return tex;
 }
+
+//---------------------------------------
+
+AtlasRect TextureAtlas::getPiece(const std::string& name) const {
+	if (mAtlas.mRects.contains(name)) {
+		return mAtlas.mRects.at(name);
+	}
+	return AtlasRect();
+}
+
+AtlasRect TextureAtlas::getPieceUV(const std::string& name) const {
+	if (mAtlas.mRects.contains(name)) {
+		auto res = mAtlas.mRects.at(name);
+		res.mX /= width;
+		res.mY /= height;
+		res.mW /= width;
+		res.mH /= height;
+		return res;
+	}
+	return AtlasRect();
+}
+
+std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path, bool generateMipmap) {
+    auto tex = std::make_shared<TextureAtlas>();
+
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width = 0, height = 0, nrComponents = 0;
+
+    //IKIGAI::RESOURCES::stbiSetFlipVerticallyOnLoad(true);
+    //stbi_set_flip_vertically_on_load(true);
+    unsigned char* data = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &width, &height, &nrComponents, 0);
+    if (data)
+    {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        if (generateMipmap) {
+            glGenerateMipmap(GL_TEXTURE_2D);
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        IKIGAI::RESOURCES::stbiImageFree(data);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+        IKIGAI::RESOURCES::stbiImageFree(data);
+    }
+
+    tex->id = textureID;
+    tex->mPath = path;
+    tex->width = width;
+    tex->height = height;
+    tex->chanels = nrComponents;
+
+    std::filesystem::path configPath{ path };
+    configPath.replace_extension(".atlas");
+
+    const std::string jsonData = UTILS::readFileIntoString(UTILS::getRealPath(configPath.string()));
+    auto json = nlohmann::json::parse(jsonData, nullptr, true, true);
+
+    AtlasData adata;
+    adata.mPath = json["Path"];
+    for (auto& e : json["Files"]) {
+        std::string key = e["key"];
+        AtlasRect val(e["value"]["x"], e["value"]["y"], e["value"]["w"], e["value"]["h"]);
+        adata.mRects.insert({ key, val });
+    }
+    tex->mAtlas = adata;
+
+    //TODO: why is not work
+    auto res = UTILS::FromJson<AtlasData>(configPath.string());
+    //if (res.isOk()) {
+    //    tex->mAtlas = res.unwrap();
+    //}
+    //else {
+    //    throw;
+    //}
+    return tex;
+}
+
+
 #endif
+//TODO: (rttr::policy::ctor::as_object) fix
+#include <rttr/registration>
+#include <rttr/policy.h>
+RTTR_REGISTRATION
+{
+    rttr::registration::class_<IKIGAI::RENDER::AtlasRect>("AtlasRect")
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    )
+    .constructor<>()(rttr::policy::ctor::as_object)
+    .property("x", &IKIGAI::RENDER::AtlasRect::getX, &IKIGAI::RENDER::AtlasRect::setX)
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    )
+    .property("y", &IKIGAI::RENDER::AtlasRect::mY)
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    )
+    .property("w", &IKIGAI::RENDER::AtlasRect::mW)
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    )
+    .property("h", &IKIGAI::RENDER::AtlasRect::mH)
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    );
+
+    rttr::registration::class_<IKIGAI::RENDER::AtlasData>("AtlasData")
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    )
+	.constructor<>()
+    .property("Files", &IKIGAI::RENDER::AtlasData::getRects, &IKIGAI::RENDER::AtlasData::setRects)
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    )
+    .property("Path", &IKIGAI::RENDER::AtlasData::mPath)
+    (
+        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+    );
+}

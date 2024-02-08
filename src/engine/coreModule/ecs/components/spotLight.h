@@ -6,7 +6,7 @@ namespace IKIGAI::ECS { class Object; }
 namespace IKIGAI::ECS {
 	class SpotLight : public LightComponent {
 	public:
-		SpotLight(Ref<ECS::Object> obj);
+		SpotLight(UTILS::Ref<ECS::Object> obj);
 		float getConstant() const;
 		float getLinear() const;
 		float getQuadratic() const;

@@ -1,12 +1,12 @@
 #pragma once
 
 #include <chrono>
-#include <result.h>
 #include <string>
 
 #include "../../resourceManager/serializerInterface.h"
 #include <utilsModule/pointers/objPtr.h>
 #include <utilsModule/weakPtr.h>
+#include <utilsModule/result.h>
 
 #include "utilsModule/jsonParser/jsonParser.h"
 
@@ -16,10 +16,10 @@ namespace IKIGAI::ECS {
 
 	class Component: public RESOURCES::Serializable, public UTILS::ControlBlockHandler {
 		template<class T>
-		friend Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
+		friend UTILS::Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
 	public:
 		//Component();
-		Component(Ref<ECS::Object> obj);
+		Component(UTILS::Ref<ECS::Object> obj);
 		virtual ~Component();
 
 		virtual void onAwake() {}
@@ -41,7 +41,7 @@ namespace IKIGAI::ECS {
 
 		//make it private
 		//TODO: use weak_ptr
-		Ref<ECS::Object> obj;
+		UTILS::Ref<ECS::Object> obj;
 
 		virtual void onDeserialize(nlohmann::json& j) override {
 		}

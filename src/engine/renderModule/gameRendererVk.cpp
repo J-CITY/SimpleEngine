@@ -16,7 +16,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-std::optional<IKIGAI::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponentVk = std::nullopt;
+std::optional<IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponentVk = std::nullopt;
 
 
 GameRendererVk::GameRendererVk(IKIGAI::CORE_SYSTEM::Core& context) : mContext(context) {
@@ -141,7 +141,7 @@ void GameRendererVk::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Fru
 	//mLightUBO->set(lightMatrices);
 }
 
-void GameRendererVk::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
+void GameRendererVk::renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
 	auto [winWidth, winHeight] = mContext.window->getSize();
 	auto& currentScene = mContext.sceneManager->getCurrentScene();
 

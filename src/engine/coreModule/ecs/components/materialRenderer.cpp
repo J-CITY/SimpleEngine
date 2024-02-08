@@ -8,7 +8,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-MaterialRenderer::MaterialRenderer(Ref<ECS::Object> obj) : Component(obj) {
+MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "MaterialRenderer";
 	materials.fill(nullptr);
 }

@@ -19,7 +19,7 @@ namespace IKIGAI::ECS{
 		RTTR_REGISTRATION_FRIEND
 	public:
 		
-		ModelRenderer(Ref<ECS::Object> obj);
+		ModelRenderer(UTILS::Ref<ECS::Object> obj);
 		void setModel(std::shared_ptr<RENDER::ModelInterface> model);
 		std::shared_ptr<RENDER::ModelInterface> getModel() const;
 		void setFrustumBehaviour(EFrustumBehaviour boundingMode);
@@ -49,7 +49,7 @@ namespace IKIGAI::ECS{
 			std::shared_ptr<RENDER::ModelInterface> m_model;
 		};
 
-		ModelLODRenderer(Ref<ECS::Object> obj);
+		ModelLODRenderer(UTILS::Ref<ECS::Object> obj);
 		void setModel(const ModelLod& model);
 		void setModels(const std::vector<ModelLod>& models);
 		[[nodiscard]] const std::vector<ModelLod>& getModels() const;

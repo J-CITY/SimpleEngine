@@ -10,7 +10,6 @@
 #include <scriptModule/scriptInterpreter.h>
 #include <utilsModule/idObject.h>
 #include <utilsModule/event.h>
-#include <utilsModule/pointers/objPtr.h>
 #include "components/scriptComponent.h"
 #include <rttr/registration_friend>
 
@@ -90,10 +89,10 @@ namespace IKIGAI::ECS {
 				ComponentManager::GetInstance().addComponent<T>(getID(), instance);
 
 				auto component = getComponent<T>();
-				componentAddedEvent.run(component.get());
+				componentAddedEvent.run(component);
 				//TODO: move it to ScriptComponent::onStart()
-				if constexpr (std::is_same<T, ScriptComponent>::value) {
-					ScriptComponent::createdEvent.run(component.get());
+				if constexpr (std::is_same_v<T, ScriptComponent>) {
+					ScriptComponentEvents::createdEvent.run(component);
 				}
 
 				//auto id = setModelEvent.add(std::bind(&MaterialRenderer::updateMaterialList, this));
@@ -118,9 +117,9 @@ namespace IKIGAI::ECS {
 			}
 			//TODO: move it to ScriptComponent::onStart()
 			if constexpr (std::is_same<T, ScriptComponent>::value) {
-				ScriptComponent::destroyedEvent.run(result.get());
+				ScriptComponentEvents::destroyedEvent.run(result);
 			}
-			componentRemovedEvent.run(result.get());
+			componentRemovedEvent.run(result);
 			ComponentManager::GetInstance().removeComponent<T>(getID());
 			return true;
 		}
@@ -159,9 +158,9 @@ namespace IKIGAI::ECS {
 		void recursiveActiveUpdate();
 
 	public:
-		EVENT::Event<object_ptr<Component>>	componentAddedEvent;
-		EVENT::Event<object_ptr<Component>>	componentRemovedEvent;
-		EVENT::Event<object_ptr<Component>>	componentChangedEvent;
+		EVENT::Event<UTILS::WeakPtr<Component>>	componentAddedEvent;
+		EVENT::Event<UTILS::WeakPtr<Component>>	componentRemovedEvent;
+		EVENT::Event<UTILS::WeakPtr<Component>>	componentChangedEvent;
 
 		static EVENT::Event<Object&>				destroyedEvent;
 		static EVENT::Event<Object&>				createdEvent;

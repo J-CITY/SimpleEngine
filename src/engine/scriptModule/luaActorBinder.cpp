@@ -12,6 +12,7 @@
 #include <coreModule/ecs/components/ambientSphereLight.h>
 #include <coreModule/ecs/components/modelRenderer.h>
 #include <coreModule/ecs/components/materialRenderer.h>
+#include <coreModule/ecs/components/scriptComponent.h>
 
 using namespace IKIGAI::SCRIPTING;
 
@@ -39,16 +40,33 @@ void IKIGAI::SCRIPTING::LuaActorBinder::BindActor(sol::state & p_luaState) {
 		"GetTransform", [](Object& p_this) -> TransformComponent* {
 			return p_this.getComponent<TransformComponent>().get();
 		},
-		"GetCamera", &Object::getComponent<CameraComponent>,
-		"GetLight", &Object::getComponent<LightComponent>,
-		"GetPointLight", &Object::getComponent<PointLight>,
-		"GetSpotLight", &Object::getComponent<SpotLight>,
-		"GetDirectionalLight", &Object::getComponent<DirectionalLight>,
-		"GetAmbientBoxLight", &Object::getComponent<AmbientLight>,
-		"GetAmbientSphereLight", &Object::getComponent<AmbientSphereLight>,
-		"GetModelRenderer", &Object::getComponent<ModelRenderer>,
-		"GetMaterialRenderer", &Object::getComponent<MaterialRenderer>,
-		
+		"GetCamera", [](Object& p_this) -> CameraComponent* {
+			return p_this.getComponent<CameraComponent>().get();
+		},
+		//"GetLight", [](Object& p_this) -> LightComponent* {
+		//	return p_this.getComponent<LightComponent>().get();
+		//},
+		"GetPointLight", [](Object& p_this) -> PointLight* {
+			return p_this.getComponent<PointLight>().get();
+		},
+		"GetSpotLight", [](Object& p_this) -> SpotLight* {
+			return p_this.getComponent<SpotLight>().get();
+		},
+		"GetDirectionalLight", [](Object& p_this) -> DirectionalLight* {
+			return p_this.getComponent<DirectionalLight>().get();
+		},
+		"GetAmbientBoxLight", [](Object& p_this) -> AmbientLight* {
+			return p_this.getComponent<AmbientLight>().get();
+		},
+		"GetAmbientSphereLight", [](Object& p_this) -> AmbientSphereLight* {
+			return p_this.getComponent<AmbientSphereLight>().get();
+		},
+		"GetModelRenderer", [](Object& p_this) -> ModelRenderer* {
+			return p_this.getComponent<ModelRenderer>().get();
+		},
+		"GetMaterialRenderer", [](Object& p_this) -> MaterialRenderer* {
+			return p_this.getComponent<MaterialRenderer>().get();
+		},
 		/* Behaviours relatives */
 		//"GetBehaviour", [](Object& p_this, const std::string& p_name) -> sol::table {
 		//	auto behaviour = p_this.getScript(p_name);
@@ -57,17 +75,20 @@ void IKIGAI::SCRIPTING::LuaActorBinder::BindActor(sol::state & p_luaState) {
 		//	else
 		//		return sol::nil;
 		//},
-
+		
+		//TODO:
 		/* Components Creators */
-		"AddTransform", &Object::addComponent<TransformComponent>,
-		"AddModelRenderer", &Object::addComponent<ModelRenderer>,
-		"AddCamera", &Object::addComponent<CameraComponent>,
-		"AddPointLight", &Object::addComponent<PointLight>,
-		"AddSpotLight", &Object::addComponent<SpotLight>,
-		"AddDirectionalLight", &Object::addComponent<DirectionalLight>,
-		"AddAmbientBoxLight", &Object::addComponent<AmbientLight>,
-		"AddAmbientSphereLight", &Object::addComponent<AmbientSphereLight>,
-		"AddMaterialRenderer", &Object::addComponent<MaterialRenderer>,
+		"AddTransform", [](Object& p_this) -> TransformComponent* {
+			return p_this.addComponent<TransformComponent>().get();
+		},
+		//"AddModelRenderer", &Object::addComponent<ModelRenderer>,
+		//"AddCamera", &Object::addComponent<CameraComponent>,
+		//"AddPointLight", &Object::addComponent<PointLight>,
+		//"AddSpotLight", &Object::addComponent<SpotLight>,
+		//"AddDirectionalLight", &Object::addComponent<DirectionalLight>,
+		//"AddAmbientBoxLight", &Object::addComponent<AmbientLight>,
+		//"AddAmbientSphereLight", &Object::addComponent<AmbientSphereLight>,
+		//"AddMaterialRenderer", &Object::addComponent<MaterialRenderer>,
 		
 		/* Components Destructors */
 		"RemoveModelRenderer", &Object::removeComponent<ModelRenderer>,

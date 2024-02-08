@@ -116,7 +116,7 @@ namespace IKIGAI::SCENE_SYSTEM {
 			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
 
-		std::optional<Ref<IKIGAI::ECS::CameraComponent>> findMainCamera();
+		std::optional<UTILS::Ref<IKIGAI::ECS::CameraComponent>> findMainCamera();
 		std::vector<RENDER::LightOGL> findLightData();
 		std::vector<RENDER::LightOGL> findLightDataInFrustum(const RENDER::Frustum& frustum);
 
@@ -124,9 +124,9 @@ namespace IKIGAI::SCENE_SYSTEM {
 		std::vector<std::shared_ptr<IKIGAI::GUI::GuiObject>> guiObjs;
 
 
-		void addToBVH(object_ptr<ECS::Component> component);
-		void removeFromBVH(object_ptr<ECS::Component> component);
-		void updateInBVH(object_ptr<ECS::Component> component);
+		void addToBVH(UTILS::WeakPtr<ECS::Component> component);
+		void removeFromBVH(UTILS::WeakPtr<ECS::Component> component);
+		void updateInBVH(UTILS::WeakPtr<ECS::Component> component);
 
 		bool isSceneReady = false;
 		void postLoad();

@@ -4,7 +4,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-PointLight::PointLight(Ref<ECS::Object> obj) : LightComponent(obj) {
+PointLight::PointLight(UTILS::Ref<ECS::Object> obj) : LightComponent(obj) {
 	__NAME__ = "PointLight";
 	data.type = RENDER::Light::Type::POINT;
 	//pointLightShadowFBO.setupFrameBuffer(shadowRes, shadowRes, true);

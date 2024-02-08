@@ -18,8 +18,8 @@ ScriptInterpreter::ScriptInterpreter(const std::string& scriptRootFolder) :
 	scriptRootFolder(scriptRootFolder) {
 	createLuaContextAndBindGlobals();
 
-	IKIGAI::ECS::ScriptComponent::createdEvent.add(std::bind(&ScriptInterpreter::consider, this, std::placeholders::_1));
-	IKIGAI::ECS::ScriptComponent::destroyedEvent.add(std::bind(&ScriptInterpreter::unconsider, this, std::placeholders::_1));
+	IKIGAI::ECS::ScriptComponentEvents::createdEvent.add(std::bind(&ScriptInterpreter::consider, this, std::placeholders::_1));
+	IKIGAI::ECS::ScriptComponentEvents::destroyedEvent.add(std::bind(&ScriptInterpreter::unconsider, this, std::placeholders::_1));
 }
 
 ScriptInterpreter::~ScriptInterpreter() {
@@ -56,7 +56,7 @@ void ScriptInterpreter::destroyLuaContext() {
 	}
 }
 
-void ScriptInterpreter::consider(object_ptr<IKIGAI::ECS::ScriptComponent> s) {
+void ScriptInterpreter::consider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> s) {
 	if (s->getName().empty()) {
 		return;
 	}
@@ -69,11 +69,11 @@ void ScriptInterpreter::consider(object_ptr<IKIGAI::ECS::ScriptComponent> s) {
 	}
 }
 
-void ScriptInterpreter::unconsider(object_ptr<IKIGAI::ECS::ScriptComponent> p_toUnconsider) {
+void ScriptInterpreter::unconsider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> p_toUnconsider) {
 	if (luaState) {
 		ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*p_toUnconsider);
 	}
-	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](object_ptr<IKIGAI::ECS::ScriptComponent> s) {
+	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> s) {
 		return p_toUnconsider == s;
 	}));
 

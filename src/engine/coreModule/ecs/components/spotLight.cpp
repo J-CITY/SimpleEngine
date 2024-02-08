@@ -4,7 +4,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-SpotLight::SpotLight(Ref<ECS::Object> obj) : LightComponent(obj) {
+SpotLight::SpotLight(UTILS::Ref<ECS::Object> obj) : LightComponent(obj) {
 	__NAME__ = "SpotLight";
 	data.type = RENDER::Light::Type::SPOT;
 	//bool initFBOFLag3 = dirShadowFBO.setupFrameBuffer(shadowRes, shadowRes, false);

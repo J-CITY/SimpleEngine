@@ -9,7 +9,7 @@ namespace IKIGAI::ECS {
 	class BatchComponent : public Component {
 	public:
 		inline static std::vector<unsigned> ids;
-		BatchComponent(Ref<ECS::Object> obj);
+		BatchComponent(UTILS::Ref<ECS::Object> obj);
 		void init();
 		void CreateAtlases(const MaterialRenderer& material);
 		void createBuffers(ModelRenderer& model, MaterialRenderer& material);

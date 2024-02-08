@@ -6,6 +6,9 @@
 #include <utilsModule/loader.h>
 #include <windowModule/inputManager/inputManager.h>
 
+#include "coreModule/resourceManager/textureManager.h"
+#include "renderModule/backends/gl/textureGl.h"
+
 using namespace IKIGAI;
 using namespace IKIGAI::GUI;
 
@@ -62,9 +65,9 @@ Font::Font(std::string fontPath, int size) {
 			}
 			curX += face->glyph->bitmap.width;
 		}
-	
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
+		texture = std::make_shared<RENDER::TextureGl>();//RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromMemory(fontPath, (uint8_t*)textureData.data(), 1024, 1024, true);
+		glGenTextures(1, &std::static_pointer_cast<RENDER::TextureGl>(texture)->id);
+		glBindTexture(GL_TEXTURE_2D, std::static_pointer_cast<RENDER::TextureGl>(texture)->id);
 		glTexImage2D(
 			GL_TEXTURE_2D,
 			0,
@@ -81,7 +84,7 @@ Font::Font(std::string fontPath, int size) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
+		
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 	
@@ -89,7 +92,7 @@ Font::Font(std::string fontPath, int size) {
 	FT_Done_FreeType(ft);
 }
 
-int id = 100;
+int id = 1000;
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateSprite(const std::string & name, const std::string & path, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();

@@ -4,13 +4,13 @@
 
 using namespace IKIGAI::ECS;
 
-InputComponent::InputComponent(Ref<ECS::Object> obj, std::function<void(std::chrono::duration<double>)> _inputEventFun):
+InputComponent::InputComponent(UTILS::Ref<ECS::Object> obj, std::function<void(std::chrono::duration<double>)> _inputEventFun):
 	Component(obj) {
 	inputEventFun = _inputEventFun;
 	__NAME__ = "InputComponent";
 }
 
-InputComponent::InputComponent(Ref<ECS::Object> obj) :
+InputComponent::InputComponent(UTILS::Ref<ECS::Object> obj) :
 	Component(obj) {
 	__NAME__ = "InputComponent";
 }

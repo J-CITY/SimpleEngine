@@ -175,10 +175,10 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const std::string& name
 }
 
 struct BVHData {
-	Ref<ECS::Object> obj;
+	UTILS::Ref<ECS::Object> obj;
 	std::shared_ptr<RENDER::MeshInterface> mesh;
 
-	BVHData(Ref<ECS::Object> obj,
+	BVHData(UTILS::Ref<ECS::Object> obj,
 		std::shared_ptr<RENDER::MeshInterface> mesh): obj(obj), mesh(mesh) {}
 
 	const ECS::Transform& getTransform() {
@@ -207,7 +207,7 @@ RENDER::BoundingSphere getGlobalBoundingSphere(const RENDER::BoundingSphere& bou
 	return RENDER::BoundingSphere{ worldCenter, scaledRadius };
 }
 
-void Scene::addToBVH(object_ptr<ECS::Component> component) {
+void Scene::addToBVH(UTILS::WeakPtr<ECS::Component> component) {
 	if (component->getName() != "ModelRenderer") {
 		return;
 	}
@@ -236,7 +236,7 @@ void Scene::addToBVH(object_ptr<ECS::Component> component) {
 	}
 }
 
-void Scene::removeFromBVH(object_ptr<ECS::Component> component) {
+void Scene::removeFromBVH(UTILS::WeakPtr<ECS::Component> component) {
 	if (component->getName() != "ModelRenderer" || component->getName() != "TransformComponent") {
 		return;
 	}
@@ -253,7 +253,7 @@ void Scene::removeFromBVH(object_ptr<ECS::Component> component) {
 }
 
 //TODO: add subscribe for it
-void Scene::updateInBVH(object_ptr<ECS::Component> component) {
+void Scene::updateInBVH(UTILS::WeakPtr<ECS::Component> component) {
 	if (component->getName() != "ModelRenderer") {
 		return;
 	}
@@ -370,7 +370,7 @@ std::span<std::shared_ptr<IKIGAI::ECS::Object>> Scene::getObjects() {
 //TODO: void Scene::setMainCamera(Entity id) {}
 
 
-std::optional<IKIGAI::Ref<IKIGAI::ECS::CameraComponent>> Scene::findMainCamera() {
+std::optional<IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent>> Scene::findMainCamera() {
 	for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::CameraComponent>()) {
 		if (camera.obj->getIsActive()) {
 			if (camera.obj->getName().rfind("__", 0) == 0) { //TODO: refactor VR component and remove it

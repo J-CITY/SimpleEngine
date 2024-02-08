@@ -11,7 +11,7 @@ namespace IKIGAI::ECS {
 	public:
 
 		constexpr static size_t TextureCount = 3;
-		DirectionalLight(Ref<ECS::Object> obj);
+		DirectionalLight(UTILS::Ref<ECS::Object> obj);
 
 		void setDistance(float d) { distance = d; }
 		float getDistance() { return distance; }

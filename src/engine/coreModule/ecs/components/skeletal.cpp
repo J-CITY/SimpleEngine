@@ -6,11 +6,11 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-Skeletal::Skeletal(Ref<ECS::Object> obj) : Component(obj) {
+Skeletal::Skeletal(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "Skeletal";
 }
 
-Skeletal::Skeletal(Ref<ECS::Object> obj, const std::string& path, const std::optional<std::string>& startAnimation) : Component(obj), animationPath(path), curAnimation(startAnimation){
+Skeletal::Skeletal(UTILS::Ref<ECS::Object> obj, const std::string& path, const std::optional<std::string>& startAnimation) : Component(obj), animationPath(path), curAnimation(startAnimation){
 	__NAME__ = "Skeletal";
 	auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
 	animations = RESOURCES::Animation::LoadAnimations(animationPath, model->getModel().get());

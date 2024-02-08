@@ -57,6 +57,7 @@ using namespace IKIGAI::DEBUG;
 #include <sceneModule/sceneManager.h>
 #include <coreModule/core/core.h>
 #include <utilsModule/time/time.h>
+#include <coreModule/ecs/components/scriptComponent.h>
 
 struct MovableChildData
 {
@@ -3127,7 +3128,7 @@ void DebugRender::drawScene() {
 				auto origin = camera->obj->transform->getWorldPosition();
 				//MATHGL::Vector3 out_end = origin + lRayDir_world * 1000.0f;
 
-				std::vector<Ref<ECS::Object>> objs;
+				std::vector<UTILS::Ref<ECS::Object>> objs;
 
 				for (const auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelRenderer>()) {
 					if (modelRenderer.obj.get().getIsActive()) {
@@ -3142,7 +3143,7 @@ void DebugRender::drawScene() {
 					}
 				}
 
-				std::sort(objs.begin(), objs.end(), [origin](Ref<ECS::Object> a, Ref<ECS::Object> b) {
+				std::sort(objs.begin(), objs.end(), [origin](UTILS::Ref<ECS::Object> a, UTILS::Ref<ECS::Object> b) {
 					auto _a = std::abs(MATHGL::Vector3::Distance(a->getTransform()->getWorldPosition(), origin));
 					auto _b = std::abs(MATHGL::Vector3::Distance(b->getTransform()->getWorldPosition(), origin));
 

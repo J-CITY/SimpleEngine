@@ -162,7 +162,7 @@ namespace IKIGAI::ECS {
 		}
 
 		template<typename T>
-		Ref<T> getComponentRef(Entity entity) {
+		UTILS::Ref<T> getComponentRef(Entity entity) {
 			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
 			return getComponentArray<T>()->getData(entity);
 		}

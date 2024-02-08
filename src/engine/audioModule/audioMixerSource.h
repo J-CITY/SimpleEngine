@@ -5,8 +5,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-
-#define NOMINMAX
 #include "soloud.h"
 
 namespace IKIGAI::AUDIO {

@@ -13,7 +13,7 @@ namespace IKIGAI::ECS {
 	class LightComponent : public Component
 	{
 	public:
-		LightComponent(Ref<ECS::Object> obj);
+		LightComponent(UTILS::Ref<ECS::Object> obj);
 		const RENDER::Light& getData() const;
 		const MATHGL::Vector3& getColor() const;
 		float getIntensity() const;

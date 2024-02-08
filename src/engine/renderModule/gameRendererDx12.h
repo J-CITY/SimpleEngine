@@ -54,7 +54,7 @@ namespace IKIGAI::RENDER {
 		//void drawDeferredGBuffer();
 
 		void sendEngineUBO();
-		void renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
+		void renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
 
 		void begin();
 		void end();

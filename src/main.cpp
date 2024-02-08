@@ -73,9 +73,6 @@ namespace IKIGAI::MATHGL {
 //}
 
 #ifdef DX12_BACKEND
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
 #include <Windows.h>
 #include <iostream>
 #include <dxgi1_4.h>
@@ -229,7 +226,7 @@ int main() {
 	auto btn1 = IKIGAI::GUI::GuiHelper::CreateButton("btn1", true);
 	auto label1 = IKIGAI::GUI::GuiHelper::CreateLabel("label1", std::string("HELLO"), false);
 	label1->setParent(sprite1);
-
+	
 	auto clip = IKIGAI::GUI::GuiHelper::CreateClip("c", 150, 55, true);
 	auto scroll = IKIGAI::GUI::GuiHelper::CreateScroll("scroll", 250, 55, false);
 	scroll->setParent(clip);

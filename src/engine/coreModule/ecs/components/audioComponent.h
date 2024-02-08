@@ -8,9 +8,9 @@ namespace IKIGAI::ECS { class Object; }
 namespace IKIGAI::ECS {
 	class AudioComponent : public Component {
 	public:
-		AudioComponent(Ref<ECS::Object> obj);
+		AudioComponent(UTILS::Ref<ECS::Object> obj);
 
-		AudioComponent(Ref<ECS::Object> obj, std::string& path);
+		AudioComponent(UTILS::Ref<ECS::Object> obj, std::string& path);
 
 		std::string getSourcePath();
 		void setSourcePath(std::string val);
@@ -38,6 +38,6 @@ namespace IKIGAI::ECS {
 
 	class AudioListenerComponent : public Component {
 	public:
-		AudioListenerComponent(Ref<ECS::Object> obj);
+		AudioListenerComponent(UTILS::Ref<ECS::Object> obj);
 	};
 }

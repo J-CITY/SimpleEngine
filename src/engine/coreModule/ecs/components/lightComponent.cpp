@@ -3,7 +3,7 @@
 
 using namespace IKIGAI::ECS;
 
-LightComponent::LightComponent(Ref<ECS::Object> obj): Component(obj),
+LightComponent::LightComponent(UTILS::Ref<ECS::Object> obj): Component(obj),
 	data(obj->getID()) {
 }
 

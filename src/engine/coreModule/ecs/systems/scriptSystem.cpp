@@ -65,7 +65,7 @@ bool IKIGAI::ECS::ScriptSystem::registerToLuaContext(ScriptComponent& component,
 	else {
 		if (result.return_count() == 1 && result[0].is<sol::table>()) {
 			object = result[0];
-			object["owner"] = component.obj.getPtr().get();
+			object["owner"] = component.obj.getPtr();
 			return true;
 		}
 		else {

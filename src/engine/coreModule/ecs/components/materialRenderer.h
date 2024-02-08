@@ -19,7 +19,7 @@ namespace IKIGAI::ECS {
 		using MaterialList = std::array<std::shared_ptr<RENDER::MaterialInterface>, MAX_MATERIAL_COUNT>;
 		using MaterialNames = std::array<std::string, MAX_MATERIAL_COUNT>;
 		
-		MaterialRenderer(Ref<ECS::Object> obj);
+		MaterialRenderer(UTILS::Ref<ECS::Object> obj);
 		~MaterialRenderer() override;
 		void fillWithMaterial(std::shared_ptr<RENDER::MaterialInterface> material);
 		void setMaterial(unsigned index, std::shared_ptr<RENDER::MaterialInterface> material);

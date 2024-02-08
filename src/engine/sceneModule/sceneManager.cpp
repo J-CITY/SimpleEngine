@@ -121,7 +121,7 @@ void SceneManager::loadFromFile(const std::string& sceneFilePath) {
 				LOG_ERROR(err.text);
 				continue;
 			}
-			auto newActor = newActorRes.unwrap<ECS::ObjectData>();
+			auto newActor = newActorRes.unwrap();
 			auto obj = m_currentScene->createObject(newActor);
 			if (actor.contains("Components")) {
 				for (auto& component: actor["Components"]) {

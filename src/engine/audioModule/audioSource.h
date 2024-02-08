@@ -2,8 +2,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-
-#define NOMINMAX
 #include <rttr/rttr_enable.h>
 
 #include "soloud.h"

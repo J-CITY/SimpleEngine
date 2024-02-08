@@ -27,6 +27,7 @@ namespace IKIGAI {
 			//with cache
 			ResourcePtr<RENDER::TextureInterface> createFromResource(const std::string& path);
 			ResourcePtr<RENDER::TextureInterface> createFromFile(const std::string& path, bool generateMipmap);
+			ResourcePtr<RENDER::TextureInterface> createAtlasFromFile(const std::string& path, bool generateMipmap);
 			ResourcePtr<RENDER::TextureInterface> createFromFileHDR(const std::string& path, bool generateMipmap);
 			ResourcePtr<RENDER::TextureInterface> createColor(const std::string& name, uint8_t r, uint8_t g, uint8_t b, bool generateMipmap);
 			ResourcePtr<RENDER::TextureInterface> createColor(const std::string& name, uint32_t data, bool generateMipmap);

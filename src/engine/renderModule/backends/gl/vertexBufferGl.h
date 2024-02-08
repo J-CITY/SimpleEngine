@@ -81,8 +81,8 @@ namespace IKIGAI::RENDER
 
 		void bindAttribute(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* pointer) const {
 			bind();
-			glVertexAttribPointer(index, size, type, normalized, stride, pointer);
 			glEnableVertexAttribArray(index);
+			glVertexAttribPointer(index, size, type, normalized, stride, pointer);
 		}
 
 		void bindAttribute(GLuint index, GLint size, GLenum type, GLsizei stride, const GLvoid* pointer) const {
