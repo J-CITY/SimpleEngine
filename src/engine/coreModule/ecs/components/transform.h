@@ -108,7 +108,7 @@ namespace IKIGAI::ECS {
 	class TransformComponent : public Component {
 		RTTR_REGISTRATION_FRIEND
 	public:
-		TransformComponent(Ref<ECS::Object> obj,
+		TransformComponent(UTILS::Ref<ECS::Object> obj,
 			IKIGAI::MATHGL::Vector3 localPosition = IKIGAI::MATHGL::Vector3(0.0f, 0.0f, 0.0f),
 			MATHGL::Quaternion localRotation = MATHGL::Quaternion::Identity, 
 			IKIGAI::MATHGL::Vector3 localScale = IKIGAI::MATHGL::Vector3(1.0f, 1.0f, 1.0f));

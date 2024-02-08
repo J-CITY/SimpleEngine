@@ -2,7 +2,7 @@
 
 using namespace IKIGAI::ECS;
 
-AmbientLight::AmbientLight(Ref<ECS::Object> obj): LightComponent(obj) {
+AmbientLight::AmbientLight(UTILS::Ref<ECS::Object> obj): LightComponent(obj) {
 	__NAME__ = "AmbientLight";
 	
 	data.type = RENDER::Light::Type::AMBIENT_BOX;

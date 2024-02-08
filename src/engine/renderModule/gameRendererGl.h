@@ -188,8 +188,8 @@ namespace IKIGAI::RENDER {
 		void sendEngineUBO();
 		void sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader);
 		void renderScene();
-		void renderEditorScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> editorCamera);
-		void renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
+		void renderEditorScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> editorCamera);
+		void renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
 		void renderToScreen();
 		void sendIBLData();
 		void prepareBrightTexture();
@@ -215,7 +215,7 @@ namespace IKIGAI::RENDER {
 		void sendSSAOData();
 		void applyVolumetricLight();
 		void sendBounseDataToShader(std::shared_ptr<MaterialGl> material, ECS::Skeletal& animator, std::shared_ptr<ShaderGl> shader);
-		void drawGUISubtree(Ref<ECS::Object> obj);
+		void drawGUISubtree(UTILS::Ref<ECS::Object> obj);
 
 		virtual void resize() override;
 

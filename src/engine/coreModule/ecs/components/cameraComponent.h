@@ -22,7 +22,7 @@ namespace IKIGAI::ECS {
 		int blurAmount = 0;
 		float exposure = 1.0f;
 		
-		CameraComponent(Ref<ECS::Object> obj);
+		CameraComponent(UTILS::Ref<ECS::Object> obj);
 		~CameraComponent() override = default;
 		void ResizeRenderTexture(size_t w, size_t h);
 		void setFov(float value);
@@ -55,7 +55,7 @@ namespace IKIGAI::ECS {
 		std::shared_ptr<RENDER::TextureInterface> leftTexture;
 		std::shared_ptr<RENDER::TextureInterface> rightTexture;
 
-		VrCameraComponent(Ref<ECS::Object> obj);
+		VrCameraComponent(UTILS::Ref<ECS::Object> obj);
 		std::shared_ptr<IKIGAI::ECS::Object> createObject(const std::string& name);
 		~VrCameraComponent() override = default;
 
@@ -85,7 +85,7 @@ namespace IKIGAI::ECS {
 
 		MATHGL::Matrix4 view;
 
-		ArCameraComponent(Ref<ECS::Object> obj);;
+		ArCameraComponent(UTILS::Ref<ECS::Object> obj);;
 		~ArCameraComponent() override = default;
 
 		void onUpdate(std::chrono::duration<double> dt) override;

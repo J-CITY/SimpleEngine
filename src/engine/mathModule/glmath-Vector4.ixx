@@ -1,7 +1,5 @@
 export module glmath:Vector4;
-
 import :Vector3;
-
 export namespace IKIGAI::MATHGL {
 	struct Vector4 {
 		float x = 0.0f, y = 0.0f, z = 0.0f, w = 0.0f;
@@ -19,8 +17,8 @@ export namespace IKIGAI::MATHGL {
 		float length();
 		Vector4 normalize();
 
-		bool operator==(const Vector4& V2);
-		bool operator!=(const Vector4& V2);
+		//bool operator==(const Vector4& V2);
+		//bool operator!=(const Vector4& V2);
 		Vector4 operator-();
 		void operator+=(const Vector4& V2);
 		void operator-=(const Vector4& V2);
@@ -37,4 +35,7 @@ export namespace IKIGAI::MATHGL {
 
 	Vector4 operator*(const float f, const Vector4& V);
 	Vector4 operator/(const float f, const Vector4& V);
+
+	bool operator==(const Vector4& left, const Vector4& right);
+	bool operator!=(const Vector4& left, const Vector4& right);
 }

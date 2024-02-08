@@ -8,7 +8,7 @@ namespace IKIGAI::ECS { class Object; }
 namespace IKIGAI::ECS{
 	class PointLight : public LightComponent {
 	public:
-		PointLight(Ref<ECS::Object> obj);
+		PointLight(UTILS::Ref<ECS::Object> obj);
 		float getConstant() const;
 		float getLinear() const;
 		float getQuadratic() const;

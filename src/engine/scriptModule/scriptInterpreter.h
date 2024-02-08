@@ -3,15 +3,13 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <utilsModule/pointers/objPtr.h>
+#include "utilsModule/weakPtr.h"
+#include "coreModule/ecs/components/scriptComponent.h"
 
 namespace sol {
 	class state;
 }
 
-namespace IKIGAI::ECS {
-	class ScriptComponent;
-}
 
 namespace IKIGAI::SCRIPTING {
 	class ScriptInterpreter {
@@ -21,14 +19,14 @@ namespace IKIGAI::SCRIPTING {
 
 		void createLuaContextAndBindGlobals();
 		void destroyLuaContext();
-		void consider(object_ptr<IKIGAI::ECS::ScriptComponent> toConsider);
-		void unconsider(object_ptr<IKIGAI::ECS::ScriptComponent> toUnconsider);
+		void consider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> toConsider);
+		void unconsider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> toUnconsider);
 		void refreshAll();
 		bool isOk() const;
 	private:
 		std::unique_ptr<sol::state> luaState;
 		std::string scriptRootFolder;
-		std::vector<object_ptr<IKIGAI::ECS::ScriptComponent>> scripts;
+		std::vector<UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent>> scripts;
 		bool checkOk;
 	};
 }

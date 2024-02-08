@@ -15,8 +15,8 @@ namespace IKIGAI::ECS { class Object; }
 namespace IKIGAI::ECS {
 	class Skeletal : public Component {
 	public:
-		Skeletal(Ref<ECS::Object> obj);
-		Skeletal(Ref<ECS::Object> obj, const std::string& path, const std::optional<std::string>& startAnimation=std::nullopt);
+		Skeletal(UTILS::Ref<ECS::Object> obj);
+		Skeletal(UTILS::Ref<ECS::Object> obj, const std::string& path, const std::optional<std::string>& startAnimation=std::nullopt);
 
 		void onUpdate(std::chrono::duration<double> dt) override;
 		void setAnimation(std::string id);

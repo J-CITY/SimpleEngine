@@ -117,6 +117,6 @@ void App::postUpdate(std::chrono::duration<double> dt) {
 	core.window->draw();
 }
 
-IKIGAI::Ref<Core> App::getCore() {
+IKIGAI::UTILS::Ref<Core> App::getCore() {
 	return core;
 }

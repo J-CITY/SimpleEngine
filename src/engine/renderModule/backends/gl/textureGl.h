@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <vector>
 
 #ifdef OPENGL_BACKEND
@@ -24,7 +25,7 @@ namespace IKIGAI::RENDER
 		float depth = 1.0f;
 		float chanels = 1.0f;
 
-		static std::shared_ptr<TextureGl> Create(std::string path, bool generateMipmap);
+		static std::shared_ptr<TextureGl> Create(const std::string& path, bool generateMipmap);
 		static std::shared_ptr<TextureGl> CreateFromResource(const RENDER::TextureResource& res);
 		static std::shared_ptr<TextureGl> CreateHDREmptyCubemap(int width, int height);
 		static std::shared_ptr<TextureGl> CreateHDR(const std::string& path, bool generateMipmap);
@@ -42,6 +43,56 @@ namespace IKIGAI::RENDER
 		void generateMipmaps();
 
 		void bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format);
+	};
+
+	//TODO: add global struct and delete it
+	struct AtlasRect {
+		AtlasRect() = default;
+		AtlasRect(float x, float y, float w, float h) : mX(x), mY(y), mW(w), mH(h) {};
+		float getX()
+		{
+			return mX;
+		}
+		void setX(float x)
+		{
+			mX = x;
+		}
+		float mX = 0.0f;
+		float mY = 0.0f;
+		float mW = 0.0f;
+		float mH = 0.0f;
+	};
+
+	struct AtlasData {
+		AtlasData() = default;
+		std::map<std::string, AtlasRect> mRects;
+		std::string mPath;
+
+		void setRects(std::map<std::string, AtlasRect> rects)
+		{
+			mRects = rects;
+		}
+
+		std::map<std::string, AtlasRect> getRects()
+		{
+			return mRects;
+		}
+	};
+
+
+	class TextureAtlas: public TextureGl {
+	public:
+		
+	private:
+		AtlasData mAtlas;
+	public:
+		TextureAtlas(): TextureGl() {}
+
+		[[nodiscard]] AtlasRect getPiece(const std::string& name) const;
+		[[nodiscard]] AtlasRect getPieceUV(const std::string& name) const;
+
+		static std::shared_ptr<TextureAtlas> CreateAtlas(const std::string& path, bool generateMipmap);
+		//static std::shared_ptr<TextureAtlas> CreateAtlasFromResource(const RENDER::TextureResource& res);
 	};
 }
 #endif

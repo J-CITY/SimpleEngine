@@ -40,6 +40,8 @@ namespace IKIGAI::ECS {
 		VrCameraComponent,\
 		RootGuiComponent,\
 		SpriteComponent,\
+		SpriteAnimateComponent,\
+		SpriteParticleComponent,\
 		SpineComponent,\
 		BatchComponent
 

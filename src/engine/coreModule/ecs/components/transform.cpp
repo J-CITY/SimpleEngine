@@ -27,7 +27,7 @@ bool TransformNotifier::removeNotificationHandler(const NotificationHandlerID& p
 
 //Transform Component
 
-TransformComponent::TransformComponent(Ref<ECS::Object> obj, Vector3 localPosition,
+TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, Vector3 localPosition,
 	Quaternion localRotation, Vector3 localScale): Component(obj) {
 	__NAME__ = "TransformComponent";
 	transform = std::make_shared<Transform>();

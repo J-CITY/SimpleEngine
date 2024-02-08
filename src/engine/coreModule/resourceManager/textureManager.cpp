@@ -82,7 +82,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, 
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, bool generateMipmap) {
 #ifdef OPENGL_BACKEND
-	return RENDER::TextureGl::CreateFromMemory(data, 1, 1, generateMipmap);
+	return RENDER::TextureGl::CreateFromMemory(data, width, height, generateMipmap);
 #endif
 	//TODO: other backend
 	return nullptr;
@@ -121,6 +121,24 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromFile(const std::s
 	}
 	else {
 		auto newResource = CreateFromFile(path, generateMipmap);
+		if (newResource) {
+			return registerResource(path, newResource);
+		}
+		else {
+			return nullptr;
+		}
+	}
+}
+
+ResourcePtr<RENDER::TextureInterface> TextureLoader::createAtlasFromFile(const std::string& path, bool generateMipmap) {
+	if (auto resource = getResource<RENDER::TextureInterface>(path)) {
+		return resource;
+	}
+	else {
+		//auto newResource = CreateFromFile(path, generateMipmap);
+#ifdef OPENGL_BACKEND
+		auto newResource = RENDER::TextureAtlas::CreateAtlas(IKIGAI::UTILS::getRealPath(path), generateMipmap);
+#endif
 		if (newResource) {
 			return registerResource(path, newResource);
 		}

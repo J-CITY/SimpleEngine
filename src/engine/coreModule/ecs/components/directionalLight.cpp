@@ -3,7 +3,7 @@
 
 using namespace IKIGAI::ECS;
 
-DirectionalLight::DirectionalLight(Ref<ECS::Object> obj) : LightComponent(obj) {
+DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj) : LightComponent(obj) {
 	__NAME__ = "DirectionalLight";
 	data.type = RENDER::Light::Type::DIRECTIONAL;
 }

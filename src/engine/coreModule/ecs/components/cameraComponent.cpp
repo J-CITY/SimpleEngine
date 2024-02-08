@@ -14,7 +14,7 @@ import glmath;
 #include "sceneModule/sceneManager.h"
 using namespace IKIGAI::ECS;
 
-CameraComponent::CameraComponent(Ref<ECS::Object> obj): Component(obj) {
+CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> obj): Component(obj) {
 	__NAME__ = "CameraComponent";
 }
 void CameraComponent::ResizeRenderTexture(size_t w, size_t h) {
@@ -87,7 +87,7 @@ IKIGAI::RENDER::Camera& CameraComponent::getCamera() {
 	return camera;
 }
 
-VrCameraComponent::VrCameraComponent(Ref<ECS::Object> obj): CameraComponent(obj) {
+VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> obj): CameraComponent(obj) {
 	__NAME__ = "VrCamera";
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 #ifdef OPENGL_BACKEND
@@ -163,7 +163,7 @@ void VrCameraComponent::updateEyes() {
 
 
 /*
-ArCameraComponent::ArCameraComponent(Ref<ECS::Object> obj) : Component(obj) {
+ArCameraComponent::ArCameraComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "ArCamera";
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
 	cameraTexture = std::make_shared<RESOURCES::Texture>(screenRes.x, screenRes.y);

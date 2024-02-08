@@ -70,13 +70,23 @@ float Vector4::Length(const Vector4& V) {
 Vector4 Vector4::Normalize(const Vector4& V) {
 	return V / Length(V);
 }
+//I dont know why, but it not work with RTTI
+//bool Vector4::operator==(const Vector4& V2) {
+//	return x == V2.x && y == V2.y && z == V2.z && w == V2.w;
+//}
+//
+//bool Vector4::operator!=(const Vector4& V2) {
+//	return !operator==(V2);
+//}
 
-bool Vector4::operator==(const Vector4& V2) {
-	return x == V2.x && y == V2.y && z == V2.z && w == V2.w;
+bool IKIGAI::MATHGL::operator==(const Vector4& left, const Vector4& right) {
+	return left.x == right.x &&
+		left.y == right.y &&
+		left.z == right.z &&
+		left.w == right.w;
 }
-
-bool Vector4::operator!=(const Vector4& V2) {
-	return !operator==(V2);
+bool IKIGAI::MATHGL::operator!=(const Vector4& left, const Vector4& right) {
+	return !operator==(left, right);
 }
 
 Vector4 Vector4::operator-() {

@@ -39,7 +39,7 @@ using namespace IKIGAI::RENDER;
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
-std::optional<IKIGAI::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponentDx = std::nullopt;
+std::optional<IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponentDx = std::nullopt;
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -104,7 +104,7 @@ void GameRendererDx12::renderScene() {
 	renderScene(mainCameraComponentDx.value());
 }
 
-void GameRendererDx12::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
+void GameRendererDx12::renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
 	auto [winWidth, winHeight] = mContext.window->getSize();
 	auto& currentScene = mContext.sceneManager->getCurrentScene();
 

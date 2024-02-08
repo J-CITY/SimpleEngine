@@ -28,7 +28,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-std::optional<IKIGAI::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponent = std::nullopt;
+std::optional<IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponent = std::nullopt;
 
 std::shared_ptr<UniformBufferGl<EngineUBO>> mEngineUbo;
 
@@ -478,9 +478,9 @@ void GameRendererGl::createShaders() {
 
 	mShaders["spine"] = std::make_shared<ShaderGl>(
 		"./Shaders/gui/spine.vs.glsl", "./Shaders/gui/spine.fs.glsl");
-	mShaders["sprite"]->bind();
-	mShaders["sprite"]->setInt("image", 0);
-	mShaders["sprite"]->bind();
+	mShaders["spine"]->bind();
+	mShaders["spine"]->setInt("image", 0);
+	mShaders["spine"]->bind();
 
 	mShaders["label"] = std::make_shared<ShaderGl>(
 		"./Shaders/gui/text.vs.glsl", "./Shaders/gui/text.fs.glsl");
@@ -1190,22 +1190,22 @@ void GameRendererGl::renderScene() {
 		if (mainCameraComponent->getPtr()->getName() == "VrCamera") {
 			auto _mainCameraComponent = mainCameraComponent;
 
-			mainCameraComponent = *static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->left->getComponent<ECS::CameraComponent>();
-			renderScene(*static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->left->getComponent<ECS::CameraComponent>().get());
+			mainCameraComponent = *static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->left->getComponent<ECS::CameraComponent>();
+			renderScene(*static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->left->getComponent<ECS::CameraComponent>().get());
 			TextureGl::CopyTexture(*pingPongTex[!pingPong], *std::static_pointer_cast<TextureGl>(
-				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->leftTexture));
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->leftTexture));
 
 
-			mainCameraComponent = *static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->right->getComponent<ECS::CameraComponent>();
-			renderScene(*static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->right->getComponent<ECS::CameraComponent>().get());
+			mainCameraComponent = *static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->right->getComponent<ECS::CameraComponent>();
+			renderScene(*static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->right->getComponent<ECS::CameraComponent>().get());
 			TextureGl::CopyTexture(*pingPongTex[!pingPong], *std::static_pointer_cast<TextureGl>(
-				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->rightTexture));
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->rightTexture));
 			
 			mShaders["renderToScreenVr"]->bind();
 			std::static_pointer_cast<TextureGl>(
-				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->leftTexture)->bind(0);
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->leftTexture)->bind(0);
 			std::static_pointer_cast<TextureGl>(
-				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr().get())->rightTexture)->bind(1);
+				static_cast<ECS::VrCameraComponent*>(_mainCameraComponent->getPtr())->rightTexture)->bind(1);
 			renderQuad();
 			mShaders["renderToScreenVr"]->unbind();
 		}
@@ -1225,7 +1225,7 @@ void GameRendererGl::renderScene() {
 	frameCount %= 10000;
 }
 
-void GameRendererGl::renderEditorScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> editorCamera) {
+void GameRendererGl::renderEditorScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> editorCamera) {
 	mainCameraComponent = editorCamera;
 	
 	if (mainCameraComponent) {
@@ -1685,7 +1685,7 @@ float cameraFarPlane = 500.0f;
 std::vector<float> shadowCascadeLevels{ cameraFarPlane / 50.0f, cameraFarPlane / 25.0f, cameraFarPlane / 10.0f, cameraFarPlane / 2.0f };
 
 
-void GameRendererGl::renderScene(IKIGAI::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
+void GameRendererGl::renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
 	auto& currentScene = mContext.sceneManager->getCurrentScene();
 	
 	auto& camera = mainCameraComponent->getCamera();
@@ -2258,7 +2258,13 @@ void GameRendererGl::sendBounseDataToShader(std::shared_ptr<MaterialGl> material
 #include <coreModule/gui/guiObject.h>
 #include <windowModule/inputManager/inputManager.h>
 
-void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
+std::unique_ptr<ECS::SpriteBatcher> barcher;
+
+void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
+	if (!barcher)
+	{
+		barcher = std::make_unique<ECS::SpriteBatcher>();
+	}
 	static bool initLblBfrs = false;
 	static unsigned VAO = 0;
 	static unsigned VBO = 0;
@@ -2278,35 +2284,157 @@ void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
 	auto transform = obj->getComponent<ECS::TransformComponent>();
 	MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
 	auto [winWidth, winHeight] = mContext.window->getSize();
+
 	if (auto component = obj->getComponent<ECS::SpriteComponent>()) {
 		auto _component = component;
-		glDisable(GL_DEPTH_TEST);
-		glEnable(GL_CULL_FACE);
+		_component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		mShaders["sprite"]->bind();
-		if (_component->mTexture) {
-			static_cast<TextureGl*>(_component->mTexture.get())->bind(0);
-		}
-		else
-		{
-			mEmptyTexture->bind(0);
-		}
-		mShaders["sprite"]->setVec4("spriteColor", _component->mColor);
-		mShaders["sprite"]->setMat4("u_engine_model", 
-			transform->getWorldMatrix() * 
-			MATHGL::Matrix4::Scaling(MATHGL::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f)));
-		mShaders["sprite"]->setMat4("u_engine_projection", projection);
 
-		renderQuadGUI();
-		mShaders["sprite"]->unbind();
+
+		auto tex = _component->mTexture ? std::static_pointer_cast<TextureGl>(_component->mTexture) : mEmptyTexture;
+
+		AtlasRect uv( 0.0f, 0.0f, 1.0f, 1.0f );
+		if (!_component->mTexturePiece.empty()) {
+			uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(_component->mTexturePiece);
+		}
+
+		auto model = transform->getWorldMatrix() * MATHGL::Matrix4::Scaling(MATHGL::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
+
+		std::array<MATHGL::Vector4, 6> verts;
+		verts[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		verts[1] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		verts[2] = { 0.0f, 1.0f, 0.0f, 1.0f };
+		verts[3] = { 0.0f, 1.0f, 0.0f, 1.0f };
+		verts[4] = { 1.0f, 1.0f, 0.0f, 1.0f };
+		verts[5] = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+		for (auto& e : verts) {
+			e = model * e;
+		}
+
+		barcher->Draw(
+			verts, uv,
+			_component->mColor,
+			tex, 
+			mShaders["sprite"],
+			component->mIs3D
+		);
+		//barcher->Flush();
+
+
+		//mShaders["sprite"]->bind();
+		//if (_component->mTexture) {
+		//	static_cast<TextureGl*>(_component->mTexture.get())->bind(0);
+		//}
+		//else
+		//{
+		//	mEmptyTexture->bind(0);
+		//}
+		//mShaders["sprite"]->setVec4("spriteColor", _component->mColor);
+		//mShaders["sprite"]->setMat4("u_engine_model", 
+		//	transform->getWorldMatrix() * 
+		//	MATHGL::Matrix4::Scaling(MATHGL::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f)));
+		//mShaders["sprite"]->setMat4("u_engine_projection", projection);
+		//
+		//renderQuadGUI();
+		//mShaders["sprite"]->unbind();
+	}
+
+	if (auto component = obj->getComponent<ECS::SpriteParticleComponent>()) {
+		auto _component = component;
+		component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+		component->update();
+		glDisable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		auto tex = _component->mTexture ? std::static_pointer_cast<TextureGl>(_component->mTexture) : mEmptyTexture;
+		
+		for (const auto& particle : component->particles) {
+			if (!particle.isAlive) {
+				continue;
+			}
+			const auto& emmiter = component->emmiters[particle.emmiterId];
+			AtlasRect uv(0.0f, 0.0f, 1.0f, 1.0f);
+			MATHGL::Vector2f texSize = { tex->width, tex->height };
+			if (!emmiter.piece.empty()) {
+				uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(emmiter.piece);
+				auto rect = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPiece(emmiter.piece);
+				texSize = { rect.mW, rect.mH };
+			}
+
+			auto model = transform->getWorldMatrix() * 
+				MATHGL::Matrix4::Scaling(MATHGL::Vector3(texSize.x * particle.size, texSize.y * particle.size, 1.0f)) *
+				MATHGL::Matrix4::Translation(emmiter.localPos + particle.pos);
+
+			std::array<MATHGL::Vector4, 6> verts;
+			verts[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+			verts[1] = { 1.0f, 0.0f, 0.0f, 1.0f };
+			verts[2] = { 0.0f, 1.0f, 0.0f, 1.0f };
+			verts[3] = { 0.0f, 1.0f, 0.0f, 1.0f };
+			verts[4] = { 1.0f, 1.0f, 0.0f, 1.0f };
+			verts[5] = { 1.0f, 0.0f, 0.0f, 1.0f };
+			for (auto& e : verts) {
+				e = model * e;
+			}
+
+			barcher->Draw(
+				verts, uv,
+				emmiter.color,
+				tex,
+				mShaders["sprite"],
+				component->mIs3D
+			);
+		}
+	}
+
+	if (auto component = obj->getComponent<ECS::SpriteAnimateComponent>()) {
+		auto _component = component;
+		component->updateAnim();
+		component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+		auto tex = _component->mTexture ? std::static_pointer_cast<TextureGl>(_component->mTexture) : mEmptyTexture;
+
+		//AtlasRect uv(0.0f, 0.0f, 1.0f, 1.0f);
+		//if (!_component->mTexturePiece.empty()) {
+		//	uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(_component->mTexturePiece);
+		//}
+		auto model = transform->getWorldMatrix() * MATHGL::Matrix4::Scaling(MATHGL::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
+
+		std::array<MATHGL::Vector4, 6> verts;
+		verts[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		verts[1] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		verts[2] = { 0.0f, 1.0f, 0.0f, 1.0f };
+		verts[3] = { 0.0f, 1.0f, 0.0f, 1.0f };
+		verts[4] = { 1.0f, 1.0f, 0.0f, 1.0f };
+		verts[5] = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+		for (auto& e : verts) {
+			e = model * e;
+		}
+
+		barcher->Draw(
+			verts, component->mUVRect,
+			_component->mColor,
+			tex,
+			mShaders["sprite"],
+			component->mIs3D
+		);
 	}
 
 	if (auto component = obj->getComponent<ECS::SpineComponent>()) {
+		barcher->Flush();
 		auto _component = component;
 
 		_component->spine->spineDraw(TIME::Timer::GetInstance().getDeltaTime().count());
-		glDisable(GL_DEPTH_TEST);
+
+		_component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
 		glDisable(GL_CULL_FACE);
 		
 		glEnable(GL_BLEND);
@@ -2332,23 +2460,24 @@ void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
 	}
 
 	if (auto component = obj->getComponent<ECS::LabelComponent>()) {
+		barcher->Flush();
 
-		glDisable(GL_DEPTH_TEST);
-		glEnable(GL_CULL_FACE);
+		component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		
-		mShaders["label"]->bind();
-		mShaders["label"]->setVec3("textColor", { component->color.x, component->color.y, component->color.z});
-		mShaders["label"]->setMat4("u_engine_projection", projection);
+		//mShaders["label"]->bind();
+		//mShaders["label"]->setVec3("textColor", { component->color.x, component->color.y, component->color.z});
+		//mShaders["label"]->setMat4("u_engine_projection", projection);
 		//_component->font->texture->bind(0);
-		glBindTexture(GL_TEXTURE_2D, component->font->texture);
+		//glBindTexture(GL_TEXTURE_2D, component->font->texture);
 
-		std::string::const_iterator c;
-		mShaders["label"]->setMat4("u_engine_model", transform->getWorldMatrix());
+		//std::string::const_iterator c;
+		//mShaders["label"]->setMat4("u_engine_model", transform->getWorldMatrix());
 
-		glBindVertexArray(VAO);
+		//glBindVertexArray(VAO);
 
 		auto model = transform->getWorldMatrix();
 		float x = 0.0f;//model(0, 3);
@@ -2364,25 +2493,68 @@ void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
 			float w = ch.Size.x * scaleX;
 			float h = ch.Size.y * scaleY;
 
-			float vertices[6][4] = {
-				{ xpos,     ypos + h, ch.Start.x / 1024.0f,               (ch.Start.y + ch.Size.y) / 1024.0f },
-				{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0f,  ch.Start.y / 1024.0f},
-				{ xpos,     ypos,     ch.Start.x / 1024.0f,               ch.Start.y / 1024.0f },
-				{ xpos,     ypos + h, ch.Start.x / 1024.0f,               (ch.Start.y + ch.Size.y) / 1024.0f  },
-				{ xpos + w, ypos + h, (ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f },
-				{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f }
-			};
+			//float vertices[6][4] = {
+			//	{ xpos,     ypos + h, ch.Start.x / 1024.0f,               (ch.Start.y + ch.Size.y) / 1024.0f },
+			//	{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0f,  ch.Start.y / 1024.0f},
+			//	{ xpos,     ypos,     ch.Start.x / 1024.0f,               ch.Start.y / 1024.0f },
+			//	{ xpos,     ypos + h, ch.Start.x / 1024.0f,               (ch.Start.y + ch.Size.y) / 1024.0f  },
+			//	{ xpos + w, ypos + h, (ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f },
+			//	{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f }
+			//};
+			std::array<ECS::BatchVertex, 6> verts;
+			verts[0].color = component->color;
+			{
+				auto pos = model * MATHGL::Vector4(xpos, ypos + h, 0.0f, 1.0f);
+				verts[0].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
+				verts[0].texCoord = MATHGL::Vector2(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
 
-			glBindBuffer(GL_ARRAY_BUFFER, VBO);
-			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
+			}
+			verts[1].color = component->color;
+			{
+				auto pos = model * MATHGL::Vector4(xpos + w, ypos, 0.0f, 1.0f);
+				verts[1].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
+				verts[1].texCoord = MATHGL::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
+
+			}
+			verts[2].color = component->color;
+			{
+				auto pos = model * MATHGL::Vector4(xpos, ypos, 0.0f, 1.0f);
+				verts[2].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
+				verts[2].texCoord = MATHGL::Vector2(ch.Start.x / 1024.0f, ch.Start.y / 1024.0f);
+
+			}
+			verts[3].color = component->color;
+			{
+				auto pos = model * MATHGL::Vector4(xpos, ypos + h, 0.0f, 1.0f);
+				verts[3].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
+				verts[3].texCoord = MATHGL::Vector2(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+
+			}
+			verts[4].color = component->color;
+			{
+				auto pos = model * MATHGL::Vector4(xpos + w, ypos + h, 0.0f, 1.0f);
+				verts[4].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
+				verts[4].texCoord = MATHGL::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+			}
+			verts[5].color = component->color;
+			{
+				auto pos = model * MATHGL::Vector4(xpos + w, ypos, 0.0f, 1.0f);
+				verts[5].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
+				verts[5].texCoord = MATHGL::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
+			}
+
+			barcher->Draw(verts, component->font->texture, mShaders["label"], component->mIs3D);
+
+			//glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+			//glBindBuffer(GL_ARRAY_BUFFER, 0);
+			//glDrawArrays(GL_TRIANGLES, 0, 6);
 			//renderQuadGUI();
 		
 			x += (ch.Advance >> 6) * scaleX;
 		}
-		glBindVertexArray(0);
-		mShaders["label"]->unbind();
+		//glBindVertexArray(0);
+		//mShaders["label"]->unbind();
 	}
 	if (auto component = obj->getComponent<ECS::LayoutComponent>()) {
 
@@ -2422,6 +2594,7 @@ void GameRendererGl::drawGUISubtree(Ref<ECS::Object> obj) {
 		transform->getTransform().setLocalSize(MATHGL::Vector2{ width, height });
 	}
 	if (auto component = obj->getComponent<ECS::ClipComponent>()) {
+		barcher->Flush();
 		glEnable(GL_SCISSOR_TEST);
 		glScissor(
 			transform->getWorldPosition().x, 
@@ -2490,6 +2663,9 @@ void GameRendererGl::drawGUI() {
 		auto obj = guiRoot.obj;
 		drawGUISubtree(obj);
 	}
+
+	if (barcher)
+		barcher->Flush();
 
 	//set to default
 	pingPongFb[!pingPong]->unbind();

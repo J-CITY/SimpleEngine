@@ -3,7 +3,6 @@
 #include <string>
 #include <regex>
 #include <cmath>
-#define NOMINMAX
 #include "TextEditor.h"
 
 #define IMGUI_DEFINE_MATH_OPERATORS

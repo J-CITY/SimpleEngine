@@ -39,7 +39,8 @@ namespace IKIGAI {
 
 		struct Font {
 			std::map<char, Character> Characters;
-			unsigned int texture;
+			std::shared_ptr<RENDER::TextureInterface> texture;
+
 			Font(std::string fontPath, int size);
 		};
 

@@ -8,9 +8,6 @@
 
 #pragma once
 #ifdef DX12_BACKEND
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
 #include <windows.h>
 #include <wrl.h>
 #include <dxgi1_4.h>

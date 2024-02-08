@@ -6,14 +6,14 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-EVENT::Event<object_ptr<IKIGAI::ECS::ScriptComponent>> ScriptComponent::destroyedEvent;
-EVENT::Event<object_ptr<IKIGAI::ECS::ScriptComponent>> ScriptComponent::createdEvent;
+EVENT::Event<UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent>> ScriptComponentEvents::destroyedEvent;
+EVENT::Event<UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent>> ScriptComponentEvents::createdEvent;
 
-ScriptComponent::ScriptComponent(Ref<ECS::Object> obj) : Component(obj) {
+ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "ScriptComponent";
 }
 
-ScriptComponent::ScriptComponent(Ref<ECS::Object> obj, const std::string& name) :
+ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> obj, const std::string& name) :
 	name(name), Component(obj) {
 	__NAME__ = "ScriptComponent";
 }
@@ -34,7 +34,7 @@ std::string ScriptComponent::getScriptName() {
 
 void ScriptComponent::setScript(std::string _name) {
 	name = _name;
-	ScriptComponent::createdEvent.run(this);
+	ScriptComponentEvents::createdEvent.run(getWeak<ScriptComponent>());
 }
 
 

@@ -7,7 +7,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-ModelRenderer::ModelRenderer(Ref<ECS::Object> p_owner): Component(p_owner) {
+ModelRenderer::ModelRenderer(UTILS::Ref<ECS::Object> p_owner): Component(p_owner) {
 	__NAME__ = "ModelRenderer";
 }
 
@@ -63,7 +63,7 @@ std::string ModelRenderer::getModelPath() {
 //---------------------------------------
 
 
-ModelLODRenderer::ModelLODRenderer(Ref<ECS::Object> p_owner) : Component(p_owner) {
+ModelLODRenderer::ModelLODRenderer(UTILS::Ref<ECS::Object> p_owner) : Component(p_owner) {
 	__NAME__ = "ModelLODRenderer";
 }
 

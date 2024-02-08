@@ -9,7 +9,7 @@
 namespace IKIGAI {
 	namespace UTILS {
 
-		template <typename Ptr, bool = std::is_class<Ptr>::value>
+		/*template <typename Ptr, bool = std::is_class<Ptr>::value>
 		struct has_smart_pointer_ops {
 			using false_test = char;
 			template <typename T> struct true_test { false_test dummy[2]; };
@@ -191,26 +191,26 @@ namespace IKIGAI {
 	private:
 		/// The stored pointer
 		T* ptr;
-	};
+	};*/
 
-	template<typename T>
-	class Ref : public std::reference_wrapper<T> {
-	public:
-		using base = std::reference_wrapper<T>;
-		using base::base;
+		template<typename T>
+		class Ref : public std::reference_wrapper<T> {
+		public:
+			using base = std::reference_wrapper<T>;
+			using base::base;
 
-		T* operator->() {
-			return &(this->get());
-		}
+			T* operator->() {
+				return &(this->get());
+			}
 
-		object_ptr<T> getPtr() {
-			return &(this->get());
-		}
-	};
+			T* getPtr() {
+				return &(this->get());
+			}
+		};
 
-
+	}
 }
-
+/*
 namespace std {
 	/// Allow hashing object_ptrs so they can be used as keys in unordered_map
 	template <typename T> struct hash<IKIGAI::object_ptr<T>> {
@@ -238,4 +238,4 @@ namespace std {
 		return dynamic_cast<To*>(p.get());
 	}
 
-}
+}*/

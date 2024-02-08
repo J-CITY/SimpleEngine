@@ -9,12 +9,12 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-AudioComponent::AudioComponent(Ref<ECS::Object> obj, std::string& path): Component(obj) {
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> obj, std::string& path): Component(obj) {
 	__NAME__ = "AudioComponent";
 	res = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().CreateFromFile(path);
 }
 
-AudioComponent::AudioComponent(Ref<ECS::Object> obj) : Component(obj) {
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "AudioComponent";
 }
 
@@ -90,7 +90,7 @@ void AudioComponent::setState(AUDIO::SoundStatus val) {
 	}
 }
 
-AudioListenerComponent::AudioListenerComponent(Ref<ECS::Object> obj): Component(obj) {
+AudioListenerComponent::AudioListenerComponent(UTILS::Ref<ECS::Object> obj): Component(obj) {
 	__NAME__ = "AudioListenerComponent";
 }
 

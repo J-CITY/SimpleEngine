@@ -25,6 +25,7 @@
 #include <renderModule/gameRendererInterface.h>
 #include <renderModule/backends/interface/driverInterface.h>
 
+#include <coreModule/ecs/components/scriptComponent.h>
 #include "coreModule/ecs/components/batchComponent.h"
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/driverGl.h>
@@ -150,6 +151,8 @@ Core::Core(
 	//GUI
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::RootGuiComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteComponent>();
+	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteAnimateComponent>();
+	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteParticleComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::LabelComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::InteractionComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::ClipComponent>();

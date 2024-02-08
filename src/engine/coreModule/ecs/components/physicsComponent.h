@@ -28,7 +28,7 @@ namespace IKIGAI::ECS {
 	};
 	class PhysicsComponent : public Component {
 	public:
-		PhysicsComponent(Ref<ECS::Object> obj);
+		PhysicsComponent(UTILS::Ref<ECS::Object> obj);
 		int GetDirty() const { return m_dirtyFlag; }
 		void SetDirty(bool dirtyFlag) { m_dirtyFlag = dirtyFlag; }
 		void ResetDirty() { m_dirtyFlag = false; }

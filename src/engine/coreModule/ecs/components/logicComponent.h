@@ -18,7 +18,7 @@ namespace IKIGAI::ECS {
 		std::function<void(std::chrono::duration<double>)> _onFixedUpdate = [](std::chrono::duration<double>) {};
 		std::function<void(std::chrono::duration<double>)> _onLateUpdate = [](std::chrono::duration<double>) {};
 	public:
-		LogicComponent(Ref<ECS::Object> obj) : Component(obj) {
+		LogicComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 			__NAME__ = "LogicComponent";
 		};
 
