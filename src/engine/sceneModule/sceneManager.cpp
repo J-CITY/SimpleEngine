@@ -5,9 +5,7 @@
 #include <coreModule/ecs/components/directionalLight.h>
 #include <coreModule/ecs/object.h>
 
-#include "utilsModule/jsonParser/jsonParser.h"
-
-import logger;
+#include "utilsModule/log/loggerDefine.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::SCENE_SYSTEM;
@@ -47,14 +45,14 @@ void SceneManager::loadDefaultScene() {
 	auto directionalLight = m_currentScene->createObject("Directional Light");
 	directionalLight->addComponent<ECS::DirectionalLight>()->setIntensity(0.75f);
 	directionalLight->getTransform()->setLocalPosition({0.0f, 10.0f, 0.0f});
-	directionalLight->getTransform()->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{120.0f, -40.0f, 0.0f}));
+	directionalLight->getTransform()->setLocalRotation(MATH::QuaternionF(MATH::Vector3{120.0f, -40.0f, 0.0f}));
 
 	auto ambientLight = m_currentScene->createObject("Ambient Light");
 	ambientLight->addComponent<ECS::AmbientSphereLight>()->setRadius(10000.0f);
 
 	auto camera = m_currentScene->createObject("Main Camera");
 	camera->addComponent<ECS::CameraComponent>();
-	camera->getTransform()->setLocalRotation(MATHGL::Quaternion(MATHGL::Vector3{ 20.0f, 180.0f, 0.0f }));
+	camera->getTransform()->setLocalRotation(MATH::QuaternionF(MATH::Vector3f{ 20.0f, 180.0f, 0.0f }));
 	camera->getTransform()->setLocalPosition({0.0f, 3.0f, 8.0f});
 
 	m_currentScene->postLoad();
@@ -62,16 +60,16 @@ void SceneManager::loadDefaultScene() {
 
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <utilsModule/loader.h>
+#include <utilsModule/pathGetter.h>
 
 template<typename T>
 void addComponentImpl(const std::string& typeNameStr, std::shared_ptr<ECS::Object> obj, nlohmann::json& data) {
-	if (typeNameStr == typeid(T).name()) {
+	if (typeNameStr == ECS::GetType<T>()) {
 		auto c = obj->addComponent<T>();
-		auto result = IKIGAI::UTILS::FromJson<T>(*c, data);
-		if (result.isErr()) {
-			LOG_ERROR(result.unwrapErr().text);
-		}
+		//auto result = IKIGAI::UTILS::FromJson<T>(*c, data);
+		//if (result.isErr()) {
+		//	LOG_ERROR << (result.unwrapErr().text);
+		//}
 	}
 }
 
@@ -88,10 +86,10 @@ void addComponent(const std::string& typeNameStr, std::shared_ptr<ECS::Object> o
 
 template<typename T>
 void saveComponentImpl(const std::string& typeNameStr, UTILS::WeakPtr<ECS::Component> component, nlohmann::json& data) {
-	if (typeNameStr == typeid(T).name()) {
+	if (typeNameStr == ECS::GetType<T>()) {
 		auto _p = std::static_pointer_cast<T>(component);
-		data = IKIGAI::UTILS::ToJson(*_p);
-		data["Type"] = typeid(T).name();
+		//data = IKIGAI::UTILS::ToJson(*_p);
+		//data["Type"] = typeid(T).name();
 	}
 }
 
@@ -110,25 +108,32 @@ void SceneManager::loadFromFile(const std::string& sceneFilePath) {
 	m_currentScene = std::make_unique<Scene>();
 	m_currentSceneSourcePath = sceneFilePath;
 
-	std::ifstream f(UTILS::getRealPath(sceneFilePath));
+	std::ifstream f(UTILS::GetRealPath(sceneFilePath));
 	nlohmann::json data = nlohmann::json::parse(f);
 	f.close();
-	if (data.contains("Actors")) {
-		for (auto& actor : data["Actors"]) {
-			auto newActorRes = IKIGAI::UTILS::FromJson<ECS::ObjectData>(actor);
+	if (data.contains("Objects")) {
+		std::cout << "LOAD SCENE" << std::endl;
+		for (auto& object : data["Objects"]) {
+			auto newActorRes = IKIGAI::UTILS::FromJson<ECS::Object::Descriptor>(object);
 			if (newActorRes.isErr()) {
 				auto err = newActorRes.unwrapErr();
-				LOG_ERROR(err.text);
+				LOG_ERROR << (err.text);
 				continue;
 			}
+
+			std::cout << "LOAD SCENE 1" << std::endl;
 			auto newActor = newActorRes.unwrap();
 			auto obj = m_currentScene->createObject(newActor);
-			if (actor.contains("Components")) {
-				for (auto& component: actor["Components"]) {
-					addComponent(component["Type"], obj, component);
-				}
-			}
+			//if (actor.contains("Components")) {
+			//	for (auto& component: actor["Components"]) {
+			//		addComponent(component["Type"], obj, component);
+			//	}
+			//}
 		}
+	}
+	else
+	{
+		std::cout << "@!!!!!!" << std::endl;
 	}
 
 	m_currentScene->postLoad();
@@ -143,20 +148,20 @@ void SceneManager::saveToFile(const std::string& sceneFilePath) {
 
 	data["Actors"] = std::vector<nlohmann::json>();
 	for (auto& actor : m_currentScene->getObjects()) {
-		auto actorData = actor->getObjectData();
-		auto actorJson = IKIGAI::UTILS::ToJson(actorData);
-		actorJson["Components"] = std::vector<nlohmann::json>();
-		
-		for (auto& component : actor->getComponents()) {
-			actorJson["Components"].push_back({});
-			saveComponent(component, actorJson["Components"].back());
-		}
-
-		data["Actors"].push_back(actorJson);
+		//auto actorData = actor->getObjectData();
+		//auto actorJson = IKIGAI::UTILS::ToJson(actorData);
+		//actorJson["Components"] = std::vector<nlohmann::json>();
+		//
+		//for (auto& component : actor->getComponents()) {
+		//	actorJson["Components"].push_back({});
+		//	saveComponent(component, actorJson["Components"].back());
+		//}
+		//
+		//data["Actors"].push_back(actorJson);
 	}
 
 	//write
-	std::ofstream f(UTILS::getRealPath(sceneFilePath));
+	std::ofstream f(UTILS::GetRealPath(sceneFilePath));
 	f << data.dump(4) << std::endl;
 	f.close();
 }

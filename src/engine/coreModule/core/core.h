@@ -1,70 +1,15 @@
 #pragma once
 
 #include <memory>
-
+#ifdef USE_EDITOR
 namespace IKIGAI
 {
-	namespace SCENE_SYSTEM
+	namespace EDITOR
 	{
-		class SceneManager;
+		class EditorRender;
 	}
 }
-
-namespace IKIGAI
-{
-	namespace RENDER
-	{
-		class GameRendererInterface;
-		class DriverInterface;
-		class GameRendererGl;
-	}
-}
-
-namespace IKIGAI
-{
-	namespace SCRIPTING
-	{
-		class ScriptInterpreter;
-	}
-}
-
-//namespace IKIGAI
-//{
-//	namespace GL_SYSTEM
-//	{
-//		class GlManager;
-//	}
-//}
-
-namespace IKIGAI
-{
-	namespace RESOURCES
-	{
-		class AudioSourceLoader;
-		class MaterialLoader;
-		class ShaderLoader;
-		class TextureLoader;
-		class ModelLoader;
-	}
-
-	namespace DEBUG
-	{
-		class DebugRender;
-	}
-	namespace INPUT_SYSTEM
-	{
-		class InputManager;
-	}
-}
-
-namespace IKIGAI
-{
-	namespace WINDOW_SYSTEM
-	{
-		class Window;
-	}
-}
-
+#endif
 namespace IKIGAI
 {
 	namespace TASK
@@ -83,18 +28,85 @@ namespace IKIGAI
 
 namespace IKIGAI
 {
+	namespace RESOURCES
+	{
+		class ModelLoader;
+		class TextureLoader;
+		class MaterialLoader;
+		class ShaderLoader;
+		class AudioSourceLoader;
+	}
+}
+
+namespace IKIGAI
+{
 	namespace AUDIO
 	{
 		class AudioManager;
 	}
 }
 
+namespace IKIGAI
+{
+	namespace SCENE_SYSTEM
+	{
+		class SceneManager;
+	}
+}
+
+namespace IKIGAI
+{
+	namespace SCRIPTING
+	{
+		class ScriptInterpreter;
+	}
+}
+
+namespace IKIGAI
+{
+	namespace RENDER
+	{
+		class GameRendererInterface;
+		class DriverInterface;
+	}
+}
+
+namespace IKIGAI
+{
+	namespace INPUT_SYSTEM
+	{
+		class InputManager;
+	}
+}
+
+namespace IKIGAI
+{
+	namespace UTILS
+	{
+		namespace LOGG
+		{
+			class Logger;
+		}
+	}
+}
+
+namespace IKIGAI
+{
+	namespace WINDOW
+	{
+		class Window;
+	}
+}
+
 #ifdef DX12_BACKEND
 #include <Windows.h>
 #endif
+#ifdef OCULUS
+#include <android_native_app_glue.h>
+#endif
 namespace IKIGAI {
-	namespace CORE_SYSTEM {
-		class Core {
+	namespace CORE {
+		class Core final {
 		public:
 #ifdef DX12_BACKEND
 			HINSTANCE hInstance;
@@ -103,10 +115,14 @@ namespace IKIGAI {
 #ifdef DX12_BACKEND
 				HINSTANCE hInstance
 #endif
+#ifdef OCULUS
+                android_app* app
+#endif
 			);
 			~Core();
 		
-			std::unique_ptr<WINDOW_SYSTEM::Window>        window;
+			std::unique_ptr<WINDOW::Window> window;
+			std::unique_ptr<UTILS::LOGG::Logger> mLogger;
 			std::unique_ptr<INPUT_SYSTEM::InputManager>   inputManager;
 			std::unique_ptr<RENDER::DriverInterface>         driver;
 			std::unique_ptr<SCRIPTING::ScriptInterpreter> scriptInterpreter;
@@ -117,8 +133,9 @@ namespace IKIGAI {
 			std::unique_ptr<PHYSICS::PhysicWorld>         physicsManger;
 			std::unique_ptr<TASK::TaskSystem>             taskManger;
 
-			std::unique_ptr<IKIGAI::DEBUG::DebugRender> debugRender;
-
+#ifdef USE_EDITOR
+			std::unique_ptr<IKIGAI::EDITOR::EditorRender> editorRender;
+#endif
 			std::unique_ptr<RESOURCES::ModelLoader>    modelManager;
 			std::unique_ptr<RESOURCES::TextureLoader>  textureManager;
 			std::unique_ptr<RESOURCES::ShaderLoader>   shaderManager;

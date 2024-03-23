@@ -8,30 +8,50 @@
 #include "componentManager.h"
 #include "components/transform.h"
 #include <scriptModule/scriptInterpreter.h>
-#include <utilsModule/idObject.h>
 #include <utilsModule/event.h>
 #include "components/scriptComponent.h"
-#include <rttr/registration_friend>
 
 namespace IKIGAI::SCENE_SYSTEM {
 	class Scene;
 }
 
 namespace IKIGAI::ECS {
-	struct ObjectData {
-		int id = 0;
-		std::string name;
-		std::string tag;
-		bool isActive = true;
-		int parentId = -1;
-	};
+	//struct ObjectData {
+	//	int id = 0;
+	//	std::string name;
+	//	std::string tag;
+	//	bool isActive = true;
+	//	int parentId = -1;
+	//};
 
 	class Object: public std::enable_shared_from_this<Object> {
 	public:
-		using Id = ObjectId<Object>;
+		struct Descriptor {
+			std::string Name;
+			std::string Tag;
+			int Id;
+			int ParentId;
+			bool IsActive = false;
+			std::vector<ComponentsDescriptorType> Components;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, Descriptor& value) {
+				using Self = Descriptor;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Name, "Name")
+					.field(&Self::Tag, "Tag", default_{""})
+					.field(&Self::Id, "Id")
+					.field(&Self::ParentId, "ParentId", default_{-1})
+					.field(&Self::IsActive, "IsActive", default_{true})
+					.field(&Self::Components, "Components");
+			}
+		};
+		using Id_ = Id<Object>;
 		using ObjPtr = std::shared_ptr<Object>;
 
-		Object(Id actorID, const std::string& name, const std::string& tag);
+		Object(Id_ actorID, const std::string& name, const std::string& tag);
+		explicit Object(const Descriptor& actorID);
 		~Object();
 
 		[[nodiscard]] const std::string& getName() const;
@@ -44,10 +64,11 @@ namespace IKIGAI::ECS {
 		[[nodiscard]] bool getIsSelfActive() const;
 		[[nodiscard]] bool getIsActive() const;
 
-		void setID(Id id);
-		[[nodiscard]] Id getID() const;
+		void setID(Id_ id);
+		[[nodiscard]] Id_ getID() const;
 
 		void setParent(ObjPtr p_parent);
+		void setParentInPos(std::shared_ptr<Object> _parent, int pos);
 
 		void detachFromParent();
 
@@ -55,7 +76,7 @@ namespace IKIGAI::ECS {
 
 		[[nodiscard]] ObjPtr getParent() const;
 
-		[[nodiscard]] Id getParentID() const;
+		[[nodiscard]] Id_ getParentID() const;
 
 		std::span<ObjPtr> getChildren();
 
@@ -152,7 +173,7 @@ namespace IKIGAI::ECS {
 
 		[[nodiscard]] UTILS::WeakPtr<TransformComponent> getTransform() const;
 
-		ObjectData getObjectData();
+		//ObjectData getObjectData();
 
 	private:
 		void recursiveActiveUpdate();
@@ -176,7 +197,7 @@ namespace IKIGAI::ECS {
 		int getParentId();
 		void setParentId(int _id);
 	protected:
-		Id id;
+		Id_ id;
 		std::string name;
 		std::string tag;
 		

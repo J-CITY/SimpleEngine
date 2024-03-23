@@ -5,10 +5,7 @@
 #include "drawable.h"
 #include "frustum.h"
 #include "gameRendererInterface.h"
-#include <utilsModule/pointers/objPtr.h>
 #include "backends/vk/driverVk.h"
-
-import glmath;
 
 
 namespace IKIGAI::SCENE_SYSTEM {
@@ -19,7 +16,7 @@ namespace IKIGAI::ECS {
 	class CameraComponent;
 }
 
-namespace IKIGAI::CORE_SYSTEM {
+namespace IKIGAI::CORE {
 	class Core;
 }
 
@@ -28,7 +25,7 @@ namespace IKIGAI::RENDER {
 
 	class GameRendererVk:  public GameRendererInterface {
 	public:
-		GameRendererVk(IKIGAI::CORE_SYSTEM::Core& context);
+		GameRendererVk(IKIGAI::CORE::Core& context);
 		void createVkResources();
 		void renderScene() override;
 
@@ -56,7 +53,7 @@ namespace IKIGAI::RENDER {
 		void updateLights(SCENE_SYSTEM::Scene& scene);
 		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
 
-		IKIGAI::CORE_SYSTEM::Core& mContext;
+		IKIGAI::CORE::Core& mContext;
 
 		OpaqueDrawables	mOpaqueMeshesForward;
 		TransparentDrawables mTransparentMeshesForward;
@@ -64,6 +61,9 @@ namespace IKIGAI::RENDER {
 		OpaqueDrawables	mOpaqueMeshesDeferred;
 		TransparentDrawables mTransparentMeshesDeferred;
 		DriverVk* mDriver;
+#if defined(USE_EDITOR) || defined(USE_CHEATS)
+		void initForVk();
+#endif
 	};
 }
 #endif

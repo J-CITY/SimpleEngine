@@ -1,20 +1,23 @@
 #include "textureGl.h"
 
 #include <array>
+#include <filesystem>
 #include <vector>
 
-#include "coreModule/ecs/components/transform.h"
+#include "utilsModule/pathGetter.h"
+#include "utilsModule/stdLoader.h"
+
+//#include "coreModule/ecs/components/transform.h"
 
 
 #ifdef OPENGL_BACKEND
 #include <iostream>
-#include <gl/glew.h>
-#include <coreModule/resourceManager/textureManager.h>
+#include <coreModule/graphicsWrapper.hpp>
+//#include <coreModule/resourceManager/textureManager.h>
 #include <renderModule/backends/interface/resourceStruct.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
-using namespace rttr;
 TextureGl::~TextureGl() {
     glDeleteTextures(1, &id);
 }
@@ -49,6 +52,7 @@ enum class TextureFilter
 
 };
 
+
 std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool generateMipmap) {
     auto tex = std::make_shared<TextureGl>();
 
@@ -57,14 +61,18 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool gener
 
     int width=0, height=0, nrComponents=0;
 
-    //IKIGAI::RESOURCES::stbiSetFlipVerticallyOnLoad(true);
+    IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
     //stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &width, &height, &nrComponents, 0);
+    unsigned char* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &width, &height, &nrComponents, 0);
     if (data)
     {
-        GLenum format;
+        GLenum format = GL_RGBA;
         if (nrComponents == 1)
+#ifndef USING_GLES
             format = GL_RED;
+#else
+            format = GL_ALPHA;
+#endif
         else if (nrComponents == 3)
             format = GL_RGB;
         else if (nrComponents == 4)
@@ -73,19 +81,19 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool gener
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         if (generateMipmap) {
-            glGenerateMipmap(GL_TEXTURE_2D);
+            //glGenerateMipmap(GL_TEXTURE_2D);
         }
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        IKIGAI::RESOURCES::stbiImageFree(data);
+        IKIGAI::UTILS::STBiImageFree(data);
     }
     else
     {
         std::cout << "Texture failed to load at path: " << path << std::endl;
-        IKIGAI::RESOURCES::stbiImageFree(data);
+        IKIGAI::UTILS::STBiImageFree(data);
     }
 
     tex->id = textureID;
@@ -99,9 +107,13 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool gener
 std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureResource& res) {
     int chanels = 4;
     auto getFormat = [](int nrComponents) {
-        GLenum format;
+        GLenum format = GL_RGBA;
         if (nrComponents == 1)
+#ifndef USING_GLES
             format = GL_RED;
+#else
+            format = GL_ALPHA;
+#endif
         else if (nrComponents == 3)
             format = GL_RGB;
         else if (nrComponents == 4)
@@ -109,22 +121,41 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
         return format;
     };
     auto getInternalFormat = [](int nrComponents, bool isFloat) {
-        GLenum format;
+        GLenum format = GL_RGBA;
         if (nrComponents == 1)
+#ifndef USING_GLES
             format = isFloat ? GL_R16F : GL_RED;
+#else
+            format = GL_ALPHA;
+#endif
         else if (nrComponents == 3)
+#ifndef USING_GLES
             format = isFloat ? GL_RGB16F : GL_RGB;
+#else
+            format = GL_RGB;
+#endif
         else if (nrComponents == 4)
+#ifndef USING_GLES
             format = isFloat ? GL_RGBA16F : GL_RGBA;
+#else
+            format = GL_RGBA;
+#endif
         return format;
     };
 
     auto getFormat2 = [&](PixelDataFormat dataFormat) {
-        GLenum format;
+        GLenum format = GL_RGBA;
+#ifndef USING_GLES
         if (dataFormat == PixelDataFormat::RED) {
             format = GL_RED;
             chanels = 1;
         }
+#else
+        if (dataFormat == PixelDataFormat::ALPHA) {
+            format = GL_ALPHA;
+            chanels = 1;
+        }
+#endif
         else if (dataFormat == PixelDataFormat::RGB) {
             format = GL_RGB;
             chanels = 3;
@@ -140,21 +171,40 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
         return format;
     };
     auto getInternalFormat2 = [&](PixelDataFormat dataFormat, bool isFloat) {
-        GLenum format;
+        GLenum format = GL_RGBA;
+#ifndef USING_GLES
         if (dataFormat == PixelDataFormat::RED) {
             format = isFloat ? GL_R16F : GL_RED;
             chanels = 1;
         }
+#else
+        if (dataFormat == PixelDataFormat::ALPHA) {
+            format = GL_ALPHA;
+            chanels = 1;
+        }
+#endif
         else if (dataFormat == PixelDataFormat::RGB) {
+#ifndef USING_GLES
             format = isFloat ? GL_RGB16F : GL_RGB;
+#else
+            format = GL_RGB;
+#endif
             chanels = 3;
         }
         else if (dataFormat == PixelDataFormat::RGBA) {
+#ifndef USING_GLES
             format = isFloat ? GL_RGBA16F : GL_RGBA;
+#else
+            format = GL_RGBA;
+#endif
             chanels = 4;
         }
         else if (dataFormat == PixelDataFormat::DEPTH_COMPONENT) {
+#ifndef USING_GLES
             format = isFloat ? GL_DEPTH_COMPONENT32F : GL_DEPTH_COMPONENT;
+#else
+            format = GL_DEPTH_COMPONENT;
+#endif
             chanels = 1;
         }
         return format;
@@ -164,40 +214,58 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
         switch (type)
         {
         case TextureType::TEXTURE_2D: return GL_TEXTURE_2D;
+#ifndef USING_GLES
         case TextureType::TEXTURE_3D: return GL_TEXTURE_3D;
+#endif
         case TextureType::TEXTURE_CUBE: return GL_TEXTURE_CUBE_MAP;
+#ifndef USING_GLES
         case TextureType::TEXTURE_2D_ARRAY: return GL_TEXTURE_2D_ARRAY;
+#endif
+        default: return GL_TEXTURE_2D;
         }
         return GL_TEXTURE_2D;
     };
-    auto createTexture = [](TextureType type, int internalFormat, int format, int width, int height, int depth, bool isFloat, const void* data) {
+    auto createTexture = [](TextureType type, int internalFormat, int format, int width, int height, int depth, bool isFloat, std::vector<void*>& datas) {
         switch (type)
         {
         case TextureType::TEXTURE_2D:
 	    {
-			glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+			glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), datas[0]);
 	    }
         return;
         case TextureType::TEXTURE_3D: 
         {
+#ifndef USING_GLES
             glTexImage3D(
                 GL_TEXTURE_3D, 0, internalFormat, width, height, depth,
-                0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+                0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), datas[0]);
+#endif
         }
         return;
         case TextureType::TEXTURE_CUBE:
         {
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             for (unsigned int i = 0; i < 6; ++i) {
-                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), datas[i]);
             }
 
 	    }
         return;
         case TextureType::TEXTURE_2D_ARRAY: 
         {
+#ifndef USING_GLES
             glTexImage3D(
                 GL_TEXTURE_2D_ARRAY, 0, internalFormat, width, height, depth,
-                0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), data);
+                0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), datas[0]);
+#endif
         }
         return;
         }
@@ -209,21 +277,35 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
     unsigned texId = 0;
     glGenTextures(1, &texId);
     glBindTexture(getType(res.texType), texId);
-    if (!res.path.empty()) {
+    if (!res.pathTexture.empty()) {
+        UTILS::STBiSetFlipVerticallyOnLoad(true);
         int width=0, height=0, nrComponents=0;
 	    if (res.isFloat) {
-            RESOURCES::stbiSetFlipVerticallyOnLoad(true);
-            float* data = RESOURCES::stbiLoadf(res.path.c_str(), &width, &height, &nrComponents, 0);
-            if (data) {
-                createTexture(res.texType, getInternalFormat(nrComponents, res.isFloat), getFormat(nrComponents), width, height, res.depth, res.isFloat, data);
-                RESOURCES::stbiImageFree(data);
+            std::vector<void*> datas;
+            for (auto& p : res.pathTexture) {
+                float* data = UTILS::STBiLoadf(UTILS::GetRealPath(p).c_str(), &width, &height, &nrComponents, 0);
+                if (!data) {
+
+                }
+                datas.push_back(data);
             }
+	    	createTexture(res.texType, getInternalFormat(nrComponents, res.isFloat), getFormat(nrComponents), width, height, res.depth, res.isFloat, datas);
+	    	for (auto d : datas) {
+	    		UTILS::STBiImageFree((float*)d);
+	    	}
 	    }
         else {
-            unsigned char* data = IKIGAI::RESOURCES::stbiLoad(res.path.c_str(), &width, &height, &nrComponents, 0);
-            if (data) {
-                createTexture(res.texType, getInternalFormat(nrComponents, res.isFloat), getFormat(nrComponents), width, height, res.depth, res.isFloat, data);
-                RESOURCES::stbiImageFree(data);
+            std::vector<void*> datas;
+            for (auto& p : res.pathTexture) {
+                unsigned char* data = UTILS::STBiLoad(UTILS::GetRealPath(p).c_str(), &width, &height, &nrComponents, 0);
+                if (!data) {
+
+                }
+                datas.push_back(data);
+            }
+        	createTexture(res.texType, getInternalFormat(nrComponents, res.isFloat), getFormat(nrComponents), width, height, res.depth, res.isFloat, datas);
+            for (auto d : datas) {
+                UTILS::STBiImageFree((unsigned char*)d);
             }
         }
         tex->width = width;
@@ -233,13 +315,15 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
     }
     else {
         if (res.isFloat) {
-            RESOURCES::stbiSetFlipVerticallyOnLoad(true);
+            UTILS::STBiSetFlipVerticallyOnLoad(true);
         }
         const uint8_t* data = nullptr;
-        if (res.useColor) {
+        if (!res.colorData.empty()) {
             data = res.colorData.data();
         }
-    	createTexture(res.texType, getInternalFormat2(res.pixelType, res.isFloat), getFormat2(res.pixelType), res.width, res.height, res.depth, res.isFloat, data);
+        std::vector<void*> datas;
+        datas.push_back((void*)data);
+    	createTexture(res.texType, getInternalFormat2(res.pixelType, res.isFloat), getFormat2(res.pixelType), res.width, res.height, res.depth, res.isFloat, datas);
         tex->width = res.width;
         tex->height = res.height;
         tex->depth = res.depth;
@@ -252,19 +336,22 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
     
     tex->id = texId;
     tex->mPath = res.path;
+    tex->type = res.texType;
     
     return tex;
 }
 
 std::shared_ptr<TextureGl> TextureGl::CreateHDR(const std::string& path, bool generateMipmap) {
-	RESOURCES::stbiSetFlipVerticallyOnLoad(true);
+	UTILS::STBiSetFlipVerticallyOnLoad(true);
     int width, height, nrComponents;
-    float* data = RESOURCES::stbiLoadf(path.c_str(), &width, &height, &nrComponents, 0);
-    unsigned int hdrTexture;
+    float* data = UTILS::STBiLoadf(path.c_str(), &width, &height, &nrComponents, 0);
+    unsigned int hdrTexture = 0;
     if (data) {
         glGenTextures(1, &hdrTexture);
         glBindTexture(GL_TEXTURE_2D, hdrTexture);
+#ifndef USING_GLES
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data); // note how we specify the texture's data value to be float
+#endif
         if (generateMipmap) {
             glGenerateMipmap(GL_TEXTURE_2D);
         }
@@ -273,7 +360,7 @@ std::shared_ptr<TextureGl> TextureGl::CreateHDR(const std::string& path, bool ge
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        RESOURCES::stbiImageFree(data);
+        UTILS::STBiImageFree(data);
     }
     else {
         std::cout << "Failed to load HDR image." << std::endl;
@@ -290,9 +377,11 @@ void TextureGl::CopyTexture(const TextureGl& from, const TextureGl& to) {
     if (from.width != to.width || from.height != to.height) {
         throw std::logic_error("Textures have different size");
     }
+#ifndef USING_GLES
     glCopyImageSubData(from.id, GL_TEXTURE_2D, 0, 0, 0, 0,
         to.id, GL_TEXTURE_2D, 0, 0, 0, 0,
         from.width, from.height, 1);
+#endif
 }
 
 std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, bool generateMipmap) {
@@ -301,9 +390,9 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(uint8_t* data, uint32_t w
 	GLuint textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
-
+#ifndef USING_GLES
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
+#endif
     if (generateMipmap) {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
@@ -326,7 +415,11 @@ std::shared_ptr<TextureGl> TextureGl::createForAttach(int texWidth, int texHeigh
     // position color buffer
     glGenTextures(1, &texId);
     glBindTexture(GL_TEXTURE_2D, texId);
+#ifndef USING_GLES
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, texWidth, texHeight, 0, GL_RGBA, type, NULL);
+#else
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, type, nullptr);
+#endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -351,8 +444,9 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttachCubemap(int texWidth, 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#ifndef USING_GLES
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
+#endif
 	auto tex = std::make_shared<TextureGl>();
     tex->id = texId;
     tex->width = texWidth;
@@ -369,11 +463,12 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttach(unsigned texWidth, un
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, texWidth, texHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+#ifndef USING_GLES
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
+#endif
     auto tex = std::make_shared<TextureGl>();
     tex->id = texId;
     tex->width = texWidth;
@@ -384,6 +479,7 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttach(unsigned texWidth, un
 std::shared_ptr<TextureGl> TextureGl::createDepthForAttach2DArray(int texWidth, int texHeight, int arrSize) {
     unsigned int id;
     glGenTextures(1, &id);
+#ifndef USING_GLES
     glBindTexture(GL_TEXTURE_2D_ARRAY, id);
     glTexImage3D(
         GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT32F, texWidth, texHeight, arrSize,
@@ -394,7 +490,7 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttach2DArray(int texWidth, 
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
+#endif
     //constexpr float bordercolor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
     //glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, bordercolor);
 
@@ -420,7 +516,8 @@ std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ
         m_mip_levels++;
     }
 
-    unsigned int id;
+    unsigned int id=0;
+#ifndef USING_GLES
     glCreateTextures(GL_TEXTURE_3D, 1, &id);
 
     glTextureStorage3D(id, m_mip_levels, GL_RGBA16F, texX, texY, texZ);
@@ -435,6 +532,7 @@ std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ
         glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     else
         glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+#endif
     auto tex = std::make_shared<TextureGl>();
     tex->id = id;
     tex->type = TextureType::TEXTURE_3D;
@@ -446,9 +544,9 @@ std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ
 
 std::vector<unsigned char> TextureGl::getPixels(const std::string& path) {
     int width = 0, height = 0, nrComponents = 0;
-    unsigned char* data = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &width, &height, &nrComponents, 0);
+    unsigned char* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &width, &height, &nrComponents, 0);
     std::vector<unsigned char> res(data, data + width * height * nrComponents);
-    IKIGAI::RESOURCES::stbiImageFree(data);
+    IKIGAI::UTILS::STBiImageFree(data);
     return res;
 }
 
@@ -462,10 +560,14 @@ void TextureGl::bind(int _slot) {
         glBindTexture(GL_TEXTURE_CUBE_MAP, id);
     }
     else if (type == TextureType::TEXTURE_2D_ARRAY) {
+#ifndef USING_GLES
         glBindTexture(GL_TEXTURE_2D_ARRAY, id);
+#endif
     }
     else if (type == TextureType::TEXTURE_3D) {
+#ifndef USING_GLES
         glBindTexture(GL_TEXTURE_3D, id);
+#endif
     }
 }
 
@@ -483,19 +585,27 @@ void TextureGl::generateMipmaps() {
         glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
     }
     else if (type == TextureType::TEXTURE_3D) {
+#ifndef USING_GLES
         glBindTexture(GL_TEXTURE_3D, id);
         glGenerateMipmap(GL_TEXTURE_3D);
+#endif
     }
 }
 
 void TextureGl::bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format) {
     glActiveTexture(GL_TEXTURE0 + unit);
+#ifndef USING_GLES
     glBindTexture(GL_TEXTURE_3D, id);
 
 	if (type == TextureType::TEXTURE_3D)
 		glBindImageTexture(unit, id, mip_level, GL_TRUE, layer, access, format);
 	else
 		glBindImageTexture(unit, id, mip_level, GL_FALSE, 0, access, format);
+#endif
+}
+
+void* TextureGl::getImguiId() {
+	return reinterpret_cast<void*>(id);
 }
 
 std::shared_ptr<TextureGl> TextureGl::CreateHDREmptyCubemap(int width, int height) {
@@ -504,11 +614,15 @@ std::shared_ptr<TextureGl> TextureGl::CreateHDREmptyCubemap(int width, int heigh
     glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
     for (unsigned int i = 0; i < 6; ++i)
     {
+#ifndef USING_GLES
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, nullptr);
+#endif
     }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#ifndef USING_GLES
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+#endif
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); // enable pre-filter mipmap sampling (combatting visible dots artifact)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -530,7 +644,7 @@ std::shared_ptr<TextureGl> TextureGl::createCubemap(std::array<std::string, 6> p
     unsigned char* data;
     for (unsigned int i = 0; i < path.size(); i++)
     {
-        data = IKIGAI::RESOURCES::stbiLoad(path[i].c_str(), &width, &height, &nrChannels, 0);
+        data = IKIGAI::UTILS::STBiLoad(path[i].c_str(), &width, &height, &nrChannels, 0);
         glTexImage2D(
             GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
             0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
@@ -541,7 +655,9 @@ std::shared_ptr<TextureGl> TextureGl::createCubemap(std::array<std::string, 6> p
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#ifndef USING_GLES
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+#endif
 
     auto tex = std::make_shared<TextureGl>();
     tex->id = textureID;
@@ -578,14 +694,18 @@ std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path,
 
     int width = 0, height = 0, nrComponents = 0;
 
-    //IKIGAI::RESOURCES::stbiSetFlipVerticallyOnLoad(true);
+    //IKIGAI::UTILS::stbiSetFlipVerticallyOnLoad(true);
     //stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &width, &height, &nrComponents, 0);
+    unsigned char* data = UTILS::STBiLoad(path.c_str(), &width, &height, &nrComponents, 0);
     if (data)
     {
         GLenum format;
         if (nrComponents == 1)
+#ifndef USING_GLES
             format = GL_RED;
+#else
+            format = GL_ALPHA;
+#endif
         else if (nrComponents == 3)
             format = GL_RGB;
         else if (nrComponents == 4)
@@ -601,12 +721,12 @@ std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path,
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        IKIGAI::RESOURCES::stbiImageFree(data);
+        IKIGAI::UTILS::STBiImageFree(data);
     }
     else
     {
         std::cout << "Texture failed to load at path: " << path << std::endl;
-        IKIGAI::RESOURCES::stbiImageFree(data);
+        IKIGAI::UTILS::STBiImageFree(data);
     }
 
     tex->id = textureID;
@@ -618,20 +738,20 @@ std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path,
     std::filesystem::path configPath{ path };
     configPath.replace_extension(".atlas");
 
-    const std::string jsonData = UTILS::readFileIntoString(UTILS::getRealPath(configPath.string()));
-    auto json = nlohmann::json::parse(jsonData, nullptr, true, true);
-
-    AtlasData adata;
-    adata.mPath = json["Path"];
-    for (auto& e : json["Files"]) {
-        std::string key = e["key"];
-        AtlasRect val(e["value"]["x"], e["value"]["y"], e["value"]["w"], e["value"]["h"]);
-        adata.mRects.insert({ key, val });
-    }
-    tex->mAtlas = adata;
+    //const std::string jsonData = UTILS::readFileIntoString(UTILS::getRealPath(configPath.string()));
+    //auto json = nlohmann::json::parse(jsonData, nullptr, true, true);
+    //
+    //AtlasData adata;
+    //adata.mPath = json["Path"];
+    //for (auto& e : json["Files"]) {
+    //    std::string key = e["key"];
+    //    AtlasRect val(e["value"]["x"], e["value"]["y"], e["value"]["w"], e["value"]["h"]);
+    //    adata.mRects.insert({ key, val });
+    //}
+    //tex->mAtlas = adata;
 
     //TODO: why is not work
-    auto res = UTILS::FromJson<AtlasData>(configPath.string());
+    //auto res = UTILS::FromJson<AtlasData>(configPath.string());
     //if (res.isOk()) {
     //    tex->mAtlas = res.unwrap();
     //}
@@ -643,44 +763,3 @@ std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path,
 
 
 #endif
-//TODO: (rttr::policy::ctor::as_object) fix
-#include <rttr/registration>
-#include <rttr/policy.h>
-RTTR_REGISTRATION
-{
-    rttr::registration::class_<IKIGAI::RENDER::AtlasRect>("AtlasRect")
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    )
-    .constructor<>()(rttr::policy::ctor::as_object)
-    .property("x", &IKIGAI::RENDER::AtlasRect::getX, &IKIGAI::RENDER::AtlasRect::setX)
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    )
-    .property("y", &IKIGAI::RENDER::AtlasRect::mY)
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    )
-    .property("w", &IKIGAI::RENDER::AtlasRect::mW)
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    )
-    .property("h", &IKIGAI::RENDER::AtlasRect::mH)
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    );
-
-    rttr::registration::class_<IKIGAI::RENDER::AtlasData>("AtlasData")
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    )
-	.constructor<>()
-    .property("Files", &IKIGAI::RENDER::AtlasData::getRects, &IKIGAI::RENDER::AtlasData::setRects)
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    )
-    .property("Path", &IKIGAI::RENDER::AtlasData::mPath)
-    (
-        rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-    );
-}

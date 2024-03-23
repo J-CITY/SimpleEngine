@@ -1,28 +1,32 @@
 #include "luaMathsBinder.h"
 
-import glmath;
 
 #include <sol/sol.hpp>
+
+#include "mathModule/math.h"
 
 using namespace IKIGAI::SCRIPTING;
 
 void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
-	using namespace IKIGAI::MATHGL;
-
+	using namespace IKIGAI::MATH;
+	
 	p_luaState.new_usertype<Vector2f>("Vector2",
 		sol::constructors
 		<
 		Vector2f(),
+		Vector2f(float),
 		Vector2f(float, float)
 		>(),
-		"x", &Vector2f::x,
-		"y", &Vector2f::y,
 
-		
+		"x", sol::property(&Vector2f::getX, &Vector2f::setX),
+		"y", sol::property(&Vector2f::getY, &Vector2f::setY),
+		//"x", &Vector2f::getX,
+		//"y", &Vector2f::getY,
+
 		sol::meta_function::addition, sol::resolve<Vector2f(const Vector2f&) const>(&Vector2f::operator+),
 		sol::meta_function::subtraction, sol::resolve<Vector2f(const Vector2f&) const>(&Vector2f::operator-),
 		sol::meta_function::unary_minus, sol::resolve<Vector2f() const>(&Vector2f::operator-),
-		sol::meta_function::multiplication, sol::resolve<Vector2f(const float)>(&Vector2f::operator*),
+		sol::meta_function::multiplication, static_cast<Vector2f(Vector2f::*)(float)>(&Vector2f::operator*), //SOL do not support this - sol::resolve<Vector2f(float)>(&Vector2f::operator*),
 		sol::meta_function::division, &Vector2f::operator/,
 		sol::meta_function::to_string, [](const Vector2f& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + ")"; },
 		"Length", &Vector2f::length,
@@ -30,243 +34,244 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		"Normalize", &Vector2f::normalize
 	);
 
-	p_luaState.new_usertype<Vector3>("Vector3",
+	p_luaState.new_usertype<Vector3f>("Vector3",
 		/* Constructors */
 		sol::constructors
 		<
-		Vector3(),
-		Vector3(float, float, float)
+		Vector3f(),
+		Vector3f(const float&),
+		Vector3f(const float&, const float&, const float&)
 		>(),
 
 		/* Operators */
-		sol::meta_function::addition, &Vector3::operator+,
-		sol::meta_function::subtraction, sol::resolve<Vector3(const Vector3&) const>(&Vector3::operator-),
-		sol::meta_function::unary_minus, sol::resolve<Vector3() const>(&Vector3::operator-),
-		sol::meta_function::multiplication, sol::resolve<Vector3(const Vector3&) const>(&Vector3::operator*),
-		sol::meta_function::multiplication, sol::resolve<Vector3(float) const>(&Vector3::operator*),
-		sol::meta_function::division, &Vector3::operator/,
-		sol::meta_function::to_string, [](const Vector3& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + "," + std::to_string(target.z) + ")"; },
+		sol::meta_function::addition, &Vector3f::operator+,
+		sol::meta_function::subtraction, sol::resolve<Vector3f(const Vector3f&) const>(&Vector3f::operator-),
+		sol::meta_function::unary_minus, sol::resolve<Vector3f() const>(&Vector3f::operator-),
+		sol::meta_function::multiplication, sol::resolve<Vector3f(const Vector3f&) const>(&Vector3f::operator*),
+		sol::meta_function::multiplication, sol::resolve<Vector3f(float) const>(&Vector3f::operator*),
+		sol::meta_function::division, &Vector3f::operator/,
+		sol::meta_function::to_string, [](const Vector3f& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + "," + std::to_string(target.z) + ")"; },
 
 		/* Variables */
-		"x", &Vector3::x,
-		"y", &Vector3::y,
-		"z", &Vector3::z,
+		"x", sol::property(&Vector3f::getX, &Vector3f::setX),
+		"y", sol::property(&Vector3f::getY, &Vector3f::setY),
+		"z", sol::property(&Vector3f::getZ, &Vector3f::setZ),
 
 		/* Data */
-		"One", []() { return Vector3::One; },
-		"Zero", []() { return Vector3::Zero; },
-		"Forward", []() { return Vector3::Forward; },
-		"Up", []() { return Vector3::Up; },
-		"Right", []() { return Vector3::Right; },
-		"Backward", []() { return Vector3::Forward * -1; },
-		"Down", []() { return Vector3::Up * -1; },
-		"Left", []() { return Vector3::Right * -1; },
+		"One", []() { return Vector3f::One; },
+		"Zero", []() { return Vector3f::Zero; },
+		"Forward", []() { return Vector3f::Forward; },
+		"Up", []() { return Vector3f::Up; },
+		"Right", []() { return Vector3f::Right; },
+		"Backward", []() { return Vector3f::Forward * -1; },
+		"Down", []() { return Vector3f::Up * -1; },
+		"Left", []() { return Vector3f::Right * -1; },
 
 		/* Methods */
-		"Length", &Vector3::Length,
-		"Dot", &Vector3::Dot,
-		"Cross", &Vector3::Cross,
-		"Normalize", &Vector3::Normalize,
-		"Lerp", &Vector3::Lerp,
-		"AngleBetween", &Vector3::AngleBetween,
-		"Distance", &Vector3::Distance
+		"Length", &Vector3f::Length,
+		"Dot", &Vector3f::Dot,
+		"Cross", &Vector3f::Cross,
+		"Normalize", &Vector3f::Normalize,
+		"Lerp", &Vector3f::Lerp,
+		"AngleBetween", &Vector3f::AngleBetween,
+		"Distance", &Vector3f::Distance
 		);
 
-	p_luaState.new_usertype<Vector4>("Vector4",
+	p_luaState.new_usertype<Vector4f>("Vector4f",
 		/* Constructors */
 		sol::constructors
 		<
-		Vector4(),
-		Vector4(float, float, float, float)
+		Vector4f(),
+		Vector4f(float, float, float, float)
 		>(),
 
 		/* Operators */
-		//sol::meta_function::addition, &Vector4::operator+,
-		//sol::meta_function::subtraction, sol::resolve<Vector4(const Vector4&) const>(&Vector4::operator-),
-		//sol::meta_function::unary_minus, sol::resolve<Vector4() const>(&Vector4::operator-),
-		//sol::meta_function::multiplication, &Vector4::operator*,
-		//sol::meta_function::division, &Vector4::operator/,
-		sol::meta_function::to_string, [](const Vector4& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + "," + std::to_string(target.z) + "," + std::to_string(target.w) + ")"; },
+		//sol::meta_function::addition, &Vector4f::operator+,
+		//sol::meta_function::subtraction, sol::resolve<Vector4f(const Vector4f&) const>(&Vector4f::operator-),
+		//sol::meta_function::unary_minus, sol::resolve<Vector4f() const>(&Vector4f::operator-),
+		//sol::meta_function::multiplication, &Vector4f::operator*,
+		//sol::meta_function::division, &Vector4f::operator/,
+		sol::meta_function::to_string, [](const Vector4f& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + "," + std::to_string(target.z) + "," + std::to_string(target.w) + ")"; },
 
 		/* Variables */
-		"x", &Vector4::x,
-		"y", &Vector4::y,
-		"z", &Vector4::z,
-		"w", &Vector4::w
+		"x", sol::property(&Vector4f::getX, &Vector4f::setX),
+		"y", sol::property(&Vector4f::getY, &Vector4f::setY),
+		"z", sol::property(&Vector4f::getZ, &Vector4f::setZ),
+		"w", sol::property(&Vector4f::getW, &Vector4f::setW)
 
 		/* Data */
-		//"One", []() { return Vector4::One; },
-		//"Zero", []() { return Vector4::Zero; },
+		//"One", []() { return Vector4f::One; },
+		//"Zero", []() { return Vector4f::Zero; },
 
 		/* Methods */
-		//"Length", &Vector4::Length,
-		//"Dot", &Vector4::Dot,
-		//"Normalize", &Vector4::Normalize,
-		//"Lerp", &Vector4::Lerp
+		//"Length", &Vector4f::Length,
+		//"Dot", &Vector4f::Dot,
+		//"Normalize", &Vector4f::Normalize,
+		//"Lerp", &Vector4f::Lerp
 		);
 
-	p_luaState.new_usertype<Matrix3>("Matrix3",
+	p_luaState.new_usertype<Matrix3f>("Matrix3f",
 		/* Constructors */
 		sol::constructors
 		<
-		Matrix3(),
-		Matrix3(float),
-		Matrix3(float, float, float, float, float, float, float, float, float)
+		Matrix3f(),
+		Matrix3f(float),
+		Matrix3f(float, float, float, float, float, float, float, float, float)
 		>(),
 
 		/* Operators */
-		sol::meta_function::addition, &Matrix3::operator+,
-		sol::meta_function::subtraction, &Matrix3::operator-,
+		sol::meta_function::addition, &Matrix3f::operator+,
+		sol::meta_function::subtraction, &Matrix3f::operator-,
 		sol::meta_function::multiplication, sol::overload
 		(
-			sol::resolve<Matrix3(float) const>(&Matrix3::operator*),
-			sol::resolve<Vector3(const Vector3&) const>(&Matrix3::operator*),
-			sol::resolve<Matrix3(const Matrix3&) const>(&Matrix3::operator*)
+			sol::resolve<Matrix3f(float) const>(&Matrix3f::operator*),
+			sol::resolve<Vector3f(const Vector3f&) const>(&Matrix3f::operator*),
+			sol::resolve<Matrix3f(const Matrix3f&) const>(&Matrix3f::operator*)
 		),
 		sol::meta_function::division, sol::overload
 		(
-			sol::resolve<Matrix3(float) const>(&Matrix3::operator/),
-			sol::resolve<Matrix3(const Matrix3&) const>(&Matrix3::operator/)
+			sol::resolve<Matrix3f(float) const>(&Matrix3f::operator/),
+			sol::resolve<Matrix3f(const Matrix3f&) const>(&Matrix3f::operator/)
 		),
-		sol::meta_function::to_string, [](const Matrix3& target) { return "Can't show matrix as string for now"; },
+		sol::meta_function::to_string, [](const Matrix3f& target) { return "Can't show matrix as string for now"; },
 
 		/* Data */
-		"Identity", []() { return Matrix3::Identity; },
+		"Identity", []() { return Matrix3f::Identity; },
 
 		/* Methods */
-		"IsIdentity", &Matrix3::IsIdentity,
-		"Determinant", &Matrix3::Determinant,
-		"Transpose", &Matrix3::Transpose,
-		"Cofactor", &Matrix3::Cofactor,
-		"Minor", &Matrix3::Minor,
-		"Adjoint", &Matrix3::Adjoint,
-		"Inverse", &Matrix3::Inverse,
-		//"Translation", &Matrix3::Translation,
-		//"Translate", &Matrix3::Translate,
-		"Rotation", &Matrix3::Rotation,
-		"Rotate", &Matrix3::Rotate,
-		//"Scaling", &Matrix3::Scaling,
-		//"Scale", &Matrix3::Scale,
-		"GetRow", &Matrix3::GetRow,
-		"GetColumn", &Matrix3::GetColumn,
-		"Get", [](Matrix3& target, int row, int col) { return target(row, col); },
-		"Set", [](Matrix3& target, int row, int col, float value) { target(row, col) = value; }
+		"IsIdentity", &Matrix3f::IsIdentity,
+		"Determinant", &Matrix3f::Determinant,
+		"Transpose", &Matrix3f::Transpose,
+		"Cofactor", &Matrix3f::Cofactor,
+		"Minor", &Matrix3f::Minor,
+		"Adjoint", &Matrix3f::Adjoint,
+		"Inverse", &Matrix3f::Inverse,
+		//"Translation", &Matrix3f::Translation,
+		//"Translate", &Matrix3f::Translate,
+		"Rotation", &Matrix3f::Rotation,
+		"Rotate", &Matrix3f::Rotate,
+		//"Scaling", &Matrix3f::Scaling,
+		//"Scale", &Matrix3f::Scale,
+		"GetRow", &Matrix3f::GetRow,
+		"GetColumn", &Matrix3f::GetColumn,
+		"Get", [](Matrix3f& target, int row, int col) { return target(row, col); },
+		"Set", [](Matrix3f& target, int row, int col, float value) { target(row, col) = value; }
 	);
 
-	p_luaState.new_usertype<Matrix4>("Matrix4",
+	p_luaState.new_usertype<Matrix4f>("Matrix4f",
 		/* Constructors */
 		sol::constructors
 		<
-		Matrix4(),
-		Matrix4(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float)
+		Matrix4f(),
+		Matrix4f(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float)
 		>(),
 
 		/* Operators */
-		sol::meta_function::addition, &Matrix4::operator+,
+		sol::meta_function::addition, &Matrix4f::operator+,
 		sol::meta_function::subtraction, sol::overload
 		(
-			sol::resolve<Matrix4(float) const>(&Matrix4::operator-),
-			sol::resolve<Matrix4(const Matrix4&) const>(&Matrix4::operator-)
+			sol::resolve<Matrix4f(float) const>(&Matrix4f::operator-),
+			sol::resolve<Matrix4f(const Matrix4f&) const>(&Matrix4f::operator-)
 		),
 		sol::meta_function::multiplication, sol::overload
 		(
-			sol::resolve<Matrix4(float) const>(&Matrix4::operator*),
-			sol::resolve<Vector4(const Vector4&) const>(&Matrix4::operator*),
-			sol::resolve<Matrix4(const Matrix4&) const>(&Matrix4::operator*)
+			sol::resolve<Matrix4f(float) const>(&Matrix4f::operator*),
+			sol::resolve<Vector4f(const Vector4f&) const>(&Matrix4f::operator*),
+			sol::resolve<Matrix4f(const Matrix4f&) const>(&Matrix4f::operator*)
 		),
 		sol::meta_function::division, sol::overload
 		(
-			sol::resolve<Matrix4(float) const>(&Matrix4::operator/),
-			sol::resolve<Matrix4(const Matrix4&) const>(&Matrix4::operator/)
+			sol::resolve<Matrix4f(float) const>(&Matrix4f::operator/),
+			sol::resolve<Matrix4f(const Matrix4f&) const>(&Matrix4f::operator/)
 		),
-		sol::meta_function::to_string, [](const Matrix4& target) { return "Can't show matrix as string for now"; },
+		sol::meta_function::to_string, [](const Matrix4f& target) { return "Can't show matrix as string for now"; },
 
 		/* Data */
-		"Identity", []() { return Matrix4::Identity; },
+		"Identity", []() { return Matrix4f::Identity; },
 
 		/* Methods */
-		"IsIdentity", &Matrix4::IsIdentity,
-		"Determinant", &Matrix4::Determinant,
-		"Transpose", &Matrix4::Transpose,
-		"Minor", &Matrix4::GetMinor,
-		"Inverse", &Matrix4::Inverse,
-		"Translation", &Matrix4::Translation,
-		//"Translate", &Matrix4::Translate,
-		//"RotationOnAxisX", &Matrix4::RotationOnAxisX,
-		//"RotateOnAxisX", &Matrix4::RotateOnAxisX,
-		//"RotationOnAxisY", &Matrix4::RotationOnAxisY,
-		//"RotateOnAxisY", &Matrix4::RotateOnAxisY,
-		//"RotationOnAxisZ", &Matrix4::RotationOnAxisZ,
-		//"RotateOnAxisZ", &Matrix4::RotateOnAxisZ,
-		//"RotationYXZ", &Matrix4::RotationYXZ,
-		//"RotateYXZ", &Matrix4::RotateYXZ,
-		//"Scaling", &Matrix4::Scaling,
-		//"Scale", &Matrix4::Scale,
-		//"GetRow", &Matrix4::GetRow,
-		//"GetColumn", &Matrix4::GetColumn,
-		"CreatePerspective", &Matrix4::CreatePerspective,
-		//"CreateView", &Matrix4::CreateView,
-		"CreateFrustum", &Matrix4::CreateFrustum,
-		"Get", [](Matrix4& target, int row, int col) { return target(row, col); },
-		"Set", [](Matrix4& target, int row, int col, float value) { target(row, col) = value; }
+		"IsIdentity", &Matrix4f::IsIdentity,
+		"Determinant", &Matrix4f::Determinant,
+		"Transpose", &Matrix4f::Transpose,
+		"Minor", &Matrix4f::GetMinor,
+		"Inverse", &Matrix4f::Inverse,
+		"Translation", &Matrix4f::Translation,
+		//"Translate", &Matrix4f::Translate,
+		//"RotationOnAxisX", &Matrix4f::RotationOnAxisX,
+		//"RotateOnAxisX", &Matrix4f::RotateOnAxisX,
+		//"RotationOnAxisY", &Matrix4f::RotationOnAxisY,
+		//"RotateOnAxisY", &Matrix4f::RotateOnAxisY,
+		//"RotationOnAxisZ", &Matrix4f::RotationOnAxisZ,
+		//"RotateOnAxisZ", &Matrix4f::RotateOnAxisZ,
+		//"RotationYXZ", &Matrix4f::RotationYXZ,
+		//"RotateYXZ", &Matrix4f::RotateYXZ,
+		//"Scaling", &Matrix4f::Scaling,
+		//"Scale", &Matrix4f::Scale,
+		//"GetRow", &Matrix4f::GetRow,
+		//"GetColumn", &Matrix4f::GetColumn,
+		"CreatePerspective", &Matrix4f::CreatePerspective,
+		//"CreateView", &Matrix4f::CreateView,
+		"CreateFrustum", &Matrix4f::CreateFrustum,
+		"Get", [](Matrix4f& target, int row, int col) { return target(row, col); },
+		"Set", [](Matrix4f& target, int row, int col, float value) { target(row, col) = value; }
 	);
 
 	auto RotatePointOverload = sol::overload
 	(
-		sol::resolve<Vector3(const Vector3&, const Quaternion&)>(&Quaternion::RotatePoint),					// Rotate without pivot
-		sol::resolve<Vector3(const Vector3&, const Quaternion&, const Vector3&)>(&Quaternion::RotatePoint) // Rotate with pivot
+		sol::resolve<Vector3f(const Vector3f&, const QuaternionF&)>(&QuaternionF::RotatePoint),					// Rotate without pivot
+		sol::resolve<Vector3f(const Vector3f&, const QuaternionF&, const Vector3f&)>(&QuaternionF::RotatePoint) // Rotate with pivot
 	);
 
-	p_luaState.new_usertype<Quaternion>("Quaternion",
+	p_luaState.new_usertype<QuaternionF>("QuaternionF",
 		/* Constructors */
 		sol::constructors
 		<
-		Quaternion(),
-		Quaternion(float),
-		Quaternion(float, float, float, float),
-		Quaternion(const Vector3&)
+		QuaternionF(),
+		QuaternionF(float),
+		QuaternionF(float, float, float, float),
+		QuaternionF(const Vector3f&)
 		>(),
 
 		/* Operators */
-		sol::meta_function::addition, &Quaternion::operator+,
-		sol::meta_function::subtraction, &Quaternion::operator-,
-		sol::meta_function::division, &Quaternion::operator/,
+		sol::meta_function::addition, &QuaternionF::operator+,
+		sol::meta_function::subtraction, &QuaternionF::operator-,
+		sol::meta_function::division, &QuaternionF::operator/,
 		sol::meta_function::multiplication, sol::overload
 		(
-			sol::resolve<Quaternion(float) const>(&Quaternion::operator*),
-			sol::resolve<Quaternion(const Quaternion&) const>(&Quaternion::operator*),
-			sol::resolve<Matrix3(const Matrix3&) const>(&Quaternion::operator*),
-			sol::resolve<Vector3(const Vector3&) const>(&Quaternion::operator*)
+			static_cast<QuaternionF(QuaternionF::*)(float)const>(&QuaternionF::operator*),//sol::resolve<QuaternionF(float) const>(&QuaternionF::operator*),
+			sol::resolve<QuaternionF(const QuaternionF&) const>(&QuaternionF::operator*),
+			sol::resolve<Matrix3f(const Matrix3f&) const>(&QuaternionF::operator*),
+			sol::resolve<Vector3f(const Vector3f&) const>(&QuaternionF::operator*)
 		),
-		sol::meta_function::to_string, [](const Quaternion& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + "," + std::to_string(target.z) + "," + std::to_string(target.w) + ")"; },
+		sol::meta_function::to_string, [](const QuaternionF& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + "," + std::to_string(target.z) + "," + std::to_string(target.w) + ")"; },
 
 		/* Methods */
-		//"IsIdentity", &Quaternion::IsIdentity,
-		//"IsPure", &Quaternion::IsPure,
-		"IsNormalized", &Quaternion::IsNormalized,
-		//"Dot", &Quaternion::DotProduct,
-		"Normalize", &Quaternion::Normalize,
-		"Length", &Quaternion::Length,
-		"LengthSquare", &Quaternion::LengthSquare,
-		//"GetAngle", &Quaternion::GetAngle,
-		//"GetRotationAxis", &Quaternion::GetRotationAxis,
-		//"Inverse", &Quaternion::Inverse,
-		//"Conjugate", &Quaternion::Conjugate,
-		//"Square", &Quaternion::Square,
-		//"GetAxisAndAngle", &Quaternion::GetAxisAndAngle,
-		//"AngularDistance", &Quaternion::AngularDistance,
-		//"Lerp", &Quaternion::Lerp,
-		//"Slerp", &Quaternion::Slerp,
-		//"Nlerp", &Quaternion::Nlerp,
+		//"IsIdentity", &QuaternionF::IsIdentity,
+		//"IsPure", &QuaternionF::IsPure,
+		"IsNormalized", &QuaternionF::IsNormalized,
+		//"Dot", &QuaternionF::DotProduct,
+		"Normalize", &QuaternionF::Normalize,
+		"Length", &QuaternionF::Length,
+		"LengthSquare", &QuaternionF::LengthSquare,
+		//"GetAngle", &QuaternionF::GetAngle,
+		//"GetRotationAxis", &QuaternionF::GetRotationAxis,
+		//"Inverse", &QuaternionF::Inverse,
+		//"Conjugate", &QuaternionF::Conjugate,
+		//"Square", &QuaternionF::Square,
+		//"GetAxisAndAngle", &QuaternionF::GetAxisAndAngle,
+		//"AngularDistance", &QuaternionF::AngularDistance,
+		//"Lerp", &QuaternionF::Lerp,
+		//"Slerp", &QuaternionF::Slerp,
+		//"Nlerp", &QuaternionF::Nlerp,
 		"RotatePoint", RotatePointOverload,
-		//"EulerAngles", &Quaternion::EulerAngles,
-		"ToMatrix3", &Quaternion::ToMatrix3,
-		"ToMatrix4", &Quaternion::ToMatrix4,
+		//"EulerAngles", &QuaternionF::EulerAngles,
+		"ToMatrix3f", &QuaternionF::ToMatrix3,
+		"ToMatrix4f", &QuaternionF::ToMatrix4,
 
 		/* Variables */
-		"x", &Quaternion::x,
-		"y", &Quaternion::y,
-		"z", &Quaternion::z,
-		"w", &Quaternion::w
+		"x", sol::property(&QuaternionF::getX, &QuaternionF::setX),
+		"y", sol::property(&QuaternionF::getY, &QuaternionF::setY),
+		"z", sol::property(&QuaternionF::getZ, &QuaternionF::setZ),
+		"w", sol::property(&QuaternionF::getW, &QuaternionF::setW)
 		);
 }

@@ -1,7 +1,6 @@
 #pragma once
 #ifdef OPENGL_BACKEND
 
-import glmath;
 #include "indexBufferGl.h"
 #include "vertexBufferGl.h"
 #include <memory>

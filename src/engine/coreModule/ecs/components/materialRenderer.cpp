@@ -2,15 +2,21 @@
 
 #include "modelRenderer.h"
 #include "transform.h"
-#include "../../resourceManager/materialManager.h"
 #include "coreModule/ecs/object.h"
+#include "resourceModule/materialManager.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> obj) : Component(obj) {
+MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> _obj) : Component(_obj) {
 	__NAME__ = "MaterialRenderer";
 	materials.fill(nullptr);
+}
+
+MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : Component(_obj) {
+	__NAME__ = "MaterialRenderer";
+	setMaterialsNames(_descriptor.MaterialNames);
+	setMaterialsByPath(_descriptor.Materials);
 }
 
 MaterialRenderer::~MaterialRenderer() {
@@ -33,7 +39,7 @@ void MaterialRenderer::updateMaterialList() {
 		//materials[i] = RESOURCES::MaterialLoader::Create("Materials/simple.mat");
 		if (!materials[i]) {
 #ifdef OPENGL_BACKEND
-			materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>("Materials/simple.mat");
+			materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource("Materials/simple.mat");
 #endif
 		}
 		materialNames[i] = matNames[i];
@@ -89,7 +95,7 @@ void MaterialRenderer::setMaterialsByPath(std::vector<std::string> paths) {
 		materials[i] = RESOURCES::MaterialLoader::Create(m);
 #endif
 #if defined(OPENGL_BACKEND) || defined(VULKAN_BACKEND)
-		materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(m);
+		materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(m);
 #endif
 		i++;
 	}
@@ -132,28 +138,28 @@ MaterialRenderer* MaterialRenderer::getMaterialRenderer() {
 }
 
 
-#include <rttr/registration>
-
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::MaterialRenderer>("MaterialRenderer")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Materials", &IKIGAI::ECS::MaterialRenderer::getMaterialsPaths, &IKIGAI::ECS::MaterialRenderer::setMaterialsByPath)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRINGS_ARRAY)
-	)
-	.property("MaterialsNames", &IKIGAI::ECS::MaterialRenderer::getMaterialsNames, &IKIGAI::ECS::MaterialRenderer::setMaterialsNames)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRINGS_ARRAY)
-	)
-	.property_readonly("Material", &IKIGAI::ECS::MaterialRenderer::getMaterialRenderer)//TODO: think about
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::MATERIAL)
-	)
-	;
-}
+//#include <rttr/registration>
+//
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::MaterialRenderer>("MaterialRenderer")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Materials", &IKIGAI::ECS::MaterialRenderer::getMaterialsPaths, &IKIGAI::ECS::MaterialRenderer::setMaterialsByPath)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRINGS_ARRAY)
+//	)
+//	.property("MaterialsNames", &IKIGAI::ECS::MaterialRenderer::getMaterialsNames, &IKIGAI::ECS::MaterialRenderer::setMaterialsNames)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRINGS_ARRAY)
+//	)
+//	.property_readonly("Material", &IKIGAI::ECS::MaterialRenderer::getMaterialRenderer)//TODO: think about
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::MATERIAL)
+//	)
+//	;
+//}

@@ -5,11 +5,7 @@
 #include "drawable.h"
 #include "frustum.h"
 #include "gameRendererInterface.h"
-#include <utilsModule/pointers/objPtr.h>
 #include "backends/dx12/driverDx12.h"
-
-import glmath;
-
 
 namespace IKIGAI::SCENE_SYSTEM {
 	class Scene;
@@ -19,7 +15,7 @@ namespace IKIGAI::ECS {
 	class CameraComponent;
 }
 
-namespace IKIGAI::CORE_SYSTEM {
+namespace IKIGAI::CORE {
 	class Core;
 }
 
@@ -32,8 +28,8 @@ namespace IKIGAI::RENDER {
 
 	class GameRendererDx12:  public GameRendererInterface {
 	public:
-		GameRendererDx12(HINSTANCE hInstance, IKIGAI::CORE_SYSTEM::Core& context);
-		~GameRendererDx12();
+		GameRendererDx12(HINSTANCE hInstance, IKIGAI::CORE::Core& context);
+		~GameRendererDx12() override;
 		//void createDx12Resources();
 		void renderScene() override;
 
@@ -64,7 +60,7 @@ namespace IKIGAI::RENDER {
 		//void updateLights(SCENE_SYSTEM::Scene& scene);
 		//void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
 
-		IKIGAI::CORE_SYSTEM::Core& mContext;
+		IKIGAI::CORE::Core& mContext;
 
 		OpaqueDrawables	mOpaqueMeshesForward;
 		TransparentDrawables mTransparentMeshesForward;

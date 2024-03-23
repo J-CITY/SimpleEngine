@@ -1,6 +1,7 @@
 #pragma once
 
 #include "body.h"
+#include "mathModule/math.h"
 
 namespace IKIGAI::PHYSICS {
 
@@ -26,10 +27,10 @@ namespace IKIGAI::PHYSICS {
         float restitution;
 
         
-        MATHGL::Vector3 contactPoint;
+        MATH::Vector3f contactPoint;
 
         
-        MATHGL::Vector3 contactNormal;
+        MATH::Vector3f contactNormal;
 
         
         float penetration;
@@ -41,16 +42,16 @@ namespace IKIGAI::PHYSICS {
     protected:
 
         
-        MATHGL::Matrix3 contactToWorld = MATHGL::Matrix3(0.0f);
+        MATH::Matrix3f contactToWorld = MATH::Matrix3f(0.0f);
 
         
-        MATHGL::Vector3 contactVelocity;
+        MATH::Vector3f contactVelocity;
 
         
         float desiredDeltaVelocity;
 
         
-        MATHGL::Vector3 relativeContactPosition[2];
+        MATH::Vector3f relativeContactPosition[2];
 
     protected:
         
@@ -66,29 +67,29 @@ namespace IKIGAI::PHYSICS {
         void calculateDesiredDeltaVelocity(float duration);
 
         
-        MATHGL::Vector3 calculateLocalVelocity(unsigned bodyIndex, float duration);
+        MATH::Vector3f calculateLocalVelocity(unsigned bodyIndex, float duration);
 
         
         void calculateContactBasis();
 
         
-        void applyImpulse(const MATHGL::Vector3 &impulse, RigidBody *body,
-                          MATHGL::Vector3 *velocityChange, MATHGL::Vector3 *rotationChange);
+        void applyImpulse(const MATH::Vector3f &impulse, RigidBody *body,
+                          MATH::Vector3f *velocityChange, MATH::Vector3f *rotationChange);
 
         
-        void applyVelocityChange(MATHGL::Vector3 velocityChange[2],
-                                 MATHGL::Vector3 rotationChange[2]);
+        void applyVelocityChange(MATH::Vector3f velocityChange[2],
+                                 MATH::Vector3f rotationChange[2]);
 
         
-        void applyPositionChange(MATHGL::Vector3 linearChange[2],
-                                 MATHGL::Vector3 angularChange[2],
+        void applyPositionChange(MATH::Vector3f linearChange[2],
+                                 MATH::Vector3f angularChange[2],
                                  float penetration);
 
         
-        MATHGL::Vector3 calculateFrictionlessImpulse(MATHGL::Matrix3 *inverseInertiaTensor);
+        MATH::Vector3f calculateFrictionlessImpulse(MATH::Matrix3f *inverseInertiaTensor);
 
         
-        MATHGL::Vector3 calculateFrictionImpulse(MATHGL::Matrix3 *inverseInertiaTensor);
+        MATH::Vector3f calculateFrictionImpulse(MATH::Matrix3f *inverseInertiaTensor);
     };
 
     

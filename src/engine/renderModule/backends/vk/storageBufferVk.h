@@ -8,7 +8,7 @@
 #include "helpers.h"
 #include "shaderVk.h"
 #include "driverVk.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 namespace IKIGAI::RENDER {
 	class ShaderInterface;
 	template<typename T>

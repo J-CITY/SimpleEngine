@@ -27,12 +27,12 @@ const std::function<void(std::chrono::duration<double>)>& InputComponent::getEve
 	return inputEventFun;
 }
 
-#include <rttr/registration>
-
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::InputComponent>("InputComponent")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	);
-}
+//#include <rttr/registration>
+//
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::InputComponent>("InputComponent")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	);
+//}

@@ -1,10 +1,16 @@
 ﻿#pragma once
-#include <coreModule/ecs/components/transform.h>
-import glmath;
+#include <array>
+//#include <coreModule/ecs/components/transform.h>
+
 #include "objects/boundingSphere.h"
 
-namespace IKIGAI::MATHGL {
-	class Matrix4;
+
+namespace IKIGAI
+{
+	namespace ECS
+	{
+		class Transform;
+	}
 }
 
 namespace IKIGAI {
@@ -18,7 +24,7 @@ namespace IKIGAI {
 		}
 		class Frustum {
 		public:
-			void make(const MATHGL::Matrix4& viewProjection);
+			void make(const MATH::Matrix4f& viewProjection);
 			[[nodiscard]] bool pointInFrustum(float x, float y, float z) const;
 			[[nodiscard]] bool sphereInFrustum(float x, float y, float z, float radius) const;
 			[[nodiscard]] bool cubeInFrustum(float x, float y, float z, float size) const;
@@ -33,3 +39,4 @@ namespace IKIGAI {
 		};
 	}
 }
+

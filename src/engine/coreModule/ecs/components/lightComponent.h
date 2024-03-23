@@ -5,7 +5,6 @@
 #include "component.h"
 //#include "../../../game/TextureAtlas.h"
 #include <renderModule/light.h>
-import glmath;
 
 namespace IKIGAI::ECS { class Object; }
 
@@ -15,12 +14,12 @@ namespace IKIGAI::ECS {
 	public:
 		LightComponent(UTILS::Ref<ECS::Object> obj);
 		const RENDER::Light& getData() const;
-		const MATHGL::Vector3& getColor() const;
+		const MATH::Vector3f& getColor() const;
 		float getIntensity() const;
-		void setColor(const MATHGL::Vector3& color);
+		void setColor(const MATH::Vector3f& color);
 		void setIntensity(float intensity);
 
-		MATHGL::Matrix4 Transform;
+		MATH::Matrix4f Transform;
 	protected:
 		RENDER::Light data;
 	};

@@ -1,9 +1,7 @@
 #pragma once
 
 #include "component.h"
-import glmath;
 #include <renderModule/backends/interface/materialInterface.h>
-#include <rttr/registration_friend.h>
 
 #include "utilsModule/event.h"
 
@@ -14,12 +12,31 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	class MaterialRenderer : public Component {
-		RTTR_REGISTRATION_FRIEND
 	public:
+		struct Descriptor : public Component::Descriptor {
+			std::string Type;
+			std::vector<std::string> MaterialNames;
+			std::vector<std::string> Materials;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, Descriptor& value) {
+				using Self = Descriptor;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Type, "MaterialRendererType")
+					.field(&Self::MaterialNames, "MaterialNames")
+					.field(&Self::Materials, "Materials");
+			}
+		};
+
 		using MaterialList = std::array<std::shared_ptr<RENDER::MaterialInterface>, MAX_MATERIAL_COUNT>;
 		using MaterialNames = std::array<std::string, MAX_MATERIAL_COUNT>;
 		
 		MaterialRenderer(UTILS::Ref<ECS::Object> obj);
+		MaterialRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor);
+		MaterialRenderer(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+			MaterialRenderer(obj, static_cast<const Descriptor&>(descriptor)) {
+		};
 		~MaterialRenderer() override;
 		void fillWithMaterial(std::shared_ptr<RENDER::MaterialInterface> material);
 		void setMaterial(unsigned index, std::shared_ptr<RENDER::MaterialInterface> material);
@@ -41,5 +58,21 @@ namespace IKIGAI::ECS {
 		MaterialNames materialNames;
 
 		std::shared_ptr<EVENT::EventListener> setMaterialEventId;
+
+	public:
+		static auto GetMembers() {
+			return std::tuple{
+			};
+		}
 	};
+
+	template <>
+	inline std::string ECS::GetType<MaterialRenderer>() {
+		return "class IKIGAI::ECS::MaterialRenderer";
+	}
+
+	template <>
+	inline std::string IKIGAI::ECS::GetComponentName<MaterialRenderer>() {
+		return "MaterialRenderer";
+	}
 }

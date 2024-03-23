@@ -6,12 +6,29 @@
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
-
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 MeshGl::MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned materialIndex) :
 	mVertexCount(static_cast<unsigned>(vertices.size())),
 	mIndicesCount(static_cast<unsigned>(indices.size())),
 	mMaterialIndex(materialIndex) {
+
+	for (auto& e : indices) {
+		//std::string s = std::to_string(e.position.x) + " " + std::to_string(e.position.y) + " " + std::to_string(e.position.z);
+		//std::cout << e.position.x << " " << e.position.y << " " << e.position.z << std::endl;
+		std::string s = std::to_string(e);
+		std::cout << e << std::endl;
+#ifdef __ANDROID__
+		// Android doesn't emit the standard output streams by default, so instead we will
+		// pump the logging through the Android Logcat system. If you enter 'a-simple-triangle'
+		// as the Logcat filter you will see only these logging statements.
+		__android_log_print(ANDROID_LOG_DEBUG, "a-simple-triangle", "%s: %s", "IKIGAI", s.c_str());
+#endif
+	}
+
+
 	createBuffers(vertices, indices);
 	computeBoundingSphere(vertices);
 }
@@ -26,14 +43,45 @@ MeshGl::MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, size_t o
 
 MeshGl::~MeshGl() = default;
 
+void bindAttribute(unsigned int attribute, VertexArray::Type type, int count, int stride, intptr_t offset) {
+	glEnableVertexAttribArray(attribute);
+	glVertexAttribPointer(attribute, count, static_cast<GLenum>(type), GL_FALSE, stride, reinterpret_cast<const GLvoid*>(offset));
+}
+
+void unbindAttribute(unsigned int attribute) {
+	glDisableVertexAttribArray(attribute);
+}
+
+
 void MeshGl::bind() const {
-	//indexBuffer->Bind();
+#ifndef USING_GLES
 	mVertexArray->bind();
+#else
+	mVertexBuffer->bind();
+	mIndexBuffer->bind();
+
+	const auto vertexSize = sizeof(Vertex);
+	bindAttribute(0, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
+	bindAttribute(1, VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
+	bindAttribute(2, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
+	bindAttribute(3, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
+	bindAttribute(4, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
+	bindAttribute(5, VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	bindAttribute(6, VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
+#endif
+;
 }
 
 void MeshGl::unbind() const {
-	//indexBuffer->Unbind();
+#ifndef USING_GLES
 	mVertexArray->unbind();
+#else
+	for (int i = 0; i <= 6; ++i) {
+		unbindAttribute(i);
+	}
+	mVertexBuffer->unbind();
+	mIndexBuffer->unbind();
+#endif
 }
 
 size_t MeshGl::getVertexCount() const {
@@ -49,57 +97,25 @@ uint32_t MeshGl::getMaterialIndex() const {
 }
 
 void MeshGl::createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices) {
-	//std::vector<V> vertexData;
-
-	//std::vector<unsigned int> rawIndices;
-
-	//for (const auto& vertex : p_vertices) {
-	//	V v;
-	//	v.Position = glm::vec3(vertex.position.x, vertex.position.y, vertex.position.z);
-	//	v.TexCoords = glm::vec2(vertex.texCoord.x, vertex.texCoord.y);
-	//	v.Normal = glm::vec3(vertex.normal.x, vertex.normal.y, vertex.normal.z);
-	//	v.Tangent = glm::vec3(vertex.tangent.x, vertex.tangent.y, vertex.tangent.z);
-	//	v.Bitangent = glm::vec3(vertex.bitangent.x, vertex.bitangent.y, vertex.bitangent.z);
-	//	
-	//	//Bone
-	//	v.m_BoneIDs[0] = vertex.m_BoneIDs[0];
-	//	v.m_BoneIDs[1] = vertex.m_BoneIDs[1];
-	//	v.m_BoneIDs[2] = vertex.m_BoneIDs[2];
-	//	v.m_BoneIDs[3] = vertex.m_BoneIDs[3];
-	//	//
-	//	v.m_Weights[0] = vertex.m_Weights[0];
-	//	v.m_Weights[1] = vertex.m_Weights[1];
-	//	v.m_Weights[2] = vertex.m_Weights[2];
-	//	v.m_Weights[3] = vertex.m_Weights[3];
-	//
-	//	vertexData.push_back(v);
-	//}
+#ifndef USING_GLES
 	mVertexArray = std::make_unique<VertexArray>();
+#endif
 	mVertexBuffer = std::make_unique<VertexBufferGl<Vertex>> (p_vertices);
 	mIndexBuffer = std::make_unique<IndexBufferGl>(p_indices);
-
-	//uint64_t vertexSize = sizeof(V);// sizeof(Vertex);
-	//vertexArray.bindAttribute(0, *vertexBuffer, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(V, Position));
-	//vertexArray.bindAttribute(1, *vertexBuffer, RENDER::VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(V, TexCoords));
-	//vertexArray.bindAttribute(2, *vertexBuffer, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(V, Normal));
-	//vertexArray.bindAttribute(3, *vertexBuffer, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(V, Tangent));
-	//vertexArray.bindAttribute(4, *vertexBuffer, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(V, Bitangent));
-	//vertexArray.bindAttribute(5, *vertexBuffer, RENDER::VertexArray::Type::INT,   4, vertexSize, (intptr_t)offsetof(V, m_BoneIDs));
-	//vertexArray.bindAttribute(6, *vertexBuffer, RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(V, m_Weights));
-
+#ifndef USING_GLES
 	uint64_t vertexSize = sizeof(Vertex);
 	mVertexArray->bindAttribute(0, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
 	mVertexArray->bindAttribute(1, *mVertexBuffer, VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
 	mVertexArray->bindAttribute(2, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
 	mVertexArray->bindAttribute(3, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
 	mVertexArray->bindAttribute(4, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
-	mVertexArray->bindAttribute(5, *mVertexBuffer, VertexArray::Type::INT,   4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	mVertexArray->bindAttribute(5, *mVertexBuffer, VertexArray::Type::FLOAT,   4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
 	mVertexArray->bindAttribute(6, *mVertexBuffer, VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
-
+#endif
 }
 
 void MeshGl::computeBoundingSphere(std::span<Vertex> vertices) {
-	mBoundingSphere.position = MATHGL::Vector3::Zero;
+	mBoundingSphere.position = MATH::Vector3f::Zero;
 	mBoundingSphere.radius = 0.0f;
 
 	if (!vertices.empty()) {
@@ -121,11 +137,11 @@ void MeshGl::computeBoundingSphere(std::span<Vertex> vertices) {
 			maxZ = std::max(maxZ, vertex.position.z);
 		}
 
-		mBoundingSphere.position = MATHGL::Vector3{ minX + maxX, minY + maxY, minZ + maxZ } / 2.0f;
+		mBoundingSphere.position = MATH::Vector3f{ minX + maxX, minY + maxY, minZ + maxZ } / 2.0f;
 
 		for (const auto& vertex : vertices) {
-			const auto& position = reinterpret_cast<const MATHGL::Vector3&>(vertex.position);
-			mBoundingSphere.radius = std::max(mBoundingSphere.radius, MATHGL::Vector3::Distance(mBoundingSphere.position, position));
+			const auto& position = reinterpret_cast<const MATH::Vector3f&>(vertex.position);
+			mBoundingSphere.radius = std::max(mBoundingSphere.radius, MATH::Vector3f::Distance(mBoundingSphere.position, position));
 		}
 	}
 }

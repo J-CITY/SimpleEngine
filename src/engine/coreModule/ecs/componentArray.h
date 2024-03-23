@@ -4,12 +4,14 @@
 #include <functional>
 #include <unordered_map>
 #include <utility>
+#include <list>
 
 #include "componentArrayInterface.h"
 #include <utilsModule/chunkList.h>
 #include <taskModule/taskSystem.h>
-#include "../resourceManager/ServiceManager.h"
 #include <utilsModule/weakPtr.h>
+
+#include "resourceModule/serviceManager.h"
 
 namespace IKIGAI::ECS {
 	template<typename T>
@@ -30,7 +32,7 @@ namespace IKIGAI::ECS {
 				componentArray.push_back(component);
 			}
 			// Update cb ptr
-			componentArray[newIndex].getControlBlock()->m_ptr = &componentArray[newIndex];
+			componentArray[newIndex].getControlBlock()->mPtr = &componentArray[newIndex];
 			size++;
 		}
 
@@ -43,7 +45,7 @@ namespace IKIGAI::ECS {
 			auto component = std::move(componentArray[indexOfRemovedEntity]);
 			componentArray[indexOfRemovedEntity] = std::move(componentArray[indexOfLastElement]);
 			// Update cb ptr
-			componentArray[indexOfRemovedEntity].getControlBlock()->m_ptr = &componentArray[indexOfRemovedEntity];
+			componentArray[indexOfRemovedEntity].getControlBlock()->mPtr = &componentArray[indexOfRemovedEntity];
 
 			// Update map to point to moved spot
 			const Entity entityOfLastElement = indexInArrayToEntity.at(indexOfLastElement);
@@ -139,6 +141,7 @@ namespace IKIGAI::ECS {
 
 	template<class T>
 	void For(std::shared_ptr<ComponentArray<T>> data, std::function<void(T&)> func, int threadsCount = 4) {
+#ifndef __EMSCRIPTEN__
 		static std::atomic_llong taskId = 0;
 
 		const int sz = data->size;
@@ -157,7 +160,12 @@ namespace IKIGAI::ECS {
 			start += chunkSz;
 		}
 		for (auto& t : waitTasks) {
-			t.task->wait();
+			t.mTask->wait();
 		}
+#else
+		for (int i = 0; i < data->size(); i++) {
+			func((*data)[i]);
+		}
+#endif
 	}
 }

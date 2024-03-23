@@ -8,7 +8,7 @@
 #include <array>
 #include "driverVk.h"
 #include "shaderVk.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;

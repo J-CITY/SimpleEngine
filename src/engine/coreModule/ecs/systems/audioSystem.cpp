@@ -1,17 +1,17 @@
-#include "audioSystem.h"
-#include "../../resourceManager/ServiceManager.h"
+#include "audioSystem.h" 
 #include <sceneModule/sceneManager.h>
 #include <audioModule/audioManager.h>
 
 IKIGAI::ECS::AudioSystem::AudioSystem() {
-
+	mComponentsRead.insert(typeid(AudioListenerComponent).name());
+	mComponentsWrite.insert(typeid(AudioComponent).name());
 }
 
 void IKIGAI::ECS::AudioSystem::onLateUpdate(std::chrono::duration<double> dt) {
 	for (auto& listener : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AudioListenerComponent>()) {
 		AUDIO::AudioManagerAL::GetInstance().setListenerPos(
 			listener.obj->getTransform()->getWorldPosition(),
-			listener.obj->getTransform()->getWorldRotation() * -MATHGL::Vector3::Forward
+			listener.obj->getTransform()->getWorldRotation() * -MATH::Vector3f::Forward
 		);
 		break;
 	}
@@ -26,12 +26,12 @@ void IKIGAI::ECS::AudioSystem::onLateUpdate(std::chrono::duration<double> dt) {
 	}
 }
 
-#include <rttr/registration>
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::AudioSystem>("AudioSystem")
-	(
-		rttr::metadata(IKIGAI::ECS::System::SYSTEM_COMPONENTS_READ, "AudioListenerComponent"),
-		rttr::metadata(IKIGAI::ECS::System::SYSTEM_COMPONENTS_WRITE, "AudioComponent")
-	);
-}
+//#include <rttr/registration>
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::AudioSystem>("AudioSystem")
+//	(
+//		rttr::metadata(IKIGAI::ECS::System::SYSTEM_COMPONENTS_READ, "AudioListenerComponent"),
+//		rttr::metadata(IKIGAI::ECS::System::SYSTEM_COMPONENTS_WRITE, "AudioComponent")
+//	);
+//}

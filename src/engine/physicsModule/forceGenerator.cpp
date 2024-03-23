@@ -4,7 +4,7 @@
 
 using namespace IKIGAI;
 using namespace IKIGAI::PHYSICS;
-using namespace IKIGAI::MATHGL;
+using namespace IKIGAI::MATH;
 
 void ForceRegistry::updateForces(float duration)
 {
@@ -23,7 +23,7 @@ void ForceRegistry::add(RigidBody *body, ForceGenerator *fg)
     registrations.push_back(registration);
 }
 
-Buoyancy::Buoyancy(const Vector3 &cOfB, float maxDepth, float volume,
+Buoyancy::Buoyancy(const Vector3f &cOfB, float maxDepth, float volume,
                    float waterHeight, float liquidDensity )
 {
     centreOfBuoyancy = cOfB;
@@ -36,12 +36,12 @@ Buoyancy::Buoyancy(const Vector3 &cOfB, float maxDepth, float volume,
 void Buoyancy::updateForce(RigidBody *body, float duration)
 {
     // Calculate the submersion depth
-    Vector3 pointInWorld = body->getPointInWorldSpace(centreOfBuoyancy);
+    Vector3f pointInWorld = body->getPointInWorldSpace(centreOfBuoyancy);
     float depth = pointInWorld.y;
 
     // Check if we're out of the water
     if (depth >= waterHeight + maxDepth) return;
-    Vector3 force(0,0,0);
+    Vector3f force(0,0,0);
 
     // Check if we're at maximum depth
     if (depth <= waterHeight - maxDepth)
@@ -57,7 +57,7 @@ void Buoyancy::updateForce(RigidBody *body, float duration)
     body->addForceAtBodyPoint(force, centreOfBuoyancy);
 }
 
-Gravity::Gravity(const Vector3& gravity)
+Gravity::Gravity(const Vector3f& gravity)
 : gravity(gravity)
 {
 }
@@ -71,9 +71,9 @@ void Gravity::updateForce(RigidBody* body, float duration)
     body->addForce(gravity * body->getMass());
 }
 
-Spring::Spring(const Vector3 &localConnectionPt,
+Spring::Spring(const Vector3f &localConnectionPt,
                RigidBody *other,
-               const Vector3 &otherConnectionPt,
+               const Vector3f &otherConnectionPt,
                float springConstant,
                float restLength)
 : connectionPoint(localConnectionPt),
@@ -87,11 +87,11 @@ Spring::Spring(const Vector3 &localConnectionPt,
 void Spring::updateForce(RigidBody* body, float duration)
 {
     // Calculate the two ends in world space
-    Vector3 lws = body->getPointInWorldSpace(connectionPoint);
-    Vector3 ows = other->getPointInWorldSpace(otherConnectionPoint);
+    Vector3f lws = body->getPointInWorldSpace(connectionPoint);
+    Vector3f ows = other->getPointInWorldSpace(otherConnectionPoint);
 
     // Calculate the vector of the spring
-    Vector3 force = lws - ows;
+    Vector3f force = lws - ows;
 
     // Calculate the magnitude of the force
     float magnitude = force.magnitude();
@@ -104,7 +104,7 @@ void Spring::updateForce(RigidBody* body, float duration)
     body->addForceAtPoint(force, lws);
 }
 
-Aero::Aero(const Matrix3 &tensor, const Vector3 &position, const Vector3 *windspeed)
+Aero::Aero(const Matrix3f &tensor, const Vector3f &position, const Vector3f *windspeed)
 {
     Aero::tensor = tensor;
     Aero::position = position;
@@ -117,27 +117,27 @@ void Aero::updateForce(RigidBody *body, float duration)
 }
 
 void Aero::updateForceFromTensor(RigidBody *body, float duration,
-                                 const Matrix3 &tensor)
+                                 const Matrix3f &tensor)
 {
     // Calculate total velocity (windspeed and body's velocity).
     Vector3 velocity = body->getVelocity();
     velocity += *windspeed;
 
     // Calculate the velocity in body coordinates
-    auto res = body->getTransform().transformInverseDirection(MATHGL::Vector3{velocity.x, velocity.y, velocity.z});
-    Vector3 bodyVel = {(float)res.x, (float)res.y, (float)res.z};
+    auto res = body->getTransform().transformInverseDirection(MATH::Vector3f{velocity.x, velocity.y, velocity.z});
+    Vector3f bodyVel = {(float)res.x, (float)res.y, (float)res.z};
 
     // Calculate the force in body coordinates
-    Vector3 bodyForce = tensor.transform(bodyVel);
-    res = body->getTransform().transformDirection(MATHGL::Vector3{bodyForce.x ,bodyForce.y, bodyForce.z});
-    Vector3 force = {(float)res.x, (float)res.y, (float)res.z};
+    Vector3f bodyForce = tensor.transform(bodyVel);
+    res = body->getTransform().transformDirection(MATH::Vector3f{bodyForce.x ,bodyForce.y, bodyForce.z});
+    Vector3f force = {(float)res.x, (float)res.y, (float)res.z};
 
     // Apply the force
     body->addForceAtBodyPoint(force, position);
 }
 
-AeroControl::AeroControl(const Matrix3 &base, const Matrix3 &min, const Matrix3 &max,
-                              const Vector3 &position, const Vector3 *windspeed)
+AeroControl::AeroControl(const Matrix3f &base, const Matrix3f &min, const Matrix3f &max,
+                              const Vector3f &position, const Vector3f *windspeed)
 :
 Aero(base, position, windspeed)
 {
@@ -146,17 +146,17 @@ Aero(base, position, windspeed)
     controlSetting = 0.0f;
 }
 
-Matrix3 AeroControl::getTensor()
+Matrix3f AeroControl::getTensor()
 {
     if (controlSetting <= -1.0f) return minTensor;
     else if (controlSetting >= 1.0f) return maxTensor;
     else if (controlSetting < 0)
     {
-        return Matrix3::LinearInterpolate(minTensor, tensor, controlSetting+1.0f);
+        return Matrix3f::LinearInterpolate(minTensor, tensor, controlSetting+1.0f);
     }
     else if (controlSetting > 0)
     {
-        return Matrix3::LinearInterpolate(tensor, maxTensor, controlSetting);
+        return Matrix3f::LinearInterpolate(tensor, maxTensor, controlSetting);
     }
     else return tensor;
 }

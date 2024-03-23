@@ -3,9 +3,6 @@
 
 using namespace IKIGAI::ECS;
 
-//Object dummy = Object(Object::Id{ 0 }, "", "");
-//Component::Component(): ControlBlockHandler(this), obj(dummy) {  }
-
 IKIGAI::ECS::Component::Component(UTILS::Ref<ECS::Object> obj) : ControlBlockHandler(this), obj(obj) {}
 
 IKIGAI::ECS::Component::~Component() {

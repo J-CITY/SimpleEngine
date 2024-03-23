@@ -58,7 +58,7 @@ struct RaycastResult {
 };
 
 #define CMP(x, y) \
-	(fabsf(x - y) <= FLT_EPSILON * fmaxf(1.0f, fmaxf(fabsf(x), fabsf(y))))
+	(fabsf(x - y) <= std::numeric_limits<float>::epsilon() * fmaxf(1.0f, fmaxf(fabsf(x), fabsf(y))))
 void ResetRaycastResult(RaycastResult* outResult) {
 	if (outResult != 0) {
 		outResult->t = -1;

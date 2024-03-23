@@ -37,6 +37,8 @@ namespace IKIGAI::RENDER {
 
 		static std::shared_ptr<TextureVk> createCubemap(std::array<std::string, 6> path);
 		static std::shared_ptr<TextureVk> create3D(int texWidth, int texHeight, int arrSize);
+
+		void* getImguiId() override;
 	};
 }
 #endif

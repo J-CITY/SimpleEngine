@@ -1,17 +1,18 @@
 #include "guiObject.h"
 #include "../core/core.h"
 #include <renderModule/gameRenderer.h>
-#include "../resourceManager/shaderManager.h"
-#include "../resourceManager/materialManager.h"
-#include <utilsModule/loader.h>
+#include "resourceModule/shaderManager.h"
+#include "resourceModule/materialManager.h"
+#include <utilsModule/pathGetter.h>
 #include <windowModule/inputManager/inputManager.h>
 
-#include "coreModule/resourceManager/textureManager.h"
+#include "resourceModule/textureManager.h"
 #include "renderModule/backends/gl/textureGl.h"
+#include <coreModule/graphicsWrapper.hpp>
 
 using namespace IKIGAI;
 using namespace IKIGAI::GUI;
-
+#ifdef OPENGL_BACKEND
 Font::Font(std::string fontPath, int size) {
 	FT_Library ft;
 	
@@ -71,11 +72,19 @@ Font::Font(std::string fontPath, int size) {
 		glTexImage2D(
 			GL_TEXTURE_2D,
 			0,
-			GL_RED,
+#ifdef USING_GLES
+            GL_ALPHA,
+#else
+		    GL_RED,
+#endif
 			1024,
 			1024,
 			0,
+#ifdef USING_GLES
+			GL_ALPHA,
+#else
 			GL_RED,
+#endif
 			GL_UNSIGNED_BYTE,
 			textureData.data()
 		);
@@ -96,7 +105,7 @@ int id = 1000;
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateSprite(const std::string & name, const std::string & path, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	auto obj = scene.getCurrentScene().createObject(ObjectId<ECS::Object>(id), name);
+	auto obj = scene.getCurrentScene().createObject(Id<ECS::Object>(id), name);
 	id++;
 	if (isRoot) {
 		obj->addComponent<IKIGAI::ECS::RootGuiComponent>();
@@ -108,21 +117,21 @@ std::shared_ptr<ECS::Object> GuiHelper::CreateSprite(const std::string & name, c
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateLabel(const std::string& name, const std::string& label, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	auto obj = scene.getCurrentScene().createObject(ObjectId<ECS::Object>(id), name);
+	auto obj = scene.getCurrentScene().createObject(Id<ECS::Object>(id), name);
 	id++;
 	if (isRoot) {
 		obj->addComponent<IKIGAI::ECS::RootGuiComponent>();
 	}
 	obj->getTransform()->getTransform().turnOnAnchorPivot();
 
-	auto font = std::make_shared<IKIGAI::GUI::Font>(IKIGAI::UTILS::getRealPath("./Fonts/a_AlternaSw.TTF"), 42);
+	auto font = std::make_shared<IKIGAI::GUI::Font>(IKIGAI::UTILS::GetRealPath("./Fonts/a_AlternaSw.TTF"), 42);
 	obj->addComponent<IKIGAI::ECS::LabelComponent>(label, font);
 	return obj;
 }
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateLayout(const std::string& name, IKIGAI::ECS::LayoutComponent::Type type, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	auto obj = scene.getCurrentScene().createObject(ObjectId<ECS::Object>(id), name);
+	auto obj = scene.getCurrentScene().createObject(Id<ECS::Object>(id), name);
 	id++;
 	if (isRoot) {
 		obj->addComponent<IKIGAI::ECS::RootGuiComponent>();
@@ -135,7 +144,7 @@ std::shared_ptr<ECS::Object> GuiHelper::CreateLayout(const std::string& name, IK
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateButton(const std::string& name, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	auto obj = scene.getCurrentScene().createObject(ObjectId<ECS::Object>(id), name);
+	auto obj = scene.getCurrentScene().createObject(Id<ECS::Object>(id), name);
 	id++;
 	if (isRoot) {
 		obj->addComponent<IKIGAI::ECS::RootGuiComponent>();
@@ -169,7 +178,7 @@ std::shared_ptr<ECS::Object> GuiHelper::CreateButton(const std::string& name, bo
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateClip(const std::string& name, int w, int h, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	auto obj = scene.getCurrentScene().createObject(ObjectId<ECS::Object>(id), name);
+	auto obj = scene.getCurrentScene().createObject(Id<ECS::Object>(id), name);
 	id++;
 	if (isRoot) {
 		obj->addComponent<IKIGAI::ECS::RootGuiComponent>();
@@ -191,7 +200,7 @@ bool contains(float left, float top, float width, float height, float x, float y
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateScroll(const std::string& name, int w, int h, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	auto obj = scene.getCurrentScene().createObject(ObjectId<ECS::Object>(id), name);
+	auto obj = scene.getCurrentScene().createObject(Id<ECS::Object>(id), name);
 	id++;
 	if (isRoot) {
 		obj->addComponent<IKIGAI::ECS::RootGuiComponent>();
@@ -279,7 +288,7 @@ std::shared_ptr<ECS::Object> GuiHelper::CreateScroll(const std::string& name, in
 
 	return obj;
 }
-
+#endif
 //GuiButton::GuiButton() : Object() {
 //	//auto s = IKIGAI::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
 //	//auto _m = IKIGAI::RESOURCES::MaterialLoader::Create("");

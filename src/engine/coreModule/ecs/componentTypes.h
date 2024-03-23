@@ -38,12 +38,33 @@ namespace IKIGAI::ECS {
 		PhysicsComponent,\
 		AudioListenerComponent,\
 		VrCameraComponent,\
-		RootGuiComponent,\
-		SpriteComponent,\
-		SpriteAnimateComponent,\
-		SpriteParticleComponent,\
-		SpineComponent,\
 		BatchComponent
+
+//	RootGuiComponent, \
+//		SpriteComponent, \
+//		SpriteAnimateComponent, \
+//		SpriteParticleComponent, \
+//		SpineComponent, \
+
+#define COMPONENTS_DESCRIPTOR_DEF TransformComponent::Descriptor,\
+		AmbientLight::Descriptor,\
+		AmbientSphereLight::Descriptor,\
+		AudioComponent::Descriptor,\
+		CameraComponent::Descriptor,\
+		DirectionalLight::Descriptor,\
+		InputComponent::Descriptor,\
+		LogicComponent::Descriptor,\
+		MaterialRenderer::Descriptor,\
+		ModelRenderer::Descriptor,\
+		ModelLODRenderer::Descriptor,\
+		PointLight::Descriptor,\
+		ScriptComponent::Descriptor,\
+		Skeletal::Descriptor,\
+		SpotLight::Descriptor,\
+		PhysicsComponent::Descriptor,\
+		AudioListenerComponent::Descriptor,\
+		VrCameraComponent::Descriptor,\
+		BatchComponent::Descriptor
 
 	//ArCameraComponent,\
 
@@ -53,4 +74,5 @@ namespace IKIGAI::ECS {
 	> ;
 
 	using ComponentsType = std::variant<COMPONENTS_DEF>;
+	using ComponentsDescriptorType = std::variant<COMPONENTS_DESCRIPTOR_DEF>;
 }

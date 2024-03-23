@@ -2,36 +2,67 @@
 #include <memory>
 #include <string>
 #include <vector>
-
+#include <stdexcept>
 
 namespace IKIGAI::UTILS {
-	class IndexOutOfRange final: public std::exception {
+	class IndexOutOfRange final: public std::runtime_error {
 	public:
-		IndexOutOfRange() : std::exception("Index is out of range") {}
+		IndexOutOfRange() : std::runtime_error("Index is out of range") {}
 	};
 
 	template<class T, size_t CHUNK_SIZE>
 	class ChunkList {
 	public:
 		ChunkList() = default;
-		
-		void push_back(T& value) {
-			if (m_List.empty() || m_List.back()->mData.size() == CHUNK_SIZE) {
-				m_List.push_back(std::make_shared<Node>());
-				if (m_List.size() > 1) {
-					m_List[m_List.size() - 2]->mNext = m_List[m_List.size() - 1].get();
+
+		ChunkList(const ChunkList& other) {
+			if (&other == this) {
+				return;
+			}
+			mList.clear();
+			for (auto& e : other.mList) {
+				mList.push_back(std::make_shared<Node>());
+				mList.back()->mData = e->mData;
+				if (mList.size() > 1) {
+					mList[mList.size() - 2]->mNext = mList.back().get();
 				}
 			}
-			m_List.back()->mData.push_back(std::move(value));
+			m_Size = other.m_Size;
+		}
+
+		ChunkList& operator=(const ChunkList& other) {
+			if (&other == this) {
+				return *this;
+			}
+			mList.clear();
+			for (auto& e : other.mList) {
+				mList.push_back(std::make_shared<Node>());
+				mList.back()->mData = e->mData;
+				if (mList.size() > 1) {
+					mList[mList.size() - 2]->mNext = mList.back().get();
+				}
+			}
+			m_Size = other.m_Size;
+			return *this;
+		}
+
+		void push_back(T& value) {
+			if (mList.empty() || mList.back()->mData.size() == CHUNK_SIZE) {
+				mList.push_back(std::make_shared<Node>());
+				if (mList.size() > 1) {
+					mList[mList.size() - 2]->mNext = mList[mList.size() - 1].get();
+				}
+			}
+			mList.back()->mData.push_back(std::move(value));
 			m_Size++;
 		}
 
 		void pop_back() {
-			m_List.back()->mData.pop_back();
-			if (m_List.back()->mData.empty()) {
-				m_List.pop_back();
-				if (!m_List.empty()) {
-					m_List.back()->mNext = nullptr;
+			mList.back()->mData.pop_back();
+			if (mList.back()->mData.empty()) {
+				mList.pop_back();
+				if (!mList.empty()) {
+					mList.back()->mNext = nullptr;
 				}
 			}
 			m_Size--;
@@ -48,31 +79,37 @@ namespace IKIGAI::UTILS {
 		T& operator[] (const int index) {
 			auto chunkId = index / CHUNK_SIZE;
 			auto elemId = index % CHUNK_SIZE;
-			return m_List[chunkId]->mData[elemId];
+			return mList[chunkId]->mData[elemId];
 		}
 
 		const T& operator[] (const int index) const {
 			auto chunkId = index / CHUNK_SIZE;
 			auto elemId = index % CHUNK_SIZE;
-			return m_List[chunkId]->mData[elemId];
+			return mList[chunkId]->mData[elemId];
+		}
+
+		void insert(const int index, T&& data) {
+			auto chunkId = index / CHUNK_SIZE;
+			auto elemId = index % CHUNK_SIZE;
+			mList[chunkId]->mData.insert(mList[chunkId]->mData.begin() + elemId, std::move(data));
 		}
 
 		T& at(const int index) {
 			auto chunkId = index / CHUNK_SIZE;
 			auto elemId = index % CHUNK_SIZE;
-			if (chunkId >= m_List.size()) {
+			if (chunkId >= mList.size()) {
 				throw IndexOutOfRange();
 			}
-			return m_List[chunkId]->mData[elemId];
+			return mList[chunkId]->mData[elemId];
 		}
 
 		const T& at(const int index) const {
 			auto chunkId = index / CHUNK_SIZE;
 			auto elemId = index % CHUNK_SIZE;
-			if (chunkId >= m_List.size()) {
+			if (chunkId >= mList.size()) {
 				throw IndexOutOfRange();
 			}
-			return m_List[chunkId]->mData[elemId];
+			return mList[chunkId]->mData[elemId];
 		}
 
 	private:
@@ -84,8 +121,7 @@ namespace IKIGAI::UTILS {
 			}
 		};
 
-		//TODO: need unique
-		std::vector<std::shared_ptr<Node>> m_List;
+		std::vector<std::shared_ptr<Node>> mList;
 		size_t m_Size = 0;
 
 	public:
@@ -138,10 +174,10 @@ namespace IKIGAI::UTILS {
 		};
 
 		Iterator begin() {
-			if (m_List.empty()) {
+			if (mList.empty()) {
 				return Iterator(nullptr);
 			}
-			return Iterator(m_List[0].get());
+			return Iterator(mList[0].get());
 		}
 
 		Iterator end() {
@@ -149,10 +185,10 @@ namespace IKIGAI::UTILS {
 		}
 
 		Iterator begin() const {
-			if (m_List.empty()) {
+			if (mList.empty()) {
 				return Iterator(nullptr);
 			}
-			return Iterator(m_List[0].get());
+			return Iterator(mList[0].get());
 		}
 
 		Iterator end() const {

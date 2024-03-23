@@ -2,7 +2,6 @@
 #include <variant>
 #include <memory>
 //#include "../../resourceManager/resource/texture.h"
-import glmath;
 
 namespace IKIGAI {
 	namespace RENDER {

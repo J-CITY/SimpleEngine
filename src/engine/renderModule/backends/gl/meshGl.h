@@ -4,11 +4,10 @@
 #include <span>
 #include <optional>
 
-#include <utilsModule/vertex.h>
+#include "../../vertex.h"
 #include "vertexBufferGl.h"
 #include "../interface/meshInterface.h"
 
-import glmath;
 
 namespace IKIGAI
 {
@@ -27,10 +26,10 @@ namespace IKIGAI {
 			MeshGl(std::span<Vertex> p_vertices, std::span<unsigned> indices, unsigned materialIndex);
 			MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, size_t offset, unsigned materialIndex);
 			virtual ~MeshGl();
-			virtual void bind() const;
-			virtual void unbind() const;
-			virtual size_t getVertexCount() const;
-			virtual size_t getIndexCount() const;
+			virtual void bind() const override;
+			virtual void unbind() const override;
+			virtual size_t getVertexCount() const override;
+			virtual size_t getIndexCount() const override;
 			uint32_t getMaterialIndex() const override;
 		private:
 			void createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices);
@@ -39,8 +38,9 @@ namespace IKIGAI {
 			const unsigned int mVertexCount = 0;
 			const unsigned int mIndicesCount = 0;
 			const unsigned int mMaterialIndex = 0;
-
+#ifndef USING_GLES
 			std::unique_ptr<VertexArray> mVertexArray;
+#endif
 			std::unique_ptr<VertexBufferGl<Vertex>> mVertexBuffer;
 			std::unique_ptr<IndexBufferGl> mIndexBuffer;
 

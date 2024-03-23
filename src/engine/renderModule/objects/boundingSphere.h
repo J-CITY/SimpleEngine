@@ -1,10 +1,10 @@
 #pragma once
-import glmath;
+#include "mathModule/math.h"
 
 namespace IKIGAI {
 	namespace RENDER {
 		struct BoundingSphere {
-			MATHGL::Vector3 position;
+			MATH::Vector3f position;
 			float radius = 0.0f;
 
 			[[nodiscard]] float calcGrowth(const BoundingSphere& sphere) const;

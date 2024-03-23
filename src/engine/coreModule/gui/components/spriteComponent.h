@@ -2,13 +2,12 @@
 
 #include "../../ecs/components/component.h"
 #include <renderModule/spine/spineDrawable.h>
-#include <rttr/registration_friend.h>
 
+#include "mathModule/math.h"
 #include "renderModule/backends/gl/textureGl.h"
 
-
-import glmath;
-
+//TODO: add support for all backends
+#ifdef OPENGL_BACKEND
 namespace IKIGAI
 {
 	namespace RESOURCES
@@ -41,9 +40,9 @@ namespace IKIGAI {
 		class Object;
 
 		struct BatchVertex {
-			MATHGL::Vector3 position;
-			MATHGL::Vector2f texCoord;
-			MATHGL::Vector4 color;
+			MATH::Vector3f position;
+			MATH::Vector2f texCoord;
+			MATH::Vector4f color;
 		};
 
 		class SpriteBatcher
@@ -53,7 +52,7 @@ namespace IKIGAI {
 			SpriteBatcher();
 			~SpriteBatcher();
 
-			void Draw(const std::array<MATHGL::Vector4, 6>& verts, const RENDER::AtlasRect& uv, MATHGL::Vector4 color,
+			void Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDER::AtlasRect& uv, MATH::Vector4f color,
 				std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D = false);
 			void Draw(const std::array<BatchVertex, 6>& verts, std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D = false);
 			void Flush();
@@ -95,7 +94,7 @@ namespace IKIGAI {
 
 		class ColorComponent : public Component {
 		public:
-			MATHGL::Vector4 mColor = { 1, 1, 1, 1 };
+			MATH::Vector4f mColor = { 1, 1, 1, 1 };
 		};
 
 		class SpriteComponent : public Component {
@@ -110,7 +109,7 @@ namespace IKIGAI {
 
 			std::string getAtlasPiece();
 
-			MATHGL::Vector4 mColor = {1, 1, 1, 1};
+			MATH::Vector4f mColor = {1, 1, 1, 1};
 			std::string mPath;
 			std::shared_ptr<RENDER::TextureInterface> mTexture;
 			std::string mTexturePiece;
@@ -125,11 +124,11 @@ namespace IKIGAI {
 			SpriteAnimateComponent(Object& obj, const std::string& path): SpriteComponent(obj, path) {};
 
 
-			void setGridSize(MATHGL::Vector2f sz)
+			void setGridSize(MATH::Vector2f sz)
 			{
 				mGridSize = sz;
 			}
-			MATHGL::Vector2f getGridSize()
+			MATH::Vector2f getGridSize()
 			{
 				return mGridSize;
 			}
@@ -149,7 +148,7 @@ namespace IKIGAI {
 
 			int mFrameCount = 0;
 			int mCurrentFreme = 0;
-			MATHGL::Vector2f mGridSize;
+			MATH::Vector2f mGridSize;
 
 			float mTime = 1000 / 25.0f;
 			float mCutTime = mTime;
@@ -165,8 +164,8 @@ namespace IKIGAI {
 
 			struct Particle
 			{
-				MATHGL::Vector3 pos;
-				MATHGL::Vector3 speed;
+				MATH::Vector3f pos;
+				MATH::Vector3f speed;
 				float life = 0.0f;
 				float size = 0.0f, weight = 0.0f;
 
@@ -177,16 +176,16 @@ namespace IKIGAI {
 			struct Emmiter {
 				int count = 0;
 
-				MATHGL::Vector3 localPos;
-				MATHGL::Vector3 gravity;
-				MATHGL::Vector4 color;
+				MATH::Vector3f localPos;
+				MATH::Vector3f gravity;
+				MATH::Vector4f color;
 
 
-				MATHGL::Vector2f size;
-				MATHGL::Vector2f weight;
-				MATHGL::Vector2f angle;
-				MATHGL::Vector2f angleForce;
-				MATHGL::Vector2f lifeTime;
+				MATH::Vector2f size;
+				MATH::Vector2f weight;
+				MATH::Vector2f angle;
+				MATH::Vector2f angleForce;
+				MATH::Vector2f lifeTime;
 				//TODO: param for change alpha
 
 				std::string piece;
@@ -218,7 +217,7 @@ namespace IKIGAI {
 			LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font);
 			std::string mLabel;
 			std::shared_ptr<GUI::Font> font;
-			MATHGL::Vector4 color = {1, 1, 1, 1};
+			MATH::Vector4f color = {1, 1, 1, 1};
 
 			//move to component
 			bool mIs3D = false;
@@ -230,7 +229,6 @@ namespace IKIGAI {
 			std::string atlasPath;
 		};
 		class SpineComponent : public Component {
-			RTTR_REGISTRATION_FRIEND
 
 			void setSpine(SpineRefl data);
 
@@ -300,7 +298,7 @@ namespace IKIGAI {
 			bool mIsPress = false;
 
 			std::shared_ptr<Object> mSelectedObj;
-			MATHGL::Vector2f mSelectedObjPos;
+			MATH::Vector2f mSelectedObjPos;
 
 			ScrollComponent(Object& obj, float w, float h);
 		};
@@ -321,3 +319,4 @@ namespace IKIGAI {
 	}
 }
 
+#endif

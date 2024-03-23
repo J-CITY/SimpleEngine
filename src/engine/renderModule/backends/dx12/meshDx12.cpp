@@ -1,6 +1,5 @@
 #include "meshDx12.h"
 #ifdef DX12_BACKEND
-#include <utilsModule/vertex.h>
 
 #include "vertexBufferDx12.h"
 #include "indexBufferDx12.h"

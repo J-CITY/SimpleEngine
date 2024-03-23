@@ -17,7 +17,7 @@ void MaterialDx12::setShader(std::shared_ptr<ShaderDx12> shader) {
 MaterialDx12::MaterialDx12()
 {
 	dataUBO = std::make_shared<UploadBuffer<DataUBODX12>>(1, true);
-	pushModel = std::make_shared<UploadBuffer<MATHGL::Matrix4>>(1, true);
+	pushModel = std::make_shared<UploadBuffer<MATH::Matrix4f>>(1, true);
 }
 
 void MaterialDx12::generateUniformsData() {
@@ -85,7 +85,7 @@ void MaterialDx12::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture
 	//}
 }
 #include "../../gameRendererDx12.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 
 void MaterialDx12::fillUniformsWithShader(std::shared_ptr<ShaderDx12> shader, std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
 	//int textureSlot = 0;
@@ -237,6 +237,55 @@ uint8_t MaterialDx12::generateStateMask() const {
 //	}
 //}
 
+
+inline void SerializeVec4(nlohmann::json& j, const MATH::Vector4f& vec) {
+	j = {vec.x, vec.y, vec.z, vec.w};
+}
+inline void DeserializeVec4(const nlohmann::json& j, MATH::Vector4f& vec) {
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+	vec.w = j[3];
+}
+inline MATH::Vector4f DeserializeVec4(const nlohmann::json& j) {
+	MATH::Vector4f vec;
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+	vec.w = j[3];
+	return vec;
+}
+
+inline void SerializeVec3(nlohmann::json& j, const MATH::Vector3f& vec) {
+	j = {vec.x, vec.y, vec.z};
+}
+inline void DeserializeVec3(const nlohmann::json& j, MATH::Vector3f& vec) {
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+}
+inline MATH::Vector3f DeserializeVec3(const nlohmann::json& j) {
+	MATH::Vector3f vec;
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+	return vec;
+}
+
+inline void SerializeVec2(nlohmann::json& j, const MATH::Vector2f& vec) {
+	j = {vec.x, vec.y};
+}
+inline void DeserializeVec2(const nlohmann::json& j, MATH::Vector2f& vec) {
+	vec.x = j[0];
+	vec.y = j[1];
+}
+inline MATH::Vector2f DeserializeVec2(const nlohmann::json& j) {
+	MATH::Vector2f vec;
+	vec.x = j[0];
+	vec.y = j[1];
+	return vec;
+}
+
 void MaterialDx12::onDeserialize(nlohmann::json& j) {
 
 	//auto gameRenderer = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
@@ -264,27 +313,27 @@ void MaterialDx12::onDeserialize(nlohmann::json& j) {
 		for (auto& [k, v] : j["uniforms"].items()) {
 			if (k == "u_AlbedoMap")
 			{
-				u_AlbedoMap = TextureDx12::Create(IKIGAI::UTILS::getRealPath(v.get<std::string>()));
+				u_AlbedoMap = TextureDx12::Create(IKIGAI::UTILS::GetRealPath(v.get<std::string>()));
 			}
 			if (k == "u_NormalMap")
 			{
-				u_NormalMap = TextureDx12::Create(IKIGAI::UTILS::getRealPath(v.get<std::string>()));
+				u_NormalMap = TextureDx12::Create(IKIGAI::UTILS::GetRealPath(v.get<std::string>()));
 			}
 			if (k == "u_TextureTiling")
 			{
-				_dataUBO.u_TextureTiling = RESOURCES::DeserializeVec2(v);
+				_dataUBO.u_TextureTiling = DeserializeVec2(v);
 			}
 			if (k == "u_TextureOffset")
 			{
-				_dataUBO.u_TextureTiling = RESOURCES::DeserializeVec2(v);
+				_dataUBO.u_TextureTiling = DeserializeVec2(v);
 			}
 			if (k == "u_Albedo")
 			{
-				_dataUBO.u_Albedo = RESOURCES::DeserializeVec4(v);
+				_dataUBO.u_Albedo = DeserializeVec4(v);
 			}
 			if (k == "u_Specular")
 			{
-				_dataUBO.u_Specular = RESOURCES::DeserializeVec3(v);
+				_dataUBO.u_Specular = DeserializeVec3(v);
 			}
 			if (k == "u_Shininess")
 			{

@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 
-
+#ifdef USE_EDITOR_
 namespace IKIGAI
 {
 	namespace ECS
@@ -54,3 +54,4 @@ namespace IKIGAI::DEBUG {
 		void drawProfiler();
 	};
 }
+#endif

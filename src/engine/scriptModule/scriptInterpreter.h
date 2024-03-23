@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include "utilsModule/weakPtr.h"
-#include "coreModule/ecs/components/scriptComponent.h"
+#include <coreModule/ecs/components/scriptComponent.h>
 
 namespace sol {
 	class state;

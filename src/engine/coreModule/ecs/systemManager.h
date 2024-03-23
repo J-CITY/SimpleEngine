@@ -4,10 +4,11 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <list>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "componentArrayInterface.h"
-#include <rttr/type.h>
 #include "system.h"
 
 namespace IKIGAI::ECS {
@@ -24,9 +25,10 @@ namespace IKIGAI::ECS {
 			
 			auto system = std::make_shared<T>();
 			systems.insert({ typeName, system });
-			insertToGroup(typeName, addToNewGroup);
+			insertToGroup(system, typeName, addToNewGroup);
 			return system;
 		}
+
 
 		template<typename T>
 		std::shared_ptr<T> getSystem() {
@@ -53,8 +55,52 @@ namespace IKIGAI::ECS {
 
 	private:
 		// Add systems to separated group for run update parallel for systems in group
-		void insertToGroup(const char* id, bool addToNewGroup = false);
+		template<typename T>
+		void insertToGroup(std::shared_ptr<T> system, const char* id, bool addToNewGroup) {
+			if (addToNewGroup) {
+				mGroups.push_back(SystemGroup{{id}});
+				return;
+			}
 
+			const auto& _readComps = system->getComponentsRead();
+			const auto& _writeComps = system->getComponentsWrite();
+			if (_readComps.empty() && _writeComps.empty()) {
+				mGroups.push_back(SystemGroup{{id}});
+				return;
+			}
+
+			for (auto& group : mGroups) {
+				bool skipGroup = false;
+				for (auto& e : _writeComps) {
+					if (group.mReadComponents.contains(e) || group.mWriteComponents.contains(e)) {
+						skipGroup = true;
+						break;
+					}
+				}
+
+				for (auto& e : _readComps) {
+					if (group.mWriteComponents.contains(e)) {
+						skipGroup = true;
+						break;
+					}
+				}
+
+				if (skipGroup) {
+					continue;
+				} else {
+					for (auto& e : _readComps) {
+						group.mReadComponents.insert(e);
+					}
+					for (auto& e : _writeComps) {
+						group.mWriteComponents.insert(e);
+					}
+					group.mIds.push_back(id);
+					return;
+				}
+			}
+
+			mGroups.push_back(SystemGroup{{id}});
+		}
 
 		struct SystemGroup {
 			std::list<const char*> mIds;

@@ -1,7 +1,7 @@
 #include "primitiveRender.h"
 
 #include <vector>
-#include <coreModule/resourceManager/shaderManager.h>
+//#include <coreModule/resourceManager/shaderManager.h>
 //#include <coreModule/resourceManager/resource/mesh.h>
 /*
 IKIGAI::RENDER::PrimitiveRender::PrimitiveRender(BaseRender& render): render(render) {

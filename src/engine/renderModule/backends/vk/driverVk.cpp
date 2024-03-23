@@ -2,7 +2,8 @@
 
 #include "driverVk.h"
 
-import logger;
+#include "utilsModule/log/loggerDefine.h"
+
 //#include "raytracing/dw/include/extensions_vk.h"
 //#include "Render/vk/raytracing/dw/include/macros.h"
 #ifdef VULKAN_BACKEND
@@ -337,7 +338,7 @@ void DriverVk::setClierColor() {
 	
 }
 
-MATHGL::Vector4 DriverVk::getClearColor() {
+MATH::Vector4f DriverVk::getClearColor() {
 	return clearColor;
 }
 
@@ -426,7 +427,8 @@ void DriverVk::HandleMinimization()
 
 void DriverVk::enableExtensions(std::vector<const char*>& enabledDeviceExtensions)
 {
-	bool require_ray_tracing = true;
+	//TODO: Add support ray tracing RT
+	bool require_ray_tracing = false;
 	enabledDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
 	if (require_ray_tracing)
@@ -627,7 +629,7 @@ void DriverVk::RetrievePhysicalDevice()
 
 	m_MainDevice.MinUniformBufferOffset = deviceProperties.limits.minUniformBufferOffsetAlignment;// serve per DYNAMIC UBO
 	
-	LOG_INFO("(Vulkan) Name   : " + std::string(deviceProperties.deviceName));
+	LOG_INFO << ("(Vulkan) Name   : " + std::string(deviceProperties.deviceName));
 }
 
 bool DriverVk::CheckDeviceSuitable(VkPhysicalDevice possibleDevice)
@@ -779,13 +781,13 @@ void DriverVk::CreateLogicalDevice()
 		&m_TransferQueue);
 }
 
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 #include <GLFW/glfw3.h>
 void DriverVk::CreateSurface()
 {
-	auto& win = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>();
+	auto& win = RESOURCES::ServiceManager::Get<WINDOW::Window>();
 	
-	VkResult res = glfwCreateWindowSurface(m_VulkanInstance, win.getGLFWWin(), nullptr, &m_Surface);
+	VkResult res = glfwCreateWindowSurface(m_VulkanInstance, win.getContextPtr(), nullptr, &m_Surface);
 																		
 	if (res != VK_SUCCESS)
 	{

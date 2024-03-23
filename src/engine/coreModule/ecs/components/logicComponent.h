@@ -9,6 +9,17 @@ namespace IKIGAI::ECS { class Object; }
 namespace IKIGAI::ECS {
 	class LogicComponent : public Component {
 	public:
+		struct Descriptor : public Component::Descriptor {
+			std::string Type;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, Descriptor& value) {
+				using Self = Descriptor;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Type, "LogicComponentType");
+			}
+		};
 		std::function<void()> _onAwake = []{};
 		std::function<void()> _onStart = []{};
 		std::function<void()> _onEnable = [] {};
@@ -20,6 +31,9 @@ namespace IKIGAI::ECS {
 	public:
 		LogicComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 			__NAME__ = "LogicComponent";
+		};
+		LogicComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+			LogicComponent(obj) {
 		};
 
 		virtual void onAwake() override {
@@ -51,5 +65,20 @@ namespace IKIGAI::ECS {
 		}
 		virtual void onSerialize(nlohmann::json& j) override {
 		}
+
+	public:
+		static auto GetMembers() {
+			return std::tuple{
+			};
+		}
 	};
+	template <>
+	inline std::string ECS::GetType<LogicComponent>() {
+		return "class IKIGAI::ECS::LogicComponent";
+	}
+
+	template <>
+	inline std::string IKIGAI::ECS::GetComponentName<LogicComponent>() {
+		return "LogicComponent";
+	}
 }

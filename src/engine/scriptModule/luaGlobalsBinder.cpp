@@ -2,20 +2,21 @@
 
 #include <sol/sol.hpp>
 
-import logger;
 #include <coreModule/ecs/object.h>
 #include <sceneModule/sceneManager.h>
-#include <coreModule/resourceManager/modelManager.h>
-#include <coreModule/resourceManager/materialManager.h>
+#include <resourceModule/modelManager.h>
+#include <resourceModule/materialManager.h>
 #include <windowModule/inputManager/inputManager.h>
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/ServiceManager.h>
+
+#include "utilsModule/log/loggerDefine.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::SCRIPTING;
 
 void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	using namespace IKIGAI::INPUT_SYSTEM;
-	using namespace IKIGAI::MATHGL;
+	using namespace IKIGAI::MATH;
 	using namespace IKIGAI::ECS;
 	using namespace IKIGAI::SCENE_SYSTEM;
 
@@ -37,6 +38,7 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	p_luaState.new_enum<EKey>("Key",
 		{
 			{"UNKNOWN",			EKey::KEY_UNKNOWN},
+#ifndef OCULUS
 			{"SPACE",			EKey::KEY_SPACE},
 			{"APOSTROPHE",		EKey::KEY_APOSTROPHE},
 			{"COMMA",			EKey::KEY_COMMA},
@@ -85,8 +87,12 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 			{"BACKSLASH",		EKey::KEY_BACKSLASH},
 			{"RIGHT_BRACKET",	EKey::KEY_RIGHT_BRACKET},
 			{"GRAVE_ACCENT",	EKey::KEY_GRAVE_ACCENT},
+#endif
+#ifdef USE_GLFW
 			{"WORLD_1",			EKey::KEY_WORLD_1},
 			{"WORLD_2",			EKey::KEY_WORLD_2},
+#endif
+#ifndef OCULUS
 			{"ESCAPE",			EKey::KEY_ESCAPE},
 			{"ENTER",			EKey::KEY_ENTER},
 			{"TAB",				EKey::KEY_TAB},
@@ -130,7 +136,11 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 			{"F22",				EKey::KEY_F22},
 			{"F23",				EKey::KEY_F23},
 			{"F24",				EKey::KEY_F24},
+#endif
+#ifdef USE_GLFW
 			{"F25",				EKey::KEY_F25},
+#endif
+#ifndef OCULUS
 			{"KP_0",			EKey::KEY_KP_0},
 			{"KP_1",			EKey::KEY_KP_1},
 			{"KP_2",			EKey::KEY_KP_2},
@@ -157,6 +167,7 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 			{"RIGHT_ALT",		EKey::KEY_RIGHT_ALT},
 			{"RIGHT_SUPER",		EKey::KEY_RIGHT_SUPER},
 			{"MENU",			EKey::KEY_MENU}
+#endif
 		});
 
 		p_luaState.new_enum<EMouseButton>("MouseButton",
@@ -181,10 +192,10 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	p_luaState.create_named_table("Math");
 	p_luaState.create_named_table("Physics");
 
-	p_luaState["Debug"]["Log"] = [](const std::string& p_message) { LOG_INFO(p_message); };
-	p_luaState["Debug"]["LogIngo"] = [](const std::string& p_message) { LOG_INFO(p_message); };
-	p_luaState["Debug"]["LogWarning"] = [](const std::string& p_message) { LOG_WARNING(p_message); };
-	p_luaState["Debug"]["LogError"] = [](const std::string& p_message) { LOG_ERROR(p_message); };
+	p_luaState["Debug"]["Log"] = [](const std::string& p_message) { LOG_INFO << (p_message); };
+	p_luaState["Debug"]["LogIngo"] = [](const std::string& p_message) { LOG_INFO << (p_message); };
+	p_luaState["Debug"]["LogWarning"] = [](const std::string& p_message) { LOG_WARNING << (p_message); };
+	p_luaState["Debug"]["LogError"] = [](const std::string& p_message) { LOG_ERROR << (p_message); };
 
 	p_luaState["Inputs"]["GetKeyDown"] = [](EKey p_key) { return IKIGAI::RESOURCES::ServiceManager::Get<InputManager>().isKeyPressed(p_key); };
 	p_luaState["Inputs"]["GetKeyUp"] = [](EKey p_key) { return IKIGAI::RESOURCES::ServiceManager::Get<InputManager>().isKeyReleased(p_key); };
@@ -195,7 +206,7 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	p_luaState["Inputs"]["GetMousePos"] = []()
 	{
 		auto mousePos = IKIGAI::RESOURCES::ServiceManager::Get<InputManager>().getMousePosition();
-		return Vector3(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+		return Vector2f(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
 	};
 
 	p_luaState["Scenes"]["GetCurrentScene"] = []() -> Scene& { return IKIGAI::RESOURCES::ServiceManager::Get<SceneManager>().getCurrentScene(); };

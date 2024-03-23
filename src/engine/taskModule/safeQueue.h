@@ -3,6 +3,7 @@
 #include <deque>
 #include <shared_mutex>
 #include <optional>
+#include <condition_variable>
 
 namespace IKIGAI {
 	namespace TASK {
@@ -14,97 +15,97 @@ namespace IKIGAI {
 			}
 
 			std::optional<T> tryPop() {
-				std::lock_guard<std::shared_mutex> lock{m_mutex};
-				if (m_queue.empty() || !m_valid) {
+				std::lock_guard<std::shared_mutex> lock{mMutex};
+				if (mQueue.empty() || !mValid) {
 					return std::nullopt;
 				}
-				auto out = std::move(m_queue.front());
-				m_queue.pop_front();
+				auto out = std::move(mQueue.front());
+				mQueue.pop_front();
 				return out;
 			}
 
 			std::optional<T> waitPop() {
-				std::unique_lock<std::shared_mutex> lock{m_mutex};
-				m_condition.wait(lock, [this]() {
-					return !m_queue.empty() || !m_valid;
+				std::unique_lock<std::shared_mutex> lock{mMutex};
+				mCondition.wait(lock, [this]() {
+					return !mQueue.empty() || !mValid;
 				});
 
-				if (!m_valid) {
+				if (!mValid) {
 					return std::nullopt;
 				}
-				auto out = std::move(m_queue.front());
-				m_queue.pop_front();
+				auto out = std::move(mQueue.front());
+				mQueue.pop_front();
 				return out;
 			}
 
 			void push(T& value) {
-				std::lock_guard<std::shared_mutex> lock{m_mutex};
-				m_queue.push_back(value);
-				m_condition.notify_one();
+				std::lock_guard<std::shared_mutex> lock{mMutex};
+				mQueue.push_back(value);
+				mCondition.notify_one();
 			}
 
 			void push(T&& value) {
-				std::lock_guard<std::shared_mutex> lock{m_mutex};
-				m_queue.push_back(std::move(value));
-				m_condition.notify_one();
+				std::lock_guard<std::shared_mutex> lock{mMutex};
+				mQueue.push_back(std::move(value));
+				mCondition.notify_one();
 			}
 
 			void pushFront(const T& value) {
-				std::lock_guard<std::shared_mutex> lock{ m_mutex };
-				m_queue.push_front(value);
-				m_condition.notify_one();
+				std::lock_guard<std::shared_mutex> lock{ mMutex };
+				mQueue.push_front(value);
+				mCondition.notify_one();
 			}
 
 			void pushFront(T&& value) {
-				std::lock_guard<std::shared_mutex> lock{ m_mutex };
-				m_queue.push_front(std::move(value));
-				m_condition.notify_one();
+				std::lock_guard<std::shared_mutex> lock{ mMutex };
+				mQueue.push_front(std::move(value));
+				mCondition.notify_one();
 			}
 
 			bool empty() const {
-				std::shared_lock<std::shared_mutex> lock{m_mutex};
-				return m_queue.empty();
+				std::shared_lock<std::shared_mutex> lock{mMutex};
+				return mQueue.empty();
 			}
 
 			void clear() {
-				std::lock_guard<std::shared_mutex> lock{m_mutex};
-				while (!m_queue.empty()) {
-					m_queue.pop();
+				std::lock_guard<std::shared_mutex> lock{mMutex};
+				while (!mQueue.empty()) {
+					mQueue.pop();
 				}
-				m_condition.notify_all();
+				mCondition.notify_all();
 			}
 
 			bool isValid() const {
-				std::shared_lock<std::shared_mutex> lock{m_mutex};
-				return m_valid;
+				std::shared_lock<std::shared_mutex> lock{mMutex};
+				return mValid;
 			}
 
 			void invalidate() {
-				std::lock_guard<std::shared_mutex> lock{m_mutex};
-				m_valid = false;
-				m_condition.notify_all();
+				std::lock_guard<std::shared_mutex> lock{mMutex};
+				mValid = false;
+				mCondition.notify_all();
 			}
 
 			size_t size() {
-				std::shared_lock<std::shared_mutex> lock{m_mutex};
-				return m_queue.size();
+				std::shared_lock<std::shared_mutex> lock{mMutex};
+				return mQueue.size();
 			}
 
 			std::deque<T>& getRawData() {
-				std::shared_lock<std::shared_mutex> lock{m_mutex};
-				return m_queue;
+				std::shared_lock<std::shared_mutex> lock{mMutex};
+				return mQueue;
 			}
 
 			void setRawData(std::deque<T>&& values) {
-				std::lock_guard<std::shared_mutex> lock{m_mutex};
-				m_queue = values;
+				std::lock_guard<std::shared_mutex> lock{mMutex};
+				mQueue = values;
 			}
 
 		private:
-			std::atomic_bool m_valid{true};
-			mutable std::shared_mutex m_mutex;
-			std::deque<T> m_queue;
-			std::condition_variable_any m_condition;
+			std::atomic_bool mValid{true};
+			mutable std::shared_mutex mMutex;
+			std::deque<T> mQueue;
+			std::condition_variable_any mCondition;
 		};
 	}
 }

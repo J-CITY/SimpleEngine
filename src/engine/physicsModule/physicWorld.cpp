@@ -10,7 +10,7 @@
 
 using namespace IKIGAI;
 using namespace IKIGAI::PHYSICS;
-using namespace IKIGAI::MATHGL;
+using namespace IKIGAI::MATH;
 
 static unsigned DetectCollisionObjectAndObject(std::shared_ptr<ECS::Object> _lhs, std::shared_ptr<ECS::Object> _rhs, CollisionData* data) {
     assert(_lhs && _rhs && data);
@@ -189,7 +189,7 @@ void PhysicWorld::runPhysics(float dt) {
                     e.obj->getTransform()->getLocalPosition().y,
                     e.obj->getTransform()->getLocalPosition().z
                 );
-                auto rotM = MATHGL::Quaternion::ToMatrix3(e.obj->getTransform()->getLocalRotation());
+                auto rotM = MATH::QuaternionF::ToMatrix3(e.obj->getTransform()->getLocalRotation());
                 //rotM = MATHGL::Matrix3::Transpose(rotM);
                 obb.orientation = glm::mat3(
                     rotM(0, 0), rotM(0, 1), rotM(0, 2),

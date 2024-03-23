@@ -19,7 +19,7 @@ void ModelInterface::computeBoundingSphere() {
 		mBoundingSphere = mMeshes[0]->getBoundingSphere();
 	}
 	else {
-		mBoundingSphere.position = MATHGL::Vector3::Zero;
+		mBoundingSphere.position = MATH::Vector3f::Zero;
 		mBoundingSphere.radius = 0.0f;
 
 		if (!mMeshes.empty()) {
@@ -42,8 +42,8 @@ void ModelInterface::computeBoundingSphere() {
 				maxZ = std::max(maxZ, boundingSphere.position.z + boundingSphere.radius);
 			}
 
-			mBoundingSphere.position = MATHGL::Vector3{ minX + maxX, minY + maxY, minZ + maxZ } / 2.0f;
-			mBoundingSphere.radius = MATHGL::Vector3::Distance(mBoundingSphere.position, { minX, minY, minZ });
+			mBoundingSphere.position = MATH::Vector3f{ minX + maxX, minY + maxY, minZ + maxZ } / 2.0f;
+			mBoundingSphere.radius = MATH::Vector3f::Distance(mBoundingSphere.position, { minX, minY, minZ });
 		}
 	}
 }

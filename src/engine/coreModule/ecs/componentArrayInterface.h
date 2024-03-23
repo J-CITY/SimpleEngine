@@ -1,10 +1,10 @@
 ﻿#pragma once
 #include <any>
-#include <utilsModule/idObject.h>
+#include "utilsModule/idGenerator.h"
 
 namespace IKIGAI::ECS {
 	class Object;
-	using Entity = ObjectId<Object>;
+	using Entity = Id<Object>;
 
 	class ComponentArrayInterface {
 	public:
@@ -15,6 +15,6 @@ namespace IKIGAI::ECS {
 		virtual void insertDataAny(Entity entity, std::any component) = 0;
 		virtual std::any removeDataAny(Entity entity) = 0;
 		virtual std::any getDataAny(Entity entity) = 0;
-		virtual int getSize() const = 0;
+		[[nodiscard]] virtual int getSize() const = 0;
 	};
 }

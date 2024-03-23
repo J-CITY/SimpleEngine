@@ -1,16 +1,21 @@
 #include "light.h"
-#include <coreModule/ecs/componentManager.h>
+
+#include <cstdint>
+#include <limits>
+
+#include "coreModule/ecs/componentManager.h"
+#include "mathModule/math.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-Light::Light(ObjectId<ECS::Object> objId, Type type) : objId(objId), type(type) {}
+Light::Light(Id<ECS::Object> objId, Type type) : objId(objId), type(type) {}
 
 uint32_t pack(uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3) {
 	return (c0 << 24) | (c1 << 16) | (c2 << 8) | c3;
 }
 
-uint32_t Pack(const IKIGAI::MATHGL::Vector3& vec) {
+uint32_t Pack(const IKIGAI::MATH::Vector3f& vec) {
 	return pack(static_cast<uint8_t>(vec.x * 255.f), static_cast<uint8_t>(vec.y * 255.f), static_cast<uint8_t>(vec.z * 255.f), 0);
 }
 
@@ -45,29 +50,6 @@ LightOGL Light::generateOGLStruct() const {
 #ifdef OPENGL_BACKEND
 	result.radius = getEffectRange();
 #endif
-
-	/*
-	auto position = transform.getWorldPosition();
-	result.data[0] = position.x;
-	result.data[1] = position.y;
-	result.data[2] = position.z;
-
-	auto forward = transform.getWorldForward();
-	result.data[4] = forward.x;
-	result.data[5] = forward.y;
-	result.data[6] = forward.z;
-
-	result.data[8] = static_cast<float>(Pack(color));
-
-	result.data[12] = static_cast<float>(type);
-	result.data[13] = cutoff;
-	result.data[14] = outerCutoff;
-
-	result.data[3] = constant;
-	result.data[7] = linear;
-	result.data[11] = quadratic;
-	result.data[15] = intensity;
-	 */
 
 	return result;
 }
@@ -114,8 +96,8 @@ float calculatePointLightRadius(float constant, float linear, float quadratic, f
 	}
 }
 
-float calculateAmbientBoxLightRadius(const IKIGAI::MATHGL::Vector3& pos, const IKIGAI::MATHGL::Vector3& size) {
-	return IKIGAI::MATHGL::Vector3::Distance(pos, pos + size);
+float calculateAmbientBoxLightRadius(const IKIGAI::MATH::Vector3f& pos, const IKIGAI::MATH::Vector3f& size) {
+	return IKIGAI::MATH::Vector3f::Distance(pos, pos + size);
 }
 
 float Light::getEffectRange() const {

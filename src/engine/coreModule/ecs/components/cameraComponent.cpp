@@ -1,22 +1,33 @@
 #include "cameraComponent.h"
-#include "../../resourceManager/textureManager.h"
 
-
-import glmath;
 #include "../object.h"
 //#include "../../../game/Chunk.h"
 #include <renderModule/camera.h>
-
-#include "../../resourceManager/ServiceManager.h"
 #include <windowModule/window/window.h>
 
 #include "renderModule/backends/gl/textureGl.h"
 #include "sceneModule/sceneManager.h"
 using namespace IKIGAI::ECS;
 
-CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> obj): Component(obj) {
+CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj): Component(_obj) {
 	__NAME__ = "CameraComponent";
 }
+
+CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : Component(_obj) {
+	__NAME__ = "CameraComponent";
+	setFov(_descriptor.Fov);
+	setSize(_descriptor.Size);
+	setNear(_descriptor.Near);
+	setFar(_descriptor.Far);
+	setFrustumGeometryBVHCulling(_descriptor.GeometryBVHCulling);
+	setFrustumGeometryCulling(_descriptor.GeometryCulling);
+	setFrustumLightCulling(_descriptor.LightCulling);
+	setProjectionMode(_descriptor.Mode);
+
+
+	std::cout << "LOAD CAMERA" << std::endl;
+}
+
 void CameraComponent::ResizeRenderTexture(size_t w, size_t h) {
 }
 void CameraComponent::setFov(float value) {
@@ -87,14 +98,14 @@ IKIGAI::RENDER::Camera& CameraComponent::getCamera() {
 	return camera;
 }
 
-VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> obj): CameraComponent(obj) {
+VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj): CameraComponent(_obj) {
 	__NAME__ = "VrCamera";
-	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
 #ifdef OPENGL_BACKEND
-	leftTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, GL_FLOAT); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	leftTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, 0x1406/*GL_FLOAT*/); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//leftTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 
-	rightTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, GL_FLOAT); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	rightTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, 0x1406); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//rightTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 #endif
 	
@@ -124,9 +135,23 @@ VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> obj): CameraCompone
 	}
 }
 
+VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor): CameraComponent(_obj)
+{
+	__NAME__ = "VrCamera";
+	//TODO: init left/right camera
+	setFov(_descriptor.Fov);
+	setSize(_descriptor.Size);
+	setNear(_descriptor.Near);
+	setFar(_descriptor.Far);
+	setFrustumGeometryBVHCulling(_descriptor.GeometryBVHCulling);
+	setFrustumGeometryCulling(_descriptor.GeometryCulling);
+	setFrustumLightCulling(_descriptor.LightCulling);
+	setProjectionMode(_descriptor.Mode);
+}
+
 std::shared_ptr<IKIGAI::ECS::Object> VrCameraComponent::createObject(const std::string& name) {
 	static int id = 0;
-	auto instance = std::make_shared<ECS::Object>(Object::Id(id), name, "");
+	auto instance = std::make_shared<ECS::Object>(Object::Id_(id), name, "");
 	//if (isExecute) {
 		instance->setActive(true);
 		if (instance->getIsActive()) {
@@ -156,11 +181,10 @@ void VrCameraComponent::updateEyes() {
 	auto LEyeDirection = this->FocusDistance * obj->getTransform()->getWorldPosition() - LEyeDistance;
 	auto REyeDirection = this->FocusDistance * obj->getTransform()->getWorldPosition() - REyeDistance;
 	
-	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
 	left->getComponent<CameraComponent>()->getCamera().cacheMatrices(screenRes.x, screenRes.y, position + LEyeDistance, obj->getTransform()->getWorldRotation());
 	right->getComponent<CameraComponent>()->getCamera().cacheMatrices(screenRes.x, screenRes.y, position + REyeDistance, obj->getTransform()->getWorldRotation());
 }
-
 
 /*
 ArCameraComponent::ArCameraComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
@@ -271,65 +295,65 @@ void ArCameraComponent::onUpdate(std::chrono::duration<double> dt) {
 
 
 
-#include <rttr/registration>
-
-RTTR_REGISTRATION
-{
-	rttr::registration::enumeration<IKIGAI::RENDER::Camera::ProjectionMode>("ProjectionMode")
-	(
-		rttr::value("ORTHOGRAPHIC",    IKIGAI::RENDER::Camera::ProjectionMode::ORTHOGRAPHIC),
-		rttr::value("PERSPECTIVE",   IKIGAI::RENDER::Camera::ProjectionMode::PERSPECTIVE)
-	);
-	rttr::registration::class_<IKIGAI::ECS::CameraComponent>("CameraComponent")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_ANIMATION)
-	)
-	.property("Far", &IKIGAI::ECS::CameraComponent::getFar, &IKIGAI::ECS::CameraComponent::setFar)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	)
-	.property("Fov", &IKIGAI::ECS::CameraComponent::getFov, &IKIGAI::ECS::CameraComponent::setFov)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	)
-	.property("Size", &IKIGAI::ECS::CameraComponent::getSize, &IKIGAI::ECS::CameraComponent::setSize)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	)
-	.property("Near", &IKIGAI::ECS::CameraComponent::getNear, &IKIGAI::ECS::CameraComponent::setNear)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	)
-	.property("ProjectionMode", &IKIGAI::ECS::CameraComponent::getProjectionMode, &IKIGAI::ECS::CameraComponent::setProjectionMode)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
-	)
-	.property("FrustumCulling", &IKIGAI::ECS::CameraComponent::isFrustumGeometryCulling, &IKIGAI::ECS::CameraComponent::setFrustumGeometryCulling)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
-		)
-	.property("FrustumLight", &IKIGAI::ECS::CameraComponent::isFrustumLightCulling, &IKIGAI::ECS::CameraComponent::setFrustumLightCulling)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
-	)
-	.property("FrustumCullingBVH", &IKIGAI::ECS::CameraComponent::isFrustumGeometryBVHCulling, &IKIGAI::ECS::CameraComponent::setFrustumGeometryBVHCulling)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
-	);
-}
+//#include <rttr/registration>
+//
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::enumeration<IKIGAI::RENDER::Camera::ProjectionMode>("ProjectionMode")
+//	(
+//		rttr::value("ORTHOGRAPHIC",    IKIGAI::RENDER::Camera::ProjectionMode::ORTHOGRAPHIC),
+//		rttr::value("PERSPECTIVE",   IKIGAI::RENDER::Camera::ProjectionMode::PERSPECTIVE)
+//	);
+//	rttr::registration::class_<IKIGAI::ECS::CameraComponent>("CameraComponent")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_ANIMATION)
+//	)
+//	.property("Far", &IKIGAI::ECS::CameraComponent::getFar, &IKIGAI::ECS::CameraComponent::setFar)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	)
+//	.property("Fov", &IKIGAI::ECS::CameraComponent::getFov, &IKIGAI::ECS::CameraComponent::setFov)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	)
+//	.property("Size", &IKIGAI::ECS::CameraComponent::getSize, &IKIGAI::ECS::CameraComponent::setSize)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	)
+//	.property("Near", &IKIGAI::ECS::CameraComponent::getNear, &IKIGAI::ECS::CameraComponent::setNear)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	)
+//	.property("ProjectionMode", &IKIGAI::ECS::CameraComponent::getProjectionMode, &IKIGAI::ECS::CameraComponent::setProjectionMode)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
+//	)
+//	.property("FrustumCulling", &IKIGAI::ECS::CameraComponent::isFrustumGeometryCulling, &IKIGAI::ECS::CameraComponent::setFrustumGeometryCulling)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+//		)
+//	.property("FrustumLight", &IKIGAI::ECS::CameraComponent::isFrustumLightCulling, &IKIGAI::ECS::CameraComponent::setFrustumLightCulling)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+//	)
+//	.property("FrustumCullingBVH", &IKIGAI::ECS::CameraComponent::isFrustumGeometryBVHCulling, &IKIGAI::ECS::CameraComponent::setFrustumGeometryBVHCulling)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
+//	);
+//}

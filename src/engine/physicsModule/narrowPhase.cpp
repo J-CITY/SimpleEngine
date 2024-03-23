@@ -7,7 +7,7 @@
 
 using namespace IKIGAI;
 using namespace IKIGAI::PHYSICS;
-using namespace IKIGAI::MATHGL;
+using namespace IKIGAI::MATH;
 
 void CollisionPrimitive::calculateInternals()
 {
@@ -31,7 +31,7 @@ bool IntersectionTests::sphereAndSphere(
     const CollisionSphere &two)
 {
     // Find the vector between the objects
-    Vector3 midline = one.getAxis(3) - two.getAxis(3);
+    Vector3f midline = one.getAxis(3) - two.getAxis(3);
 
     // See if it is large enough.
     return midline.squareMagnitude() <
@@ -40,7 +40,7 @@ bool IntersectionTests::sphereAndSphere(
 
 static inline float transformToAxis(
     const CollisionBox &box,
-    const Vector3 &axis
+    const Vector3f &axis
     )
 {
     return
@@ -52,8 +52,8 @@ static inline float transformToAxis(
 static inline bool overlapOnAxis(
     const CollisionBox &one,
     const CollisionBox &two,
-    const Vector3 &axis,
-    const Vector3 &toCentre
+    const Vector3f &axis,
+    const Vector3f &toCentre
     )
 {
     // Project the half-size of one onto axis
@@ -236,8 +236,8 @@ unsigned CollisionDetector::sphereAndSphere(
 static inline float penetrationOnAxis(
     const CollisionBox &one,
     const CollisionBox &two,
-    const Vector3 &axis,
-    const Vector3 &toCentre
+    const Vector3f &axis,
+    const Vector3f &toCentre
     )
 {
     // Project the half-size of one onto axis
@@ -256,8 +256,8 @@ static inline float penetrationOnAxis(
 static inline bool tryAxis(
     const CollisionBox &one,
     const CollisionBox &two,
-    Vector3 axis,
-    const Vector3& toCentre,
+    Vector3f axis,
+    const Vector3f& toCentre,
     unsigned index,
 
     // These values may be updated
@@ -282,7 +282,7 @@ static inline bool tryAxis(
 void fillPointFaceBoxBox(
     const CollisionBox &one,
     const CollisionBox &two,
-    const Vector3 &toCentre,
+    const Vector3f &toCentre,
     CollisionData *data,
     unsigned best,
     float pen
@@ -296,7 +296,7 @@ void fillPointFaceBoxBox(
     // We know which axis the collision is on (i.e. best),
     // but we need to work out which of the two faces on
     // this axis.
-    Vector3 normal = one.getAxis(best);
+    Vector3f normal = one.getAxis(best);
     if (one.getAxis(best).dot(toCentre) > 0)
     {
         normal = normal * -1.0f;
@@ -304,7 +304,7 @@ void fillPointFaceBoxBox(
 
     // Work out which vertex of box two we're colliding with.
     // Using toCentre doesn't work!
-    Vector3 vertex = two.halfSize;
+    Vector3f vertex = two.halfSize;
     if (two.getAxis(0).dot(normal) < 0) vertex.x = -vertex.x;
     if (two.getAxis(1).dot(normal) < 0) vertex.y = -vertex.y;
     if (two.getAxis(2).dot(normal) < 0) vertex.z = -vertex.z;
@@ -312,19 +312,19 @@ void fillPointFaceBoxBox(
     // Create the contact data
     contact->contactNormal = normal;
     contact->penetration = pen;
-    auto v = MATHGL::Vector3{vertex.x, vertex.y, vertex.z};
+    auto v = MATH::Vector3f{vertex.x, vertex.y, vertex.z};
     auto res = two.getTransform() * v;
     contact->contactPoint = {(float)res.x, (float)res.y, (float)res.z};
     contact->setBodyData(one.body, two.body,
         data->friction, data->restitution);
 }
 
-static inline Vector3 contactPoint(
-    const Vector3 &pOne,
-    const Vector3 &dOne,
+static inline Vector3f contactPoint(
+    const Vector3f &pOne,
+    const Vector3f &dOne,
     float oneSize,
-    const Vector3 &pTwo,
-    const Vector3 &dTwo,
+    const Vector3f &pTwo,
+    const Vector3f &dTwo,
     float twoSize,
 
     // If this is true, and the contact point is outside
@@ -332,7 +332,7 @@ static inline Vector3 contactPoint(
     // we use one's midpoint, otherwise we use two's.
     bool useOne)
 {
-    Vector3 toSt, cOne, cTwo;
+    Vector3f toSt, cOne, cTwo;
     float dpStaOne, dpStaTwo, dpOneTwo, smOne, smTwo;
     float denom, mua, mub;
 
@@ -388,7 +388,7 @@ unsigned CollisionDetector::boxAndBox(
     //if (!IntersectionTests::boxAndBox(one, two)) return 0;
 
     // Find the vector between the two centres
-    Vector3 toCentre = two.getAxis(3) - one.getAxis(3);
+    Vector3f toCentre = two.getAxis(3) - one.getAxis(3);
 
     // We start assuming there is no contact
     float pen = std::numeric_limits<float>::max();
@@ -449,16 +449,16 @@ unsigned CollisionDetector::boxAndBox(
         best -= 6;
         unsigned oneAxisIndex = best / 3;
         unsigned twoAxisIndex = best % 3;
-        Vector3 oneAxis = one.getAxis(oneAxisIndex);
-        Vector3 twoAxis = two.getAxis(twoAxisIndex);
-        Vector3 axis = oneAxis.cross(twoAxis);
+        Vector3f oneAxis = one.getAxis(oneAxisIndex);
+        Vector3f twoAxis = two.getAxis(twoAxisIndex);
+        Vector3f axis = oneAxis.cross(twoAxis);
         axis.normalise();
 
         // The axis should point from box one to box two.
         if (axis.dot(toCentre) > 0) axis = axis * -1.0f;
         
-        Vector3 ptOnOneEdge = one.halfSize;
-        Vector3 ptOnTwoEdge = two.halfSize;
+        Vector3f ptOnOneEdge = one.halfSize;
+        Vector3f ptOnTwoEdge = two.halfSize;
         for (unsigned i = 0; i < 3; i++)
         {
             if (i == oneAxisIndex) ptOnOneEdge[i] = 0;
@@ -470,15 +470,15 @@ unsigned CollisionDetector::boxAndBox(
 
         // Move them into world coordinates (they are already oriented
         // correctly, since they have been derived from the axes).
-        auto res = one.transform * MATHGL::Vector3{ptOnOneEdge.x, ptOnOneEdge.y, ptOnOneEdge.z};
+        auto res = one.transform * MATH::Vector3f{ptOnOneEdge.x, ptOnOneEdge.y, ptOnOneEdge.z};
         ptOnOneEdge = {(float)res.x, (float)res.y, (float)res.z};
-        res = two.transform * MATHGL::Vector3{ptOnTwoEdge.x, ptOnTwoEdge.y, ptOnTwoEdge.z};
+        res = two.transform * MATH::Vector3f{ptOnTwoEdge.x, ptOnTwoEdge.y, ptOnTwoEdge.z};
         ptOnTwoEdge = {(float)res.x, (float)res.y, (float)res.z};
 
         // So we have a point and a direction for the colliding edges.
         // We need to find out point of closest approach of the two
         // line-segments.
-        Vector3 vertex = contactPoint(
+        Vector3f vertex = contactPoint(
             ptOnOneEdge, oneAxis, one.halfSize[oneAxisIndex],
             ptOnTwoEdge, twoAxis, two.halfSize[twoAxisIndex],
             bestSingleAxis > 2
@@ -504,15 +504,15 @@ unsigned CollisionDetector::boxAndBox(
 
 unsigned CollisionDetector::boxAndPoint(
     const CollisionBox &box,
-    const Vector3 &point,
+    const Vector3f &point,
     CollisionData *data
     )
 {
     // Transform the point into box coordinates
-    auto res = box.transform.transformInverse(MATHGL::Vector3{point.x, point.y, point.z});
-    Vector3 relPt = {(float)res.x, (float)res.y, (float)res.z};
+    auto res = box.transform.transformInverse(MATH::Vector3f{point.x, point.y, point.z});
+    Vector3f relPt = {(float)res.x, (float)res.y, (float)res.z};
 
-    Vector3 normal;
+    Vector3f normal;
 
     // Check each axis, looking for the axis on which the
     // penetration is least deep.
@@ -559,9 +559,9 @@ unsigned CollisionDetector::boxAndSphere(
     )
 {
     // Transform the centre of the sphere into box coordinates
-    Vector3 centre = sphere.getAxis(3);
-    auto res = box.transform.transformInverse(MATHGL::Vector3{centre.x, centre.y, centre.z});
-    Vector3 relCentre = {(float)res.x, (float)res.y,(float)res.z};
+    Vector3f centre = sphere.getAxis(3);
+    auto res = box.transform.transformInverse(MATH::Vector3f{centre.x, centre.y, centre.z});
+    Vector3f relCentre = {(float)res.x, (float)res.y,(float)res.z};
 
     // Early out check to see if we can exclude the contact
     if (abs(relCentre.x) - sphere.radius > box.halfSize.x ||
@@ -571,7 +571,7 @@ unsigned CollisionDetector::boxAndSphere(
         return 0;
     }
 
-    Vector3 closestPt(0,0,0);
+    Vector3f closestPt(0,0,0);
     float dist;
 
     // Clamp each coordinate to the box.
@@ -595,8 +595,8 @@ unsigned CollisionDetector::boxAndSphere(
     if (dist > sphere.radius * sphere.radius) return 0;
 
     // Compile the contact
-    res = box.transform.transform(MATHGL::Vector3{closestPt.x, closestPt.y, closestPt.z});
-    Vector3 closestPtWorld = {(float)res.x, (float)res.y, (float)res.z};
+    res = box.transform.transform(MATH::Vector3f{closestPt.x, closestPt.y, closestPt.z});
+    Vector3f closestPtWorld = {(float)res.x, (float)res.y, (float)res.z};
 
     Contact* contact = data->contacts;
     contact->contactNormal = (closestPtWorld - centre);
@@ -640,7 +640,7 @@ unsigned CollisionDetector::boxAndHalfSpace(
         // Calculate the position of each vertex
         Vector3 vertexPos(mults[i][0], mults[i][1], mults[i][2]);
         vertexPos.componentProductUpdate(box.halfSize);
-        auto res = box.transform.transform(MATHGL::Vector3{vertexPos.x, vertexPos.y, vertexPos.z});
+        auto res = box.transform.transform(MATH::Vector3f{vertexPos.x, vertexPos.y, vertexPos.z});
         vertexPos = {(float)res.x, (float)res.y, (float)res.z};
 
         // Calculate the distance from the plane

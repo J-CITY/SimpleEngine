@@ -1,18 +1,18 @@
 #pragma once
+#include "mathModule/math.h"
 #include "renderModule/backends/interface/resourceStruct.h"
 
 #ifdef OPENGL_BACKEND
-#include <gl/glew.h>
+#include <coreModule/graphicsWrapper.hpp>
 #include <fstream>
 #include <optional>
 #include <sstream>
 #include <unordered_map>
-#include <glm/fwd.hpp>
+
+#include "coreModule/glmWrapper.hpp"
 
 #include "../interface/shaderInterface.h"
 #include "../interface/reflectionStructs.h"
-
-import glmath;
 
 namespace IKIGAI
 {
@@ -60,17 +60,17 @@ namespace IKIGAI::RENDER
         void setMat2(const std::string& name, const glm::mat2& mat) const;
         void setMat3(const std::string& name, const glm::mat3& mat) const;
         void setMat4(const std::string& name, const glm::mat4& mat) const;
-        void setMat4(const std::string& name, const IKIGAI::MATHGL::Matrix4& mat) const;
-        void setVec2(const std::string& name, const IKIGAI::MATHGL::Vector2f& vec2);
-        void setVec3(const std::string& name, const IKIGAI::MATHGL::Vector3& vec3);
-        void setVec4(const std::string& name, const IKIGAI::MATHGL::Vector4& vec4);
-        void setMat4(const std::string& name, const IKIGAI::MATHGL::Matrix4& mat4);
-        void setMat3(const std::string& name, const IKIGAI::MATHGL::Matrix3& mat3);
+        void setMat4(const std::string& name, const IKIGAI::MATH::Matrix4f& mat) const;
+        void setVec2(const std::string& name, const IKIGAI::MATH::Vector2f& vec2);
+        void setVec3(const std::string& name, const IKIGAI::MATH::Vector3f& vec3);
+        void setVec4(const std::string& name, const IKIGAI::MATH::Vector4f& vec4);
+        void setMat4(const std::string& name, const IKIGAI::MATH::Matrix4f& mat4);
+        void setMat3(const std::string& name, const IKIGAI::MATH::Matrix3f& mat3);
 
-        IKIGAI::MATHGL::Vector2f getUniformVec2(const std::string& name);
-        IKIGAI::MATHGL::Vector3 getUniformVec3(const std::string& name);
-        IKIGAI::MATHGL::Vector4 getUniformVec4(const std::string& name);
-        IKIGAI::MATHGL::Matrix4 getUniformMat4(const std::string& name);
+        IKIGAI::MATH::Vector2f getUniformVec2(const std::string& name);
+        IKIGAI::MATH::Vector3f getUniformVec3(const std::string& name);
+        IKIGAI::MATH::Vector4f getUniformVec4(const std::string& name);
+        IKIGAI::MATH::Matrix4f getUniformMat4(const std::string& name);
         int getUniformInt(const std::string& name);
         float getUniformFloat(const std::string& name);
         int getUniformLocation(const std::string& name);

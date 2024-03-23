@@ -23,7 +23,7 @@ namespace IKIGAI
 			//id is index in finalBoneMatrices
 			int mId = 0;
 			//offset matrix transforms vertex from model space to bone space
-			MATHGL::Matrix4 mOffset;
+			MATH::Matrix4f mOffset;
 		};
 
 		class ModelInterface {

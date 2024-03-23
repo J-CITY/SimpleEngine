@@ -2,15 +2,14 @@
 
 #ifdef DX12_BACKEND
 #include "../../gameRendererDx12.h"
-#include <utilsModule/loader.h>
 using namespace IKIGAI::RENDER;
 
 
 std::shared_ptr<ShaderDx12> ShaderDx12::Create(std::string vertexPath, std::string fragmentPath) {
 	auto shader = std::make_shared<ShaderDx12>();
 
-	vertexPath = IKIGAI::UTILS::getRealPath(vertexPath);
-	fragmentPath = IKIGAI::UTILS::getRealPath(fragmentPath);
+	vertexPath = IKIGAI::UTILS::GetRealPath(vertexPath);
+	fragmentPath = IKIGAI::UTILS::GetRealPath(fragmentPath);
 	shader->mVertexShader = d3dUtil::CompileShader(std::wstring(vertexPath.begin(), vertexPath.end()), nullptr, "VS", "vs_5_1");;
 	shader->mFragmentShader = d3dUtil::CompileShader(std::wstring(fragmentPath.begin(), fragmentPath.end()), nullptr, "PS", "ps_5_1");
 

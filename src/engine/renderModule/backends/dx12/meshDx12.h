@@ -1,4 +1,6 @@
 #pragma once
+#include "renderModule/vertex.h"
+#include "renderModule/backends/interface/meshInterface.h"
 #ifdef DX12_BACKEND
 #include <memory>
 #include <vector>
@@ -6,10 +8,6 @@
 #include "indexBufferDx12.h"
 #include "vertexBufferDx12.h"
 
-namespace IKIGAI
-{
-	class Vertex;
-}
 
 namespace IKIGAI::RENDER {
 	class MeshDx12: public MeshInterface {

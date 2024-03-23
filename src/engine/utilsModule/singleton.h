@@ -2,12 +2,12 @@
 
 #include <mutex>
 
-#include <coreModule/resourceManager/serviceManager.h>
+#include <resourceModule/serviceManager.h>
 
 namespace IKIGAI::UTILS {
 	template <typename T>
 	class Singleton {
-		explicit Singleton() {};
+		explicit Singleton() = default;
 	public:
 		inline static T& GetInstance() {
 			static T instance{};
@@ -16,18 +16,20 @@ namespace IKIGAI::UTILS {
 
 		Singleton(const Singleton&) = delete;
 		Singleton& operator=(const Singleton&) = delete;
-		virtual ~Singleton() {}
+		Singleton(Singleton&&) = default;
+		Singleton& operator=(Singleton&&) = default;
+		virtual ~Singleton() = default;
 	};
 
 	template <typename T>
 	class SingletonService {
 	protected:
-		explicit SingletonService() {};
-		inline static std::once_flag m_flag;
+		explicit SingletonService() = default;
+		inline static std::once_flag mFlag;
 	public:
 		inline static T& GetInstance() {
 			if (!RESOURCES::ServiceManager::Check<T>()) {
-				std::call_once(m_flag, []() {
+				std::call_once(mFlag, []() {
 					RESOURCES::ServiceManager::Set<T>(new T());
 				});
 			}
@@ -35,7 +37,8 @@ namespace IKIGAI::UTILS {
 		}
 		SingletonService(const SingletonService&) = delete;
 		SingletonService& operator=(const SingletonService&) = delete;
-	
+		SingletonService(SingletonService&&) = default;
+		SingletonService& operator=(SingletonService&&) = default;
 		virtual ~SingletonService() {
 			RESOURCES::ServiceManager::Remove<T>();
 		}

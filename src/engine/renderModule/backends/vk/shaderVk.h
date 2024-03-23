@@ -15,6 +15,7 @@
 #include "../interface/reflectionStructs.h"
 
 namespace IKIGAI::RENDER {
+	class TextureVk;
 	class UniformVkInterface;
 
 	struct VertexDescriptor {

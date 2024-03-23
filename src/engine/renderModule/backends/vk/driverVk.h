@@ -1,15 +1,14 @@
 #pragma once
 #include <memory>
 
+#include "mathModule/math.h"
+
 #ifdef VULKAN_BACKEND
 #include <queue>
 #include "swapChainHandler.h"
 #include "commandHandler.h"
 #include <assimp/scene.h>
 #include "../interface/driverInterface.h"
-
-import glmath;
-
 
 struct ImDrawData;
 
@@ -41,7 +40,7 @@ namespace IKIGAI::RENDER {
 
 	public:
 		static const uint32_t kMaxFramesInFlight = 2;
-		MATHGL::Vector4 clearColor = { 0.0f,0.0f ,0.0f ,0.0f };
+		MATH::Vector4f clearColor = { 0.0f,0.0f ,0.0f ,0.0f };
 
 		std::queue<std::shared_ptr<ShaderVk>> callShaderSequence;
 		std::shared_ptr<ShaderVk> prev;
@@ -58,7 +57,7 @@ namespace IKIGAI::RENDER {
 		void begin();
 		void end();
 		void setClierColor();
-		MATHGL::Vector4 getClearColor();
+		MATH::Vector4f getClearColor();
 		void setViewport(const ShaderInterface& shader, float x, float y, float w, float h) override;
 		void setScissor(const ShaderInterface& shader, int x, int y, unsigned w, unsigned h) override;
 		void beginCommandBuffer(const ShaderVk& shader);

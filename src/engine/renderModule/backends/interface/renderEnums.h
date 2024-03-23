@@ -9,11 +9,13 @@ namespace IKIGAI::RENDER {
 		TRIANGLES,
 		TRIANGLE_STRIP,
 		TRIANGLE_FAN,
+#ifndef USING_GLES
 		LINES_ADJACENCY,
 		LINE_STRIP_ADJACENCY,
 		TRIANGLES_ADJACENCY,
 		TRIANGLE_STRIP_ADJACENCY,
 		PATCHES,
+#endif
 	};
 	enum class RenderingCapability {
 		BLEND = 0,
@@ -25,7 +27,9 @@ namespace IKIGAI::RENDER {
 		SAMPLE_COVERAGE,
 		SCISSOR_TEST,
 		STENCIL_TEST,
+#ifndef USING_GLES
 		MULTISAMPLE
+#endif
 	};
 	enum class RasterizationMode {
 		POINT = 0,
@@ -62,12 +66,15 @@ namespace IKIGAI::RENDER {
 	enum class PixelDataType {
 		BYTE = 0,
 		UNSIGNED_BYTE,
+#ifndef USING_GLES
 		BITMAP,
+#endif
 		SHORT,
 		UNSIGNED_SHORT,
 		INT,
 		UNSIGNED_INT,
 		FLOAT,
+#ifndef USING_GLES
 		UNSIGNED_BYTE_3_3_2,
 		UNSIGNED_BYTE_2_3_3_REV,
 		UNSIGNED_SHORT_5_6_5,
@@ -80,19 +87,28 @@ namespace IKIGAI::RENDER {
 		UNSIGNED_INT_8_8_8_8_REV,
 		UNSIGNED_INT_10_10_10_2,
 		UNSIGNED_INT_2_10_10_10_REV
+#endif
 	};
 	enum class PixelDataFormat {
+#ifndef USING_GLES
 		COLOR_INDEX = 0,
 		STENCIL_INDEX,
+#endif
 		DEPTH_COMPONENT,
+#ifndef USING_GLES
 		RED,
 		GREEN,
 		BLUE,
+#endif
 		ALPHA,
 		RGB,
+#ifndef USING_GLES
 		BGR,
+#endif
 		RGBA,
+#ifndef USING_GLES
 		BGRA,
+#endif
 		LUMINANCE,
 		LUMINANCE_ALPHA
 	};

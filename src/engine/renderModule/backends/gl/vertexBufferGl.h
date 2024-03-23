@@ -1,9 +1,11 @@
 #pragma once
+#include <iostream>
 
 #ifdef OPENGL_BACKEND
 #include <vector>
 #include <span>
-#include <gl/glew.h>
+
+#include <coreModule/graphicsWrapper.hpp>
 
 #include "../interface/vertexBufferInterface.h"
 
@@ -19,48 +21,58 @@ namespace IKIGAI::RENDER
 	public:
 		enum class UsageType : uint8_t {
 			STREAM_DRAW,
+#ifndef USING_GLES
 			STREAM_READ,
 			STREAM_COPY,
+#endif
 			STATIC_DRAW,
+#ifndef USING_GLES
 			STATIC_READ,
 			STATIC_COPY,
+#endif
 			DYNAMIC_DRAW,
+#ifndef USING_GLES
 			DYNAMIC_READ,
 			DYNAMIC_COPY,
+#endif
 		};
 		std::vector<GLenum> UsageTypeToEnum = {
 			GL_STREAM_DRAW,
+#ifndef USING_GLES
 			GL_STREAM_READ,
 			GL_STREAM_COPY,
+#endif
 			GL_STATIC_DRAW,
+#ifndef USING_GLES
 			GL_STATIC_READ,
 			GL_STATIC_COPY,
+#endif
 			GL_DYNAMIC_DRAW,
+#ifndef USING_GLES
 			GL_DYNAMIC_READ,
 			GL_DYNAMIC_COPY
+#endif
 		};
 		VertexBufferGl() {
 			glGenBuffers(1, &ID);
 		}
 
 		int sz = 0;
-		template <class T>
 		inline VertexBufferGl(T* data, size_t elements) {
 			sz = elements;
 			glGenBuffers(1, &ID);
 			glBindBuffer(GL_ARRAY_BUFFER, ID);
 			glBufferData(GL_ARRAY_BUFFER, elements * sizeof(T), data, GL_STATIC_DRAW);
+			std::cout << "CREATE VERTEX BUFF " << elements;
 		}
-
-		template <class T>
+		
 		inline VertexBufferGl(T* data, size_t elements, UsageType type) {
 			sz = elements;
 			glGenBuffers(1, &ID);
 			glBindBuffer(GL_ARRAY_BUFFER, ID);
 			glBufferData(GL_ARRAY_BUFFER, elements * sizeof(T), data, UsageTypeToEnum[static_cast<int>(type)]);
 		}
-
-		template<class T>
+		
 		inline VertexBufferGl(std::span<T> data) : VertexBufferGl(data.data(), data.size()) {}
 
 		inline ~VertexBufferGl() {
@@ -86,9 +98,11 @@ namespace IKIGAI::RENDER
 		}
 
 		void bindAttribute(GLuint index, GLint size, GLenum type, GLsizei stride, const GLvoid* pointer) const {
+#ifndef USING_GLES
 			bind();
 			glVertexAttribIPointer(index, size, type, stride, pointer);
 			glEnableVertexAttribArray(index);
+#endif
 		}
 
 		void bufferData(GLsizeiptr size, void* data, GLenum usage) const {
@@ -141,12 +155,16 @@ namespace IKIGAI::RENDER
 		inline void bindAttribute(unsigned int attribute, VertexBufferGl<T>& p_vertexBuffer, Type p_type, unsigned int count, unsigned int p_stride, intptr_t offset) {
 			bind();
 			p_vertexBuffer.bind();
+#ifndef USING_GLES
 			if (p_type == Type::INT) {
 				glVertexAttribIPointer(static_cast<GLuint>(attribute), static_cast<GLint>(count), static_cast<GLenum>(p_type), static_cast<GLsizei>(p_stride), reinterpret_cast<const GLvoid*>(offset));
 			}
 			else {
+#endif
 				glVertexAttribPointer(static_cast<GLuint>(attribute), static_cast<GLint>(count), static_cast<GLenum>(p_type), GL_FALSE, static_cast<GLsizei>(p_stride), reinterpret_cast<const GLvoid*>(offset));
+#ifndef USING_GLES
 			}
+#endif
 			glEnableVertexAttribArray(attribute);
 		}
 

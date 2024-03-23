@@ -3,22 +3,22 @@
 
 #include "transform.h"
 #include "coreModule/ecs/object.h"
-#include "coreModule/resourceManager/modelManager.h"
 #include "renderModule/backends/gl/materialGl.h"
 #include "renderModule/backends/gl/meshGl.h"
 #include "renderModule/backends/gl/modelGl.h"
 #include "renderModule/backends/gl/textureGl.h"
-#include "utilsModule/vertex.h"
+#include "resourceModule/modelManager.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
 BatchComponent::BatchComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 	__NAME__ = "BatchComponent";
-
+#ifdef OPENGL_BACKEND
 	init();
+#endif
 }
-
+#ifdef OPENGL_BACKEND
 void BatchComponent::init() {
 	auto model = obj->getComponent<ModelRenderer>();
 	auto material = obj->getComponent<MaterialRenderer>();
@@ -171,15 +171,15 @@ public:
 struct AtlasSizeAndTextureRectPair
 {
 private:
-	MATHGL::Vector2f atlasSize;
+	MATH::Vector2f atlasSize;
 	Rect rect;
 public:
-	AtlasSizeAndTextureRectPair(MATHGL::Vector2f _textureAtlasSize, Rect _rect)
+	AtlasSizeAndTextureRectPair(MATH::Vector2f _textureAtlasSize, Rect _rect)
 	{
 		atlasSize = _textureAtlasSize;
 		rect = _rect;
 	}
-	const MATHGL::Vector2f GetAtlasSize()
+	const MATH::Vector2f GetAtlasSize()
 	{
 		return atlasSize;
 	}
@@ -466,7 +466,7 @@ const AtlasSizeAndTextureRectPair TextureAtlas::GetAtlasSizeAndTextureRectPair(u
 	if (it != mSlotBundleMap.end())
 	{
 		SlotBundle slotBundle = it->second;
-		return AtlasSizeAndTextureRectPair(MATHGL::Vector2f(mAtlasWidth, mAtlasHeight), slotBundle.GetRect());
+		return AtlasSizeAndTextureRectPair(MATH::Vector2f(mAtlasWidth, mAtlasHeight), slotBundle.GetRect());
 	}
 	else
 	{
@@ -548,7 +548,7 @@ GLuint TextureAtlas::CreateTextureForAtlas(std::vector<SlotBundle> slotBundles, 
 
 	for (uint32_t i = 0; i < slotBundles.size(); i++)
 	{
-		std::vector<unsigned char> texData = RENDER::TextureGl::getPixels(UTILS::getRealPath(slotBundles[i].GetTexture()->mPath));
+		std::vector<unsigned char> texData = RENDER::TextureGl::getPixels(UTILS::GetRealPath(slotBundles[i].GetTexture()->mPath));
 		uint32_t channels = slotBundles[i].GetTexture()->chanels;
 		Rect rect = slotBundles[i].GetRect();
 
@@ -714,9 +714,7 @@ void BatchComponent::createBuffers(ModelRenderer& model, MaterialRenderer& mater
 	uint32_t lastTotalVertices = 0;
 	std::vector<std::vector<Vertex>> _globalVerticesPerMesh;
 	std::vector< std::vector<uint32_t>> _globalIndicesPerMesh;
-	RESOURCES::ModelLoader::CreateVerts(UTILS::getRealPath(model.getModel()->getPath()), RESOURCES::ModelLoader::getDefaultFlag(), _globalVerticesPerMesh, _globalIndicesPerMesh);
-
-
+	RESOURCES::ModelLoader::CreateVerts(UTILS::GetRealPath(model.getModel()->getPath()), RESOURCES::ModelLoader::getDefaultFlag(), _globalVerticesPerMesh, _globalIndicesPerMesh);
 
 	std::vector<Vertex> mBatchedVertices;
 	std::vector<uint32_t> mBatchedIndices;
@@ -806,12 +804,14 @@ void BatchComponent::createBuffers(ModelRenderer& model, MaterialRenderer& mater
 	material.fillWithMaterial(newMaterial);
 }
 
-#include <rttr/registration>
 
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::BatchComponent>("BatchComponent")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	);
-}
+//#include <rttr/registration>
+//
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::BatchComponent>("BatchComponent")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	);
+//}
+#endif

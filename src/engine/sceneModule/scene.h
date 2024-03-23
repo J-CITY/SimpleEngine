@@ -6,6 +6,9 @@
 #include <coreModule/ecs/object.h>
 #include <renderModule/drawable.h>
 
+#include "resourceModule/serializerInterface.h"
+#include "utilsModule/ref.h"
+
 namespace IKIGAI::GUI {
 	class GuiObject;
 }
@@ -22,9 +25,21 @@ namespace IKIGAI::RENDER {
 namespace IKIGAI::SCENE_SYSTEM {
 	class  Scene: public RESOURCES::Serializable {
 	public:
-		class IdGenerator: public ObjectIdGenerator<ECS::Object> {};
+		struct Descriptor {
+			std::vector<ECS::Object::Descriptor> Objects;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, Descriptor& value) {
+				using Self = Descriptor;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Objects, "Objects");
+			}
+		};
+		class IdGenerator_: public IdGenerator<ECS::Object> {};
 
 		Scene() = default;
+		Scene(const Descriptor& _descriptor);
 		virtual ~Scene();
 
 		void init();
@@ -37,16 +52,16 @@ namespace IKIGAI::SCENE_SYSTEM {
 
 		std::shared_ptr<ECS::Object> createObject();
 		std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");
-		std::shared_ptr<ECS::Object> createObjectAfter(ECS::Object::Id parentId, const std::string& p_name, const std::string& p_tag = "");
-		std::shared_ptr<ECS::Object> createObjectBefore(ECS::Object::Id parentId, const std::string& p_name, const std::string& p_tag = "");
+		std::shared_ptr<ECS::Object> createObjectAfter(ECS::Object::Id_ parentId, const std::string& p_name, const std::string& p_tag = "");
+		std::shared_ptr<ECS::Object> createObjectBefore(ECS::Object::Id_ parentId, const std::string& p_name, const std::string& p_tag = "");
 		//std::shared_ptr<ECS::Object> _createObject(const std::string& p_name, const std::string& p_tag = "");
-		std::shared_ptr<ECS::Object> createObject(ObjectId<ECS::Object> actorID, const std::string& name, const std::string& tag = "");
-		std::shared_ptr<ECS::Object> createObject(const ECS::ObjectData& data);
+		std::shared_ptr<ECS::Object> createObject(Id<ECS::Object> actorID, const std::string& name, const std::string& tag = "");
+		std::shared_ptr<ECS::Object> createObject(const ECS::Object::Descriptor& data);
 		bool destroyObject(std::shared_ptr<ECS::Object> p_target);
 
 		std::shared_ptr<ECS::Object> findObjectByName(const std::string& p_name);
 		std::shared_ptr<ECS::Object> findObjectByTag(const std::string& p_tag);
-		std::shared_ptr<ECS::Object> findObjectByID(ObjectId<ECS::Object> p_id);
+		std::shared_ptr<ECS::Object> findObjectByID(Id<ECS::Object> p_id);
 
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByName(const std::string& p_name);
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByTag(const std::string& p_tag);
@@ -84,7 +99,7 @@ namespace IKIGAI::SCENE_SYSTEM {
 		std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 			IKIGAI::RENDER::TransparentDrawables,
 			IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables>  findDrawables(const MATHGL::Vector3& p_cameraPosition,
+			IKIGAI::RENDER::TransparentDrawables>  findDrawables(const MATH::Vector3f& p_cameraPosition,
 			const RENDER::Camera& p_camera,
 			const RENDER::Frustum* p_customFrustum,
 			std::shared_ptr<RENDER::MaterialInterface> p_defaultMaterial
@@ -94,7 +109,7 @@ namespace IKIGAI::SCENE_SYSTEM {
 			IKIGAI::RENDER::TransparentDrawables,
 			IKIGAI::RENDER::OpaqueDrawables,
 			IKIGAI::RENDER::TransparentDrawables>  findAndSortFrustumCulledBVHDrawables(
-				const MATHGL::Vector3& cameraPosition,
+				const MATH::Vector3f& cameraPosition,
 				const RENDER::Frustum& frustum,
 				std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 			);
@@ -103,7 +118,7 @@ namespace IKIGAI::SCENE_SYSTEM {
 			IKIGAI::RENDER::TransparentDrawables,
 			IKIGAI::RENDER::OpaqueDrawables,
 			IKIGAI::RENDER::TransparentDrawables>  findAndSortFrustumCulledDrawables(
-			const MATHGL::Vector3& cameraPosition,
+			const MATH::Vector3f& cameraPosition,
 			const RENDER::Frustum& frustum,
 			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
@@ -112,7 +127,7 @@ namespace IKIGAI::SCENE_SYSTEM {
 			IKIGAI::RENDER::TransparentDrawables,
 			IKIGAI::RENDER::OpaqueDrawables,
 			IKIGAI::RENDER::TransparentDrawables>  findAndSortDrawables(
-			const MATHGL::Vector3& cameraPosition,
+			const MATH::Vector3f& cameraPosition,
 			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
 
@@ -131,7 +146,7 @@ namespace IKIGAI::SCENE_SYSTEM {
 		bool isSceneReady = false;
 		void postLoad();
 	private:
-		IdGenerator idGenerator;
+		IdGenerator_ idGenerator;
 		
 		bool isExecute = false;
 		std::vector<std::shared_ptr<ECS::Object>> objects;

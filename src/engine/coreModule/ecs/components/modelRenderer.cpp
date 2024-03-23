@@ -2,13 +2,19 @@
 
 #include "materialRenderer.h"
 #include "../object.h"
-#include "../../resourceManager/modelManager.h"
+#include "resourceModule/modelManager.h"
+#include "utilsModule/log/loggerDefine.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
 ModelRenderer::ModelRenderer(UTILS::Ref<ECS::Object> p_owner): Component(p_owner) {
 	__NAME__ = "ModelRenderer";
+}
+
+ModelRenderer::ModelRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor): Component(_obj) {
+	__NAME__ = "ModelRenderer";
+	setModelByPath(_descriptor.Path);
 }
 
 void ModelRenderer::setModel(std::shared_ptr<RENDER::ModelInterface> model) {
@@ -59,12 +65,17 @@ std::string ModelRenderer::getModelPath() {
 	return m_model->getPath();
 }
 
-
 //---------------------------------------
 
 
 ModelLODRenderer::ModelLODRenderer(UTILS::Ref<ECS::Object> p_owner) : Component(p_owner) {
 	__NAME__ = "ModelLODRenderer";
+}
+
+ModelLODRenderer::ModelLODRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor _descriptor) : Component(_obj)
+{
+	__NAME__ = "ModelLODRenderer";
+	setModelsByPath(_descriptor.Paths);
 }
 
 void ModelLODRenderer::setModel(const ModelLODRenderer::ModelLod& model) {
@@ -86,7 +97,7 @@ std::shared_ptr<RENDER::ModelInterface> ModelLODRenderer::getModelByDistance(flo
 			return model.m_model;
 		}
 	}
-	LOG_ERROR("Can not find lod");
+	LOG_ERROR << ("Can not find lod");
 	return nullptr;
 }
 
@@ -108,10 +119,10 @@ void ModelLODRenderer::setCustomBoundingSphere(const RENDER::BoundingSphere& bou
 
 void ModelLODRenderer::setModelsByPath(std::vector<ModelLODRenderer::ModelLodRefl> paths) {
 	for (auto path : paths) {
-		if (path.m_path.empty()) {
+		if (path.Path.empty()) {
 			continue;
 		}
-		auto model = RESOURCES::ModelLoader().CreateFromFile(path.m_path);
+		auto model = RESOURCES::ModelLoader().CreateFromFile(path.Path);
 		setFrustumBehaviour(IKIGAI::ECS::EFrustumBehaviour::CULL_MODEL);
 		auto bs = IKIGAI::RENDER::BoundingSphere();
 		bs.position = { 0.0f, 0.0f, 0.0f };
@@ -125,7 +136,7 @@ void ModelLODRenderer::setModelsByPath(std::vector<ModelLODRenderer::ModelLodRef
 		}
 		mat->updateMaterialList();
 
-		m_models.push_back({ path.m_distance, model });
+		m_models.push_back({ path.Distance, model });
 	}
 }
 
@@ -137,39 +148,40 @@ std::vector<ModelLODRenderer::ModelLodRefl> ModelLODRenderer::getModelsPath() {
 	return res;
 }
 
-#include <rttr/registration>
 
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::ModelRenderer>("ModelRenderer")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Model", &IKIGAI::ECS::ModelRenderer::getModelPath, &IKIGAI::ECS::ModelRenderer::setModelByPath)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING_WITH_FILE_CHOOSE),
-		rttr::metadata(EditorMetaInfo::FILE_EXTENSION, std::string(".fbx,.obj"))
-	);
-
-
-	rttr::registration::class_<IKIGAI::ECS::ModelLODRenderer::ModelLodRefl>("ModelLodRefl")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Distance", &IKIGAI::ECS::ModelLODRenderer::ModelLodRefl::m_distance)
-	.property("Path", &IKIGAI::ECS::ModelLODRenderer::ModelLodRefl::m_path);
-
-
-	rttr::registration::class_<IKIGAI::ECS::ModelLODRenderer>("ModelLODRenderer")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Models", &IKIGAI::ECS::ModelLODRenderer::getModelsPath, &IKIGAI::ECS::ModelLODRenderer::setModelsByPath)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::MODEL_LOD),
-		rttr::metadata(EditorMetaInfo::FILE_EXTENSION, std::string(".fbx,.obj"))
-	);
-}
+//#include <rttr/registration>
+//
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::ModelRenderer>("ModelRenderer")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Model", &IKIGAI::ECS::ModelRenderer::getModelPath, &IKIGAI::ECS::ModelRenderer::setModelByPath)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING_WITH_FILE_CHOOSE),
+//		rttr::metadata(EditorMetaInfo::FILE_EXTENSION, std::string(".fbx,.obj"))
+//	);
+//
+//
+//	rttr::registration::class_<IKIGAI::ECS::ModelLODRenderer::ModelLodRefl>("ModelLodRefl")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Distance", &IKIGAI::ECS::ModelLODRenderer::ModelLodRefl::m_distance)
+//	.property("Path", &IKIGAI::ECS::ModelLODRenderer::ModelLodRefl::m_path);
+//
+//
+//	rttr::registration::class_<IKIGAI::ECS::ModelLODRenderer>("ModelLODRenderer")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Models", &IKIGAI::ECS::ModelLODRenderer::getModelsPath, &IKIGAI::ECS::ModelLODRenderer::setModelsByPath)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::MODEL_LOD),
+//		rttr::metadata(EditorMetaInfo::FILE_EXTENSION, std::string(".fbx,.obj"))
+//	);
+//}
 

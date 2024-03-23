@@ -1,48 +1,51 @@
 #pragma once
 
-#include "memory.h"
+#include <cstdint>
+
+#include "memoryAlloc.h"
 
 namespace IKIGAI::MEMORY {
 	class IObjectPool {
 	public:
+		IObjectPool() = default;
 		virtual ~IObjectPool() = default;
 	};
 
 	template <typename T>
 	class ObjectPool : public IObjectPool {
 		struct Chunk {
-			void* m_Target = nullptr;
-			Chunk* m_Next = nullptr;
+			void* mTarget = nullptr;
+			Chunk* mNext = nullptr;
 		};
 
 	public:
 		ObjectPool() = delete;
 
 		explicit ObjectPool(size_t poolCapability) {
-			m_ObjectSize = sizeof(T) + sizeof(Chunk);
-			m_PoolCapability = poolCapability;
-			m_HeapAddress = reinterpret_cast<unsigned char*>(Memory::Allocate(m_PoolCapability * m_ObjectSize));
-			m_CurrentFreeChunk = reinterpret_cast<Chunk*>(m_HeapAddress);
+			mObjectSize = sizeof(T) + sizeof(Chunk);
+			mPoolCapability = poolCapability;
+			mHeapAddress = reinterpret_cast<unsigned char*>(Memory::Allocate(mPoolCapability * mObjectSize));
+			mCurrentFreeChunk = reinterpret_cast<Chunk*>(mHeapAddress);
 
 			ConstructPool();
 		}
 
-		~ObjectPool() = default;
+		~ObjectPool() override = default;
 
 		T* Spawn() {
-			if (!m_CurrentFreeChunk) {
+			if (!mCurrentFreeChunk) {
 				return nullptr;
 			}
 
-			auto l_Object = m_CurrentFreeChunk->m_Target;
+			auto l_Object = mCurrentFreeChunk->mTarget;
 
 			if (l_Object) {
-				auto l_Next = m_CurrentFreeChunk->m_Next;
+				auto l_Next = mCurrentFreeChunk->mNext;
 				if (l_Next) {
-					m_CurrentFreeChunk = l_Next;
+					mCurrentFreeChunk = l_Next;
 				}
 				else {
-					m_CurrentFreeChunk = nullptr;
+					mCurrentFreeChunk = nullptr;
 				}
 				return new(l_Object) T();
 			}
@@ -53,45 +56,45 @@ namespace IKIGAI::MEMORY {
 
 		void Destroy(T* ptr) {
 			auto l_NewFreeChunk = new(reinterpret_cast<unsigned char*>(ptr) - sizeof(Chunk)) Chunk();
-			l_NewFreeChunk->m_Target = ptr;
+			l_NewFreeChunk->mTarget = ptr;
 			
-			if (!m_CurrentFreeChunk) {
-				l_NewFreeChunk->m_Next = nullptr;
-				m_CurrentFreeChunk = l_NewFreeChunk;
+			if (!mCurrentFreeChunk) {
+				l_NewFreeChunk->mNext = nullptr;
+				mCurrentFreeChunk = l_NewFreeChunk;
 			}
 			else {
-				l_NewFreeChunk->m_Next = m_CurrentFreeChunk->m_Next;
-				m_CurrentFreeChunk->m_Next = l_NewFreeChunk;
+				l_NewFreeChunk->mNext = mCurrentFreeChunk->mNext;
+				mCurrentFreeChunk->mNext = l_NewFreeChunk;
 			}
 		}
 
 	private:
 		void ConstructPool() {
-			auto l_ObjectUC = m_HeapAddress;
+			auto l_ObjectUC = mHeapAddress;
 			Chunk* l_PrevFreeChunk = nullptr;
 
-			for (auto i = 0; i < m_PoolCapability; i++) {
+			for (auto i = 0; i < mPoolCapability; i++) {
 				auto l_NewFreeChunk = new(l_ObjectUC) Chunk();
-				l_NewFreeChunk->m_Target = l_ObjectUC + sizeof(Chunk);
+				l_NewFreeChunk->mTarget = l_ObjectUC + sizeof(Chunk);
 				
 				if (l_PrevFreeChunk) {
-					l_PrevFreeChunk->m_Next = l_NewFreeChunk;
+					l_PrevFreeChunk->mNext = l_NewFreeChunk;
 				}
 
-				l_NewFreeChunk->m_Next = nullptr;
+				l_NewFreeChunk->mNext = nullptr;
 				l_PrevFreeChunk = l_NewFreeChunk;
-				l_ObjectUC += m_ObjectSize;
+				l_ObjectUC += mObjectSize;
 			}
 		}
 
-		std::size_t m_ObjectSize;
-		std::size_t m_PoolCapability;
-		unsigned char* m_HeapAddress;
-		Chunk* m_CurrentFreeChunk;
+		std::size_t mObjectSize;
+		std::size_t mPoolCapability;
+		unsigned char* mHeapAddress;
+		Chunk* mCurrentFreeChunk;
 
 	public:
 		static ObjectPool<T>* Create(uint32_t poolCapability) {
-			auto l_TObjectPoolAddress = reinterpret_cast<ObjectPool<T>*>(Memory::Allocate(sizeof(ObjectPool<T>)));
+			auto l_TObjectPoolAddress = reinterpret_cast<ObjectPool<T>*>(UTILS::Memory::Allocate(sizeof(ObjectPool<T>)));
 			auto l_TObjectPool = new(l_TObjectPoolAddress) ObjectPool<T>(poolCapability);
 			return l_TObjectPool;
 		}
@@ -102,7 +105,7 @@ namespace IKIGAI::MEMORY {
 
 		static bool Destruct(ObjectPool<T>* objectPool) {
 			Clear(objectPool);
-			Memory::Deallocate(objectPool);
+			UTILS::Memory::Deallocate(objectPool);
 			return true;
 		}
 	};

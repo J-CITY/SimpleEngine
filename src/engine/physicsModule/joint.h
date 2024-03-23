@@ -1,5 +1,6 @@
 #pragma once
 #include "contacts.h"
+#include "mathModule/math.h"
 
 namespace IKIGAI::PHYSICS {
 
@@ -11,15 +12,15 @@ namespace IKIGAI::PHYSICS {
         RigidBody* body[2];
 
         
-        MATHGL::Vector3 position[2];
+        MATH::Vector3f position[2];
 
         
         float error;
 
         
         void set(
-            RigidBody *a, const MATHGL::Vector3& a_pos,
-            RigidBody *b, const MATHGL::Vector3& b_pos,
+            RigidBody *a, const MATH::Vector3f& a_pos,
+            RigidBody *b, const MATH::Vector3f& b_pos,
             float error
             );
 

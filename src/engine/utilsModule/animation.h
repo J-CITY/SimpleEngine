@@ -10,7 +10,6 @@
 #include "coreModule/ecs/object.h"
 #include "sceneModule/sceneManager.h"
 
-import glmath;
 
 namespace IKIGAI::ANIMATION {
 	namespace FUNC {
@@ -50,7 +49,7 @@ namespace IKIGAI::ANIMATION {
 		float bounceEaseInOut(float a);
 	}
 
-	using PropType = std::variant<float, int, bool, std::string, MATHGL::Vector2f, MATHGL::Vector2u, MATHGL::Vector2i, MATHGL::Vector3, MATHGL::Vector4>;
+	using PropType = std::variant<float, int, bool, std::string, MATH::Vector2f, MATH::Vector2u, MATH::Vector2i, MATH::Vector3f, MATH::Vector4f>;
 
 	enum class InterpolationType {
 		LINEAR,
@@ -343,17 +342,17 @@ namespace IKIGAI::ANIMATION {
 
 	class NodableAnimationNodePos : public NodableAnimationNode {
 	public:
-		ECS::Object::Id id;
-		MATHGL::Vector3 toPos{};
+		ECS::Object::Id_ id;
+		MATH::Vector3f toPos{};
 
-		MATHGL::Vector3 fromPos{};
+		MATH::Vector3f fromPos{};
 		float time = 0.0f;
 		float curTime = 0.0f;
 		
 
 		AnimationProperty prop;
 	public:
-		NodableAnimationNodePos(ECS::Object::Id id, MATHGL::Vector3 toPos, float time, InterpolationType interpolation = InterpolationType::LINEAR):
+		NodableAnimationNodePos(ECS::Object::Id_ id, MATH::Vector3f toPos, float time, InterpolationType interpolation = InterpolationType::LINEAR):
 			id(id), toPos(toPos), time(time) {
 
 			auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
@@ -364,7 +363,7 @@ namespace IKIGAI::ANIMATION {
 			prop = AnimationProperty(
 				"propPos",
 				std::function<void(PropType)>([component](PropType prop) {
-					if (auto val = std::get_if<MATHGL::Vector3>(&prop)) {
+					if (auto val = std::get_if<MATH::Vector3f>(&prop)) {
 						if (component) {
 							component->setLocalPosition(*val);
 						}
@@ -391,7 +390,7 @@ namespace IKIGAI::ANIMATION {
 			curTime += dt;
 			const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
 
-			const auto newPos = MATHGL::Vector3(
+			const auto newPos = MATH::Vector3(
 				fromPos.x + progress * (toPos.x - fromPos.x),
 				fromPos.y + progress * (toPos.y - fromPos.y),
 				fromPos.z + progress * (toPos.z - fromPos.z));
@@ -404,17 +403,17 @@ namespace IKIGAI::ANIMATION {
 
 	class NodableAnimationNodeScale : public NodableAnimationNode {
 	public:
-		ECS::Object::Id id;
-		MATHGL::Vector3 to{};
+		ECS::Object::Id_ id;
+		MATH::Vector3f to{};
 
-		MATHGL::Vector3 from{};
+		MATH::Vector3f from{};
 		float time = 0.0f;
 		float curTime = 0.0f;
 
 
 		AnimationProperty prop;
 	public:
-		NodableAnimationNodeScale(ECS::Object::Id id, MATHGL::Vector3 to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
+		NodableAnimationNodeScale(ECS::Object::Id_ id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
 			NodableAnimationNode(), id(id), to(to), time(time) {
 
 			auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
@@ -425,7 +424,7 @@ namespace IKIGAI::ANIMATION {
 			prop = AnimationProperty(
 				"propScale",
 				std::function<void(PropType)>([component](PropType prop) {
-					if (auto val = std::get_if<MATHGL::Vector3>(&prop)) {
+					if (auto val = std::get_if<MATH::Vector3f>(&prop)) {
 						if (component) {
 							component->setLocalScale(*val);
 						}
@@ -452,7 +451,7 @@ namespace IKIGAI::ANIMATION {
 			curTime += dt;
 			const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
 
-			const auto newPos = MATHGL::Vector3(
+			const auto newPos = MATH::Vector3(
 				from.x + progress * (to.x - from.x),
 				from.y + progress * (to.y - from.y),
 				from.z + progress * (to.z - from.z));
@@ -465,17 +464,17 @@ namespace IKIGAI::ANIMATION {
 
 	class NodableAnimationNodeRotate : public NodableAnimationNode {
 	public:
-		ECS::Object::Id id;
-		MATHGL::Vector3 to{};
+		ECS::Object::Id_ id;
+		MATH::Vector3f to{};
 
-		MATHGL::Vector3 from{};
+		MATH::Vector3f from{};
 		float time = 0.0f;
 		float curTime = 0.0f;
 
 
 		AnimationProperty prop;
 	public:
-		NodableAnimationNodeRotate(ECS::Object::Id id, MATHGL::Vector3 to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
+		NodableAnimationNodeRotate(ECS::Object::Id_ id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
 			NodableAnimationNode(), id(id), to(to), time(time) {
 
 			auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
@@ -486,7 +485,7 @@ namespace IKIGAI::ANIMATION {
 			prop = AnimationProperty(
 				"propRotate",
 				std::function<void(PropType)>([component](PropType prop) {
-					if (auto val = std::get_if<MATHGL::Vector3>(&prop)) {
+					if (auto val = std::get_if<MATH::Vector3f>(&prop)) {
 						if (component) {
 							component->setLocalRotationDeg(*val);
 						}
@@ -513,7 +512,7 @@ namespace IKIGAI::ANIMATION {
 			curTime += dt;
 			const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
 
-			const auto newPos = MATHGL::Vector3(
+			const auto newPos = MATH::Vector3(
 				from.x + progress * (to.x - from.x),
 				from.y + progress * (to.y - from.y),
 				from.z + progress * (to.z - from.z));

@@ -2,6 +2,7 @@
 #include <sceneModule/sceneManager.h>
 
 IKIGAI::ECS::LogicSystem::LogicSystem() {
+	mComponentsRead.insert(typeid(LogicComponent).name());
 }
 
 void IKIGAI::ECS::LogicSystem::onAwake() {

@@ -17,14 +17,11 @@
 #include <coreModule/core/core.h>
 #include <sceneModule/sceneManager.h>
 #include <windowModule/window/window.h>
-#include <utilsModule/loader.h>
-#include <utilsModule/vertex.h>
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
 
 const int gNumFrameResources = 3;
 
-import glmath;
 namespace IKIGAI
 {
 	namespace INPUT_SYSTEM
@@ -58,7 +55,7 @@ GameRendererDx12* GameRendererDx12::GetApp() {
 	return mApp;
 }
 
-GameRendererDx12::GameRendererDx12(HINSTANCE hInstance, IKIGAI::CORE_SYSTEM::Core& context): mContext(context), mhAppInst(hInstance){
+GameRendererDx12::GameRendererDx12(HINSTANCE hInstance, IKIGAI::CORE::Core& context): mContext(context), mhAppInst(hInstance){
 	assert(mApp == nullptr);
 	mApp = this;
 
@@ -92,7 +89,9 @@ void GameRendererDx12::renderScene() {
 	}
 
 	if (mainCameraComponentDx) {
-		auto [winWidth, winHeight] = mContext.window->getSize();
+		const auto sz = mContext.window->getSize();
+		const auto winWidth = sz.x;
+		const auto winHeight = sz.y;
 		const auto& cameraPosition = mainCameraComponentDx.value()->obj->getTransform()->getWorldPosition();
 		const auto& cameraRotation = mainCameraComponentDx.value()->obj->getTransform()->getWorldRotation();
 		mainCameraComponentDx->getPtr()->getCamera().cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
@@ -101,11 +100,13 @@ void GameRendererDx12::renderScene() {
 		renderScene(mainCameraComponentDx.value());
 	}
 
-	renderScene(mainCameraComponentDx.value());
+	//renderScene(mainCameraComponentDx.value());
 }
 
 void GameRendererDx12::renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	const auto sz = mContext.window->getSize();
+	const auto winWidth = sz.x;
+	const auto winHeight = sz.y;
 	auto& currentScene = mContext.sceneManager->getCurrentScene();
 
 	auto& camera = mainCameraComponent->getCamera();
@@ -279,11 +280,13 @@ std::shared_ptr<ShaderDx12> shader1;
 std::shared_ptr<ShaderDx12> shader2;
 
 std::shared_ptr<UploadBuffer<EngineUBO>> engineUBO;
-std::shared_ptr<UploadBuffer<MATHGL::Matrix4>> pushModel;
+std::shared_ptr<UploadBuffer<MATH::Matrix4f>> pushModel;
 
 
 bool GameRendererDx12::Initialize() {
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	const auto sz = mContext.window->getSize();
+	const auto winWidth = sz.x;
+	const auto winHeight = sz.y;
 	if (!InitMainWindow()) {
 		return false;
 	}
@@ -293,7 +296,7 @@ bool GameRendererDx12::Initialize() {
 	ThrowIfFailed(mDriver->mCommandList->Reset(
 		mDriver->mDirectCmdListAlloc.Get(), nullptr));
 
-	mEmptyTexture = TextureDx12::Create(IKIGAI::UTILS::getRealPath("Textures/snow.png"));
+	mEmptyTexture = TextureDx12::Create(IKIGAI::UTILS::GetRealPath("Textures/snow.png"));
 
 
 	mTextures["gPositionTex"] = TextureDx12::CreateForAttach(winWidth, winHeight);
@@ -311,7 +314,7 @@ bool GameRendererDx12::Initialize() {
 	mShaders["deferredRender"] = shader1;
 
 	engineUBO = std::make_shared<UploadBuffer<EngineUBO>>(1, true);
-	pushModel = std::make_shared<UploadBuffer<MATHGL::Matrix4>>(1, true);
+	pushModel = std::make_shared<UploadBuffer<MATH::Matrix4f>>(1, true);
 	//LoadTextures();
 	BuildFrameResources();
 
@@ -406,14 +409,16 @@ void GameRendererDx12::Update()
 }
 
 void GameRendererDx12::sendEngineUBO() {
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	const auto sz = mContext.window->getSize();
+	const auto winWidth = sz.x;
+	const auto winHeight = sz.y;
 	const auto& cameraPosition = mainCameraComponentDx.value()->obj->getTransform()->getWorldPosition();
 	EngineUBO data;
 	auto proj = mainCameraComponentDx.value()->getCamera().getProjectionMatrix();
 	data.Projection = (proj);
 	data.View = (mainCameraComponentDx.value()->getCamera().getViewMatrix());
 	data.ViewPos = cameraPosition;
-	data.ViewportSize = MATHGL::Vector2f(winWidth, winHeight);
+	data.ViewportSize = MATH::Vector2f(winWidth, winHeight);
 	engineUBO->CopyData(0, data);
 }
 
@@ -635,7 +640,7 @@ std::unordered_map<INPUT_SYSTEM::EKey, int> toDx12Key = {
 };
 
 void GameRendererDx12::OnKeyboardInput() {
-	auto& win = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>();
+	auto& win = RESOURCES::ServiceManager::Get<WINDOW::Window>();
 	for (auto key : toDx12Key) {
 		if (GetAsyncKeyState(key.second) & 0x8000) {
 			win.keyPressedEvent.run(static_cast<int>(key.first));
@@ -660,8 +665,6 @@ void GameRendererDx12::OnKeyboardInput() {
 
 	//mCamera.UpdateViewMatrix();
 }
-
-import glmath;
 
 //void GameRendererDx12::UpdateMainPassCB() {
 //
