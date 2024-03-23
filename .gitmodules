@@ -4,9 +4,6 @@
 [submodule "3rd/soloud"]
 	path = 3rd/soloud
 	url = https://github.com/jarikomppa/soloud.git
-[submodule "3rd/rttr"]
-	path = 3rd/rttr
-	url = https://github.com/rttrorg/rttr.git
 [submodule "3rd/glfw"]
 	path = 3rd/glfw
 	url = https://github.com/glfw/glfw.git
@@ -33,9 +30,6 @@
 	path = 3rd/imgui/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
-[submodule "3rd/imgui/ImGuizmo"]
-	path = 3rd/imgui/ImGuizmo
-	url = https://github.com/CedricGuillemet/ImGuizmo.git
 [submodule "3rd/imgui/IconFont"]
 	path = 3rd/imgui/IconFont
 	url = https://github.com/juliettef/IconFontCppHeaders.git
@@ -48,3 +42,12 @@
 [submodule "3rd/lua"]
 	path = 3rd/lua
 	url = https://github.com/lua/lua.git
+[submodule "3rd/fmt"]
+	path = 3rd/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "3rd/VulkanMemoryAllocator"]
+	path = 3rd/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "3rd/serdepp"]
+	path = 3rd/serdepp
+	url = https://github.com/injae/serdepp.git
