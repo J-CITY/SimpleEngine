@@ -1,12 +1,23 @@
 ﻿#include "gameRendererGl.h"
 
-#include "coreModule/resourceManager/materialManager.h"
-#include "coreModule/resourceManager/shaderManager.h"
-#include "coreModule/resourceManager/textureManager.h"
-#include "debugModule/debugRender.h"
+#include "backends/gl/driverGl.h"
+#include "backends/gl/frameBufferGl.h"
+#include "backends/gl/materialGl.h"
+#include "backends/gl/shaderGl.h"
+#include "backends/interface/meshInterface.h"
+#include "coreModule/core/core.h"
+#include "resourceModule/serviceManager.h"
+#include "sceneModule/sceneManager.h"
+#include "utilsModule/format.h"
+#include "windowModule/window/window.h"
+
+//#include "coreModule/resourceManager/materialManager.h"
+//#include "coreModule/resourceManager/shaderManager.h"
+//#include "coreModule/resourceManager/textureManager.h"
+//#include "debugModule/debugRender.h"
 
 
-#ifdef OPENGL_BACKEND
+#ifdef OPENGL_HARD_RENDER
 #include "backends/gl/materialGl.h"
 #include "backends/gl/shaderGl.h"
 #include <glm/ext/matrix_clip_space.hpp>
@@ -179,7 +190,7 @@ void GameRendererGl::createShaders() {
 	auto& shaderLoader = RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>();
 
 	//mShaders["deferredGBuffer"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredGBuffer.vs.glsl", "./Shaders/gl/deferredGBuffer.fs.glsl");
-	mShaders["deferredGBuffer"] = std::static_pointer_cast<ShaderGl>(shaderLoader.loadResource<ShaderInterface>("./Shaders/gl/deferredGBuffer.shader"));
+	mShaders["deferredGBuffer"] = std::static_pointer_cast<ShaderGl>(shaderLoader.loadResource("./Shaders/gl/deferredGBuffer.shader"));
 
 	mShaders["deferredGBuffer"]->bind();
 	mShaders["deferredGBuffer"]->setBool("engine_Settings.useTAA", true);
@@ -3072,4 +3083,313 @@ void renderCube() {
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 	glBindVertexArray(0);
 }
+#endif
+
+#ifdef OPENGL_SIMPLE_RENDER
+
+#ifdef OCULUS
+#include <common/xr_linear.h>
+#include "util_matrix.h"
+#endif
+
+namespace IKIGAI::RENDER {
+
+
+	unsigned int quadVAO = 0;
+	unsigned int quadVBO;
+	void renderQuad() {
+		if (quadVAO == 0) {
+			float quadVertices[] = {
+				// координаты      // текстурные координаты
+				-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+				-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+				1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+				1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+			};
+
+			// Установка VAO плоскости
+			glGenVertexArrays(1, &quadVAO);
+			glGenBuffers(1, &quadVBO);
+			glBindVertexArray(quadVAO);
+			glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(1);
+			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+		}
+		glBindVertexArray(quadVAO);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		glBindVertexArray(0);
+	}
+
+	std::optional<IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent>> mainCameraComponent = std::nullopt;
+	std::shared_ptr<RENDER::MaterialGl> emptyMaterial;
+	std::shared_ptr<RENDER::TextureGl> emptyTexture;
+	std::shared_ptr<RENDER::ShaderGl> renderToScreenShader;
+	std::vector<LightOGL> lights;
+
+	GameRendererGl::GameRendererGl(IKIGAI::CORE::Core& context): mContext(context) {
+		mDriver = dynamic_cast<DriverGl*>(context.driver.get());
+
+		emptyMaterial = std::make_shared<RENDER::MaterialGl>();
+		emptyMaterial->setShader(std::make_shared<ShaderGl>("assets/shaders/opengl/empty.vert", "assets/shaders/opengl/empty.frag"));
+		emptyMaterial->set("u_Color", MATH::Vector4(0.f, 0.f, 1.f, 1.f));
+
+		emptyTexture = TextureGl::Create("assets/textures/empty.png", true);
+
+		createShaders();
+		createFrameBuffers();
+	}
+
+	void GameRendererGl::createShaders() {
+		renderToScreenShader = std::make_shared<ShaderGl>("assets/shaders/opengl/renderToScreen.vert", "assets/shaders/opengl/renderToScreen.frag");
+	}
+
+	void GameRendererGl::createFrameBuffers() {
+		auto sz = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::WINDOW::Window>().getSize();
+		sceneTexture = TextureGl::createForAttach(sz.x, sz.y, GL_FLOAT);
+		mainFb = std::make_shared<FrameBufferGl>();
+		mainFb->create({sceneTexture});
+	}
+
+
+	void GameRendererGl::renderScene(UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
+		auto& currentScene = mContext.sceneManager->getCurrentScene();
+
+		auto& camera = mainCameraComponent->getCamera();
+		lights = currentScene.findLightData();
+		//if (mainCameraComponent->isFrustumLightCulling()) {
+		//	updateLightsInFrustum(currentScene, mainCameraComponent->getCamera().getFrustum());
+		//} else {
+		//	updateLights(currentScene);
+		//}
+
+		OpaqueDrawables	mOpaqueMeshesForward;
+		TransparentDrawables mTransparentMeshesForward;
+
+		OpaqueDrawables	mOpaqueMeshesDeferred;
+		TransparentDrawables mTransparentMeshesDeferred;
+		const auto& cameraPosition = mainCameraComponent->obj->getTransform()->getWorldPosition();
+		std::tie(mOpaqueMeshesForward, mTransparentMeshesForward, mOpaqueMeshesDeferred, mTransparentMeshesDeferred) =
+			currentScene.findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
+
+
+		mDriver->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+		mDriver->clear(true, true, false);
+		
+		mainFb->bind();
+		mDriver->setClearColor(0.0f, 1.0f, 0.0f, 1.0f);
+		mDriver->clear(true, true, false);
+
+		for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
+			drawDrawable(drawable);
+		}
+		for (const auto& [distance, drawable] : mTransparentMeshesForward) {
+			drawDrawable(drawable);
+		}
+		mainFb->unbind();
+
+		//renderSkybox();
+	}
+
+
+	void GameRendererGl::drawDrawable(const Drawable& p_toDraw) {
+		if (p_toDraw.material->hasShader() && p_toDraw.material->getGPUInstances() > 0) {
+			uint8_t stateMask = reinterpret_cast<MaterialGl*>(p_toDraw.material.get())->generateStateMask();
+			mDriver->applyStateMask(stateMask);
+
+			GLint OldDepthFuncMode;
+			glGetIntegerv(GL_DEPTH_FUNC, &OldDepthFuncMode);
+			p_toDraw.material->bind(emptyTexture, true);
+			mDriver->setDepthAlgorithm(p_toDraw.material->getDepthFunc());
+
+			auto shader = std::static_pointer_cast<ShaderGl>(p_toDraw.material->getShader());
+			auto& camera = mainCameraComponent.value()->getCamera();
+			shader->setMat4("engine_Model", p_toDraw.world);
+			shader->setMat4("engine_Projection", camera.getProjectionMatrix());
+			shader->setMat4("engine_View", camera.getViewMatrix());
+			shader->setBool("engine_UseBone", false);
+			shader->setVec3("engine_ViewPos", mainCameraComponent.value()->obj->transform->getWorldPosition());
+
+			const int lightsCount = std::min(lights.size(), static_cast<size_t>(10));
+			for (int i = 0; i < lightsCount; ++i) {
+				const auto& light = lights[i];
+				shader->setVec3(UTILS::format("engine_Lights[{}].pos", i), {light.pos[0], light.pos[1], light.pos[2]});
+				shader->setVec3(UTILS::format("engine_Lights[{}].forward", i), {light.forward[0], light.forward[1], light.forward[2]});
+				shader->setVec3(UTILS::format("engine_Lights[{}].color", i), {light.color[0], light.color[1], light.color[2]});
+				shader->setFloat(UTILS::format("engine_Lights[{}].cutoff", i), light.cutoff);
+				shader->setFloat(UTILS::format("engine_Lights[{}].outerCutoff", i), light.outerCutoff);
+				shader->setFloat(UTILS::format("engine_Lights[{}].constant", i), light.constant);
+				shader->setFloat(UTILS::format("engine_Lights[{}].linear", i), light.linear);
+				shader->setFloat(UTILS::format("engine_Lights[{}].quadratic", i), light.quadratic);
+				shader->setFloat(UTILS::format("engine_Lights[{}].intensity", i), light.intensity);
+				shader->setInt(UTILS::format("engine_Lights[{}].type", i), light.type);
+			}
+			shader->setInt("engine_LightCount", lightsCount);
+
+			//if (p_toDraw.animator) {
+			//	sendBounseDataToShader(std::static_pointer_cast<MaterialGl>(p_toDraw.material),
+			//		*p_toDraw.animator,
+			//		std::static_pointer_cast<ShaderGl>(std::static_pointer_cast<MaterialGl>(p_toDraw.material)->getShader()));
+			//} else {
+			//	mShaders["deferredGBuffer"]->setInt("u_UseBone", false);
+			//}
+			mDriver->draw(*p_toDraw.mesh, PrimitiveMode::TRIANGLES, p_toDraw.material->getGPUInstances());
+
+			glDepthFunc(OldDepthFuncMode);
+			p_toDraw.material->unbind();
+		}
+	}
+
+	void GameRendererGl::renderScene() {
+
+		auto& scene = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::SCENE_SYSTEM::SceneManager>().getCurrentScene();
+		auto& window = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::WINDOW::Window>();
+
+		auto camera = scene.findMainCamera();
+
+		mainCameraComponent = std::nullopt;
+		if (mContext.sceneManager->hasCurrentScene()) {
+			mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera();
+		}
+		if (mainCameraComponent) {
+			auto sz = mContext.window->getSize();
+			auto winWidth = sz.x;
+			auto winHeight = sz.y;
+			const auto& cameraPosition = mainCameraComponent.value()->obj->getTransform()->getWorldPosition();
+			const auto& cameraRotation = mainCameraComponent.value()->obj->getTransform()->getWorldRotation();
+			mainCameraComponent->getPtr()->getCamera().cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
+
+			const auto glState = mDriver->fetchGLState();
+
+			renderScene(mainCameraComponent.value());
+			renderToScreen();
+
+			mDriver->applyStateMask(glState);
+		} else {
+			mDriver->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+			mDriver->clear(true, true, false);
+		}
+		frameCount++;
+		frameCount %= 10000;
+	}
+
+	void GameRendererGl::renderToScreen() {
+		renderToScreenShader->bind();
+		sceneTexture->bind(0);
+		renderQuad();
+		renderToScreenShader->unbind();
+	}
+#ifdef OCULUS
+	void GameRendererGl::renderSceneOculus(XrCompositionLayerProjectionView &layerView,
+						   render_target_t &rtarget, XrPosef &stagePose,
+						   uint32_t viewID) {
+
+		auto& scene = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::SCENE_SYSTEM::SceneManager>().getCurrentScene();
+		auto& window = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::WINDOW::Window>();
+
+		mainCameraComponent = std::nullopt;
+		if (mContext.sceneManager->hasCurrentScene()) {
+			mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera();
+		}
+		if (!mainCameraComponent) {
+			return;
+		}
+		auto cameraComp = mainCameraComponent.value();
+
+		int view_x = layerView.subImage.imageRect.offset.x;
+		int view_y = layerView.subImage.imageRect.offset.y;
+		int view_w = layerView.subImage.imageRect.extent.width;
+		int view_h = layerView.subImage.imageRect.extent.height;
+		window.setSize(view_w, view_h);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, rtarget.fbo_id);
+
+		glViewport(view_x, view_y, view_w, view_h);
+
+		//mDriver->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+		//mDriver->clear(true, true, false);
+		//glClearColor (0.1f, 0.1f, 0.1f, 1.0f);
+		//glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+		/* ------------------------------------------- *
+         *  Matrix Setup
+         *    (matPV)  = (proj) x (view)
+         *    (matPVM) = (proj) x (view) x (model)
+         * ------------------------------------------- */
+		XrMatrix4x4f matP, matV, matC, matM, matPV, matPVM;
+
+		/* Projection Matrix */
+		XrMatrix4x4f_CreateProjectionFov (&matP, GRAPHICS_OPENGL_ES, layerView.fov, cameraComp->getNear(), cameraComp->getFar());
+
+		/* View Matrix (inverse of Camera matrix) */
+		XrVector3f scale = {1.0f, 1.0f, 1.0f};
+		const auto &vewPose = layerView.pose;
+		XrMatrix4x4f_CreateTranslationRotationScale (&matC, &vewPose.position, &vewPose.orientation, &scale);
+		XrMatrix4x4f_InvertRigidBody (&matV, &matC);
+
+		/* Stage Space Matrix */
+		XrMatrix4x4f_CreateTranslationRotationScale (&matM, &stagePose.position, &stagePose.orientation, &scale);
+
+		XrMatrix4x4f_Multiply (&matPV, &matP, &matV);
+		XrMatrix4x4f_Multiply (&matPVM, &matPV, &matM);
+
+		mainCameraComponent.value()->obj->getTransform()->setLocalPosition(
+				MATH::Vector3f(stagePose.position.x, stagePose.position.y, stagePose.position.z));
+		mainCameraComponent.value()->obj->getTransform()->setLocalRotation(
+				MATH::QuaternionF(stagePose.orientation.x, stagePose.orientation.y, stagePose.orientation.z, stagePose.orientation.w));
+
+		auto toMat4 = [](const XrMatrix4x4f& from) {
+			MATH::Matrix4f to(
+					from.m[0], from.m[1], from.m[2], from.m[3],
+					from.m[4], from.m[5], from.m[6], from.m[7],
+					from.m[8], from.m[9], from.m[10], from.m[11],
+					from.m[12], from.m[13], from.m[14], from.m[15]
+			);
+			return MATH::Matrix4f::Transpose(to);
+		};
+		mainCameraComponent.value()->getCamera().cacheViewMatrix(toMat4(matV));
+		mainCameraComponent.value()->getCamera().cacheProjectionMatrix(toMat4(matP));
+
+
+		//cameraComp->setFov(layerView.fov.);
+		//cameraComp->setNear(0.05f);
+		//cameraComp->setFar(100.0f);
+
+
+		/* ------------------------------------------- *
+         *  Render
+         * ------------------------------------------- */
+		//float *matStage = reinterpret_cast<float*>(&matPVM);
+
+		renderScene(mainCameraComponent.value());
+		//draw_stage (matStage);
+		//draw_triangle (matStage);
+
+		//{
+		//	XrVector3f    &pos = layerView.pose.position;
+		//	XrQuaternionf &rot = layerView.pose.orientation;
+		//	XrFovf        &fov = layerView.fov;
+		//	int x = 100;
+		//	int y = 100;
+		//	char strbuf[128];
+		//	update_dbgstr_winsize (view_w, view_h);
+		//	sprintf (strbuf, "VIEWPOS(%6.4f, %6.4f, %6.4f)", pos.x, pos.y, pos.z);
+		//	draw_dbgstr(strbuf, x, y); y += 22;
+		//	sprintf (strbuf, "VIEWROT(%6.4f, %6.4f, %6.4f, %6.4f)", rot.x, rot.y, rot.z, rot.w);
+		//	draw_dbgstr(strbuf, x, y); y += 22;
+		//	sprintf (strbuf, "VIEWFOV(%6.4f, %6.4f, %6.4f, %6.4f)",
+		//			 fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown);
+		//	draw_dbgstr(strbuf, x, y); y += 22;
+		//}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	}
+#endif
+}
+
+
 #endif

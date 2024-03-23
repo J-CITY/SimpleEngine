@@ -3,26 +3,24 @@
 #include <variant>
 
 namespace IKIGAI::UTILS {
-	template <class T>
-	struct Ok;
-	template <class E>
-	struct Err;
+	template <class T> struct Ok;
+	template <class E> struct Err;
 
 	template <class T, class E>
 	class Result {
-		std::variant<Ok<T>, Err<E>> value;
+		std::variant<Ok<T>, Err<E>> mValue;
 	public:
 		Result() = default;
-		Result(const Ok<T>& val) : value(val) {}
-		Result(const Err<E>& val) : value(val) {}
+		Result(const Ok<T>& val) : mValue(val) {}
+		Result(const Err<E>& val) : mValue(val) {}
 
 		Result& operator=(Ok<T> val) {
-			value = val;
+			mValue = val;
 			return *this;
 		}
 
 		Result& operator=(Err<E> val) {
-			value = val;
+			mValue = val;
 			return *this;
 		}
 
@@ -46,23 +44,23 @@ namespace IKIGAI::UTILS {
 		}
 
 		[[nodiscard]] bool isOk() const {
-			return std::holds_alternative<Ok<T>>(value);
+			return std::holds_alternative<Ok<T>>(mValue);
 		}
 
 		[[nodiscard]] bool isErr() const {
-			return std::holds_alternative<Err<E>>(value);
+			return std::holds_alternative<Err<E>>(mValue);
 		}
-		
-		std::optional<T> ok() const {
+
+		[[nodiscard]] std::optional<T> ok() const {
 			if (isOk()) {
-				return std::get<0>(value).value;
+				return std::get<0>(mValue).mValue;
 			}
 			return std::nullopt;
 		}
-		
-		std::optional<E> err() const {
+
+		[[nodiscard]] std::optional<E> err() const {
 			if (isErr()) {
-				return std::get<1>(value).value;
+				return std::get<1>(mValue).mValue;
 			}
 			return std::nullopt;
 		}
@@ -139,8 +137,8 @@ namespace IKIGAI::UTILS {
 
 	template <typename T>
 	struct Ok {
-		T value;
-		Ok(T value) : value(value) {}
+		T mValue;
+		Ok(T value) : mValue(value) {}
 
 		template <typename Function>
 		Result<T, T> andThen(Function op) {
@@ -150,8 +148,8 @@ namespace IKIGAI::UTILS {
 
 	template <typename E>
 	struct Err {
-		E value;
-		Err(E value) : value(value) {}
+		E mValue;
+		Err(E value) : mValue(value) {}
 
 		template <typename Function>
 		Result<E, E> andThen(Function op) {

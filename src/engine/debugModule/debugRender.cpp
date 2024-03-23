@@ -1,4 +1,5 @@
 ﻿#include "debugRender.h"
+#ifdef USE_EDITOR_
 #include <memory>
 
 
@@ -28,24 +29,24 @@
 #include <../../3rd/imgui/imgui/imgui_impl_dx12.h>
 #include <../../3rd/imgui/imgui/imgui_impl_win32.h>
 #endif
-#include <SomeLogger.h>
+//#include <SomeLogger.h>
 #include <stack>
 #include <unordered_set>
-#include <rttr/enumeration.h>
-#include <rttr/type.h>
+//#include <rttr/enumeration.h>
+//#include <rttr/type.h>
 
 #include <windowModule/window/window.h>
 #include <windowModule/inputManager/inputManager.h>
-#include <utilsModule/imguiWidgets/ImGuizmo.h>
+//#include <utilsModule/imguiWidgets/ImGuizmo.h>
 #include <../../3rd/imgui/IconFont/IconsFontAwesome5.h>
 
-#include "coreModule/resourceManager/materialManager.h"
-#include "coreModule/resourceManager/textureManager.h"
+//#include "coreModule/resourceManager/materialManager.h"
+//#include "coreModule/resourceManager/textureManager.h"
 #include "utilsModule/animation.h"
 #include "utilsModule/assertion.h"
-#include "utilsModule/imguiWidgets/ImGuiFileBrowser.h"
-#include "utilsModule/imguiWidgets/imgui_widget_flamegraph.h"
-#include "utilsModule/imguiWidgets/TextEditor.h"
+//#include "utilsModule/imguiWidgets/ImGuiFileBrowser.h"
+//#include "utilsModule/imguiWidgets/imgui_widget_flamegraph.h"
+//#include "utilsModule/imguiWidgets/TextEditor.h"
 #include "utilsModule/profiler/profiler.h"
 using namespace IKIGAI;
 using namespace IKIGAI::DEBUG;
@@ -116,7 +117,7 @@ struct AnimationLineInfo {
 };
 std::vector<AnimationLineInfo> SequencerItemTypeNames{};
 
-std::set<ECS::Object::Id> searchedObjectsIds;
+std::set<ECS::Object::Id_> searchedObjectsIds;
 
 std::shared_ptr<RENDER::MaterialInterface> editMaterial;
 
@@ -680,7 +681,7 @@ private:
 					newPath = entry.path().string();
 				}
 				else if (extType == File::FileType::MATERIAL) {
-					editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(entry.path().string());
+					editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(entry.path().string());
 					//editMaterial = RESOURCES::MaterialLoader::Create(entry.path().string());
 				}
 			}
@@ -1691,7 +1692,7 @@ DebugRender::DebugRender() {
 #endif
 
 	//DEBUG CAMERA
-	debugCamera = std::make_unique<ECS::Object>(ECS::Object::Id(-123100), "DEBUG_CAMERA", "EDITOR");
+	debugCamera = std::make_unique<ECS::Object>(ECS::Object::Id_(-123100), "DEBUG_CAMERA", "EDITOR");
 	auto cam = debugCamera->addComponent<IKIGAI::ECS::CameraComponent>();
 	cam->setFov(45.0f);
 	cam->setSize(5.0f);
@@ -2008,7 +2009,7 @@ void DebugRender::drawMaterialWidget(RENDER::MaterialGl* material) {
 	if (ImGui::Button("Reload")) {
 		auto path = material->mPath;
 		//editMaterial = RESOURCES::MaterialLoader::Create(path);
-		editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(path);
+		editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(path);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Create new")) {
@@ -2626,7 +2627,7 @@ void widgetMaterial(UTILS::WeakPtr<ECS::Component> component, const rttr::proper
 		ImGui::PushID(i);
 		if (ImGui::InputText(names[i].c_str(), &e->mPath, ImGuiInputTextFlags_EnterReturnsTrue)) {
 			//TODO: check file exist
-			val->setMaterial(i, RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(e->mPath));
+			val->setMaterial(i, RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(e->mPath));
 			//val->setMaterial(i, RESOURCES::MaterialLoader::Create(e->mPath));
 		}
 		ImGui::SameLine();
@@ -2637,7 +2638,7 @@ void widgetMaterial(UTILS::WeakPtr<ECS::Component> component, const rttr::proper
 			};
 			fileChooserCb = [val, i](std::string path) mutable {
 				if (val) {
-					auto mat = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(path);
+					auto mat = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(path);
 					//RESOURCES::MaterialLoader::Create(path);
 					val->setMaterial(i, mat);
 				}
@@ -4122,7 +4123,7 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 					return ".mat";
 				};
 				fileChooserCb = [_renderer](std::string path) {
-					_renderer->setSkyBoxMaterial(RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource<RENDER::MaterialInterface>(path));
+					_renderer->setSkyBoxMaterial(RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(path));
 				};
 			}
 			ImGui::SameLine();
@@ -4339,3 +4340,4 @@ void DebugRender::draw(CORE_SYSTEM::Core& core) {
 void DebugRender::postDraw() {
 
 }
+#endif

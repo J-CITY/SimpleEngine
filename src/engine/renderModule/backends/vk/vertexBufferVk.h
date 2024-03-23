@@ -8,7 +8,7 @@
 #include "driverVk.h"
 #include "shaderVk.h"
 #include "../interface/vertexBufferInterface.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 
 namespace IKIGAI::RENDER {
 	template<class T>

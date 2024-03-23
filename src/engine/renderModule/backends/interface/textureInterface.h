@@ -15,5 +15,7 @@ namespace IKIGAI::RENDER
 		TextureType type = TextureType::TEXTURE_2D;
 		virtual ~TextureInterface() = default;
 
+
+		virtual void* getImguiId() = 0;
 	};
 }

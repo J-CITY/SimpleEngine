@@ -3,8 +3,8 @@
 #include <algorithm>
 
 using namespace IKIGAI::ANIMATION;
+using namespace IKIGAI::MATH;
 
-import glmath;
 
 float FUNC::linearInterpolation(float a)
 {

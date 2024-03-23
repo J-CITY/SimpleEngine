@@ -1,10 +1,15 @@
 #include "materialGl.h"
 
-#include "coreModule/resourceManager/ServiceManager.h"
-#include "coreModule/resourceManager/shaderManager.h"
-#include "coreModule/resourceManager/textureManager.h"
+//#include "coreModule/resourceManager/ServiceManager.h"
+//#include "coreModule/resourceManager/shaderManager.h"
+//#include "coreModule/resourceManager/textureManager.h"
 #include "../interface/reflectionStructs.h"
 #include "../interface/resourceStruct.h"
+#include "resourceModule/ServiceManager.h"
+#include "resourceModule/shaderManager.h"
+#include "resourceModule/textureManager.h"
+#include "utilsModule/jsonLoader.h"
+#include "utilsModule/visitorHelper.h"
 #ifdef OPENGL_BACKEND
 
 using namespace IKIGAI;
@@ -16,10 +21,40 @@ void MaterialGl::setShader(std::shared_ptr<ShaderGl> shader) {
 	generateUniformsData();
 }
 
-MaterialGl::~MaterialGl() {
-	for (auto& e : watchingFilesId) {
-		RESOURCES::FileWatcher::getInstance()->remove(e.first, e.second);
+MaterialGl::MaterialGl(const MaterialResource& res) {
+	mBlendable = res.Blendable;
+	mBackfaceCulling = res.BackfaceCulling;
+	mFrontfaceCulling = res.FrontfaceCulling;
+	mDepthTest = res.DepthTest;
+	mDepthWriting = res.DepthWriting;
+	mColorWriting = res.ColorWriting;
+	mGpuInstances = res.GpuInstances;
+	mIsDeferred = res.IsDeferred;
+	mDepthFunc = res.DepthFunc;
+
+	//TODO: do it not in constructor (add var in Material resource) 
+	auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
+	if (resData.isErr()) {
+		
 	}
+
+	auto shader = std::static_pointer_cast<RENDER::ShaderGl>(IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resData.unwrap()));
+	setShader(shader);
+
+	for (const auto& [k, v] : res.Uniforms) {
+		if (!trySetSimpleMember(k, v)) {
+			//uniform buffer
+			//for (auto& [name, data] : v.items()) {
+			//	trySetSimpleMember(k, data, name);
+			//}
+		}
+	}
+}
+
+MaterialGl::~MaterialGl() {
+	//for (auto& e : watchingFilesId) {
+	//	RESOURCES::FileWatcher::getInstance()->remove(e.first, e.second);
+	//}
 }
 
 void MaterialGl::generateUniformsData() {
@@ -74,8 +109,11 @@ void MaterialGl::generateUniformsData() {
 
 void MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
 	textureSlot = 0;
-	for (auto& [name, uniform] : mUniforms) {
 
+	//std::cout << "BIND MAT" << std::endl;
+	for (auto& [name, uniform] : mUniforms) {//TODO: mUniforms now empty on gl es
+
+		//std::cout << "BIND MAT " << name << std::endl;
 		if (!mUniformData.contains(name)) {
 			continue;
 		}
@@ -98,23 +136,27 @@ void MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, 
 				mShader->setFloat(name, std::get<float>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::VEC2: {
-				mShader->setVec2(name, std::get<MATHGL::Vector2f>(mUniformData.at(name))); break;
+				mShader->setVec2(name, std::get<MATH::Vector2f>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::VEC3: {
-				mShader->setVec3(name, std::get<MATHGL::Vector3>(mUniformData.at(name))); break;
+				mShader->setVec3(name, std::get<MATH::Vector3f>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::VEC4: {
-				mShader->setVec4(name, std::get<MATHGL::Vector4>(mUniformData.at(name))); break;
+				mShader->setVec4(name, std::get<MATH::Vector4f>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::SAMPLER_2D: {
 				if (useTextures) {
 					if (auto tex = std::get<std::shared_ptr<TextureGl>>(mUniformData.at(name))) {
+						//std::cout << tex->id << " " << tex->mPath << " " << textureSlot << std::endl;
 						tex->bind(textureSlot);
-						mShader->setInt(name, textureSlot++);
+						mShader->setInt(name, textureSlot);
+						textureSlot++;
 					}
 					else if (defaultTexture) {
+						//std::cout << "EMPTY" << textureSlot << std::endl;
 						reinterpret_cast<TextureGl*>(defaultTexture.get())->bind(textureSlot);
-						mShader->setInt(name, textureSlot++);
+						mShader->setInt(name, textureSlot);
+						textureSlot++;
 					}
 				}
 				break;
@@ -149,23 +191,25 @@ void MaterialGl::fillUniformsWithShader(std::shared_ptr<ShaderGl> shader, std::s
 				shader->setFloat(name, std::get<float>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::VEC2: {
-				shader->setVec2(name, std::get<MATHGL::Vector2f>(mUniformData.at(name))); break;
+				shader->setVec2(name, std::get<MATH::Vector2f>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::VEC3: {
-				shader->setVec3(name, std::get<MATHGL::Vector3>(mUniformData.at(name))); break;
+				shader->setVec3(name, std::get<MATH::Vector3f>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::VEC4: {
-				shader->setVec4(name, std::get<MATHGL::Vector4>(mUniformData.at(name))); break;
+				shader->setVec4(name, std::get<MATH::Vector4f>(mUniformData.at(name))); break;
 			}
 			case UNIFORM_TYPE::SAMPLER_2D: {
 				if (useTextures) {
 					if (auto tex = std::get<std::shared_ptr<TextureGl>>(mUniformData.at(name))) {
 						tex->bind(textureSlot);
-						shader->setInt(name, textureSlot++);
+						shader->setInt(name, textureSlot);
+						textureSlot++;
 					}
 					else if (defaultTexture) {
 						reinterpret_cast<TextureGl*>(defaultTexture.get())->bind(textureSlot);
-						shader->setInt(name, textureSlot++);
+						shader->setInt(name, textureSlot);
+						textureSlot++;
 					}
 				}
 				break;
@@ -189,6 +233,42 @@ void MaterialGl::unbind() {
 	mShader->unbind();
 }
 
+void MaterialGl::set(const std::string& name, UniformData data)
+{
+	//TODO: add check for uniform type
+	//if (mUniformData.contains(name)) // TODO: because do nopt have refl for gles
+	//mUniformData.at(name) = data;
+	mUniformData[name] = data;
+
+	//TODO: FOR gles
+	std::visit(overloaded{
+		[&name, this](float arg) {
+			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::FLOAT, 0, 0};
+		},
+		[&name, this](int arg) {
+			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::INT, 0, 0};
+		},
+		[&name, this](MATH::Vector2f arg) {
+			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC2, 0, MATH::Vector2f()};
+		},
+		[&name, this](MATH::Vector3f arg) {
+			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC3, 0, MATH::Vector3f()};
+		},
+		[&name, this](MATH::Vector4f arg) {
+			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC4, 0, MATH::Vector4f()};
+		},
+		[&name, this](bool arg) {
+			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::BOOL, 0, false};
+		},
+		[&name, this](std::shared_ptr<TextureGl> arg) {
+			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D, 0, nullptr};
+		},
+		[&name, this](auto arg) {
+			
+		},
+	}, data);
+}
+
 //TODO: update FileWatcher if texture already was in uniforms
 void MaterialGl::set(const std::string& name, const std::string& memberName, UniformData data) {
 	const auto& udinfo = mShader->getUniformsInfo();
@@ -203,50 +283,49 @@ void MaterialGl::set(const std::string& name, const std::string& memberName, Uni
 		}
 	}
 }
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-void MaterialGl::onSerialize(nlohmann::json& j)
-{
-	if (mShader) {
-		j["shaderVertex"] = mShader->vertexPath.value();
-		j["shaderFragment"] = mShader->fragmentPath.value();
-	}
-	j["blendable"] = mBlendable;
-	j["backfaceCulling"] = mBackfaceCulling;
-	j["frontfaceCulling"] = mFrontfaceCulling;
-	j["depthTest"] = mDepthTest;
-	j["depthWriting"] = mDepthWriting;
-	j["colorWriting"] = mColorWriting;
-	j["gpuInstances"] = mGpuInstances;
-	j["isDeferred"] = mIsDeferred;
 
-	for (auto& e : mUniformData) {
-		std::visit(overloaded{
-			[&j, name = e.first](auto arg) {
-				j["uniforms"][name] = arg;
-			},
-			[&j, name = e.first](std::shared_ptr<TextureGl> arg) {
-				if (arg)
-					j["uniforms"][name] = arg->mPath;
-			},
-			[&j, name = e.first](MATHGL::Vector2f& arg) {
-				j["uniforms"][name] = {arg.x, arg.y};
-			},
-			[&j, name = e.first](MATHGL::Vector3& arg) {
-				j["uniforms"][name] = {arg.x, arg.y, arg.z};
-			},
-			[&j, name = e.first](MATHGL::Vector4& arg) {
-				j["uniforms"][name] = {arg.x, arg.y, arg.z, arg.w};
-			},
-			[&j, name = e.first](std::vector<unsigned char>& arg) {
-				//TODO
-			},
-		}, e.second);
-	}
-}
+//void MaterialGl::onSerialize(nlohmann::json& j)
+//{
+//	if (mShader) {
+//		j["shaderVertex"] = mShader->vertexPath.value();
+//		j["shaderFragment"] = mShader->fragmentPath.value();
+//	}
+//	j["blendable"] = mBlendable;
+//	j["backfaceCulling"] = mBackfaceCulling;
+//	j["frontfaceCulling"] = mFrontfaceCulling;
+//	j["depthTest"] = mDepthTest;
+//	j["depthWriting"] = mDepthWriting;
+//	j["colorWriting"] = mColorWriting;
+//	j["gpuInstances"] = mGpuInstances;
+//	j["isDeferred"] = mIsDeferred;
+//
+//	for (auto& e : mUniformData) {
+//		std::visit(overloaded{
+//			[&j, name = e.first](auto arg) {
+//				j["uniforms"][name] = arg;
+//			},
+//			[&j, name = e.first](std::shared_ptr<TextureGl> arg) {
+//				if (arg)
+//					j["uniforms"][name] = arg->mPath;
+//			},
+//			[&j, name = e.first](MATHGL::Vector2f& arg) {
+//				j["uniforms"][name] = {arg.x, arg.y};
+//			},
+//			[&j, name = e.first](MATHGL::Vector3& arg) {
+//				j["uniforms"][name] = {arg.x, arg.y, arg.z};
+//			},
+//			[&j, name = e.first](MATHGL::Vector4& arg) {
+//				j["uniforms"][name] = {arg.x, arg.y, arg.z, arg.w};
+//			},
+//			[&j, name = e.first](std::vector<unsigned char>& arg) {
+//				//TODO
+//			},
+//		}, e.second);
+//	}
+//}
 
-bool MaterialGl::trySetSimpleMember(const std::string& k, const nlohmann::json& v, std::optional<std::string> subname) {
+bool MaterialGl::trySetSimpleMember(const std::string& k, const MaterialResource::UniformType& v, std::optional<std::string> subname) {
 	auto _set = [this]<typename T>(const std::string & k, const std::optional<std::string>&subname, const T & v) {
 		if (subname) {
 			set(k, k + "." + subname.value(), v);
@@ -254,66 +333,86 @@ bool MaterialGl::trySetSimpleMember(const std::string& k, const nlohmann::json& 
 		}
 		set(k, v);
 	};
-
-	if (v.type() == nlohmann::json::value_t::boolean) {
-		_set(k, subname, v.get<bool>());
-		return true;
-	}
-	else if (v.type() == nlohmann::json::value_t::number_float) {
-		_set(k, subname, v.get<float>());
-		return true;
-	}
-	else if (v.type() == nlohmann::json::value_t::number_integer || v.type() == nlohmann::json::value_t::number_unsigned) {
-		_set(k, subname, v.get<int>());
-		return true;
-	}
-	else if (v.type() == nlohmann::json::value_t::array && v.size() == 2) {
-		MATHGL::Vector2 dummy;
-		RESOURCES::DeserializeVec2(v, dummy);
-		_set(k, subname, dummy);
-		return true;
-	}
-	else if (v.type() == nlohmann::json::value_t::array && v.size() == 3) {
-		MATHGL::Vector3 dummy;
-		RESOURCES::DeserializeVec3(v, dummy);
-		_set(k, subname, dummy);
-		return true;
-	}
-	else if (v.type() == nlohmann::json::value_t::array && v.size() == 4) {
-		MATHGL::Vector4 dummy;
-		RESOURCES::DeserializeVec4(v, dummy);
-		_set(k, subname, dummy);
-		return true;
-	}
-	else if (v.type() == nlohmann::json::value_t::string) {
-		//TODO: get shader from resource system
-		_set(k, subname, std::static_pointer_cast<TextureGl>(
-			RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(v.get<std::string>(), true))
-		);
-		//TODO: need unubscribe from priveous
-		auto path = IKIGAI::UTILS::getRealPath(v.get<std::string>());
-		if (watchingFilesId.contains(path)) {
-			RESOURCES::FileWatcher::getInstance()->removeDeferred(path, watchingFilesId.at(path));
-		}
-		RESOURCES::FileWatcher::getInstance()->addDeferred(IKIGAI::UTILS::getRealPath(v.get<std::string>()),
-			[this, k, _path = IKIGAI::UTILS::getRealPath(v.get<std::string>())](RESOURCES::FileWatcher::FileStatus status) {
-			switch (status) {
-			case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-				set(k, std::static_pointer_cast<TextureGl>(RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(_path, true)));
-				break;
+	//TODO: maybe should load textures/shaders before create material (now in Material constructor we wait while res load)
+	std::visit(overloaded{
+		[this, _set, &k, &subname](const std::string& arg) {
+			const std::filesystem::path filePath = arg;
+			if (filePath.extension() == ".json") {
+				_set(k, subname, std::static_pointer_cast<TextureGl>(
+					RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromResource(arg)));
 			}
-			case RESOURCES::FileWatcher::FileStatus::DEL: break;
-			case RESOURCES::FileWatcher::FileStatus::CREATE: break;
+			else if (filePath.extension() == ".atlas") {
+				_set(k, subname, std::static_pointer_cast<TextureGl>(
+					RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createAtlasFromFile(arg, true)));
 			}
-		}, 
-		[this, path](EVENT::Event<RESOURCES::FileWatcher::FileStatus>::id id){
-			watchingFilesId.insert({ path, id });
-		});
-
-		//uniformsData[k] = RESOURCES::TextureLoader::CreateFromFile(v.get<std::string>());
-		return true;
-	}
-	return false;
+			else {
+				_set(k, subname, std::static_pointer_cast<TextureGl>(
+					RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(arg, true)));
+			}
+		},
+		[this, _set, &k, &subname](auto& arg) {
+			_set(k, subname, arg);
+		}}, v);
+	return true;
+	//if (v.type() == nlohmann::json::value_t::boolean) {
+	//	_set(k, subname, v.get<bool>());
+	//	return true;
+	//}
+	//else if (v.type() == nlohmann::json::value_t::number_float) {
+	//	_set(k, subname, v.get<float>());
+	//	return true;
+	//}
+	//else if (v.type() == nlohmann::json::value_t::number_integer || v.type() == nlohmann::json::value_t::number_unsigned) {
+	//	_set(k, subname, v.get<int>());
+	//	return true;
+	//}
+	//else if (v.type() == nlohmann::json::value_t::array && v.size() == 2) {
+	//	MATHGL::Vector2 dummy;
+	//	RESOURCES::DeserializeVec2(v, dummy);
+	//	_set(k, subname, dummy);
+	//	return true;
+	//}
+	//else if (v.type() == nlohmann::json::value_t::array && v.size() == 3) {
+	//	MATHGL::Vector3 dummy;
+	//	RESOURCES::DeserializeVec3(v, dummy);
+	//	_set(k, subname, dummy);
+	//	return true;
+	//}
+	//else if (v.type() == nlohmann::json::value_t::array && v.size() == 4) {
+	//	MATHGL::Vector4 dummy;
+	//	RESOURCES::DeserializeVec4(v, dummy);
+	//	_set(k, subname, dummy);
+	//	return true;
+	//}
+	//else if (v.type() == nlohmann::json::value_t::string) {
+	//	//TODO: get shader from resource system
+	//	_set(k, subname, std::static_pointer_cast<TextureGl>(
+	//		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(v.get<std::string>(), true))
+	//	);
+	//	//TODO: need unubscribe from priveous
+	//	auto path = IKIGAI::UTILS::getRealPath(v.get<std::string>());
+	//	if (watchingFilesId.contains(path)) {
+	//		RESOURCES::FileWatcher::getInstance()->removeDeferred(path, watchingFilesId.at(path));
+	//	}
+	//	RESOURCES::FileWatcher::getInstance()->addDeferred(IKIGAI::UTILS::getRealPath(v.get<std::string>()),
+	//		[this, k, _path = IKIGAI::UTILS::getRealPath(v.get<std::string>())](RESOURCES::FileWatcher::FileStatus status) {
+	//		switch (status) {
+	//		case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
+	//			set(k, std::static_pointer_cast<TextureGl>(RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(_path, true)));
+	//			break;
+	//		}
+	//		case RESOURCES::FileWatcher::FileStatus::DEL: break;
+	//		case RESOURCES::FileWatcher::FileStatus::CREATE: break;
+	//		}
+	//	}, 
+	//	[this, path](EVENT::Event<RESOURCES::FileWatcher::FileStatus>::id id){
+	//		watchingFilesId.insert({ path, id });
+	//	});
+	//
+	//	//uniformsData[k] = RESOURCES::TextureLoader::CreateFromFile(v.get<std::string>());
+	//	return true;
+	//}
+	//return false;
 }
 
 uint8_t MaterialGl::generateStateMask() const {
@@ -328,33 +427,33 @@ uint8_t MaterialGl::generateStateMask() const {
 	return result;
 }
 
-void MaterialGl::onDeserialize(nlohmann::json& j) {
-	if (j.contains("shaderVertex") && j.contains("shaderFragment")) {
-		auto vertexPath = j["shaderVertex"].get<std::string>();
-		auto fragmentPath = j["shaderFragment"].get<std::string>();
-		auto res = RENDER::ShaderResource{ .vertex = vertexPath, .fragment = fragmentPath };
-		setShader(std::static_pointer_cast<ShaderGl>(RESOURCES::ShaderLoader::CreateFromResource(res)));
-	}
-	mBlendable = j.value("blendable", false);
-	mBackfaceCulling = j.value("backfaceCulling", true);
-	mFrontfaceCulling = j.value("frontfaceCulling", false);
-	mDepthTest = j.value("depthTest", true);
-	mDepthWriting = j.value("depthWriting", true);
-	mColorWriting = j.value("colorWriting", true);
-	mGpuInstances = j.value("gpuInstances", 1);
-	mIsDeferred = j.value("isDeferred", false);
-
-	if (mShader && j.count("uniforms")) {
-		for (auto& [k, v] : j["uniforms"].items()) {
-			if (!trySetSimpleMember(k, v)) {
-				//uniform buffer
-				for (auto& [name, data] : v.items()) {
-					trySetSimpleMember(k, data, name);
-				}
-			}
-		}
-	}
-}
+//void MaterialGl::onDeserialize(nlohmann::json& j) {
+//	if (j.contains("shaderVertex") && j.contains("shaderFragment")) {
+//		auto vertexPath = j["shaderVertex"].get<std::string>();
+//		auto fragmentPath = j["shaderFragment"].get<std::string>();
+//		auto res = RENDER::ShaderResource{ .vertex = vertexPath, .fragment = fragmentPath };
+//		setShader(std::static_pointer_cast<ShaderGl>(RESOURCES::ShaderLoader::CreateFromResource(res)));
+//	}
+//	mBlendable = j.value("blendable", false);
+//	mBackfaceCulling = j.value("backfaceCulling", true);
+//	mFrontfaceCulling = j.value("frontfaceCulling", false);
+//	mDepthTest = j.value("depthTest", true);
+//	mDepthWriting = j.value("depthWriting", true);
+//	mColorWriting = j.value("colorWriting", true);
+//	mGpuInstances = j.value("gpuInstances", 1);
+//	mIsDeferred = j.value("isDeferred", false);
+//
+//	if (mShader && j.count("uniforms")) {
+//		for (auto& [k, v] : j["uniforms"].items()) {
+//			if (!trySetSimpleMember(k, v)) {
+//				//uniform buffer
+//				for (auto& [name, data] : v.items()) {
+//					trySetSimpleMember(k, data, name);
+//				}
+//			}
+//		}
+//	}
+//}
 
 #endif
 

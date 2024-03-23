@@ -1,5 +1,5 @@
 #pragma once
-import glmath;
+#include "mathModule/math.h"
 
 namespace IKIGAI {
     namespace PHYSICS {
@@ -8,21 +8,21 @@ namespace IKIGAI {
 
             float inverseMass;
 
-            MATHGL::Matrix3 inverseInertiaTensor = MATHGL::Matrix3(0.0f);
+            MATH::Matrix3f inverseInertiaTensor = MATH::Matrix3f(0.0f);
 
             float linearDamping;
 
             float angularDamping;
 
-            MATHGL::Vector3 position;
+            MATH::Vector3f position;
 
-            MATHGL::Quaternion orientation;
+            MATH::QuaternionF orientation;
 
-            MATHGL::Vector3 velocity;
+            MATH::Vector3f velocity;
 
-            MATHGL::Vector3 rotation;
+            MATH::Vector3f rotation;
 
-            MATHGL::Matrix3 inverseInertiaTensorWorld = MATHGL::Matrix3(0.0f);
+            MATH::Matrix3f inverseInertiaTensorWorld = MATH::Matrix3f(0.0f);
 
             float motion;
 
@@ -30,15 +30,15 @@ namespace IKIGAI {
 
             bool canSleep;
 
-            MATHGL::Matrix4 transformMatrix;
+            MATH::Matrix4f transformMatrix;
 
-            MATHGL::Vector3 forceAccum;
+            MATH::Vector3f forceAccum;
 
-            MATHGL::Vector3 torqueAccum;
+            MATH::Vector3f torqueAccum;
 
-            MATHGL::Vector3 acceleration;
+            MATH::Vector3f acceleration;
 
-            MATHGL::Vector3 lastFrameAcceleration;
+            MATH::Vector3f lastFrameAcceleration;
 
             
 
@@ -64,34 +64,34 @@ namespace IKIGAI {
             bool hasFiniteMass() const;
 
             
-            void setInertiaTensor(const MATHGL::Matrix3& inertiaTensor);
+            void setInertiaTensor(const MATH::Matrix3f& inertiaTensor);
 
             
-            void getInertiaTensor(MATHGL::Matrix3* inertiaTensor) const;
+            void getInertiaTensor(MATH::Matrix3f* inertiaTensor) const;
 
             
-            MATHGL::Matrix3 getInertiaTensor() const;
+            MATH::Matrix3f getInertiaTensor() const;
 
             
-            void getInertiaTensorWorld(MATHGL::Matrix3* inertiaTensor) const;
+            void getInertiaTensorWorld(MATH::Matrix3f* inertiaTensor) const;
 
             
-            MATHGL::Matrix3 getInertiaTensorWorld() const;
+            MATH::Matrix3f getInertiaTensorWorld() const;
 
             
-            void setInverseInertiaTensor(const MATHGL::Matrix3& inverseInertiaTensor);
+            void setInverseInertiaTensor(const MATH::Matrix3f& inverseInertiaTensor);
 
             
-            void getInverseInertiaTensor(MATHGL::Matrix3* inverseInertiaTensor) const;
+            void getInverseInertiaTensor(MATH::Matrix3f* inverseInertiaTensor) const;
 
             
-            MATHGL::Matrix3 getInverseInertiaTensor() const;
+            MATH::Matrix3f getInverseInertiaTensor() const;
 
             
-            void getInverseInertiaTensorWorld(MATHGL::Matrix3* inverseInertiaTensor) const;
+            void getInverseInertiaTensorWorld(MATH::Matrix3f* inverseInertiaTensor) const;
 
             
-            MATHGL::Matrix3 getInverseInertiaTensorWorld() const;
+            MATH::Matrix3f getInverseInertiaTensorWorld() const;
 
             
             void setDamping(const float linearDamping, const float angularDamping);
@@ -109,38 +109,38 @@ namespace IKIGAI {
             float getAngularDamping() const;
 
             
-            void setPosition(const MATHGL::Vector3& position);
+            void setPosition(const MATH::Vector3f& position);
 
             
             void setPosition(const float x, const float y, const float z);
 
             
-            void getPosition(MATHGL::Vector3* position) const;
+            void getPosition(MATH::Vector3f* position) const;
 
             
-            MATHGL::Vector3 getPosition() const;
+            MATH::Vector3f getPosition() const;
 
             
-            void setOrientation(const MATHGL::Quaternion& orientation);
+            void setOrientation(const MATH::QuaternionF& orientation);
 
             
             void setOrientation(const float r, const float i,
                 const float j, const float k);
 
             
-            void getOrientation(MATHGL::Quaternion* orientation) const;
+            void getOrientation(MATH::QuaternionF* orientation) const;
 
             
-            MATHGL::Quaternion getOrientation() const;
+            MATH::QuaternionF getOrientation() const;
 
             
-            void getOrientation(MATHGL::Matrix3* matrix) const;
+            void getOrientation(MATH::Matrix3f* matrix) const;
 
             
             //void getOrientation(Array<float, 9> matrix) const;
 
             
-            void getTransform(MATHGL::Matrix4* transform);
+            void getTransform(MATH::Matrix4f* transform);
 
             
             //void getTransform(float matrix[16]) const;
@@ -149,49 +149,49 @@ namespace IKIGAI {
             void getGLTransform(float matrix[16]) const;
 
             
-            MATHGL::Matrix4 getTransform() const;
+            MATH::Matrix4f getTransform() const;
 
             
-            MATHGL::Vector3 getPointInLocalSpace(const MATHGL::Vector3& point) const;
+            MATH::Vector3f getPointInLocalSpace(const MATH::Vector3f& point) const;
 
             
-            MATHGL::Vector3 getPointInWorldSpace(const MATHGL::Vector3& point) const;
+            MATH::Vector3f getPointInWorldSpace(const MATH::Vector3f& point) const;
 
             
-            MATHGL::Vector3 getDirectionInLocalSpace(const MATHGL::Vector3& direction) const;
+            MATH::Vector3f getDirectionInLocalSpace(const MATH::Vector3f& direction) const;
 
             
-            MATHGL::Vector3 getDirectionInWorldSpace(const MATHGL::Vector3& direction) const;
+            MATH::Vector3f getDirectionInWorldSpace(const MATH::Vector3f& direction) const;
 
             
-            void setVelocity(const MATHGL::Vector3& velocity);
+            void setVelocity(const MATH::Vector3f& velocity);
 
             
             void setVelocity(const float x, const float y, const float z);
 
             
-            void getVelocity(MATHGL::Vector3* velocity) const;
+            void getVelocity(MATH::Vector3f* velocity) const;
 
             
-            MATHGL::Vector3 getVelocity() const;
+            MATH::Vector3f getVelocity() const;
 
             
-            void addVelocity(const MATHGL::Vector3& deltaVelocity);
+            void addVelocity(const MATH::Vector3f& deltaVelocity);
 
             
-            void setRotation(const MATHGL::Vector3& rotation);
+            void setRotation(const MATH::Vector3f& rotation);
 
             
             void setRotation(const float x, const float y, const float z);
 
             
-            void getRotation(MATHGL::Vector3* rotation) const;
+            void getRotation(MATH::Vector3f* rotation) const;
 
             
-            MATHGL::Vector3 getRotation() const;
+            MATH::Vector3f getRotation() const;
 
             
-            void addRotation(const MATHGL::Vector3& deltaRotation);
+            void addRotation(const MATH::Vector3f& deltaRotation);
 
             
             bool getAwake() const {
@@ -209,31 +209,31 @@ namespace IKIGAI {
             
             void setCanSleep(const bool canSleep = true);
 
-            void getLastFrameAcceleration(MATHGL::Vector3* linearAcceleration) const;
+            void getLastFrameAcceleration(MATH::Vector3f* linearAcceleration) const;
 
             
-            MATHGL::Vector3 getLastFrameAcceleration() const;
+            MATH::Vector3f getLastFrameAcceleration() const;
 
              
             void clearAccumulators();
 
             
-            void addForce(const MATHGL::Vector3& force);
+            void addForce(const MATH::Vector3f& force);
 
             
-            void addForceAtPoint(const MATHGL::Vector3& force, const MATHGL::Vector3& point);
+            void addForceAtPoint(const MATH::Vector3f& force, const MATH::Vector3f& point);
 
             
-            void addForceAtBodyPoint(const MATHGL::Vector3& force, const MATHGL::Vector3& point);
+            void addForceAtBodyPoint(const MATH::Vector3f& force, const MATH::Vector3f& point);
             
-            void addTorque(const MATHGL::Vector3& torque);
-            void setAcceleration(const MATHGL::Vector3& acceleration);
+            void addTorque(const MATH::Vector3f& torque);
+            void setAcceleration(const MATH::Vector3f& acceleration);
 
             void setAcceleration(const float x, const float y, const float z);
 
-            void getAcceleration(MATHGL::Vector3* acceleration) const;
+            void getAcceleration(MATH::Vector3f* acceleration) const;
 
-            MATHGL::Vector3 getAcceleration() const;
+            MATH::Vector3f getAcceleration() const;
 
         };
 

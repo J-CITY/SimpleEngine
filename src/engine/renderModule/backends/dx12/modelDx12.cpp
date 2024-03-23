@@ -2,13 +2,10 @@
 
 #ifdef DX12_BACKEND
 
-import glmath;
-
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
 //#include "indexBufferVk.h"
-#include <utilsModule/vertex.h>
 
 ModelDx12::ModelDx12(const std::string& path) {
 	mPath = path;

@@ -9,7 +9,7 @@
 
 #include <sceneModule/sceneManager.h>
 #include "components/spriteComponent.h"
-
+#ifdef OPENGL_BACKEND
 #include FT_FREETYPE_H
 
 namespace IKIGAI {
@@ -43,7 +43,6 @@ namespace IKIGAI {
 
 			Font(std::string fontPath, int size);
 		};
-
 		struct GuiHelper {
 			static std::shared_ptr<ECS::Object> CreateSprite(const std::string& name, const std::string& path, bool isRoot = false);
 			static std::shared_ptr<ECS::Object> CreateLabel(const std::string& name, const std::string& label, bool isRoot = false);
@@ -53,6 +52,7 @@ namespace IKIGAI {
 			static std::shared_ptr<ECS::Object> CreateButton(const std::string& name, bool isRoot = false);
 
 		};
+
 
 		/*class GuiObject {
 		public:
@@ -251,3 +251,4 @@ namespace IKIGAI {
 	} 
 }
 
+#endif

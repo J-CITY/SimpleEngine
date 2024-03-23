@@ -5,16 +5,6 @@
 #include "render.h"
 
 namespace IKIGAI {
-	namespace RESOURCES {
-		class Shader;
-	}
-	namespace MATHGL {
-		struct Vector3;
-		struct Matrix4;
-	}
-}
-
-namespace IKIGAI {
 	namespace RENDER {
 		//class PrimitiveRender {
 		//public:

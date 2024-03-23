@@ -13,7 +13,7 @@ Camera::Camera() :
 	frustumLightCulling(false) {
 }
 
-void Camera::cacheMatrices(unsigned p_windowWidth, unsigned p_windowHeight, const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) {
+void Camera::cacheMatrices(unsigned p_windowWidth, unsigned p_windowHeight, const MATH::Vector3f& p_position, const MATH::QuaternionF& p_rotation) {
 	cacheProjectionMatrix(p_windowWidth, p_windowHeight);
 	cacheViewMatrix(p_position, p_rotation);
 	cacheFrustum(viewMatrix, projectionMatrix);
@@ -23,12 +23,20 @@ void Camera::cacheProjectionMatrix(unsigned p_windowWidth, unsigned p_windowHeig
 	projectionMatrix = calculateProjectionMatrix(p_windowWidth, p_windowHeight);
 }
 
-void Camera::cacheViewMatrix(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) {
+void Camera::cacheViewMatrix(const MATH::Vector3f& p_position, const MATH::QuaternionF& p_rotation) {
 	viewMatrix = calculateViewMatrix(p_position, p_rotation);
 }
 
-void Camera::cacheFrustum(const MATHGL::Matrix4& p_view, const MATHGL::Matrix4& p_projection) {
-	frustum.make(p_projection * p_view);
+void Camera::cacheProjectionMatrix(MATH::Matrix4f mat) {
+	projectionMatrix = mat;
+}
+
+void Camera::cacheViewMatrix(MATH::Matrix4f mat) {
+	viewMatrix = mat;
+}
+
+void Camera::cacheFrustum(const MATH::Matrix4f& p_view, const MATH::Matrix4f& p_projection) {
+	//frustum.make(p_projection * p_view);
 }
 
 float Camera::getFov() const {
@@ -47,11 +55,11 @@ float Camera::getFar() const {
 	return _far;
 }
 
-const IKIGAI::MATHGL::Matrix4& Camera::getProjectionMatrix() const {
+const IKIGAI::MATH::Matrix4f& Camera::getProjectionMatrix() const {
 	return projectionMatrix;
 }
 
-const IKIGAI::MATHGL::Matrix4& Camera::getViewMatrix() const {
+const IKIGAI::MATH::Matrix4f& Camera::getViewMatrix() const {
 	return viewMatrix;
 }
 
@@ -107,36 +115,36 @@ void Camera::setProjectionMode(ProjectionMode p_projectionMode) {
 	projectionMode = p_projectionMode;
 }
 
-void Camera::setView(MATHGL::Matrix4& in) {
+void Camera::setView(MATH::Matrix4f& in) {
 	viewMatrix = in;
 }
 
-IKIGAI::MATHGL::Matrix4 Camera::calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const {
+IKIGAI::MATH::Matrix4f Camera::calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const {
 	
 	const auto ratio = p_windowWidth / static_cast<float>(p_windowHeight);
 
 	switch (projectionMode) {
 	case ProjectionMode::ORTHOGRAPHIC:
-		return MATHGL::Matrix4::CreateOrthographic(size, ratio, _near, _far);
+		return MATH::Matrix4f::CreateOrthographic(size, ratio, _near, _far);
 
 	case ProjectionMode::PERSPECTIVE:
-		return MATHGL::Matrix4::CreatePerspective(fov, ratio, _near, _far);
+		return MATH::Matrix4f::CreatePerspective(fov, ratio, _near, _far);
 
 	default:
-		return MATHGL::Matrix4::Identity;
+		return MATH::Matrix4f::Identity;
 	}
 }
 
-IKIGAI::MATHGL::Vector3 Camera::calculateViewVector(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const {
-	const auto forward = p_rotation * MATHGL::Vector3::Forward;
-	return p_position.x + forward.x, p_position.y + forward.y, p_position.z + forward.z;
+IKIGAI::MATH::Vector3f Camera::calculateViewVector(const MATH::Vector3f& p_position, const MATH::QuaternionF& p_rotation) const {
+	const auto forward = p_rotation * MATH::Vector3f::Forward;
+	return { p_position.x + forward.x, p_position.y + forward.y, p_position.z + forward.z };
 }
 
-IKIGAI::MATHGL::Matrix4 Camera::calculateViewMatrix(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const {
-	const auto up = p_rotation * MATHGL::Vector3::Up;
-	const auto forward = p_rotation * MATHGL::Vector3::Forward;
+IKIGAI::MATH::Matrix4f Camera::calculateViewMatrix(const MATH::Vector3f& p_position, const MATH::QuaternionF& p_rotation) const {
+	const auto up = p_rotation * MATH::Vector3f::Up;
+	const auto forward = p_rotation * MATH::Vector3f::Forward;
 
-	return MATHGL::Matrix4::CreateView(
+	return MATH::Matrix4f::CreateView(
 		p_position.x, p_position.y, p_position.z,												// Position
 		p_position.x + forward.x, p_position.y + forward.y, p_position.z + forward.z,			// LookAt (Position + Forward)
 		up.x, up.y, up.z																		// Up Vector

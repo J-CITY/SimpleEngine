@@ -7,11 +7,10 @@
 #include "shaderVk.h"
 #include "textureVk.h"
 #include "uniformBufferVk.h"
-#include <coreModule/resourceManager/serializerInterface.h>
-#include <utilsModule/loader.h>
+#include <resourceModule/serviceManager.h>
 #include "../interface/materialInterface.h"
+#include "resourceModule/serializerInterface.h"
 
-import glmath;
 
 namespace IKIGAI::RENDER {
 	class UniformBuffer;
@@ -19,7 +18,7 @@ namespace IKIGAI::RENDER {
 	class MaterialVk : public MaterialInterface, public RESOURCES::Serializable {
 	public:
 		using UniformData = std::variant<float, int, bool,
-			MATHGL::Vector2f, MATHGL::Vector3, MATHGL::Vector4,
+			MATH::Vector2f, MATH::Vector3f, MATH::Vector4f,
 			std::shared_ptr<TextureVk>, std::vector<unsigned char>>;
 
 		struct Uniform {
@@ -124,6 +123,11 @@ namespace IKIGAI::RENDER {
 			}
 		}
 
+		ComparaisonAlgorithm getDepthFunc() const override
+		{
+			//TODO:
+			return ComparaisonAlgorithm::LESS_EQUAL;
+		}
 
 
 		//void set(const std::string& name, UniformData data, size_t offset) {

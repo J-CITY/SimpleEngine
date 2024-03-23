@@ -8,22 +8,19 @@
 #include "shaderDx12.h"
 #include "textureDx12.h"
 //#include "uniformBufferVk.h"
-#include <coreModule/resourceManager/serializerInterface.h>
-#include <utilsModule/loader.h>
 #include "../interface/materialInterface.h"
 
-import glmath;
 
 namespace IKIGAI::RENDER {
 	class UniformBuffer;
 
 	struct DataUBODX12 {
-		MATHGL::Vector4       u_Albedo;
+		MATH::Vector4f       u_Albedo;
 		float                 u_Metallic;
 		float                 u_Roughness;
-		MATHGL::Vector2f      u_TextureTiling;
-		MATHGL::Vector2f      u_TextureOffset;
-		MATHGL::Vector3       u_Specular;
+		MATH::Vector2f      u_TextureTiling;
+		MATH::Vector2f      u_TextureOffset;
+		MATH::Vector3f       u_Specular;
 		float                 u_Shininess;
 		float                 u_HeightScale;
 		int                   u_EnableNormalMapping;
@@ -51,7 +48,7 @@ namespace IKIGAI::RENDER {
 
 		std::shared_ptr<UploadBuffer<DataUBODX12>> dataUBO;
 		DataUBODX12 _dataUBO;
-		std::shared_ptr<UploadBuffer<MATHGL::Matrix4>> pushModel;
+		std::shared_ptr<UploadBuffer<MATH::Matrix4f>> pushModel;
 
 		bool mBlendable = false;
 		bool mBackfaceCulling = true;
@@ -144,6 +141,10 @@ namespace IKIGAI::RENDER {
 			}
 		}
 
+		ComparaisonAlgorithm getDepthFunc() const override {
+			//TODO:
+			return ComparaisonAlgorithm::LESS_EQUAL;
+		}
 
 
 		//void set(const std::string& name, UniformData data, size_t offset) {

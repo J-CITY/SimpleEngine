@@ -43,6 +43,8 @@ namespace IKIGAI::RENDER
 		void generateMipmaps();
 
 		void bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format);
+
+		virtual void* getImguiId() override;
 	};
 
 	//TODO: add global struct and delete it

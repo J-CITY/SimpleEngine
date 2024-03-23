@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "contacts.h"
+#include "mathModule/math.h"
 
 namespace IKIGAI::PHYSICS {
 
@@ -22,20 +23,20 @@ namespace IKIGAI::PHYSICS {
         RigidBody * body;
 
         
-        MATHGL::Matrix4 offset;
+        MATH::Matrix4f offset;
 
         
         void calculateInternals();
 
         
-        MATHGL::Vector3 getAxis(unsigned index) const
+        MATH::Vector3f getAxis(unsigned index) const
         {
             auto res = transform.getAxisVector(index);
             return {(float)res.x, (float)res.y, (float)res.z};
         }
 
         
-        const MATHGL::Matrix4& getTransform() const
+        const MATH::Matrix4f& getTransform() const
         {
             return transform;
         }
@@ -43,7 +44,7 @@ namespace IKIGAI::PHYSICS {
 
     protected:
         
-        MATHGL::Matrix4 transform;
+        MATH::Matrix4f transform;
     };
 
     
@@ -59,7 +60,7 @@ namespace IKIGAI::PHYSICS {
     {
     public:
         
-        MATHGL::Vector3 direction;
+        MATH::Vector3f direction;
 
         
         float offset;
@@ -70,7 +71,7 @@ namespace IKIGAI::PHYSICS {
     {
     public:
         
-        MATHGL::Vector3 halfSize;
+        MATH::Vector3f halfSize;
     };
 
     
@@ -185,7 +186,7 @@ namespace IKIGAI::PHYSICS {
 
         static unsigned boxAndPoint(
             const CollisionBox &box,
-            const MATHGL::Vector3 &point,
+            const MATH::Vector3f &point,
             CollisionData *data
             );
 

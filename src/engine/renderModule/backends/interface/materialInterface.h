@@ -1,11 +1,15 @@
 #pragma once
 
 #include <memory>
+
+#include "renderEnums.h"
 #include "shaderInterface.h"
+#include "mathModule/math.h"
 
 
 namespace IKIGAI::RENDER {
 	class TextureInterface;
+
 	class MaterialInterface {
 	public:
 		virtual ~MaterialInterface() = default;
@@ -26,6 +30,7 @@ namespace IKIGAI::RENDER {
 		virtual bool isDepthTest() const = 0;
 		virtual bool isDepthWriting() const = 0;
 		virtual bool isColorWriting() const = 0;
+		virtual ComparaisonAlgorithm getDepthFunc() const = 0;
 
 		virtual void setIsDeferred(bool v, std::shared_ptr<ShaderInterface> shader) = 0;
 		

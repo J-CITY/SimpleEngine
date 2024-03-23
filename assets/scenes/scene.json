@@ -1,0 +1,250 @@
+{
+  "Objects": [
+    {
+      "Name": "Camera",
+      "Id": 1,
+      "Components": [
+        {
+          "TransformComponentType": "class IKIGAI::ECS::TransformComponent",
+          "LocalPosition": {
+            "X": 0,
+            "Y": 0,
+            "Z": -2
+          },
+          "LocalScale": {
+            "X": 1,
+            "Y": 1,
+            "Z": 1
+          },
+          "LocalRotation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          }
+        },
+        {
+          "CameraComponentType": "class IKIGAI::ECS::CameraComponent",
+          "Far": 1000.0,
+          "Fov": 60.0,
+          "Near": 0.1,
+          "Mode": "PERSPECTIVE",
+          "Size": 5.0,
+          "GeometryCulling": false,
+          "LightCulling": false,
+          "GeometryBVHCulling": false
+        },
+        {
+          "AudioListenerComponentType": "class IKIGAI::ECS::AudioListenerComponent"
+        }
+      ]
+    },
+    {
+      "Name": "lightDir",
+      "Id": 100,
+      "Components": [
+        {
+          "TransformComponentType": "class IKIGAI::ECS::TransformComponent",
+          "LocalPosition": {
+            "X": 0,
+            "Y": 10,
+            "Z": -10
+          },
+          "LocalScale": {
+            "X": 1,
+            "Y": 1,
+            "Z": 1
+          },
+          "LocalRotation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          }
+        },
+        {
+          "DirectionalLightType": "class IKIGAI::ECS::DirectionalLight",
+          "Color": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Distance": 1000.0,
+          "Intensity": 1.0
+        }
+      ]
+    },
+    {
+      "Name": "lightAmbient",
+      "Id": 101,
+      "Components": [
+        {
+          "TransformComponentType": "class IKIGAI::ECS::TransformComponent",
+          "LocalPosition": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "LocalScale": {
+            "X": 1,
+            "Y": 1,
+            "Z": 1
+          },
+          "LocalRotation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          }
+        },
+        {
+          "AmbientLightType": "class IKIGAI::ECS::AmbientLight",
+          "Color": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Size": {
+            "X": 1.0,
+            "Y": 1.0,
+            "Z": 1.0
+          },
+          "Intensity": 0.3
+        }
+      ]
+    },
+    {
+      "Name": "skyBox",
+      "Id": 10,
+      "Components": [
+        {
+          "TransformComponentType": "class IKIGAI::ECS::TransformComponent",
+          "LocalPosition": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "LocalScale": {
+            "X": 900,
+            "Y": 900,
+            "Z": 900
+          },
+          "LocalRotation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          }
+        },
+        {
+          "ModelRendererType": "class IKIGAI::ECS::ModelRenderer",
+          "Path": "assets/models/crate.obj"
+        },
+        {
+          "MaterialRendererType": "class IKIGAI::ECS::MaterialRenderer",
+          "MaterialNames": [ "default" ],
+          "Materials": [ "assets/materials/skybox.json" ]
+        }
+      ]
+    },
+    {
+      "Name": "box1",
+      "Id": 2,
+      "Components": [
+        {
+          "TransformComponentType": "class IKIGAI::ECS::TransformComponent",
+          "LocalPosition": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "LocalScale": {
+            "X": 1,
+            "Y": 1,
+            "Z": 1
+          },
+          "LocalRotation": {
+            "X": 0,
+            "Y": 30,
+            "Z": 0
+          }
+        },
+        {
+          "ModelRendererType": "class IKIGAI::ECS::ModelRenderer",
+          "Path": "assets/models/crate.obj"
+        },
+        {
+          "MaterialRendererType": "class IKIGAI::ECS::MaterialRenderer",
+          "MaterialNames": [ "default" ],
+          "Materials": [ "assets/materials/box.json" ]
+        },
+        {
+          "AudioComponentType": "class IKIGAI::ECS::AudioComponent",
+          "AudioPath": "assets/audios/test.sound"
+        }
+      ]
+    },
+    {
+      "Name": "box2",
+      "Id": 3,
+      "Components": [
+        {
+          "TransformComponentType": "class IKIGAI::ECS::TransformComponent",
+          "LocalPosition": {
+            "X": 10,
+            "Y": 0,
+            "Z": 0
+          },
+          "LocalScale": {
+            "X": 0.5,
+            "Y": 0.5,
+            "Z": 0.5
+          },
+          "LocalRotation": {
+            "X": 30,
+            "Y": 30,
+            "Z": 30
+          }
+        },
+        {
+          "ModelRendererType": "class IKIGAI::ECS::ModelRenderer",
+          "Path": "assets/models/crate.obj"
+        },
+        {
+          "MaterialRendererType": "class IKIGAI::ECS::MaterialRenderer",
+          "MaterialNames": [ "default" ],
+          "Materials": [ "assets/materials/box.json" ]
+        }
+      ]
+    },
+    {
+      "Name": "box3",
+      "Id": 4,
+      "Components": [
+        {
+          "TransformComponentType": "class IKIGAI::ECS::TransformComponent",
+          "LocalPosition": {
+            "X": 10,
+            "Y": 0,
+            "Z": 10
+          },
+          "LocalScale": {
+            "X": 0.5,
+            "Y": 0.5,
+            "Z": 0.5
+          },
+          "LocalRotation": {
+            "X": 60,
+            "Y": 30,
+            "Z": 30
+          }
+        },
+        {
+          "ModelRendererType": "class IKIGAI::ECS::ModelRenderer",
+          "Path": "assets/models/crate.obj"
+        },
+        {
+          "MaterialRendererType": "class IKIGAI::ECS::MaterialRenderer",
+          "MaterialNames": [ "default" ],
+          "Materials": [ "assets/materials/box.json" ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 #pragma once
 #include "../systemManager.h"
 #include "../components/scriptComponent.h"
+#include "utilsModule/log/loggerDefine.h"
 
 namespace IKIGAI::ECS {
 	class Object;
@@ -31,7 +32,7 @@ namespace IKIGAI::ECS {
 					auto pfrResult = pfr.call(object, std::forward<Args>(args)...);
 					if (!pfrResult.valid()) {
 						sol::error err = pfrResult;
-						LOG_ERROR(err.what());
+						LOG_ERROR << (err.what());
 					}
 				}
 			}

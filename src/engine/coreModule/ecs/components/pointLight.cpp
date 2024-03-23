@@ -4,7 +4,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-PointLight::PointLight(UTILS::Ref<ECS::Object> obj) : LightComponent(obj) {
+PointLight::PointLight(UTILS::Ref<ECS::Object> _obj) : LightComponent(_obj) {
 	__NAME__ = "PointLight";
 	data.type = RENDER::Light::Type::POINT;
 	//pointLightShadowFBO.setupFrameBuffer(shadowRes, shadowRes, true);
@@ -23,6 +23,16 @@ PointLight::PointLight(UTILS::Ref<ECS::Object> obj) : LightComponent(obj) {
 	//lookAtPerFace[3] = MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(0.0, -1.0, 0.0), MATHGL::Vector3(0.0, 0.0, -1.0));
 	//lookAtPerFace[4] = MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(0.0, 0.0, 1.0), MATHGL::Vector3(0.0, -1.0, 0.0));
 	//lookAtPerFace[5] = MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(0.0, 0.0, -1.0), MATHGL::Vector3(0.0, -1.0, 0.0));
+}
+
+PointLight::PointLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : LightComponent(_obj) {
+	__NAME__ = "PointLight";
+	data.type = RENDER::Light::Type::POINT;
+	data.color = _descriptor.Color;
+	data.intensity = _descriptor.Intensity;
+	data.constant = _descriptor.Constant;
+	data.linear = _descriptor.Linear;
+	data.quadratic = _descriptor.Quadratic;
 }
 
 float PointLight::getConstant() const {
@@ -49,47 +59,47 @@ void PointLight::setQuadratic(float quadratic) {
 	data.quadratic = quadratic;
 }
 
-#include <rttr/registration>
-
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::PointLight>("PointLight")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Color", &IKIGAI::ECS::PointLight::getColor, &IKIGAI::ECS::PointLight::setColor)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_COLOR_3)
-	)
-	.property("Intensity", &IKIGAI::ECS::PointLight::getIntensity, &IKIGAI::ECS::PointLight::setIntensity)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	)
-	.property("Linear", &IKIGAI::ECS::PointLight::getLinear, &IKIGAI::ECS::PointLight::setLinear)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	)
-	.property("Quadratic", &IKIGAI::ECS::PointLight::getQuadratic, &IKIGAI::ECS::PointLight::setQuadratic)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	)
-	.property("Constant", &IKIGAI::ECS::PointLight::getConstant, &IKIGAI::ECS::PointLight::setConstant)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
-		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
-	);
-}
+//#include <rttr/registration>
+//
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::PointLight>("PointLight")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Color", &IKIGAI::ECS::PointLight::getColor, &IKIGAI::ECS::PointLight::setColor)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 10000.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_COLOR_3)
+//	)
+//	.property("Intensity", &IKIGAI::ECS::PointLight::getIntensity, &IKIGAI::ECS::PointLight::setIntensity)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	)
+//	.property("Linear", &IKIGAI::ECS::PointLight::getLinear, &IKIGAI::ECS::PointLight::setLinear)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	)
+//	.property("Quadratic", &IKIGAI::ECS::PointLight::getQuadratic, &IKIGAI::ECS::PointLight::setQuadratic)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	)
+//	.property("Constant", &IKIGAI::ECS::PointLight::getConstant, &IKIGAI::ECS::PointLight::setConstant)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE| MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
+//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 1.0f }),
+//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
+//	);
+//}

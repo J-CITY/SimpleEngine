@@ -1,5 +1,7 @@
 ﻿#include "frustum.h"
 
+#include "coreModule/ecs/components/transform.h"
+
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
@@ -30,9 +32,9 @@ void normalizePlane(float frustum[6][4], int side) {
 }
 
 
-void Frustum::make(const MATHGL::Matrix4& viewProjection) {
-	auto columnMajorViewProjection = MATHGL::Matrix4::Transpose(viewProjection);
-	const auto& clip = columnMajorViewProjection.data;
+void Frustum::make(const MATH::Matrix4f& viewProjection) {
+	auto columnMajorViewProjection = MATH::Matrix4f::Transpose(viewProjection);
+	const auto clip = columnMajorViewProjection.getData();
 
 	data[RIGHT][A] = clip[3] - clip[0];
 	data[RIGHT][B] = clip[7] - clip[4];
@@ -126,9 +128,9 @@ bool Frustum::boundingSphereInFrustum(const BoundingSphere& boundingSphere, cons
 
 	float maxScale = std::max(std::max(std::max(scale.x, scale.y), scale.z), 0.0f);
 	float scaledRadius = boundingSphere.radius * maxScale;
-	auto sphereOffset = MATHGL::Quaternion::RotatePoint(boundingSphere.position, rotation) * maxScale;
+	auto sphereOffset = MATH::QuaternionF::RotatePoint(boundingSphere.position, rotation) * maxScale;
 
-	MATHGL::Vector3 worldCenter = position + sphereOffset;
+	MATH::Vector3f worldCenter = position + sphereOffset;
 
 	return sphereInFrustum(worldCenter.x, worldCenter.y, worldCenter.z, scaledRadius);
 }
@@ -149,9 +151,9 @@ COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& bo
 
 	float maxScale = std::max(std::max(std::max(scale.x, scale.y), scale.z), 0.0f);
 	float scaledRadius = boundingSphere.radius * maxScale;
-	auto sphereOffset = MATHGL::Quaternion::RotatePoint(boundingSphere.position, rotation) * maxScale;
+	auto sphereOffset = MATH::QuaternionF::RotatePoint(boundingSphere.position, rotation) * maxScale;
 
-	MATHGL::Vector3 worldCenter = position + sphereOffset;
+	MATH::Vector3f worldCenter = position + sphereOffset;
 
 	// various distances
 	float fDistance;
@@ -160,8 +162,8 @@ COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& bo
 	for (int i = 0; i < 6; ++i) {
 
 		// find the distance to this plane
-		MATHGL::Vector3 n(data[i][A], data[i][B], data[i][C]);
-		fDistance = n.dot(MATHGL::Vector3(worldCenter.x, worldCenter.y, worldCenter.z)) + data[i][D];
+		MATH::Vector3f n(data[i][A], data[i][B], data[i][C]);
+		fDistance = n.dot(MATH::Vector3f(worldCenter.x, worldCenter.y, worldCenter.z)) + data[i][D];
 		// m_plane[i].Normal().dotProduct(refSphere.Center()) + m_plane[i].Distance();
 
 		// if this distance is < -sphere.radius, we are outside
@@ -180,7 +182,7 @@ COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& bo
 
 COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere) const {
 	float scaledRadius = boundingSphere.radius;
-	MATHGL::Vector3 worldCenter = boundingSphere.position;
+	MATH::Vector3f worldCenter = boundingSphere.position;
 
 	// various distances
 	float fDistance;
@@ -189,8 +191,8 @@ COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& bo
 	for (int i = 0; i < 6; ++i) {
 
 		// find the distance to this plane
-		MATHGL::Vector3 n(data[i][A], data[i][B], data[i][C]);
-		fDistance = n.dot(MATHGL::Vector3(worldCenter.x, worldCenter.y, worldCenter.z)) + data[i][D];
+		MATH::Vector3f n(data[i][A], data[i][B], data[i][C]);
+		fDistance = n.dot(MATH::Vector3f(worldCenter.x, worldCenter.y, worldCenter.z)) + data[i][D];
 		// m_plane[i].Normal().dotProduct(refSphere.Center()) + m_plane[i].Distance();
 
 		// if this distance is < -sphere.radius, we are outside

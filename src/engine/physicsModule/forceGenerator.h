@@ -3,6 +3,8 @@
 #include "body.h"
 #include <vector>
 
+#include "mathModule/math.h"
+
 namespace IKIGAI::PHYSICS {
 
     
@@ -18,12 +20,12 @@ namespace IKIGAI::PHYSICS {
     class Gravity : public ForceGenerator
     {
         
-        MATHGL::Vector3 gravity;
+        MATH::Vector3f gravity;
 
     public:
 
         
-        Gravity(const MATHGL::Vector3 &gravity);
+        Gravity(const MATH::Vector3f &gravity);
 
         
         virtual void updateForce(RigidBody *body, float duration);
@@ -33,10 +35,10 @@ namespace IKIGAI::PHYSICS {
     class Spring : public ForceGenerator
     {
         
-        MATHGL::Vector3 connectionPoint;
+        MATH::Vector3f connectionPoint;
 
         
-        MATHGL::Vector3 otherConnectionPoint;
+        MATH::Vector3f otherConnectionPoint;
 
         
         RigidBody *other;
@@ -50,9 +52,9 @@ namespace IKIGAI::PHYSICS {
     public:
 
         
-        Spring(const MATHGL::Vector3 &localConnectionPt,
+        Spring(const MATH::Vector3f &localConnectionPt,
                RigidBody *other,
-               const MATHGL::Vector3 &otherConnectionPt,
+               const MATH::Vector3f &otherConnectionPt,
                float springConstant,
                float restLength);
 
@@ -72,7 +74,7 @@ namespace IKIGAI::PHYSICS {
         // would be cumbersome:
 
         
-        MATHGL::Vector3 detonation;
+        MATH::Vector3f detonation;
 
         // ... Other Explosion code as before ...
 
@@ -130,18 +132,18 @@ namespace IKIGAI::PHYSICS {
     {
     protected:
         
-        MATHGL::Matrix3 tensor;
+        MATH::Matrix3f tensor;
 
         
-        MATHGL::Vector3 position;
+        MATH::Vector3f position;
 
         
-        const MATHGL::Vector3* windspeed;
+        const MATH::Vector3f* windspeed;
 
     public:
         
-        Aero(const MATHGL::Matrix3 &tensor, const MATHGL::Vector3 &position,
-             const MATHGL::Vector3 *windspeed);
+        Aero(const MATH::Matrix3f &tensor, const MATH::Vector3f &position,
+             const MATH::Vector3f *windspeed);
 
         
         virtual void updateForce(RigidBody *body, float duration);
@@ -149,7 +151,7 @@ namespace IKIGAI::PHYSICS {
     protected:
         
         void updateForceFromTensor(RigidBody *body, float duration,
-                                   const MATHGL::Matrix3 &tensor);
+                                   const MATH::Matrix3f &tensor);
     };
 
     
@@ -157,23 +159,23 @@ namespace IKIGAI::PHYSICS {
     {
     protected:
         
-        MATHGL::Matrix3 maxTensor;
+        MATH::Matrix3f maxTensor;
 
         
-        MATHGL::Matrix3 minTensor;
+        MATH::Matrix3f minTensor;
 
         
         float controlSetting;
 
     private:
         
-        MATHGL::Matrix3 getTensor();
+        MATH::Matrix3f getTensor();
 
     public:
         
-        AeroControl(const MATHGL::Matrix3 &base,
-                    const MATHGL::Matrix3 &min, const MATHGL::Matrix3 &max,
-                    const MATHGL::Vector3 &position, const MATHGL::Vector3 *windspeed);
+        AeroControl(const MATH::Matrix3f &base,
+                    const MATH::Matrix3f &min, const MATH::Matrix3f &max,
+                    const MATH::Vector3f &position, const MATH::Vector3f *windspeed);
 
         
         void setControl(float value);
@@ -186,15 +188,15 @@ namespace IKIGAI::PHYSICS {
     class AngledAero : public Aero
     {
         
-        MATHGL::Quaternion orientation;
+        MATH::QuaternionF orientation;
 
     public:
         
-        AngledAero(const MATHGL::Matrix3 &tensor, const MATHGL::Vector3 &position,
-             const MATHGL::Vector3 *windspeed);
+        AngledAero(const MATH::Matrix3f &tensor, const MATH::Vector3f &position,
+             const MATH::Vector3f *windspeed);
 
         
-        void setOrientation(const MATHGL::Quaternion &quat);
+        void setOrientation(const MATH::QuaternionF &quat);
 
         
         virtual void updateForce(RigidBody *body, float duration);
@@ -216,12 +218,12 @@ namespace IKIGAI::PHYSICS {
         float liquidDensity;
 
         
-        MATHGL::Vector3 centreOfBuoyancy;
+        MATH::Vector3f centreOfBuoyancy;
 
     public:
 
         
-        Buoyancy(const MATHGL::Vector3 &cOfB,
+        Buoyancy(const MATH::Vector3f &cOfB,
             float maxDepth, float volume, float waterHeight,
             float liquidDensity = 1000.0f);
 

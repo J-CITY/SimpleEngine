@@ -1,7 +1,9 @@
 #include "scriptSystem.h"
 #include <sceneModule/sceneManager.h>
 
-IKIGAI::ECS::ScriptSystem::ScriptSystem() = default;
+IKIGAI::ECS::ScriptSystem::ScriptSystem() {
+	mComponentsRead.insert(typeid(ScriptComponent).name());
+};
 
 void IKIGAI::ECS::ScriptSystem::onAwake() {
 	for (auto& component : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ScriptComponent>()) {
@@ -59,7 +61,7 @@ bool IKIGAI::ECS::ScriptSystem::registerToLuaContext(ScriptComponent& component,
 	auto result = p_luaState.safe_script_file(p_scriptFolder + component.getName() + ".lua", &sol::script_pass_on_error);
 	if (!result.valid()) {
 		sol::error err = result;
-		LOG_ERROR(err.what());
+		LOG_ERROR << (err.what());
 		return false;
 	}
 	else {
@@ -69,7 +71,7 @@ bool IKIGAI::ECS::ScriptSystem::registerToLuaContext(ScriptComponent& component,
 			return true;
 		}
 		else {
-			LOG_ERROR("'" + component.getName() + ".lua' missing return expression");
+			LOG_ERROR << ("'" + component.getName() + ".lua' missing return expression");
 			return false;
 		}
 	}

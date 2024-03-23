@@ -6,7 +6,7 @@
 
 #include "DriverVk.h"
 #include "../../gameRendererVk.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;

@@ -5,7 +5,6 @@
 
 #include "safeQueue.h"
 
-
 namespace IKIGAI {
 	namespace TASK {
 		class ITask;
@@ -33,11 +32,11 @@ namespace IKIGAI {
 
 			void executeTask(std::shared_ptr<ITask>&& task);
 
-			std::thread* threadHandle;
-			std::pair<uint32_t, std::thread::id> id;
-			std::atomic<ThreadState> threadState;
-			std::atomic_bool isDone = false;
-			ThreadSafeQueue<std::shared_ptr<ITask>> workQueue;
+			std::thread* mThreadHandle;
+			std::pair<uint32_t, std::thread::id> mId;
+			std::atomic<ThreadState> mThreadState;
+			std::atomic_bool mIsDone = false;
+			ThreadSafeQueue<std::shared_ptr<ITask>> mWorkQueue;
 		};
 
 		class ITask {
@@ -60,7 +59,7 @@ namespace IKIGAI {
 		class Task : public ITask {
 		public:
 			Task(Functor&& functor, const char* name, const std::shared_ptr<ITask>& upstreamTask)
-				:functor{std::move(functor)}, name{name}, upstreamTask{upstreamTask} {}
+				:mFunctor{std::move(functor)}, mName{name}, mUpstreamTask{upstreamTask} {}
 
 			~Task() override = default;
 			Task(const Task&) = delete;
@@ -69,43 +68,43 @@ namespace IKIGAI {
 			Task& operator=(Task&& other) = default;
 
 			void execute() override {
-				functor();
-				_isFinished = true;
+				mFunctor();
+				mIsFinished = true;
 			}
 
 			const std::string getName() override {
-				return name;
+				return mName;
 			}
 
 			const std::shared_ptr<ITask>& getUpstreamTask() override {
-				return upstreamTask;
+				return mUpstreamTask;
 			}
 
 			bool isFinished() override {
-				return _isFinished;
+				return mIsFinished;
 			}
 
 			void wait() override {
-				while (!_isFinished);
+				while (!mIsFinished);
 			}
 
 		private:
-			Functor functor;
-			std::string name;
-			std::shared_ptr<ITask> upstreamTask;
-			std::atomic_bool _isFinished = false;
+			Functor mFunctor;
+			std::string mName;
+			std::shared_ptr<ITask> mUpstreamTask;
+			std::atomic_bool mIsFinished = false;
 		};
 
 		template <typename T>
 		class Future {
 		public:
 			Future(std::future<T>&& future)
-				:future{std::move(future)} {
+				:mFuture{std::move(future)} {
 			}
 
 			~Future() {
-				if (future.valid()) {
-					future.get();
+				if (mFuture.valid()) {
+					mFuture.get();
 				}
 			}
 
@@ -115,16 +114,16 @@ namespace IKIGAI {
 			Future& operator=(Future&& other) = default;
 
 			auto get() {
-				return future.get();
+				return mFuture.get();
 			}
 
 		private:
-			std::future<T> future;
+			std::future<T> mFuture;
 		};
 
 		class ThreadPoolExecutor {
-			std::atomic_size_t NumThreads = 0;
-			std::vector<std::unique_ptr<Thread>> Threads;
+			std::atomic_size_t mNumThreads = 0;
+			std::vector<std::unique_ptr<Thread>> mThreads;
 		public:
 			ThreadPoolExecutor() { setup(std::nullopt); };
 			ThreadPoolExecutor(int threadCount) { setup(threadCount); };
@@ -140,30 +139,18 @@ namespace IKIGAI {
 			size_t getThreadCounts();
 		};
 
-		//class NewThreadExecutor {
-		//	ThreadSafeQueue<std::future<void>> workQueue;
-		//public:
-		//	bool setup();
-		//	bool initialize();
-		//	bool update();
-		//	bool terminate();
-		//
-		//	void waitSync();
-		//
-		//	std::shared_ptr<ITask> addTask(std::unique_ptr<ITask>&& task);
-		//	size_t getThreadCounts();
-		//};
-
-		class MainThreadExecutor {
+		class NewThreadExecutor {
+			std::vector<std::unique_ptr<Thread>> mThreads;
 		public:
-			bool setup(std::optional<unsigned> threadCount);
+			NewThreadExecutor() { setup(); };
+			bool setup();
 			bool initialize();
 			bool update();
 			bool terminate();
-
+		
 			void waitSync();
-
-			std::shared_ptr<ITask> addTask(std::unique_ptr<ITask>&& task, int threadID);
+		
+			std::shared_ptr<ITask> addTask(std::unique_ptr<ITask>&& task);
 			size_t getThreadCounts();
 		};
 	}

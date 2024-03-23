@@ -1,6 +1,6 @@
 #include "audioManager.h"
 
-#include "utilsModule/loader.h"
+#include "utilsModule/pathGetter.h"
 
 IKIGAI::AUDIO::AudioManagerAL::AudioManagerAL() {
 	audioEngine = std::make_unique<SoLoud::Soloud>();
@@ -19,7 +19,7 @@ void IKIGAI::AUDIO::AudioManagerAL::addSource(SoundResource& source) {
 	if (source.data.type == SoundType::SOUND) {
 		if (!sounds.contains(source.data.pathSoundSource)) {
 			sounds[source.data.pathSoundSource] = SoLoud::Wav();
-			auto res = sounds[source.data.pathSoundSource].load(IKIGAI::UTILS::getRealPath(source.data.pathSoundSource).c_str());
+			auto res = sounds[source.data.pathSoundSource].load(IKIGAI::UTILS::GetRealPath(source.data.pathSoundSource).c_str());
 			if (!res) {
 				//problem
 			}
@@ -35,7 +35,7 @@ void IKIGAI::AUDIO::AudioManagerAL::addSource(SoundResource& source) {
 	else {
 		if (!musics.contains(source.data.pathSoundSource)) {
 			musics[source.data.pathSoundSource] = SoLoud::WavStream();
-			auto res = musics[source.data.pathSoundSource].load(IKIGAI::UTILS::getRealPath(source.data.pathSoundSource).c_str());
+			auto res = musics[source.data.pathSoundSource].load(IKIGAI::UTILS::GetRealPath(source.data.pathSoundSource).c_str());
 			if (!res) {
 				//problem
 			}
@@ -72,13 +72,13 @@ void IKIGAI::AUDIO::AudioManagerAL::set3dSoundSpeedSpeed(float speed) {
 	audioEngine->set3dSoundSpeed(speed);
 }
 
-void IKIGAI::AUDIO::AudioManagerAL::setListenerPos(MATHGL::Vector3 pos, MATHGL::Vector3 dir) {
+void IKIGAI::AUDIO::AudioManagerAL::setListenerPos(MATH::Vector3f pos, MATH::Vector3f dir) {
 	audioEngine->set3dListenerPosition(-pos.x, pos.y, pos.z);
 	audioEngine->set3dListenerAt(dir.x, dir.y, dir.z);
 	audioEngine->update3dAudio();
 }
 
-void IKIGAI::AUDIO::AudioManagerAL::setSourcePos(SoundResource& source, MATHGL::Vector3 pos) {
+void IKIGAI::AUDIO::AudioManagerAL::setSourcePos(SoundResource& source, MATH::Vector3f pos) {
 	if (!source.id) {
 		//problem
 
@@ -88,14 +88,14 @@ void IKIGAI::AUDIO::AudioManagerAL::setSourcePos(SoundResource& source, MATHGL::
 	audioEngine->update3dAudio();
 }
 
-void IKIGAI::AUDIO::AudioManagerAL::setListenerVelocity(MATHGL::Vector3 vel) {
+void IKIGAI::AUDIO::AudioManagerAL::setListenerVelocity(MATH::Vector3f vel) {
 	audioEngine->set3dListenerVelocity(vel.x, vel.y, vel.z);
 }
-void IKIGAI::AUDIO::AudioManagerAL::setListenerUp(MATHGL::Vector3 up) {
+void IKIGAI::AUDIO::AudioManagerAL::setListenerUp(MATH::Vector3f up) {
 	audioEngine->set3dListenerUp(up.x, up.y, up.z);
 }
 
-void IKIGAI::AUDIO::AudioManagerAL::setSourceVelocity(SoundResource& source, MATHGL::Vector3 vel) {
+void IKIGAI::AUDIO::AudioManagerAL::setSourceVelocity(SoundResource& source, MATH::Vector3f vel) {
 	if (!source.id) {
 		//problem
 	}

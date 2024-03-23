@@ -4,10 +4,13 @@
 
 
 #include <coreModule/ecs/componentManager.h>
-#include <coreModule/resourceManager/parser/assimpParser.h>
+#include <resourceModule/parser/assimpParser.h>
 #include <renderModule/backends/interface/renderEnums.h>
 
+#include "coreModule/ecs/object.h"
 #include "physicsModule/broadPhase.h"
+#include "renderModule/backends/interface/meshInterface.h"
+#include "utilsModule/log/loggerDefine.h"
 
 namespace IKIGAI
 {
@@ -60,6 +63,12 @@ void Scene::init() {
 	//skyboxObject->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
 	//skyboxObject->getTransform()->setLocalScale({20.0f, 20.0f, 20.0f});
 	
+}
+
+Scene::Scene(const Descriptor& _descriptor) {
+	for (const auto& object : _descriptor.Objects) {
+		createObject(object);
+	}
 }
 
 Scene::~Scene() {
@@ -119,7 +128,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject() {
 //	return instance;
 //}
 
-std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ObjectId<ECS::Object> actorID, const std::string& name, const std::string& tag) {
+std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(Id<ECS::Object> actorID, const std::string& name, const std::string& tag) {
 	objects.push_back(std::make_shared<ECS::Object>(actorID, name, tag));
 	auto& instance = objects.back();
 	if (isExecute) {
@@ -138,20 +147,21 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ObjectId<ECS::Object> a
 	return instance;
 }
 
-std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::ObjectData& data) {
-	objects.push_back(std::make_shared<ECS::Object>(ECS::Object::Id(data.id), data.name, data.tag));
+std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::Object::Descriptor& data) {
+	std::cout << "LOAD SCENE 2" << std::endl;
+	objects.push_back(std::make_shared<ECS::Object>(data));
 	auto& instance = objects.back();
 	if (isExecute) {
-		instance->setActive(data.isActive);
+		instance->setActive(data.IsActive);
 		if (instance->getIsActive()) {
 			instance->onEnable();
 			instance->onStart();
 		}
 	}
-	if (data.parentId > 0) {
-		auto p = findObjectByID(ECS::Object::Id(data.parentId));
+	if (data.ParentId > 0) {
+		auto p = findObjectByID(ECS::Object::Id_(data.ParentId));
 		if (!p) {
-			LOG_ERROR("Object::setParentId: can not find actor with id: " + std::to_string(data.parentId));
+			LOG_ERROR << "Object::setParentId: can not find actor with id: " + std::to_string(data.ParentId);
 		}
 		else {
 			instance->setParent(p);
@@ -190,7 +200,7 @@ struct BVHData {
 };
 
 PHYSICS::BVHTree<RENDER::BoundingSphere, std::shared_ptr<BVHData>> meshesTree;
-std::unordered_map<ECS::Object::Id, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
+std::unordered_map<ECS::Object::Id_, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
 
 //TODO: move to utils
 RENDER::BoundingSphere getGlobalBoundingSphere(const RENDER::BoundingSphere& boundingSphere, const ECS::Transform& transform) {
@@ -200,9 +210,9 @@ RENDER::BoundingSphere getGlobalBoundingSphere(const RENDER::BoundingSphere& bou
 
 	float maxScale = std::max(std::max(std::max(scale.x, scale.y), scale.z), 0.0f);
 	float scaledRadius = boundingSphere.radius * maxScale;
-	auto sphereOffset = MATHGL::Quaternion::RotatePoint(boundingSphere.position, rotation) * maxScale;
+	auto sphereOffset = MATH::QuaternionF::RotatePoint(boundingSphere.position, rotation) * maxScale;
 
-	MATHGL::Vector3 worldCenter = position + sphereOffset;
+	MATH::Vector3f worldCenter = position + sphereOffset;
 
 	return RENDER::BoundingSphere{ worldCenter, scaledRadius };
 }
@@ -274,7 +284,7 @@ void Scene::postLoad() {
 	isSceneReady = true;
 }
 
-std::shared_ptr<ECS::Object> Scene::createObjectAfter(ECS::Object::Id parentId, const std::string& name, const std::string& tag) {
+std::shared_ptr<ECS::Object> Scene::createObjectAfter(ECS::Object::Id_ parentId, const std::string& name, const std::string& tag) {
 	const auto iter = std::ranges::find_if(objects, [parentId](auto& e) {
 		return e->getID() == parentId;
 	});
@@ -282,7 +292,7 @@ std::shared_ptr<ECS::Object> Scene::createObjectAfter(ECS::Object::Id parentId, 
 	return *resIt;
 }
 
-std::shared_ptr<ECS::Object> Scene::createObjectBefore(ECS::Object::Id parentId, const std::string& name, const std::string& tag) {
+std::shared_ptr<ECS::Object> Scene::createObjectBefore(ECS::Object::Id_ parentId, const std::string& name, const std::string& tag) {
 	const auto iter = std::ranges::find_if(objects, [parentId](auto& e) {
 		return e->getID() == parentId;
 	});
@@ -330,7 +340,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByTag(const std::string& p
 	}
 }
 
-std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByID(ObjectId<ECS::Object> p_id) {
+std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByID(Id<ECS::Object> p_id) {
 	auto result = std::ranges::find_if(objects.begin(), objects.end(), [p_id](std::shared_ptr<ECS::Object>& element) {
 		return element->getID() == p_id;
 	});
@@ -547,7 +557,7 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 	IKIGAI::RENDER::OpaqueDrawables,
 	IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledBVHDrawables
 	(
-		const MATHGL::Vector3& cameraPosition,
+		const MATH::Vector3f& cameraPosition,
 		const RENDER::Frustum& frustum,
 		std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 	) {
@@ -568,7 +578,7 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 				auto animator = owner->getComponent<ECS::Skeletal>();
 
 				
-				float distanceToActor = MATHGL::Vector3::Distance(transform.getWorldPosition(), cameraPosition);
+				float distanceToActor = MATH::Vector3f::Distance(transform.getWorldPosition(), cameraPosition);
 				const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
 					
 				std::shared_ptr<RENDER::MaterialInterface> material;
@@ -611,7 +621,7 @@ IKIGAI::RENDER::TransparentDrawables,
 IKIGAI::RENDER::OpaqueDrawables,
 IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 (
-	const MATHGL::Vector3& cameraPosition,
+	const MATH::Vector3f& cameraPosition,
 	const RENDER::Frustum& frustum,
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
@@ -644,7 +654,7 @@ IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 					auto meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
 
 					if (!meshes.empty()) {
-						float distanceToActor = MATHGL::Vector3::Distance(transform.getWorldPosition(), cameraPosition);
+						float distanceToActor = MATH::Vector3f::Distance(transform.getWorldPosition(), cameraPosition);
 						const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
 
 						for (const auto mesh : meshes) {
@@ -691,7 +701,7 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 	IKIGAI::RENDER::OpaqueDrawables,
 	IKIGAI::RENDER::TransparentDrawables>  Scene::findAndSortDrawables
 (
-	const MATHGL::Vector3& cameraPosition,
+	const MATH::Vector3f& cameraPosition,
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
 	RENDER::OpaqueDrawables opaqueDrawablesForward;
@@ -702,7 +712,7 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 	for (auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelRenderer>()) {
 		if (modelRenderer.obj->getIsActive() && modelRenderer.obj->getName() != "Skybox") {
 			if (auto model = modelRenderer.getModel()) {
-				float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
+				float distanceToActor = MATH::Vector3f::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
 
 				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = modelRenderer.obj->getTransform()->getTransform();
@@ -715,8 +725,8 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 						if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
 							material = materials.at(mesh->getMaterialIndex());
 							if (!material || (!material->getShader() && !material->isDeferred())) {
-								material = defaultMaterial;
-								//material = materials.at(0);
+								//material = defaultMaterial;
+								material = materials.at(0);
 							}
 						}
 
@@ -749,7 +759,7 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 	//TODO: refactor it
 	for (auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelLODRenderer>()) {
 		if (modelRenderer.obj->getIsActive()) {
-			float distanceToActor = MATHGL::Vector3::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
+			float distanceToActor = MATH::Vector3f::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
 			if (auto model = modelRenderer.getModelByDistance(distanceToActor)) {
 				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = modelRenderer.obj->getTransform()->getTransform();
@@ -801,7 +811,7 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 	IKIGAI::RENDER::TransparentDrawables,
 	IKIGAI::RENDER::OpaqueDrawables,
 	IKIGAI::RENDER::TransparentDrawables> Scene::findDrawables(
-	const MATHGL::Vector3& cameraPosition,
+	const MATH::Vector3f& cameraPosition,
 	const RENDER::Camera& camera,
 	const RENDER::Frustum* customFrustum,
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial

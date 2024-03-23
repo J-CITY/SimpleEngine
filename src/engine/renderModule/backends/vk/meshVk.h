@@ -1,4 +1,5 @@
 #pragma once
+#include "renderModule/vertex.h"
 
 #ifdef VULKAN_BACKEND
 
@@ -11,7 +12,6 @@
 #include <span>
 #include <optional>
 
-#include "utilsModule/vertex.h"
 #include "vertexBufferVk.h"
 #include "../interface/meshInterface.h"
 

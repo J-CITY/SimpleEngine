@@ -1,7 +1,7 @@
 #include "task.h"
 
-import logger;
 
+#include <iostream>
 #include <random>
 #include <sstream>
 
@@ -10,21 +10,22 @@ using namespace IKIGAI::TASK;
 
 bool ThreadPoolExecutor::setup(std::optional<unsigned> threadCount) {
 	if (threadCount) {
-		NumThreads = threadCount.value();
+		mNumThreads = threadCount.value();
 	}
 	else {
-		NumThreads = std::max<size_t>(std::thread::hardware_concurrency(), 2u);
+		mNumThreads = std::max<size_t>(std::thread::hardware_concurrency(), 2u);
 	}
-	Threads.resize(NumThreads);
+	mThreads.resize(mNumThreads);
 
 	try {
-		for (std::uint32_t i = 0u; i < NumThreads; ++i) {
-			Threads[i] = std::make_unique<Thread>(i);
+		for (std::uint32_t i = 0u; i < mNumThreads; ++i) {
+			mThreads[i] = std::make_unique<Thread>(i);
 		}
 	}
 	catch (...) {
 		terminate();
-		throw;
+		std::cout << "PROBLEM INIT THREAD" << std::endl;
+		return false;
 	}
 
 	return true;
@@ -39,9 +40,10 @@ bool ThreadPoolExecutor::update() {
 }
 
 bool ThreadPoolExecutor::terminate() {
-	for (size_t i = 0; i < Threads.size(); i++) {
-		Threads[i].reset();
+	for (size_t i = 0; i < mThreads.size(); i++) {
+		mThreads[i].reset();
 	}
+	mThreads.clear();
 	return true;
 }
 
@@ -49,12 +51,10 @@ void ThreadPoolExecutor::waitSync() {
 	std::atomic_bool isAllThreadsIdle = false;
 
 	while (!isAllThreadsIdle) {
-		for (size_t i = 0; i < Threads.size(); i++) {
-			isAllThreadsIdle = (Threads[i]->getUnfinishedWorkCount() == 0);
+		for (size_t i = 0; i < mThreads.size(); i++) {
+			isAllThreadsIdle = (mThreads[i]->getUnfinishedWorkCount() == 0);
 		}
 	}
-
-	//LOG_INFO("TaskExecutor: Reached synchronization point\n");
 }
 
 std::shared_ptr<ITask> ThreadPoolExecutor::addTask(std::unique_ptr<ITask>&& task, int32_t threadID) {
@@ -65,11 +65,11 @@ std::shared_ptr<ITask> ThreadPoolExecutor::addTask(std::unique_ptr<ITask>&& task
 	else {
 		std::random_device RD;
 		std::mt19937 Gen(RD());
-		std::uniform_int_distribution<> Dis(0, (size_t)NumThreads - 1);
+		std::uniform_int_distribution<> Dis(0, (size_t)mNumThreads - 1);
 		threadIndex = Dis(Gen);
 	}
 
-	return Threads[threadIndex]->addTask(std::move(task));
+	return mThreads[threadIndex]->addTask(std::move(task));
 }
 
 std::shared_ptr<ITask> ThreadPoolExecutor::addTaskFront(std::unique_ptr<ITask>&& task, int32_t threadID) {
@@ -80,110 +80,103 @@ std::shared_ptr<ITask> ThreadPoolExecutor::addTaskFront(std::unique_ptr<ITask>&&
 	else {
 		std::random_device RD;
 		std::mt19937 Gen(RD());
-		std::uniform_int_distribution<> Dis(0, (size_t)NumThreads - 1);
+		std::uniform_int_distribution<> Dis(0, (size_t)mNumThreads - 1);
 		threadIndex = Dis(Gen);
 	}
 
-	return Threads[threadIndex]->addTaskFront(std::move(task));
+	return mThreads[threadIndex]->addTaskFront(std::move(task));
 }
 
 size_t ThreadPoolExecutor::getThreadCounts() {
-	return NumThreads;
+	return mNumThreads;
 }
 
 //--------------------- New thread executor
 
 
-//bool NewThreadExecutor::setup() {
-//	return true;
-//}
-//
-//bool NewThreadExecutor::initialize() {
-//	return true;
-//}
-//
-//// run in own thread
-//bool NewThreadExecutor::update() {
-//	while (true) {
-//		auto fOpt = workQueue.tryPop();
-//		if (fOpt) {
-//			fOpt.value().get();
-//		}
-//		else {
-//			std::this_thread::yield();
-//		}
-//	}
-//	return true;
-//}
-//
-//bool NewThreadExecutor::terminate() {
-//	for (size_t i = 0; i < workQueue.size(); i++) {
-//		auto t = workQueue.tryPop();
-//		if (t) {
-//			t.value().get();
-//		}
-//	}
-//	return true;
-//}
-//
-//void NewThreadExecutor::waitSync() {
-//	std::atomic_bool isAllTasksDone = false;
-//
-//	while (!isAllTasksDone) {
-//		isAllTasksDone = (workQueue.size() == 0);
-//	}
-//	//LOG_INFO("TaskExecutor: Reached synchronization point\n");
-//}
-//
-//std::shared_ptr<ITask> NewThreadExecutor::addTask(std::unique_ptr<ITask>&& task) {
-//	std::shared_ptr<ITask> l_result{ std::move(task) };
-//
-//	auto f = std::async(std::launch::async, [l_result]() {
-//		l_result->execute();
-//	});
-//
-//	workQueue.push(f);
-//	return l_result;
-//}
+bool NewThreadExecutor::setup() {
+	return true;
+}
+
+bool NewThreadExecutor::initialize() {
+	return true;
+}
+
+// run in own thread
+bool NewThreadExecutor::update() {
+	std::erase_if(mThreads, [](const auto& e) {
+		return e->getUnfinishedWorkCount() == 0;
+	});
+	return true;
+}
+
+bool NewThreadExecutor::terminate() {
+	for (size_t i = 0; i < mThreads.size(); i++) {
+		mThreads[i].reset();
+	}
+	return true;
+}
+
+void NewThreadExecutor::waitSync() {
+	std::atomic_bool isAllThreadsIdle = false;
+
+	while (!isAllThreadsIdle) {
+		for (size_t i = 0; i < mThreads.size(); i++) {
+			isAllThreadsIdle = (mThreads[i]->getUnfinishedWorkCount() == 0);
+		}
+	}
+}
+
+std::shared_ptr<ITask> NewThreadExecutor::addTask(std::unique_ptr<ITask>&& task) {
+	static int id = 0;
+	auto thread = std::make_unique<Thread>(id);
+	++id;
+	mThreads.push_back(std::move(thread));
+	return mThreads.back()->addTask(std::move(task));
+}
+
+size_t NewThreadExecutor::getThreadCounts() {
+	return mThreads.size();
+}
 
 //----------------------End
 
 Thread::Thread(int ThreadIndex) {
-	threadHandle = new std::thread(&Thread::worker, this, ThreadIndex);
+	mThreadHandle = new std::thread(&Thread::worker, this, ThreadIndex);
 }
 
 Thread::~Thread() {
-	isDone = true;
-	workQueue.invalidate();
-	if (threadHandle->joinable()) {
-		threadHandle->join();
-		delete threadHandle;
+	mIsDone = true;
+	mWorkQueue.invalidate();
+	if (mThreadHandle->joinable()) {
+		mThreadHandle->join();
+		delete mThreadHandle;
 	}
 }
 
 inline ThreadState Thread::getState() const {
-	return threadState;
+	return mThreadState;
 }
 
 size_t Thread::getUnfinishedWorkCount() {
-	return workQueue.size();
+	return mWorkQueue.size();
 }
 
 std::shared_ptr<ITask> Thread::addTask(std::shared_ptr<ITask>&& task) {
 	std::shared_ptr<ITask> l_result{task};
-	workQueue.push(std::move(task));
+	mWorkQueue.push(std::move(task));
 	return l_result;
 }
 
 std::shared_ptr<ITask> Thread::addTaskFront(std::shared_ptr<ITask>&& task) {
 	std::shared_ptr<ITask> l_result{ task };
-	workQueue.pushFront(std::move(task));
+	mWorkQueue.pushFront(std::move(task));
 	return l_result;
 }
 
 std::string Thread::getThreadID() {
 	std::stringstream ss;
-	ss << id.second;
+	ss << mId.second;
 	return ss.str();
 }
 
@@ -193,14 +186,14 @@ void Thread::executeTask(std::shared_ptr<ITask>&& task) {
 
 void Thread::worker(uint32_t ThreadIndex) {
 	auto _id = std::this_thread::get_id();
-	id = std::make_pair(ThreadIndex, _id);
-	threadState = ThreadState::FREE;
+	mId = std::make_pair(ThreadIndex, _id);
+	mThreadState = ThreadState::FREE;
 	
-	while (!isDone) {
+	while (!mIsDone) {
 		std::shared_ptr<ITask> pTask{nullptr};
-		if (auto res = workQueue.waitPop()) {
+		if (auto res = mWorkQueue.waitPop()) {
 			pTask = res.value();
-			threadState = ThreadState::BUSY;
+			mThreadState = ThreadState::BUSY;
 			auto upstreamTask = pTask->getUpstreamTask();
 
 			if (upstreamTask != nullptr) {
@@ -215,9 +208,9 @@ void Thread::worker(uint32_t ThreadIndex) {
 				executeTask(std::move(pTask));
 			}
 
-			threadState = ThreadState::FREE;
+			mThreadState = ThreadState::FREE;
 		}
 	}
 
-	threadState = ThreadState::FREE;
+	mThreadState = ThreadState::FREE;
 }

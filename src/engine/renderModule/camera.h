@@ -2,7 +2,7 @@
 #include <cstdint>
 
 #include "frustum.h"
-import glmath;
+#include "mathModule/math.h"
 
 namespace IKIGAI {
 	namespace RENDER {
@@ -15,17 +15,19 @@ namespace IKIGAI {
 			
 			Camera();
 			void cacheMatrices(unsigned int winWidth, unsigned int winHeight, 
-				const MATHGL::Vector3& position, const MATHGL::Quaternion& rotation);
+				const MATH::Vector3f& position, const MATH::QuaternionF& rotation);
 			void cacheProjectionMatrix(unsigned int winWidth, unsigned int winHeight);
-			void cacheViewMatrix(const MATHGL::Vector3& position, const MATHGL::Quaternion& rotation);
-			void cacheFrustum(const MATHGL::Matrix4& view, const MATHGL::Matrix4& projection);
+			void cacheViewMatrix(const MATH::Vector3f& position, const MATH::QuaternionF& rotation);
+			void cacheFrustum(const MATH::Matrix4f& view, const MATH::Matrix4f& projection);
+			void cacheProjectionMatrix(MATH::Matrix4f mat);
+			void cacheViewMatrix(MATH::Matrix4f mat);
 
 			float getFov() const;
 			float getSize() const;
 			float getNear() const;
 			float getFar() const;
-			const MATHGL::Matrix4& getProjectionMatrix() const;
-			const MATHGL::Matrix4& getViewMatrix() const;
+			const MATH::Matrix4f& getProjectionMatrix() const;
+			const MATH::Matrix4f& getViewMatrix() const;
 			const Frustum& getFrustum() const;
 			bool isFrustumGeometryCulling() const;
 			bool isFrustumGeometryBVHCulling() const;
@@ -39,15 +41,15 @@ namespace IKIGAI {
 			void setFrustumGeometryBVHCulling(bool p_enable);
 			void setFrustumLightCulling(bool p_enable);
 			void setProjectionMode(ProjectionMode p_projectionMode);
-			void setView(MATHGL::Matrix4& in);
+			void setView(MATH::Matrix4f& in);
 		//private:
-			MATHGL::Matrix4 calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const;
-			MATHGL::Matrix4 calculateViewMatrix(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const;
-			IKIGAI::MATHGL::Vector3 calculateViewVector(const MATHGL::Vector3& p_position, const MATHGL::Quaternion& p_rotation) const;
+			MATH::Matrix4f calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const;
+			MATH::Matrix4f calculateViewMatrix(const MATH::Vector3f& p_position, const MATH::QuaternionF& p_rotation) const;
+			IKIGAI::MATH::Vector3f calculateViewVector(const MATH::Vector3f& p_position, const MATH::QuaternionF& p_rotation) const;
 		private:
 			Frustum frustum;
-			MATHGL::Matrix4 viewMatrix;
-			MATHGL::Matrix4 projectionMatrix;
+			MATH::Matrix4f viewMatrix;
+			MATH::Matrix4f projectionMatrix;
 			ProjectionMode  projectionMode;
 
 			float fov;

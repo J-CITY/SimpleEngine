@@ -1,13 +1,11 @@
 #pragma once
-#include "backends/gl/materialGl.h"
-#include "utilsModule/enum.h"
-#ifdef OPENGL_BACKEND
+#include "drawable.h"
+#include "gameRendererInterface.h"
+#include "utilsModule/ref.h"
+#ifdef OPENGL_HARD_RENDER
 #include "drawable.h"
 #include "frustum.h"
 #include "gameRendererInterface.h"
-#include <utilsModule/pointers/objPtr.h>
-
-import glmath;
 
 
 namespace IKIGAI::SCENE_SYSTEM {
@@ -323,6 +321,59 @@ namespace IKIGAI::RENDER {
 		DriverGl* mDriver;
 
 		int frameCount = 0;
+	};
+}
+#elif defined(OPENGL_SIMPLE_RENDER)
+
+namespace IKIGAI
+{
+	namespace ECS
+	{
+		class CameraComponent;
+	}
+}
+
+namespace IKIGAI
+{
+	namespace CORE
+	{
+		class Core;
+	}
+}
+#ifdef OCULUS
+#include "util_egl.h"
+#include "util_oxr.h"
+#endif
+namespace IKIGAI::RENDER {
+	class TextureGl;
+	class FrameBufferGl;
+	class DriverGl;
+
+	class GameRendererGl : public GameRendererInterface {
+		IKIGAI::CORE::Core& mContext;
+		DriverGl* mDriver;
+		int frameCount = 0;
+
+		std::shared_ptr<FrameBufferGl> mainFb;
+		std::shared_ptr<TextureGl> sceneTexture;
+
+		void createShaders();
+		void createFrameBuffers();
+
+		void renderScene(UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
+		void drawDrawable(const Drawable& p_toDraw);
+
+	public:
+		GameRendererGl(CORE::Core& context);
+
+		void renderScene() override;
+
+#ifdef OCULUS
+		void renderSceneOculus(XrCompositionLayerProjectionView &layerView,
+							   render_target_t &rtarget, XrPosef &stagePose,
+							   uint32_t viewID);
+#endif
+		void renderToScreen();
 	};
 }
 #endif

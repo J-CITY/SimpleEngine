@@ -2,12 +2,14 @@
 
 #include <iostream>
 
+#include "utilsModule/stdLoader.h"
+
 #ifdef VULKAN_BACKEND
 #include "driverVk.h"
 
-#include <coreModule/resourceManager/textureManager.h>
+#include <resourceModule/textureManager.h>
 #include "../../gameRendererVk.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -83,12 +85,12 @@ std::shared_ptr<TextureVk> TextureVk::createCubemap(std::array<std::string, 6> p
 	int height{ 0 };
 	int numberOfChannels{ 0 };
 
-	textureData[0] = IKIGAI::RESOURCES::stbiLoad(path[0].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[1] = IKIGAI::RESOURCES::stbiLoad(path[1].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[2] = IKIGAI::RESOURCES::stbiLoad(path[2].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[3] = IKIGAI::RESOURCES::stbiLoad(path[3].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[4] = IKIGAI::RESOURCES::stbiLoad(path[4].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[5] = IKIGAI::RESOURCES::stbiLoad(path[5].c_str(), &width, &height, &numberOfChannels, 4);
+	textureData[0] = UTILS::STBiLoad(path[0].c_str(), &width, &height, &numberOfChannels, 4);
+	textureData[1] = UTILS::STBiLoad(path[1].c_str(), &width, &height, &numberOfChannels, 4);
+	textureData[2] = UTILS::STBiLoad(path[2].c_str(), &width, &height, &numberOfChannels, 4);
+	textureData[3] = UTILS::STBiLoad(path[3].c_str(), &width, &height, &numberOfChannels, 4);
+	textureData[4] = UTILS::STBiLoad(path[4].c_str(), &width, &height, &numberOfChannels, 4);
+	textureData[5] = UTILS::STBiLoad(path[5].c_str(), &width, &height, &numberOfChannels, 4);
 	
 
 	//Calculate the image size and the layer size.
@@ -117,12 +119,12 @@ std::shared_ptr<TextureVk> TextureVk::createCubemap(std::array<std::string, 6> p
 
 	vkUnmapMemory(render->m_MainDevice.LogicalDevice, m_StagingBufferMemory);
 
-	IKIGAI::RESOURCES::stbiImageFree(textureData[0]);
-	IKIGAI::RESOURCES::stbiImageFree(textureData[1]);
-	IKIGAI::RESOURCES::stbiImageFree(textureData[2]);
-	IKIGAI::RESOURCES::stbiImageFree(textureData[3]);
-	IKIGAI::RESOURCES::stbiImageFree(textureData[4]);
-	IKIGAI::RESOURCES::stbiImageFree(textureData[5]);
+	UTILS::STBiImageFree(textureData[0]);
+	UTILS::STBiImageFree(textureData[1]);
+	UTILS::STBiImageFree(textureData[2]);
+	UTILS::STBiImageFree(textureData[3]);
+	UTILS::STBiImageFree(textureData[4]);
+	UTILS::STBiImageFree(textureData[5]);
 
 	auto texture = std::make_shared<TextureVk>();
 	texture->path = path[0];
@@ -350,6 +352,10 @@ std::shared_ptr<TextureVk> TextureVk::create3D(int width, int height, int arrSiz
 	return texture;
 }
 
+void* TextureVk::getImguiId() {
+	return (void*)descriptor_set;
+}
+
 std::shared_ptr<TextureVk> TextureVk::createForAttach(int texWidth, int texHeight) {
 	
 	auto texture = std::make_shared<TextureVk>();
@@ -470,7 +476,7 @@ std::shared_ptr<TextureVk> TextureVk::create(std::string path) {
 	//int const texture_image_location = CreateTextureImage();
 
 	int nChannels;
-	unsigned char* image = IKIGAI::RESOURCES::stbiLoad(texture->path.c_str(), &texture->width, &texture->height, &nChannels, 4);
+	unsigned char* image = UTILS::STBiLoad(texture->path.c_str(), &texture->width, &texture->height, &nChannels, 4);
 
 	if (!image) {
 		throw std::runtime_error("Failed to load a Texture file! (" + path + ")");
@@ -493,7 +499,7 @@ std::shared_ptr<TextureVk> TextureVk::create(std::string path) {
 	memcpy(data, image, static_cast<size_t>(texture->imageSize));
 	vkUnmapMemory(UtilityVk::device->LogicalDevice, m_StagingBufferMemory);
 
-	IKIGAI::RESOURCES::stbiImageFree(image);
+	UTILS::STBiImageFree(image);
 
 	//CRESTE TEXTURE IMAGE
 	VkDeviceMemory m_TextureImageMemory;

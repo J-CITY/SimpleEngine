@@ -1,4 +1,6 @@
 #include "textureDx12.h"
+
+#include "utilsModule/stdLoader.h"
 #ifdef DX12_BACKEND
 #include "d3dx12.h"
 #include "d3dUtil.h"
@@ -44,10 +46,9 @@ void OneTimeSubmit(ID3D12Device* device, const std::function<void(ID3D12Graphics
 }
 
 #include "../../gameRendererDx12.h"
-#include <coreModule/resourceManager/textureManager.h>
 std::shared_ptr<TextureDx12> TextureDx12::Create(std::string path) {
     int texWidth, texHeight, texChannels;
-    unsigned char* pixels = IKIGAI::RESOURCES::stbiLoad(path.c_str(), &texWidth, &texHeight, &texChannels, 4);
+    unsigned char* pixels = UTILS::STBiLoad(path.c_str(), &texWidth, &texHeight, &texChannels, 4);
     if (!pixels) {
         throw std::runtime_error("failed to load texture image!");
     }
@@ -188,6 +189,11 @@ void TextureDx12::BuildResource(std::shared_ptr<TextureDx12> texture) {
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		&texture->optClear,
 		IID_PPV_ARGS(&texture->Resource)));
+}
+
+void* TextureDx12::getImguiId()
+{
+	return (void*)mGpuSrv.ptr;
 }
 
 void TextureDx12::BuildDescriptors(std::shared_ptr<TextureDx12> texture) {

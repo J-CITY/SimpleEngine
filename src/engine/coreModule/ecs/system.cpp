@@ -20,3 +20,11 @@ std::set<Entity>& System::getEntities() {
 const std::set<Entity>& System::getEntities() const {
 	return m_entities;
 }
+
+const std::set<std::string>& System::getComponentsWrite() const {
+	return mComponentsWrite;
+}
+
+const std::set<std::string>& System::getComponentsRead() const {
+	return mComponentsRead;
+}

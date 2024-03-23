@@ -1,14 +1,16 @@
 #include "spineDrawable.h"
 
+#include <fstream>
 #include <map>
-#include <GL/glew.h>
+#include <coreModule/graphicsWrapper.hpp>
 
 #include "renderModule/backends/gl/textureGl.h"
-#include <utilsModule/loader.h>
+#include <utilsModule/pathGetter.h>
 #include <spine/TextureLoader.h>
 
-import logger;
-
+#include "utilsModule/format.h"
+#include "utilsModule/log/loggerDefine.h"
+#ifdef OPENGL_BACKEND
 using namespace IKIGAI;
 using namespace spine;
 using namespace IKIGAI::RENDER::SPINE;
@@ -28,8 +30,6 @@ GLBlendMode blend_additivePma = GLBlendMode(GL_ONE, GL_ONE);
 GLBlendMode blend_multiplyPma = GLBlendMode(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
 GLBlendMode blend_screenPma = GLBlendMode(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
 
-class IKIGAI::RENDER::SPINE::SkeletonDrawable;
-
 
 spine::SkeletonData* SpineController::spineReadSkeletonJsonData(const spine::String& filename,
     spine::Atlas* atlas,
@@ -46,7 +46,7 @@ spine::SkeletonData* SpineController::spineReadSkeletonJsonData(const spine::Str
 
 SpineController::SpineController(const std::string& pathSkel, const std::string& pathAtlas, float scale): path(path)
 {
-	create(UTILS::getRealPath(pathSkel), UTILS::getRealPath(pathAtlas), scale);
+	create(UTILS::GetRealPath(pathSkel), UTILS::GetRealPath(pathAtlas), scale);
 }
 
 void SpineController::setSkin(const std::string& name)
@@ -400,7 +400,7 @@ std::map<RENDER::TextureGl*, std::shared_ptr<RENDER::TextureGl>> textures;
 
 void SpineTextureLoader::load(AtlasPage& page, const String& path) {
     auto pathStr = std::string(path.buffer(), path.length());
-    auto texture = RENDER::TextureGl::Create(UTILS::getRealPath(pathStr), true);
+    auto texture = RENDER::TextureGl::Create(UTILS::GetRealPath(pathStr), true);
     if (texture) {
         //texture->textureId = texture->textureId;
         //
@@ -431,9 +431,38 @@ void SpineTextureLoader::unload(void *texture) {
 
 namespace spine
 {
-#ifndef __ANDROID__
+//TODO: load by my resource system
+
+    class SpineLoaderExtension : public DefaultSpineExtension {
+    protected:
+        char* _readFile(const String& path, int* length) override {
+            LOG_INFO << UTILS::format("AndroidSpineExtension _readFile: {}", path.buffer());
+
+            auto realPath = UTILS::GetRealPath(path.buffer());
+            char* readBuffer = nullptr;
+
+            std::ifstream file(realPath, std::ios::binary);
+            if (!file.is_open()) {
+                LOG_ERROR << "Error opening file!";
+                *length = 0;
+            	return nullptr;
+            }
+            file.seekg(0, std::ios::end);
+            size_t fileSize = file.tellg();
+            file.seekg(0, std::ios::beg);
+
+            char* buffer = new char[fileSize + 1];
+            file.read(buffer, fileSize);
+            file.close();
+            buffer[fileSize] = 0;
+            *length = static_cast<int>(fileSize);
+            
+            return readBuffer;
+        }
+    };
+
     SpineExtension* getDefaultExtension() {
-        return new DefaultSpineExtension();
+        return new SpineLoaderExtension();
     }
-#endif
 }
+#endif

@@ -1,7 +1,7 @@
 #include "indexBufferVk.h"
 
 #ifdef VULKAN_BACKEND
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 #include "driverVk.h"
 #include "shaderVk.h"
 using namespace IKIGAI;

@@ -2,13 +2,10 @@
 
 #ifdef VULKAN_BACKEND
 
-import glmath;
-
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
 #include "indexBufferVk.h"
-#include <utilsModule/vertex.h>
 
 ModelVk::ModelVk(const std::string& path) {
 	mPath = path;

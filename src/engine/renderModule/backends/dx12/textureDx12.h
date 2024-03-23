@@ -40,6 +40,7 @@ namespace IKIGAI::RENDER {
 		float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		CD3DX12_CLEAR_VALUE optClear = { mNormalPosFormat, ClearColor };
 
+		virtual void* getImguiId() override;
 
 		static void BuildDescriptors(std::shared_ptr<TextureDx12> texture);
 		static void BuildResource(std::shared_ptr<TextureDx12> texture);

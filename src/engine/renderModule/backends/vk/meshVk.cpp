@@ -54,7 +54,7 @@ void MeshVk::createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_i
 }
 
 void MeshVk::computeBoundingSphere(std::span<Vertex> vertices) {
-	mBoundingSphere.position = MATHGL::Vector3::Zero;
+	mBoundingSphere.position = MATH::Vector3f::Zero;
 	mBoundingSphere.radius = 0.0f;
 
 	if (!vertices.empty()) {
@@ -76,11 +76,11 @@ void MeshVk::computeBoundingSphere(std::span<Vertex> vertices) {
 			maxZ = std::max(maxZ, vertex.position.z);
 		}
 
-		mBoundingSphere.position = MATHGL::Vector3{ minX + maxX, minY + maxY, minZ + maxZ } / 2.0f;
+		mBoundingSphere.position = MATH::Vector3f{ minX + maxX, minY + maxY, minZ + maxZ } / 2.0f;
 
 		for (const auto& vertex : vertices) {
-			const auto& position = reinterpret_cast<const MATHGL::Vector3&>(vertex.position);
-			mBoundingSphere.radius = std::max(mBoundingSphere.radius, MATHGL::Vector3::Distance(mBoundingSphere.position, position));
+			const auto& position = reinterpret_cast<const MATH::Vector3f&>(vertex.position);
+			mBoundingSphere.radius = std::max(mBoundingSphere.radius, MATH::Vector3f::Distance(mBoundingSphere.position, position));
 		}
 	}
 }

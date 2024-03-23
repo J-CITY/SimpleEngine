@@ -11,7 +11,7 @@ using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
 #include "../../gameRendererVk.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 
 void UtilityVk::CreateBuffer(const BufferSettings& buffer_settings, VkBuffer* buffer_data, VkDeviceMemory* memory) {
 	

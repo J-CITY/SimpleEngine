@@ -1,0 +1,9 @@
+{
+	"Type": "MUSIC",
+	"Volume": 1.0,
+	"State": "PLAY",
+	"Pan": 0.0,
+	"Is3D": true,
+	"IsLooped": true,
+	"PathSoundSource": "assets/audios/sound.mp3"
+}

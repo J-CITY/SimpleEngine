@@ -1,12 +1,10 @@
 #include "modelGl.h"
 #ifdef OPENGL_BACKEND
 
-import glmath;
-
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-#include <utilsModule/vertex.h>
+#include "../../vertex.h"
 
 ModelGl::ModelGl(const std::string& path) {
 	mPath = path;

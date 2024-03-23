@@ -8,8 +8,6 @@
 #include "componentTypes.h"
 #include "systemManager.h"
 
-#include <utilsModule/pointers/objPtr.h>
-
 #include "components/physicsComponent.h"
 #include "components/AmbientLight.h"
 #include "components/AmbientSphereLight.h"
@@ -28,7 +26,6 @@
 namespace IKIGAI {
 	namespace SCENE_SYSTEM {
 		class Scene;
-		class Object;
 	}
 }
 
@@ -74,10 +71,10 @@ namespace IKIGAI::ECS {
 		std::unordered_map<Entity, Signature> signatures;
 
 	public:
-		using ComponentType = ObjectId<ComponentManager>;
+		using ComponentType = Id<ComponentManager>;
 
 	private:
-		ComponentType nextComponentType = ObjectIdGenerator<ComponentManager>::generateId();
+		ComponentType nextComponentType = IdGenerator<ComponentManager>::generateId();
 
 		std::unordered_map<const char*, ComponentType> componentTypes;
 		std::unordered_map<const char*, std::shared_ptr<ComponentArrayInterface>> componentArrays;
@@ -102,7 +99,7 @@ namespace IKIGAI::ECS {
 			componentArrays.insert({ typeName, std::make_shared<ComponentArray<T>>() });
 			componentArraysOff.insert({ typeName, std::make_shared<ComponentArray<T>>() });
 			
-			nextComponentType = ObjectIdGenerator<ComponentManager>::generateId();
+			nextComponentType = IdGenerator<ComponentManager>::generateId();
 		}
 
 		template<typename T>
@@ -211,7 +208,7 @@ namespace IKIGAI::ECS {
 			// Create a ComponentArray pointer and add it to the component arrays map
 			defaultArraysArchetype.insert({ typeName, std::make_shared<ComponentArray<T>>() });
 
-			nextComponentType = ObjectIdGenerator<ComponentManager>::generateId();
+			nextComponentType = IdGenerator<ComponentManager>::generateId();
 		}
 
 		template<typename T0>
@@ -260,14 +257,14 @@ namespace IKIGAI::ECS {
 				//move all component to new Archetype
 				for (auto& [ctype, cvec] : from->componentArrays) {
 					if (to->componentArrays.contains(ctype)) {
-						to->componentArrays.at(ctype)->insertDataAny(entity, cvec->getDataAny(entity));
+						to->componentArrays.at(ctype)->insertDataAny(entity, cvec->removeDataAny(entity));
 					}
 				}
 
 				//delete components from prev Archetype
-				for (auto& [ctype, cvec] : from->componentArrays) {
-					cvec->removeDataAny(entity);
-				}
+				//for (auto& [ctype, cvec] : from->componentArrays) {
+				//	cvec->removeDataAny(entity);
+				//}
 			//}
 			const auto cname = typeid(T).name();
 			if (to->componentArrays.contains(cname)) {

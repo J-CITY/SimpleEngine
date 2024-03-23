@@ -1,9 +1,0 @@
-{
-	"type": "MUSIC",
-	"volume": 1.0,
-	"state": "PLAY",
-	"pan": 0.0,
-	"is3D": true,
-	"isLooped": true,
-	"pathSoundSource": "Audio/test.mp3"
-}

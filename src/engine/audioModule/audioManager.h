@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <string>
 //#include <irrKlang.h>
-import glmath;
 
 #include <unordered_set>
 
@@ -13,6 +12,7 @@ import glmath;
 #include "soloud_wav.h"
 #include "soloud_wavstream.h"
 #include "audioSource.h"
+#include "mathModule/math.h"
 #include "utilsModule/singleton.h"
 
 namespace IKIGAI {
@@ -23,7 +23,7 @@ namespace IKIGAI {
 		};
 
 		struct Sound3d: public Sound2d {
-			MATHGL::Vector3 pos;
+			MATH::Vector3f pos;
 		};
 
 		class AudioManager
@@ -46,7 +46,7 @@ namespace IKIGAI {
 				//auto soundTracker = soundEngine->play3D(sound.path.c_str(), irrklang::vec3df(sound.pos.x, sound.pos.y, sound.pos.z), isLooped);
 			}
 
-			void setListenerPos(MATHGL::Vector3 pos, MATHGL::Vector3 dir) {
+			void setListenerPos(MATH::Vector3f pos, MATH::Vector3f dir) {
 				//soundEngine->setListenerPosition(irrklang::vec3df(pos.x, pos.y, pos.z), irrklang::vec3df(dir.x, dir.y, dir.z));
 			}
 
@@ -92,12 +92,12 @@ namespace IKIGAI {
 			void removeSource(std::optional<SoLoud::handle> id);
 
 			void set3dSoundSpeedSpeed(float speed);
-			void setListenerPos(MATHGL::Vector3 pos, MATHGL::Vector3 dir);
+			void setListenerPos(MATH::Vector3f pos, MATH::Vector3f dir);
 
-			void setListenerVelocity(MATHGL::Vector3 vel);
-			void setListenerUp(MATHGL::Vector3 up);
-			void setSourcePos(SoundResource& source, MATHGL::Vector3 pos);
-			void setSourceVelocity(SoundResource& source, MATHGL::Vector3 vel);
+			void setListenerVelocity(MATH::Vector3f vel);
+			void setListenerUp(MATH::Vector3f up);
+			void setSourcePos(SoundResource& source, MATH::Vector3f pos);
+			void setSourceVelocity(SoundResource& source, MATH::Vector3f vel);
 			void setSourceMinMaxDistance(SoundResource& source, float minDistance, float maxDistance);
 			void setSourceAttenuation(SoundResource& source, unsigned int model, float factor);
 			void setSourceDopplerFactor(SoundResource& source, float factor);

@@ -7,7 +7,7 @@
 #include <stdexcept>
 
 #include "DriverVk.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -235,11 +235,11 @@ VkExtent2D SwapChain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& surfaceCa
 	}
 	else
 	{
-		auto& win = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>();
-		auto [width, height] = win.getSize();
+		auto& win = RESOURCES::ServiceManager::Get<WINDOW::Window>();
+		const auto sz = win.getSize();
 		VkExtent2D newExtent = {};
-		newExtent.width		= static_cast<uint32_t>(width);
-		newExtent.height	= static_cast<uint32_t>(height);
+		newExtent.width		= static_cast<uint32_t>(sz.x);
+		newExtent.height	= static_cast<uint32_t>(sz.y);
 
 		newExtent.width = std::max(surfaceCapabilities.minImageExtent.width, std::min(surfaceCapabilities.maxImageExtent.width, newExtent.width));
 

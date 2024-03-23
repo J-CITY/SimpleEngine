@@ -1,15 +1,15 @@
 #include "spriteComponent.h"
 #include "../guiObject.h"
 #include <renderModule/gameRenderer.h>
-#include "../../resourceManager/shaderManager.h"
+#include "resourceModule/shaderManager.h"
 #include "../../core/core.h"
 #include "../../ecs/object.h"
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/textureGl.h>
 #endif
-#include <utilsModule/loader.h>
+#include <utilsModule/pathGetter.h>
 
-#include "coreModule/resourceManager/textureManager.h"
+#include "resourceModule/textureManager.h"
 #include "renderModule/backends/gl/shaderGl.h"
 #include "renderModule/backends/gl/vertexBufferGl.h"
 #include "utilsModule/time/time.h"
@@ -17,11 +17,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-//BATCHER
-//#ifdef OPENGL_BACKEND
-//#include <gl/glew.h>
-//#endif
-
+#ifdef OPENGL_BACKEND
 SpriteBatcher::SpriteBatcher()
 {
     // Get the texture uniform from the shader program.
@@ -58,7 +54,7 @@ SpriteBatcher::~SpriteBatcher() = default;
 
 
 
-void SpriteBatcher::Draw(const std::array<MATHGL::Vector4, 6>& verts, const RENDER::AtlasRect& uv, MATHGL::Vector4 color, 
+void SpriteBatcher::Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDER::AtlasRect& uv, MATH::Vector4f color, 
 	std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D) {
     if (mTexture != texture || mShader != shader || mIs3D != is3D) {
         Flush();
@@ -104,7 +100,7 @@ void SpriteBatcher::Flush() {
 
 	//TODO: get screen size
 	//TODO: check is 3D
-	MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
+	MATH::Matrix4f projection = MATH::Matrix4f::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
 	std::static_pointer_cast<RENDER::ShaderGl>(mShader)->setMat4("u_engine_projection", projection);
 
 
@@ -160,7 +156,6 @@ std::string SpriteComponent::getAtlasPiece()
 {
 	return mTexturePiece;
 }
-
 void SpriteAnimateComponent::updateAnim()
 {
 	mCutTime -= TIME::Timer::GetInstance().getDeltaTime().count() * mTimeScale;
@@ -247,13 +242,13 @@ void SpriteParticleComponent::spawnParticle(Emmiter& emmiter, int emmiterId) {
 		emmiter.curParticleCount++;
 		newParticle.emmiterId = emmiterId;
 		newParticle.isAlive = true;
-		newParticle.pos = MATHGL::Vector3();
+		newParticle.pos = MATH::Vector3f();
 		newParticle.life = randFloat(emmiter.lifeTime.x, emmiter.lifeTime.y);
 		newParticle.size = randFloat(emmiter.size.x, emmiter.size.y);
 		newParticle.weight = randFloat(emmiter.weight.x, emmiter.weight.y);
-		const auto angle = TO_RADIANS(randFloat(emmiter.angle.x, emmiter.angle.y));
+		const auto angle = MATH::TO_RADIANS(randFloat(emmiter.angle.x, emmiter.angle.y));
 		const auto force = randFloat(emmiter.angleForce.x, emmiter.angleForce.y);
-		newParticle.speed = MATHGL::Vector3(cos(angle), sin(angle), 0.0f) * force;
+		newParticle.speed = MATH::Vector3f(cos(angle), sin(angle), 0.0f) * force;
 	}
 }
 
@@ -483,175 +478,175 @@ ScrollComponent::ScrollComponent(Object& obj, float w, float h): Component(obj),
 //	obj.transform->globalModel(1, 3) = 0;
 //}
 
+#endif
 
 
-
-#include <rttr/registration>
-//TODO: think about save texture/textureAtlas
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::SpriteComponent>("SpriteComponent")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("TexturePath", &IKIGAI::ECS::SpriteComponent::getTexture, &IKIGAI::ECS::SpriteComponent::setTexture)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-	)
-	.property("TextureAtlasPath", &IKIGAI::ECS::SpriteComponent::getTexture, &IKIGAI::ECS::SpriteComponent::setTextureAtlas)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-	)
-	.property("TexturePiece", &IKIGAI::ECS::SpriteComponent::getAtlasPiece, &IKIGAI::ECS::SpriteComponent::setAtlasPiece)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-	);
-
-	rttr::registration::class_<IKIGAI::ECS::SpriteAnimateComponent>("SpriteAnimateComponent")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("TexturePath", &IKIGAI::ECS::SpriteAnimateComponent::getTexture, &IKIGAI::ECS::SpriteAnimateComponent::setTexture)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-	)
-	.property("TextureAtlasPath", &IKIGAI::ECS::SpriteAnimateComponent::getTexture, &IKIGAI::ECS::SpriteAnimateComponent::setTextureAtlas)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-	)
-	.property("TexturePiece", &IKIGAI::ECS::SpriteAnimateComponent::getAtlasPiece, &IKIGAI::ECS::SpriteAnimateComponent::setAtlasPiece)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-	)
-	.property("GridSize", &IKIGAI::ECS::SpriteAnimateComponent::getGridSize, &IKIGAI::ECS::SpriteAnimateComponent::setGridSize)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("FrameCount", &IKIGAI::ECS::SpriteAnimateComponent::getFrameCount, &IKIGAI::ECS::SpriteAnimateComponent::setFrameCount)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("TimeScale", &IKIGAI::ECS::SpriteAnimateComponent::mTimeScale)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	);
-
-	rttr::registration::class_<IKIGAI::ECS::SpriteParticleComponent>("SpriteParticleComponent")
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-			)
-		.property("TexturePath", &IKIGAI::ECS::SpriteParticleComponent::getTexture, &IKIGAI::ECS::SpriteParticleComponent::setTexture)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-			rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-			)
-		.property("TextureAtlasPath", &IKIGAI::ECS::SpriteParticleComponent::getTexture, &IKIGAI::ECS::SpriteParticleComponent::setTextureAtlas)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-			rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-			)
-		.property("TexturePiece", &IKIGAI::ECS::SpriteParticleComponent::getAtlasPiece, &IKIGAI::ECS::SpriteParticleComponent::setAtlasPiece)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
-			rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-			)
-		.property("Emmiters", &IKIGAI::ECS::SpriteParticleComponent::getEmmiters, &IKIGAI::ECS::SpriteParticleComponent::setEmmiters)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-		);
-
-	rttr::registration::class_<IKIGAI::ECS::SpineRefl>("SpineRefl")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Skel", &IKIGAI::ECS::SpineRefl::skelPath)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Atlas", &IKIGAI::ECS::SpineRefl::atlasPath)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	);
-
-	rttr::registration::class_<IKIGAI::ECS::SpineComponent>("SpineComponent")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Spine", &IKIGAI::ECS::SpineComponent::getSpine, &IKIGAI::ECS::SpineComponent::setSpine)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	);
-
-	rttr::registration::class_<IKIGAI::ECS::SpriteParticleComponent::Emmiter>("Emmiter")
-	(
-	rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-	)
-	.property("Count", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::count)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-	)
-	.property("LocalPos", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::localPos)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-		)
-	.property("Gravity", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::gravity)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-		)
-	.property("Color", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::color)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-		)
-		.property("Scale", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::size)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("Weight", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::weight)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("Angle", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::angle)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("AngleForce", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::angleForce)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("LifeTime", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::lifeTime)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("Piece", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::piece)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("SpawnTime", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::spawnTime)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("SpawnCount", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::spawnCount)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-		.property("Pause", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::curSpawnTime)
-		(
-			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
-			)
-	;
-
-	//MATH TODO: move somewhere
-	rttr::registration::class_<IKIGAI::MATHGL::Vector2f>("Vector2f")
-		.property("X", &IKIGAI::MATHGL::Vector2f::x)
-		.property("Y", &IKIGAI::MATHGL::Vector2f::y);
-
-	rttr::registration::class_<IKIGAI::MATHGL::Vector2i>("Vector2i")
-		.property("X", &IKIGAI::MATHGL::Vector2i::x)
-		.property("Y", &IKIGAI::MATHGL::Vector2i::y);
-}
+//#include <rttr/registration>
+////TODO: think about save texture/textureAtlas
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::SpriteComponent>("SpriteComponent")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("TexturePath", &IKIGAI::ECS::SpriteComponent::getTexture, &IKIGAI::ECS::SpriteComponent::setTexture)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//	)
+//	.property("TextureAtlasPath", &IKIGAI::ECS::SpriteComponent::getTexture, &IKIGAI::ECS::SpriteComponent::setTextureAtlas)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//	)
+//	.property("TexturePiece", &IKIGAI::ECS::SpriteComponent::getAtlasPiece, &IKIGAI::ECS::SpriteComponent::setAtlasPiece)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//	);
+//
+//	rttr::registration::class_<IKIGAI::ECS::SpriteAnimateComponent>("SpriteAnimateComponent")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("TexturePath", &IKIGAI::ECS::SpriteAnimateComponent::getTexture, &IKIGAI::ECS::SpriteAnimateComponent::setTexture)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//	)
+//	.property("TextureAtlasPath", &IKIGAI::ECS::SpriteAnimateComponent::getTexture, &IKIGAI::ECS::SpriteAnimateComponent::setTextureAtlas)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//	)
+//	.property("TexturePiece", &IKIGAI::ECS::SpriteAnimateComponent::getAtlasPiece, &IKIGAI::ECS::SpriteAnimateComponent::setAtlasPiece)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//	)
+//	.property("GridSize", &IKIGAI::ECS::SpriteAnimateComponent::getGridSize, &IKIGAI::ECS::SpriteAnimateComponent::setGridSize)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("FrameCount", &IKIGAI::ECS::SpriteAnimateComponent::getFrameCount, &IKIGAI::ECS::SpriteAnimateComponent::setFrameCount)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("TimeScale", &IKIGAI::ECS::SpriteAnimateComponent::mTimeScale)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	);
+//
+//	rttr::registration::class_<IKIGAI::ECS::SpriteParticleComponent>("SpriteParticleComponent")
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//			)
+//		.property("TexturePath", &IKIGAI::ECS::SpriteParticleComponent::getTexture, &IKIGAI::ECS::SpriteParticleComponent::setTexture)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//			rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//			)
+//		.property("TextureAtlasPath", &IKIGAI::ECS::SpriteParticleComponent::getTexture, &IKIGAI::ECS::SpriteParticleComponent::setTextureAtlas)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//			rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//			)
+//		.property("TexturePiece", &IKIGAI::ECS::SpriteParticleComponent::getAtlasPiece, &IKIGAI::ECS::SpriteParticleComponent::setAtlasPiece)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR | MetaInfo::OPTIONAL_PARAM),
+//			rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
+//			)
+//		.property("Emmiters", &IKIGAI::ECS::SpriteParticleComponent::getEmmiters, &IKIGAI::ECS::SpriteParticleComponent::setEmmiters)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//		);
+//
+//	rttr::registration::class_<IKIGAI::ECS::SpineRefl>("SpineRefl")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Skel", &IKIGAI::ECS::SpineRefl::skelPath)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Atlas", &IKIGAI::ECS::SpineRefl::atlasPath)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	);
+//
+//	rttr::registration::class_<IKIGAI::ECS::SpineComponent>("SpineComponent")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Spine", &IKIGAI::ECS::SpineComponent::getSpine, &IKIGAI::ECS::SpineComponent::setSpine)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	);
+//
+//	rttr::registration::class_<IKIGAI::ECS::SpriteParticleComponent::Emmiter>("Emmiter")
+//	(
+//	rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
+//	)
+//	.property("Count", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::count)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//	)
+//	.property("LocalPos", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::localPos)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//		)
+//	.property("Gravity", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::gravity)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//		)
+//	.property("Color", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::color)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//		)
+//		.property("Scale", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::size)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("Weight", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::weight)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("Angle", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::angle)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("AngleForce", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::angleForce)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("LifeTime", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::lifeTime)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("Piece", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::piece)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("SpawnTime", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::spawnTime)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("SpawnCount", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::spawnCount)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//		.property("Pause", &IKIGAI::ECS::SpriteParticleComponent::Emmiter::curSpawnTime)
+//		(
+//			rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR)
+//			)
+//	;
+//
+//	//MATH TODO: move somewhere
+//	rttr::registration::class_<IKIGAI::MATHGL::Vector2f>("Vector2f")
+//		.property("X", &IKIGAI::MATHGL::Vector2f::x)
+//		.property("Y", &IKIGAI::MATHGL::Vector2f::y);
+//
+//	rttr::registration::class_<IKIGAI::MATHGL::Vector2i>("Vector2i")
+//		.property("X", &IKIGAI::MATHGL::Vector2i::x)
+//		.property("Y", &IKIGAI::MATHGL::Vector2i::y);
+//}

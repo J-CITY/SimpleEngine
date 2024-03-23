@@ -3,12 +3,17 @@
 #include <chrono>
 #include <string>
 
-#include "../../resourceManager/serializerInterface.h"
-#include <utilsModule/pointers/objPtr.h>
 #include <utilsModule/weakPtr.h>
 #include <utilsModule/result.h>
 
-#include "utilsModule/jsonParser/jsonParser.h"
+#include "resourceModule/serializerInterface.h"
+#include "utilsModule/jsonLoader.h"
+#include "utilsModule/ref.h"
+
+//because need in all component
+#include "utilsModule/reflection/reflection.h"
+#include <serdepp/attribute/default.hpp>
+#include <serdepp/serializer.hpp>
 
 namespace IKIGAI::ECS { class Object; }
 
@@ -18,9 +23,11 @@ namespace IKIGAI::ECS {
 		template<class T>
 		friend UTILS::Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
 	public:
+
+		struct Descriptor {};
 		//Component();
 		Component(UTILS::Ref<ECS::Object> obj);
-		virtual ~Component();
+		~Component() override;
 
 		virtual void onAwake() {}
 		virtual void onStart() {}
@@ -55,4 +62,14 @@ namespace IKIGAI::ECS {
 	protected:
 		std::string __NAME__;
 	};
+
+	template<class T>
+	inline std::string GetType() {
+		return "";
+	}
+
+	template<class T>
+	inline std::string GetComponentName() {
+		return "";
+	}
 }

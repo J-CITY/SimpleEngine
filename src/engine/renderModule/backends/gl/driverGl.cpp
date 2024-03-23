@@ -1,11 +1,12 @@
 #include "driverGl.h"
 
+#include <iostream>
+
 #ifdef OPENGL_BACKEND
-#include <gl/glew.h>
+#include <coreModule/graphicsWrapper.hpp>
 #include <string>
 #include "../interface/meshInterface.h"
 
-import logger;
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -18,11 +19,13 @@ GLenum PrimitiveModeTable[] = {
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
+#ifndef USING_GLES
 	GL_LINES_ADJACENCY,
 	GL_LINE_STRIP_ADJACENCY,
 	GL_TRIANGLES_ADJACENCY,
 	GL_TRIANGLE_STRIP_ADJACENCY,
 	GL_PATCHES
+#endif
 };
 GLenum RenderingCapabilityTable[] = {
 	GL_BLEND,
@@ -34,12 +37,16 @@ GLenum RenderingCapabilityTable[] = {
 	GL_SAMPLE_COVERAGE,
 	GL_SCISSOR_TEST,
 	GL_STENCIL_TEST,
+#ifndef USING_GLES
 	GL_MULTISAMPLE
+#endif
 };
 GLenum RasterizationModeTable[] = {
+#ifndef USING_GLES
 	GL_POINT,
 	GL_LINE,
 	GL_FILL
+#endif
 };
 GLenum ComparaisonAlgorithmTable[] = {
 	GL_NEVER,
@@ -70,12 +77,15 @@ GLenum CullFaceTable[] = {
 GLenum PixelDataTypeTable[] = {
 	GL_BYTE,
 	GL_UNSIGNED_BYTE,
+#ifndef USING_GLES
 	GL_BITMAP,
+#endif
 	GL_SHORT,
 	GL_UNSIGNED_SHORT,
 	GL_INT,
 	GL_UNSIGNED_INT,
 	GL_FLOAT,
+#ifndef USING_GLES
 	GL_UNSIGNED_BYTE_3_3_2,
 	GL_UNSIGNED_BYTE_2_3_3_REV,
 	GL_UNSIGNED_SHORT_5_6_5,
@@ -88,19 +98,28 @@ GLenum PixelDataTypeTable[] = {
 	GL_UNSIGNED_INT_8_8_8_8_REV,
 	GL_UNSIGNED_INT_10_10_10_2,
 	GL_UNSIGNED_INT_2_10_10_10_REV
+#endif
 };
 GLenum PixelDataFormatTable[] = {
+#ifndef USING_GLES
 	GL_COLOR_INDEX,
 	GL_STENCIL_INDEX,
+#endif
 	GL_DEPTH_COMPONENT,
+#ifndef USING_GLES
 	GL_RED,
 	GL_GREEN,
 	GL_BLUE,
+#endif
 	GL_ALPHA,
 	GL_RGB,
+#ifndef USING_GLES
 	GL_BGR,
+#endif
 	GL_RGBA,
+#ifndef USING_GLES
 	GL_BGRA,
+#endif
 	GL_LUMINANCE,
 	GL_LUMINANCE_ALPHA
 };
@@ -147,13 +166,15 @@ void DriverGl::drawIndexed(std::shared_ptr<ShaderInterface> shader, size_t index
 }
 
 void DriverGl::initGlew() {
+#ifndef USING_GLES
 	glewExperimental = GL_TRUE;
 	const GLenum error = glewInit();
 	if (error != GLEW_OK) {
 		std::string message = "GlManager::ERROR init GLEW: ";
 		std::string glewError = reinterpret_cast<const char*>(glewGetErrorString(error));
-		LOG_INFO(message + glewError);
+		//LOG_INFO(message + glewError);
 	}
+#endif
 }
 
 int DriverGl::init() {
@@ -175,7 +196,7 @@ int DriverGl::init() {
 	return 0;
 }
 
-
+#ifndef OCULUS
 void DriverGl::GLDebugMessageCallback(uint32_t source, uint32_t type, uint32_t id, uint32_t severity, int32_t length, const char* message, const void* userParam) {
 	if (id == 131169 || id == 131185 || id == 131218 || id == 131204) {
 		return;
@@ -185,7 +206,7 @@ void DriverGl::GLDebugMessageCallback(uint32_t source, uint32_t type, uint32_t i
 
 	output += "OpenGL Debug Message:\n";
 	output += "Debug message (" + std::to_string(id) + "): " + message + "\n";
-
+#ifndef USING_GLES
 	switch (source) {
 	case GL_DEBUG_SOURCE_API:				output += "Source: API";				break;
 	case GL_DEBUG_SOURCE_WINDOW_SYSTEM:		output += "Source: Window System";		break;
@@ -219,13 +240,15 @@ void DriverGl::GLDebugMessageCallback(uint32_t source, uint32_t type, uint32_t i
 	}
 
 	switch (severity) {
-	case GL_DEBUG_SEVERITY_HIGH:			LOG_ERROR(output);	break;
-	case GL_DEBUG_SEVERITY_MEDIUM:			LOG_WARNING(output);	break;
-	case GL_DEBUG_SEVERITY_LOW:				LOG_INFO(output);		break;
-	case GL_DEBUG_SEVERITY_NOTIFICATION:	LOG_INFO(output);			break;
+	case GL_DEBUG_SEVERITY_HIGH:			std::cout << (output);	break;
+	case GL_DEBUG_SEVERITY_MEDIUM:			std::cout << (output);	break;
+	case GL_DEBUG_SEVERITY_LOW:				std::cout << (output);		break;
+	case GL_DEBUG_SEVERITY_NOTIFICATION:	std::cout << (output);			break;
 	}
-}
+#endif
 
+}
+#endif
 ///
 
 void DriverGl::useDepthFunction(DepthFunction function) {
@@ -268,6 +291,7 @@ void DriverGl::drawIndices(PrimitiveMode primitive, size_t indexCount, size_t in
 }
 
 void DriverGl::drawIndicesBaseVertex(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex) {
+#ifndef USING_GLES
 	glDrawElementsBaseVertex(
 		PrimitiveModeTable[static_cast<GLenum>(primitive)],
 		indexCount,
@@ -275,10 +299,13 @@ void DriverGl::drawIndicesBaseVertex(PrimitiveMode primitive, size_t indexCount,
 		(void*)(indexOffset * sizeof(unsigned)),
 		baseVertex
 	);
+#endif
+
 }
 
 void DriverGl::drawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t indexCount, size_t indexOffset,
 	size_t baseVertex, size_t instanceCount, size_t baseInstance) {
+#ifndef USING_GLES
 	glDrawElementsInstancedBaseVertexBaseInstance(
 		PrimitiveModeTable[static_cast<GLenum>(primitive)],
 		indexCount,
@@ -288,10 +315,15 @@ void DriverGl::drawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t in
 		baseVertex,
 		baseInstance
 	);
+#endif
+
 }
 
 void DriverGl::setPatchSize(int sz) const {
+#ifndef USING_GLES
 	glPatchParameteri(GL_PATCH_VERTICES, sz);
+#endif
+
 }
 
 void DriverGl::useBlendFactors(BlendFactor src, BlendFactor dist) {
@@ -305,6 +337,7 @@ void DriverGl::useBlendFactors(BlendFactor src, BlendFactor dist) {
 }
 
 void DriverGl::useReversedDepth(bool value) {
+#ifndef USING_GLES
 	if (value) {
 		glClearDepth(0.0f);
 		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
@@ -315,6 +348,7 @@ void DriverGl::useReversedDepth(bool value) {
 		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
 		useDepthFunction(DepthFunction::LESS);
 	}
+#endif
 }
 
 void DriverGl::setClearColor(float red, float green, float blue, float alpha) {
@@ -334,7 +368,10 @@ void DriverGl::setRasterizationLinesWidth(float width) {
 }
 
 void DriverGl::setRasterizationMode(RasterizationMode rasterizationMode) {
+#ifndef USING_GLES
 	glPolygonMode(GL_FRONT_AND_BACK, RasterizationModeTable[static_cast<GLenum>(rasterizationMode)]);
+#endif
+
 }
 
 void DriverGl::setCapability(RenderingCapability capability, bool value) {
@@ -394,8 +431,10 @@ bool DriverGl::getBool(GLenum parameter) {
 }
 
 bool DriverGl::getBool(GLenum parameter, uint32_t index) {
-	GLboolean result;
+	GLboolean result = 0;
+#ifndef USING_GLES
 	glGetBooleani_v(parameter, index, &result);
+#endif
 	return static_cast<bool>(result);
 }
 
@@ -406,44 +445,57 @@ int DriverGl::getInt(GLenum parameter) {
 }
 
 int DriverGl::getInt(GLenum parameter, uint32_t index) {
-	GLint result;
+	GLint result = 0;
+#ifndef USING_GLES
 	glGetIntegeri_v(parameter, index, &result);
+#endif
 	return static_cast<int>(result);
 }
 
 float DriverGl::getFloat(GLenum parameter) {
-	GLfloat result;
+	GLfloat result = 0;
 	glGetFloatv(parameter, &result);
 	return static_cast<float>(result);
 }
 
 float DriverGl::getFloat(GLenum parameter, uint32_t index) {
-	GLfloat result;
+	GLfloat result = 0;
+#ifndef USING_GLES
 	glGetFloati_v(parameter, index, &result);
+#endif
 	return static_cast<float>(result);
 }
 
 double DriverGl::getDouble(GLenum parameter) {
-	GLdouble result;
+	double result = 0;
+#ifndef USING_GLES
 	glGetDoublev(parameter, &result);
+#endif
 	return static_cast<double>(result);
 }
 
 double DriverGl::getDouble(GLenum parameter, uint32_t index) {
-	GLdouble result;
+	double result = 0;
+#ifndef USING_GLES
 	glGetDoublei_v(parameter, index, &result);
+#endif
 	return static_cast<double>(result);
 }
 
 int64_t DriverGl::getInt64(GLenum parameter) {
-	GLint64 result;
+	GLint64 result = 0;
+#ifndef USING_GLES
 	glGetInteger64v(parameter, &result);
+#endif
+
 	return static_cast<int64_t>(result);
 }
 
 int64_t DriverGl::getInt64(GLenum parameter, uint32_t index) {
-	GLint64 result;
+	GLint64 result = 0;
+#ifndef USING_GLES
 	glGetInteger64i_v(parameter, index, &result);
+#endif
 	return static_cast<int64_t>(result);
 }
 
@@ -453,8 +505,12 @@ std::string DriverGl::getString(GLenum parameter) {
 }
 
 std::string DriverGl::getString(GLenum parameter, uint32_t index) {
+#ifndef USING_GLES
 	const GLubyte* result = glGetStringi(parameter, index);
 	return result ? reinterpret_cast<const char*>(result) : std::string();
+#else
+	return std::string();
+#endif
 }
 
 void DriverGl::clearFrameInfo() {
@@ -476,7 +532,9 @@ void DriverGl::draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t
 				glDrawElements(PrimitiveModeTable[static_cast<GLenum>(primitive)], mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr);
 			}
 			else {
+#ifndef USING_GLES
 				glDrawElementsInstanced(PrimitiveModeTable[static_cast<GLenum>(primitive)], mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr, instances);
+#endif
 			}
 		}
 		else {
@@ -487,7 +545,9 @@ void DriverGl::draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t
 				glDrawArrays(PrimitiveModeTable[static_cast<GLenum>(primitive)], 0, mesh.getVertexCount());
 			}
 			else {
+#ifndef USING_GLES
 				glDrawArraysInstanced(PrimitiveModeTable[static_cast<GLenum>(primitive)], 0, mesh.getVertexCount(), instances);
+#endif
 			}
 		}
 		mesh.unbind();

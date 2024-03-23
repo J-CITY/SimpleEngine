@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include "utilsModule/pathGetter.h"
+
 #ifdef VULKAN_BACKEND
 #include <fstream>
 #include <stdexcept>
@@ -12,15 +14,13 @@
 
 #include "../spirv_reflect.h"
 #include "../spirv.h"
-#include <coreModule/resourceManager/serviceManager.h>
+#include <resourceModule/serviceManager.h>
 #include "../interface/reflectionStructs.h"
-
-#include <utilsModule/loader.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 static std::vector<char> readFile(const std::string& filename) {
-	std::ifstream file(IKIGAI::UTILS::getRealPath(filename), std::ios::ate | std::ios::binary);
+	std::ifstream file(IKIGAI::UTILS::GetRealPath(filename), std::ios::ate | std::ios::binary);
 
 	if (!file.is_open()) {
 		throw std::runtime_error("failed to open file!");

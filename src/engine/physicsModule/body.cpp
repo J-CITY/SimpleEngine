@@ -5,98 +5,98 @@
 #include <array>
 using namespace IKIGAI;
 using namespace IKIGAI::PHYSICS;
-using namespace IKIGAI::MATHGL;
+using namespace IKIGAI::MATH;
 
-static inline void _transformInertiaTensor(Matrix3 &iitWorld,
-                                           const Quaternion &q,
-                                           const Matrix3 &iitBody,
-                                           const Matrix4 &rotmat)
+static inline void _transformInertiaTensor(Matrix3f &iitWorld,
+                                           const QuaternionF &q,
+                                           const Matrix3f &iitBody,
+                                           const Matrix4f &rotmat)
 {
-    float t4 = rotmat.data[0]*iitBody.data[0]+
-        rotmat.data[1]*iitBody.data[3]+
-        rotmat.data[2]*iitBody.data[6];
-    float t9 = rotmat.data[0]*iitBody.data[1]+
-        rotmat.data[1]*iitBody.data[4]+
-        rotmat.data[2]*iitBody.data[7];
-    float t14 = rotmat.data[0]*iitBody.data[2]+
-        rotmat.data[1]*iitBody.data[5]+
-        rotmat.data[2]*iitBody.data[8];
-    float t28 = rotmat.data[4]*iitBody.data[0]+
-        rotmat.data[5]*iitBody.data[3]+
-        rotmat.data[6]*iitBody.data[6];
-    float t33 = rotmat.data[4]*iitBody.data[1]+
-        rotmat.data[5]*iitBody.data[4]+
-        rotmat.data[6]*iitBody.data[7];
-    float t38 = rotmat.data[4]*iitBody.data[2]+
-        rotmat.data[5]*iitBody.data[5]+
-        rotmat.data[6]*iitBody.data[8];
-    float t52 = rotmat.data[8]*iitBody.data[0]+
-        rotmat.data[9]*iitBody.data[3]+
-        rotmat.data[10]*iitBody.data[6];
-    float t57 = rotmat.data[8]*iitBody.data[1]+
-        rotmat.data[9]*iitBody.data[4]+
-        rotmat.data[10]*iitBody.data[7];
-    float t62 = rotmat.data[8]*iitBody.data[2]+
-        rotmat.data[9]*iitBody.data[5]+
-        rotmat.data[10]*iitBody.data[8];
+    float t4 = rotmat.getData()[0]*iitBody.getData()[0]+
+        rotmat.getData()[1]*iitBody.getData()[3]+
+        rotmat.getData()[2]*iitBody.getData()[6];
+    float t9 = rotmat.getData()[0]*iitBody.getData()[1]+
+        rotmat.getData()[1]*iitBody.getData()[4]+
+        rotmat.getData()[2]*iitBody.getData()[7];
+    float t14 = rotmat.getData()[0]*iitBody.getData()[2]+
+        rotmat.getData()[1]*iitBody.getData()[5]+
+        rotmat.getData()[2]*iitBody.getData()[8];
+    float t28 = rotmat.getData()[4]*iitBody.getData()[0]+
+        rotmat.getData()[5]*iitBody.getData()[3]+
+        rotmat.getData()[6]*iitBody.getData()[6];
+    float t33 = rotmat.getData()[4]*iitBody.getData()[1]+
+        rotmat.getData()[5]*iitBody.getData()[4]+
+        rotmat.getData()[6]*iitBody.getData()[7];
+    float t38 = rotmat.getData()[4]*iitBody.getData()[2]+
+        rotmat.getData()[5]*iitBody.getData()[5]+
+        rotmat.getData()[6]*iitBody.getData()[8];
+    float t52 = rotmat.getData()[8]*iitBody.getData()[0]+
+        rotmat.getData()[9]*iitBody.getData()[3]+
+        rotmat.getData()[10]*iitBody.getData()[6];
+    float t57 = rotmat.getData()[8]*iitBody.getData()[1]+
+        rotmat.getData()[9]*iitBody.getData()[4]+
+        rotmat.getData()[10]*iitBody.getData()[7];
+    float t62 = rotmat.getData()[8]*iitBody.getData()[2]+
+        rotmat.getData()[9]*iitBody.getData()[5]+
+        rotmat.getData()[10]*iitBody.getData()[8];
 
-    iitWorld.data[0] = t4*rotmat.data[0]+
-        t9*rotmat.data[1]+
-        t14*rotmat.data[2];
-    iitWorld.data[1] = t4*rotmat.data[4]+
-        t9*rotmat.data[5]+
-        t14*rotmat.data[6];
-    iitWorld.data[2] = t4*rotmat.data[8]+
-        t9*rotmat.data[9]+
-        t14*rotmat.data[10];
-    iitWorld.data[3] = t28*rotmat.data[0]+
-        t33*rotmat.data[1]+
-        t38*rotmat.data[2];
-    iitWorld.data[4] = t28*rotmat.data[4]+
-        t33*rotmat.data[5]+
-        t38*rotmat.data[6];
-    iitWorld.data[5] = t28*rotmat.data[8]+
-        t33*rotmat.data[9]+
-        t38*rotmat.data[10];
-    iitWorld.data[6] = t52*rotmat.data[0]+
-        t57*rotmat.data[1]+
-        t62*rotmat.data[2];
-    iitWorld.data[7] = t52*rotmat.data[4]+
-        t57*rotmat.data[5]+
-        t62*rotmat.data[6];
-    iitWorld.data[8] = t52*rotmat.data[8]+
-        t57*rotmat.data[9]+
-        t62*rotmat.data[10];
+    iitWorld.getData()[0] = t4*rotmat.getData()[0]+
+        t9*rotmat.getData()[1]+
+        t14*rotmat.getData()[2];
+    iitWorld.getData()[1] = t4*rotmat.getData()[4]+
+        t9*rotmat.getData()[5]+
+        t14*rotmat.getData()[6];
+    iitWorld.getData()[2] = t4*rotmat.getData()[8]+
+        t9*rotmat.getData()[9]+
+        t14*rotmat.getData()[10];
+    iitWorld.getData()[3] = t28*rotmat.getData()[0]+
+        t33*rotmat.getData()[1]+
+        t38*rotmat.getData()[2];
+    iitWorld.getData()[4] = t28*rotmat.getData()[4]+
+        t33*rotmat.getData()[5]+
+        t38*rotmat.getData()[6];
+    iitWorld.getData()[5] = t28*rotmat.getData()[8]+
+        t33*rotmat.getData()[9]+
+        t38*rotmat.getData()[10];
+    iitWorld.getData()[6] = t52*rotmat.getData()[0]+
+        t57*rotmat.getData()[1]+
+        t62*rotmat.getData()[2];
+    iitWorld.getData()[7] = t52*rotmat.getData()[4]+
+        t57*rotmat.getData()[5]+
+        t62*rotmat.getData()[6];
+    iitWorld.getData()[8] = t52*rotmat.getData()[8]+
+        t57*rotmat.getData()[9]+
+        t62*rotmat.getData()[10];
 }
 
 
-static inline void _calculateTransformMatrix(Matrix4 &transformMatrix,
-                                             const Vector3 &position,
-                                             const Quaternion &orientation)
+static inline void _calculateTransformMatrix(Matrix4f &transformMatrix,
+                                             const Vector3f &position,
+                                             const QuaternionF &orientation)
 {
-    transformMatrix.data[0] = 1-2*orientation.y*orientation.y-
+    transformMatrix.getData()[0] = 1-2*orientation.y*orientation.y-
         2*orientation.z*orientation.z;
-    transformMatrix.data[1] = 2*orientation.x*orientation.y -
+    transformMatrix.getData()[1] = 2*orientation.x*orientation.y -
         2*orientation.w*orientation.z;
-    transformMatrix.data[2] = 2*orientation.x*orientation.z +
+    transformMatrix.getData()[2] = 2*orientation.x*orientation.z +
         2*orientation.w*orientation.y;
-    transformMatrix.data[3] = position.x;
+    transformMatrix.getData()[3] = position.x;
 
-    transformMatrix.data[4] = 2*orientation.x*orientation.y +
+    transformMatrix.getData()[4] = 2*orientation.x*orientation.y +
         2*orientation.w*orientation.z;
-    transformMatrix.data[5] = 1-2*orientation.x*orientation.x-
+    transformMatrix.getData()[5] = 1-2*orientation.x*orientation.x-
         2*orientation.z*orientation.z;
-    transformMatrix.data[6] = 2*orientation.y*orientation.z -
+    transformMatrix.getData()[6] = 2*orientation.y*orientation.z -
         2*orientation.w*orientation.x;
-    transformMatrix.data[7] = position.y;
+    transformMatrix.getData()[7] = position.y;
 
-    transformMatrix.data[8] = 2*orientation.x*orientation.z -
+    transformMatrix.getData()[8] = 2*orientation.x*orientation.z -
         2*orientation.w*orientation.y;
-    transformMatrix.data[9] = 2*orientation.y*orientation.z +
+    transformMatrix.getData()[9] = 2*orientation.y*orientation.z +
         2*orientation.w*orientation.x;
-    transformMatrix.data[10] = 1-2*orientation.x*orientation.x-
+    transformMatrix.getData()[10] = 1-2*orientation.x*orientation.x-
         2*orientation.y*orientation.y;
-    transformMatrix.data[11] = position.z;
+    transformMatrix.getData()[11] = position.z;
 }
 
 
@@ -126,7 +126,7 @@ bool RigidBody::integrate(float duration)
     lastFrameAcceleration.addScaledVector(forceAccum, inverseMass);
 
     // Calculate angular acceleration from torque inputs.
-    Vector3 angularAcceleration =
+    Vector3f angularAcceleration =
         inverseInertiaTensorWorld.transform(torqueAccum);
 
     // Adjust velocities
@@ -165,8 +165,8 @@ bool RigidBody::integrate(float duration)
         float bias = pow(0.5, duration);
         motion = bias*motion + (1-bias)*currentMotion;
 
-        if (motion < sleepEpsilon) setAwake(false);
-        else if (motion > 10 * sleepEpsilon) motion = 10 * sleepEpsilon;
+        if (motion < SLEEP_EPS) setAwake(false);
+        else if (motion > 10 * SLEEP_EPS) motion = 10 * SLEEP_EPS;
     }
     return (prevPos != position) || (prevOrient != orientation);
 }
@@ -201,56 +201,56 @@ bool RigidBody::hasFiniteMass() const
     return inverseMass >= 0.0f;
 }
 
-void RigidBody::setInertiaTensor(const Matrix3 &inertiaTensor)
+void RigidBody::setInertiaTensor(const Matrix3f &inertiaTensor)
 {
     inverseInertiaTensor.setInverse(inertiaTensor);
 }
 
-void RigidBody::getInertiaTensor(Matrix3 *inertiaTensor) const
+void RigidBody::getInertiaTensor(Matrix3f *inertiaTensor) const
 {
     inertiaTensor->setInverse(inverseInertiaTensor);
 }
 
-Matrix3 RigidBody::getInertiaTensor() const
+Matrix3f RigidBody::getInertiaTensor() const
 {
-    Matrix3 it;
+    Matrix3f it;
     getInertiaTensor(&it);
     return it;
 }
 
-void RigidBody::getInertiaTensorWorld(Matrix3 *inertiaTensor) const
+void RigidBody::getInertiaTensorWorld(Matrix3f *inertiaTensor) const
 {
     inertiaTensor->setInverse(inverseInertiaTensorWorld);
 }
 
-Matrix3 RigidBody::getInertiaTensorWorld() const
+Matrix3f RigidBody::getInertiaTensorWorld() const
 {
-    Matrix3 it;
+    Matrix3f it;
     getInertiaTensorWorld(&it);
     return it;
 }
 
-void RigidBody::setInverseInertiaTensor(const Matrix3 &inverseInertiaTensor)
+void RigidBody::setInverseInertiaTensor(const Matrix3f &inverseInertiaTensor)
 {
     RigidBody::inverseInertiaTensor = inverseInertiaTensor;
 }
 
-void RigidBody::getInverseInertiaTensor(Matrix3 *inverseInertiaTensor) const
+void RigidBody::getInverseInertiaTensor(Matrix3f *inverseInertiaTensor) const
 {
     *inverseInertiaTensor = RigidBody::inverseInertiaTensor;
 }
 
-Matrix3 RigidBody::getInverseInertiaTensor() const
+Matrix3f RigidBody::getInverseInertiaTensor() const
 {
     return inverseInertiaTensor;
 }
 
-void RigidBody::getInverseInertiaTensorWorld(Matrix3 *inverseInertiaTensor) const
+void RigidBody::getInverseInertiaTensorWorld(Matrix3f *inverseInertiaTensor) const
 {
     *inverseInertiaTensor = inverseInertiaTensorWorld;
 }
 
-Matrix3 RigidBody::getInverseInertiaTensorWorld() const
+Matrix3f RigidBody::getInverseInertiaTensorWorld() const
 {
     return inverseInertiaTensorWorld;
 }
@@ -282,7 +282,7 @@ float RigidBody::getAngularDamping() const
     return angularDamping;
 }
 
-void RigidBody::setPosition(const Vector3 &position)
+void RigidBody::setPosition(const Vector3f &position)
 {
     RigidBody::position = position;
 }
@@ -294,17 +294,17 @@ void RigidBody::setPosition(const float x, const float y, const float z)
     position.z = z;
 }
 
-void RigidBody::getPosition(Vector3 *position) const
+void RigidBody::getPosition(Vector3f *position) const
 {
     *position = RigidBody::position;
 }
 
-Vector3 RigidBody::getPosition() const
+Vector3f RigidBody::getPosition() const
 {
     return position;
 }
 
-void RigidBody::setOrientation(const Quaternion &orientation)
+void RigidBody::setOrientation(const QuaternionF &orientation)
 {
     RigidBody::orientation = orientation;
     RigidBody::orientation.normalise();
@@ -320,30 +320,30 @@ void RigidBody::setOrientation(const float r, const float i,
     orientation.normalise();
 }
 
-void RigidBody::getOrientation(Quaternion *orientation) const
+void RigidBody::getOrientation(QuaternionF *orientation) const
 {
     *orientation = RigidBody::orientation;
 }
 
-Quaternion RigidBody::getOrientation() const
+QuaternionF RigidBody::getOrientation() const
 {
     return orientation;
 }
 
-void RigidBody::getOrientation(Matrix3 *matrix) const
+void RigidBody::getOrientation(Matrix3f *matrix) const
 {
     //getOrientation(matrix->data);
-    matrix[0] = transformMatrix.data[0];
-    matrix[1] = transformMatrix.data[1];
-    matrix[2] = transformMatrix.data[2];
+    matrix[0] = transformMatrix.getData()[0];
+    matrix[1] = transformMatrix.getData()[1];
+    matrix[2] = transformMatrix.getData()[2];
     
-    matrix[3] = transformMatrix.data[4];
-    matrix[4] = transformMatrix.data[5];
-    matrix[5] = transformMatrix.data[6];
+    matrix[3] = transformMatrix.getData()[4];
+    matrix[4] = transformMatrix.getData()[5];
+    matrix[5] = transformMatrix.getData()[6];
     
-    matrix[6] = transformMatrix.data[8];
-    matrix[7] = transformMatrix.data[9];
-    matrix[8] = transformMatrix.data[10];
+    matrix[6] = transformMatrix.getData()[8];
+    matrix[7] = transformMatrix.getData()[9];
+    matrix[8] = transformMatrix.getData()[10];
     
 }
 
@@ -362,10 +362,10 @@ void RigidBody::getOrientation(Matrix3 *matrix) const
 //    matrix[8] = transformMatrix.data[10];
 //}
 
-void RigidBody::getTransform(Matrix4 *transform)
+void RigidBody::getTransform(Matrix4f *transform)
 {
     transformMatrix = *transform;
-    //memcpy(transform, &transformMatrix.data, sizeof(cyclone::Matrix4));
+    //memcpy(transform, &transformMatrix.data, sizeof(cyclone::Matrix4f));
 }
 
 //void RigidBody::getTransform(float matrix[16]) const
@@ -377,59 +377,59 @@ void RigidBody::getTransform(Matrix4 *transform)
 
 void RigidBody::getGLTransform(float matrix[16]) const
 {
-    matrix[0] = (float)transformMatrix.data[0];
-    matrix[1] = (float)transformMatrix.data[4];
-    matrix[2] = (float)transformMatrix.data[8];
+    matrix[0] = (float)transformMatrix.getData()[0];
+    matrix[1] = (float)transformMatrix.getData()[4];
+    matrix[2] = (float)transformMatrix.getData()[8];
     matrix[3] = 0;
 
-    matrix[4] = (float)transformMatrix.data[1];
-    matrix[5] = (float)transformMatrix.data[5];
-    matrix[6] = (float)transformMatrix.data[9];
+    matrix[4] = (float)transformMatrix.getData()[1];
+    matrix[5] = (float)transformMatrix.getData()[5];
+    matrix[6] = (float)transformMatrix.getData()[9];
     matrix[7] = 0;
 
-    matrix[8] = (float)transformMatrix.data[2];
-    matrix[9] = (float)transformMatrix.data[6];
-    matrix[10] = (float)transformMatrix.data[10];
+    matrix[8] = (float)transformMatrix.getData()[2];
+    matrix[9] = (float)transformMatrix.getData()[6];
+    matrix[10] = (float)transformMatrix.getData()[10];
     matrix[11] = 0;
 
-    matrix[12] = (float)transformMatrix.data[3];
-    matrix[13] = (float)transformMatrix.data[7];
-    matrix[14] = (float)transformMatrix.data[11];
+    matrix[12] = (float)transformMatrix.getData()[3];
+    matrix[13] = (float)transformMatrix.getData()[7];
+    matrix[14] = (float)transformMatrix.getData()[11];
     matrix[15] = 1;
 }
 
-Matrix4 RigidBody::getTransform() const
+Matrix4f RigidBody::getTransform() const
 {
     return transformMatrix;
 }
 
 
-Vector3 RigidBody::getPointInLocalSpace(const Vector3 &point) const
+Vector3f RigidBody::getPointInLocalSpace(const Vector3f &point) const
 {
     auto res = transformMatrix.transformInverse({point.x, point.y, point.z});
     return {(float)res.x, (float)res.y, (float)res.z};
 }
 
-Vector3 RigidBody::getPointInWorldSpace(const Vector3 &point) const
+Vector3f RigidBody::getPointInWorldSpace(const Vector3f &point) const
 {
     auto res = transformMatrix.transform({point.x, point.y, point.z});
     return {(float)res.x, (float)res.y, (float)res.z};
 }
 
-Vector3 RigidBody::getDirectionInLocalSpace(const Vector3 &direction) const
+Vector3f RigidBody::getDirectionInLocalSpace(const Vector3f &direction) const
 {
     auto res = transformMatrix.transformInverseDirection({direction.x, direction.y, direction.z});
     return {(float)res.x, (float)res.y, (float)res.z};
 }
 
-Vector3 RigidBody::getDirectionInWorldSpace(const Vector3 &direction) const
+Vector3f RigidBody::getDirectionInWorldSpace(const Vector3f &direction) const
 {
     auto res = transformMatrix.transformDirection({direction.x, direction.y, direction.z});
     return {(float)res.x, (float)res.y, (float)res.z};
 }
 
 
-void RigidBody::setVelocity(const Vector3 &velocity)
+void RigidBody::setVelocity(const Vector3f &velocity)
 {
     RigidBody::velocity = velocity;
 }
@@ -441,22 +441,22 @@ void RigidBody::setVelocity(const float x, const float y, const float z)
     velocity.z = z;
 }
 
-void RigidBody::getVelocity(Vector3 *velocity) const
+void RigidBody::getVelocity(Vector3f *velocity) const
 {
     *velocity = RigidBody::velocity;
 }
 
-Vector3 RigidBody::getVelocity() const
+Vector3f RigidBody::getVelocity() const
 {
     return velocity;
 }
 
-void RigidBody::addVelocity(const Vector3 &deltaVelocity)
+void RigidBody::addVelocity(const Vector3f &deltaVelocity)
 {
     velocity += deltaVelocity;
 }
 
-void RigidBody::setRotation(const Vector3 &rotation)
+void RigidBody::setRotation(const Vector3f &rotation)
 {
     RigidBody::rotation = rotation;
 }
@@ -468,17 +468,17 @@ void RigidBody::setRotation(const float x, const float y, const float z)
     rotation.z = z;
 }
 
-void RigidBody::getRotation(Vector3 *rotation) const
+void RigidBody::getRotation(Vector3f *rotation) const
 {
     *rotation = RigidBody::rotation;
 }
 
-Vector3 RigidBody::getRotation() const
+Vector3f RigidBody::getRotation() const
 {
     return rotation;
 }
 
-void RigidBody::addRotation(const Vector3 &deltaRotation)
+void RigidBody::addRotation(const Vector3f &deltaRotation)
 {
     rotation += deltaRotation;
 }
@@ -489,7 +489,7 @@ void RigidBody::setAwake(const bool awake)
         isAwake= true;
 
         // Add a bit of motion to avoid it falling asleep immediately.
-        motion = sleepEpsilon*2.0f;
+        motion = SLEEP_EPS * 2.0f;
     } else {
         isAwake = false;
         velocity.clear();
@@ -505,12 +505,12 @@ void RigidBody::setCanSleep(const bool canSleep)
 }
 
 
-void RigidBody::getLastFrameAcceleration(Vector3 *acceleration) const
+void RigidBody::getLastFrameAcceleration(Vector3f *acceleration) const
 {
     *acceleration = lastFrameAcceleration;
 }
 
-Vector3 RigidBody::getLastFrameAcceleration() const
+Vector3f RigidBody::getLastFrameAcceleration() const
 {
     return lastFrameAcceleration;
 }
@@ -521,26 +521,26 @@ void RigidBody::clearAccumulators()
     torqueAccum.clear();
 }
 
-void RigidBody::addForce(const Vector3 &force)
+void RigidBody::addForce(const Vector3f &force)
 {
     forceAccum += force;
     isAwake = true;
 }
 
-void RigidBody::addForceAtBodyPoint(const Vector3 &force,
-                                    const Vector3 &point)
+void RigidBody::addForceAtBodyPoint(const Vector3f &force,
+                                    const Vector3f &point)
 {
     // Convert to coordinates relative to center of mass.
-    Vector3 pt = getPointInWorldSpace(point);
+    Vector3f pt = getPointInWorldSpace(point);
     addForceAtPoint(force, pt);
 
 }
 
-void RigidBody::addForceAtPoint(const Vector3 &force,
-                                const Vector3 &point)
+void RigidBody::addForceAtPoint(const Vector3f &force,
+                                const Vector3f &point)
 {
     // Convert to coordinates relative to center of mass.
-    Vector3 pt = point;
+    Vector3f pt = point;
     pt -= position;
 
     forceAccum += force;
@@ -549,13 +549,13 @@ void RigidBody::addForceAtPoint(const Vector3 &force,
     isAwake = true;
 }
 
-void RigidBody::addTorque(const Vector3 &torque)
+void RigidBody::addTorque(const Vector3f &torque)
 {
     torqueAccum += torque;
     isAwake = true;
 }
 
-void RigidBody::setAcceleration(const Vector3 &acceleration)
+void RigidBody::setAcceleration(const Vector3f &acceleration)
 {
     RigidBody::acceleration = acceleration;
 }
@@ -567,12 +567,12 @@ void RigidBody::setAcceleration(const float x, const float y, const float z)
     acceleration.z = z;
 }
 
-void RigidBody::getAcceleration(Vector3 *acceleration) const
+void RigidBody::getAcceleration(Vector3f *acceleration) const
 {
     *acceleration = RigidBody::acceleration;
 }
 
-Vector3 RigidBody::getAcceleration() const
+Vector3f RigidBody::getAcceleration() const
 {
     return acceleration;
 }

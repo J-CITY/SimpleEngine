@@ -12,8 +12,9 @@ namespace IKIGAI {
 
 	class MeshGenerator {
     public:
-        static std::shared_ptr<RENDER::ModelInterface> createTerrainFromHeightmap(const std::string& fileName);
-        static std::vector<std::vector<float>> getHeightDataFromImage(const std::string& fileName);
-		static std::shared_ptr<RENDER::ModelInterface> createSquare(unsigned rez, int width, int height);
-    };
+		static std::shared_ptr<RENDER::ModelInterface> CreateTerrainFromHeightmap(const std::string& fileName);
+		static std::vector<std::vector<float>> GetHeightDataFromImage(const std::string& fileName);
+		static std::shared_ptr<RENDER::ModelInterface> CreateSquare(unsigned rez, int width, int height);
+		static std::shared_ptr<RENDER::ModelInterface> CreateQuad();
+	};
 }

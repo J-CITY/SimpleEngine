@@ -14,6 +14,8 @@
 #include "components/spotLight.h"
 #include "../gui/components/spriteComponent.h"
 #include "sceneModule/sceneManager.h"
+#include "utilsModule/visitorHelper.h"
+#include "utilsModule/log/loggerDefine.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
@@ -29,13 +31,42 @@ EVENT::Event<Object&> Object::dettachEvent;
 //	//createdEvent.run(*this);
 //}
 
-Object::Object(ObjectId<Object> actorID, const std::string& name, const std::string& tag) :
+Object::Object(Id<Object> actorID, const std::string& name, const std::string& tag) :
 	id(actorID),
 	name(name),
 	tag(tag)//,
 	/*transform(addComponent<TransformComponent>())*/ {
 	transform = addComponent<TransformComponent>();
 	createdEvent.run(*this);
+}
+
+template<class Desc, typename T>
+void AddComponentImpl(const Desc& data, ECS::Object* obj) {
+	std::cout << "LOAD SCENE Comp" << ECS::GetType<T>() << std::endl;
+	if (data.Type == ECS::GetType<T>()) {
+		auto c = obj->addComponent<T>(static_cast<const Component::Descriptor&>(data));
+	}
+}
+
+template<class Desc, template<typename...> class Container, typename...ComponentType>
+void AddComponent(const Desc& data, ECS::Object* obj, Container<ComponentType...> opt) {
+	(AddComponentImpl<Desc, ComponentType>(data, obj), ...);
+}
+
+template<class Desc>
+void AddComponent(const Desc& data, ECS::Object* obj) {
+	AddComponent(data, obj, ECS::ComponentsTypeProviderType{});
+}
+
+//TODO: set parent? when call this
+Object::Object(const Descriptor& _descriptor): id(_descriptor.Id), name(_descriptor.Name), tag(_descriptor.Tag) {
+	std::cout << "LOAD SCENE Obj" << std::endl;
+	setActive(_descriptor.IsActive);
+
+	for (auto& component : _descriptor.Components) {
+		std::visit(overloaded{[this](auto& arg) {AddComponent(arg, this);}}, component);
+	}
+	transform = getComponent<TransformComponent>();
 }
 
 Object::~Object() {
@@ -94,11 +125,11 @@ bool Object::getIsActive() const {
 	return isActive && (p ? p->getIsActive() : true);
 }
 
-void Object::setID(ObjectId<Object> val) {
+void Object::setID(Id<Object> val) {
 	id = val;
 }
 
-ObjectId<Object> Object::getID() const {
+Id<Object> Object::getID() const {
 	return id;
 }
 
@@ -109,6 +140,20 @@ void Object::setParent(std::shared_ptr<Object> _parent) {
 	getComponent<TransformComponent>()->setParent(*_parent->getComponent<TransformComponent>().get());
 
 	_parent->children.push_back(shared_from_this());
+	attachEvent.run(*this, *_parent);
+}
+
+void Object::setParentInPos(std::shared_ptr<Object> _parent, int pos) {
+	if (pos > _parent->children.size()) {
+		//TODO: problem
+		return;
+	}
+	detachFromParent();
+
+	parent = _parent;
+	getComponent<TransformComponent>()->setParent(*_parent->getComponent<TransformComponent>().get());
+
+	_parent->children.insert(_parent->children.begin() + pos, shared_from_this());
 	attachEvent.run(*this, *_parent);
 }
 
@@ -130,11 +175,11 @@ std::shared_ptr<Object> Object::getParent() const {
 	return parent.lock();
 }
 
-ObjectId<Object> Object::getParentID() const {
+Id<Object> Object::getParentID() const {
 	if (auto p = parent.lock()) {
 		return p->getID();
 	}
-	return ObjectId<Object>(0);
+	return Id<Object>(0);
 }
 
 std::span<std::shared_ptr<Object>> Object::getChildren() {
@@ -224,15 +269,15 @@ UTILS::WeakPtr<TransformComponent> Object::getTransform() const {
 	return transform;
 }
 
-ObjectData Object::getObjectData() {
-	ObjectData res;
-	res.parentId = hasParent() ? getParent()->getIDInt() : -1;
-	res.name = getName();
-	res.id = getIDInt();
-	res.isActive = getIsActive();
-	res.tag = getTag();
-	return res;
-}
+//ObjectData Object::getObjectData() {
+//	ObjectData res;
+//	res.parentId = hasParent() ? getParent()->getIDInt() : -1;
+//	res.name = getName();
+//	res.id = getIDInt();
+//	res.isActive = getIsActive();
+//	res.tag = getTag();
+//	return res;
+//}
 
 int Object::getIDInt() { return static_cast<int>(id); }
 
@@ -251,41 +296,41 @@ void Object::setParentId(int _id) {
 		return;
 	}
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
-	auto _p = scene.findObjectByID(Id(_id));
+	auto _p = scene.findObjectByID(Id_(_id));
 	if (_p) {
-		LOG_ERROR("Object::setParentId: can not find actor with id: " + std::to_string(_id));
+		LOG_ERROR << ("Object::setParentId: can not find actor with id: " + std::to_string(_id));
 	}
 	setParent(_p);
 }
 
-#include <rttr/registration>
-
-RTTR_REGISTRATION
-{
-	rttr::registration::class_<IKIGAI::ECS::ObjectData>("ObjectData")
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
-	)
-	.property("Name", &IKIGAI::ECS::ObjectData::name)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
-	)
-	.property("Tag", &IKIGAI::ECS::ObjectData::tag)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
-		rttr::metadata(MetaInfo::DEFAULT, std::string())
-	)
-	.property("Id", &IKIGAI::ECS::ObjectData::id)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
-	)
-	.property("IsActive", &IKIGAI::ECS::ObjectData::isActive)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
-		rttr::metadata(MetaInfo::DEFAULT, true)
-	)
-	.property("Parent", &IKIGAI::ECS::ObjectData::parentId)
-	(
-		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE  | MetaInfo::OPTIONAL_PARAM)
-	);
-}
+//#include <rttr/registration>
+//
+//RTTR_REGISTRATION
+//{
+//	rttr::registration::class_<IKIGAI::ECS::ObjectData>("ObjectData")
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
+//	)
+//	.property("Name", &IKIGAI::ECS::ObjectData::name)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
+//	)
+//	.property("Tag", &IKIGAI::ECS::ObjectData::tag)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
+//		rttr::metadata(MetaInfo::DEFAULT, std::string())
+//	)
+//	.property("Id", &IKIGAI::ECS::ObjectData::id)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
+//	)
+//	.property("IsActive", &IKIGAI::ECS::ObjectData::isActive)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
+//		rttr::metadata(MetaInfo::DEFAULT, true)
+//	)
+//	.property("Parent", &IKIGAI::ECS::ObjectData::parentId)
+//	(
+//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE  | MetaInfo::OPTIONAL_PARAM)
+//	);
+//}

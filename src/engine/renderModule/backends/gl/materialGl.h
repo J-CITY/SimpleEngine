@@ -7,22 +7,20 @@
 #include "shaderGl.h"
 #include "textureGl.h"
 #include "uniformBufferGl.h"
-#include <coreModule/resourceManager/serializerInterface.h>
-#include <utilsModule/loader.h>
+//#include <coreModule/resourceManager/serializerInterface.h>
+//#include <utilsModule/loader.h>
 #include <utilsModule/event.h>
 #include "../interface/materialInterface.h"
-#include <coreModule/resourceManager/fileWatcher.h>
-
-import glmath;
+//#include <coreModule/resourceManager/fileWatcher.h>
 
 namespace IKIGAI {
 	namespace RENDER {
 		class UniformBuffer;
 
-		class MaterialGl: public MaterialInterface, public RESOURCES::Serializable {
+		class MaterialGl: public MaterialInterface/*, public RESOURCES::Serializable*/ {
 		public:
 			using UniformData = std::variant<float, int, bool,
-				MATHGL::Vector2f, MATHGL::Vector3, MATHGL::Vector4,
+				MATH::Vector2f, MATH::Vector3f, MATH::Vector4f,
 				std::shared_ptr<TextureGl>, std::vector<unsigned char>>;
 
 			struct Uniform {
@@ -46,13 +44,17 @@ namespace IKIGAI {
 			bool mColorWriting = true;
 			int mGpuInstances = 1;
 			bool mIsDeferred = false;
+			ComparaisonAlgorithm mDepthFunc = ComparaisonAlgorithm::LESS;
 
 			bool mIsCastShadow = true;
 			bool mIsBakedShadow = false;
 
 			int textureSlot = 0;
 
-			~MaterialGl();
+			MaterialGl() = default;
+			MaterialGl(const MaterialResource& res);
+
+			~MaterialGl() override;
 
 			void generateUniformsData();
 		public:
@@ -112,11 +114,13 @@ namespace IKIGAI {
 				return mShader;
 			}
 
-			//TODO: add method for unsubscribe previous texture and sunscribe new. And call it when update texture
-			void set(const std::string& name, UniformData data) {
-				//TODO: add check for uniform type
-				if (mUniformData.contains(name)) mUniformData.at(name) = data;
+			ComparaisonAlgorithm getDepthFunc() const override {
+				return mDepthFunc;
 			}
+
+			//TODO: add method for unsubscribe previous texture and sunscribe new. And call it when update texture
+			void set(const std::string& name, UniformData data);
+
 
 			void setIsDeferred(bool v, std::shared_ptr<ShaderInterface> shader) override {
 				mIsDeferred = v;
@@ -164,9 +168,9 @@ namespace IKIGAI {
 					if (member.name == memberName) {
 						auto startPtr = std::get<std::vector<unsigned char>>(mUniformData.at(name)).data() + member.offset;
 						switch (member.type) {
-						case UNIFORM_TYPE::VEC4:  { MATHGL::Vector4 res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
-						case UNIFORM_TYPE::VEC3:  { MATHGL::Vector3 res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
-						case UNIFORM_TYPE::VEC2:  { MATHGL::Vector2 res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
+						case UNIFORM_TYPE::VEC4:  { MATH::Vector4f res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
+						case UNIFORM_TYPE::VEC3:  { MATH::Vector3f res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
+						case UNIFORM_TYPE::VEC2:  { MATH::Vector2f res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
 						case UNIFORM_TYPE::INT:   { int res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
 						case UNIFORM_TYPE::FLOAT: { float res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
 						case UNIFORM_TYPE::BOOL:  { bool res;  memcpy(std::addressof(res), startPtr, member.size); return res; }
@@ -186,13 +190,13 @@ namespace IKIGAI {
 				return uniformName.rfind("engine_", 0) == 0;
 			}
 
-			virtual void onSerialize(nlohmann::json& j) override;
+			//virtual void onSerialize(nlohmann::json& j) override;
 
-			bool trySetSimpleMember(const std::string& k, const nlohmann::json& v, std::optional<std::string> subname = std::nullopt);
+			bool trySetSimpleMember(const std::string& k, const MaterialResource::UniformType& v, std::optional<std::string> subname = std::nullopt);
 			
-			std::map<std::string, EVENT::Event<RESOURCES::FileWatcher::FileStatus>::id> watchingFilesId;
+			//std::map<std::string, EVENT::Event<RESOURCES::FileWatcher::FileStatus>::id> watchingFilesId;
 
-			virtual void onDeserialize(nlohmann::json& j) override;
+			//virtual void onDeserialize(nlohmann::json& j) override;
 
 			uint8_t generateStateMask() const;
 		};

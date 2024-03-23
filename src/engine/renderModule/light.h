@@ -1,11 +1,21 @@
 #pragma once
 
-import glmath;
-#include <coreModule/ecs/components/transform.h>
-#include <utilsModule/idObject.h>
+#include <utilsModule/idGenerator.h>
+
+#include "mathModule/math.h"
+
+namespace IKIGAI
+{
+	namespace ECS
+	{
+		class Transform;
+		class Object;
+	}
+}
+
 namespace IKIGAI {
 	namespace RENDER {
-
+		
 		struct LightOGL {
 			float pos[3];
 			float cutoff;
@@ -26,12 +36,12 @@ namespace IKIGAI {
 		struct Light {
 			enum class Type { NONE, POINT, DIRECTIONAL, SPOT, AMBIENT_BOX, AMBIENT_SPHERE, INPUT };
 
-			Light(ObjectId<ECS::Object> objId, Type p_type = Type::NONE);
+			Light(Id<ECS::Object> objId, Type p_type = Type::NONE);
 			[[nodiscard]] LightOGL generateOGLStruct() const;
 			[[nodiscard]] float getEffectRange() const;
 			[[nodiscard]] const ECS::Transform& getTransform() const;
 
-			MATHGL::Vector3	color = {1.f, 1.f, 1.f};
+			MATH::Vector3f color = {1.f, 1.f, 1.f};
 			float intensity = 1.f;
 			float constant = 0.0f;
 			float linear = 0.0f;
@@ -41,7 +51,8 @@ namespace IKIGAI {
 			Type type = Type::NONE;
 
 		protected:
-			ObjectId<ECS::Object> objId;
+			Id<ECS::Object> objId;
 		};
+		
 	}
 }

@@ -10,111 +10,102 @@ namespace IKIGAI::UTILS {
 
 	class ControlBlock {
 	public:
-		std::atomic_int m_rc = 0;
-		ECS::Component* m_ptr = nullptr;
+		std::atomic_int mRC = 0;
+		ECS::Component* mPtr = nullptr;
 	};
 
 	class ControlBlockHandler {
 		UTILS::ControlBlock* mCb = nullptr;
 	public:
 		ControlBlockHandler(ECS::Component* ptr);
-		ControlBlockHandler(const ControlBlockHandler& obj) {
-			mCb = obj.mCb;
-			mCb->m_rc++;
-		};
-		ControlBlockHandler& operator=(const ControlBlockHandler& obj) {
-			mCb = obj.mCb;
-			mCb->m_rc++;
-			return *this;
-		};
-		ControlBlockHandler(ControlBlockHandler&& obj) = default;
-		ControlBlockHandler& operator=(ControlBlockHandler&& obj) = default;
-
-		virtual ~ControlBlockHandler();;
-		virtual ControlBlock* getControlBlock() {
-			return mCb;
-		};
+		//TODO: delete copy constructor Need change std::any in component array
+		ControlBlockHandler(const ControlBlockHandler& obj);
+		ControlBlockHandler& operator=(const ControlBlockHandler& obj);
+		ControlBlockHandler(ControlBlockHandler&& obj) noexcept;
+		ControlBlockHandler& operator=(ControlBlockHandler&& obj) noexcept;
+		virtual ~ControlBlockHandler();
+		virtual ControlBlock* getControlBlock();
 	};
 
 	template <typename Ptr, bool = std::is_class<Ptr>::value>
-		struct has_smart_pointer_ops {
-			using false_test = char;
-			template <typename T> struct true_test { false_test dummy[2]; };
+	struct has_smart_pointer_ops {
+		using false_test = char;
+		template <typename T> struct true_test { false_test dummy[2]; };
 
-			template <typename T> static false_test test_op_star(...);
-			template <typename T>
-			static true_test<decltype(*std::declval<T const&>())>
-				test_op_star(T*);
+		template <typename T> static false_test test_op_star(...);
+		template <typename T>
+		static true_test<decltype(*std::declval<T const&>())>
+			test_op_star(T*);
 
-			template <typename T> static false_test test_op_arrow(...);
-			template <typename T>
-			static true_test<decltype(std::declval<T const&>().operator->())>
-				test_op_arrow(T*);
+		template <typename T> static false_test test_op_arrow(...);
+		template <typename T>
+		static true_test<decltype(std::declval<T const&>().operator->())>
+			test_op_arrow(T*);
 
-			template <typename T> static false_test test_get(...);
-			template <typename T>
-			static true_test<decltype(std::declval<T const&>().get())>
-				test_get(T*);
+		template <typename T> static false_test test_get(...);
+		template <typename T>
+		static true_test<decltype(std::declval<T const&>().get())>
+			test_get(T*);
 
-			static constexpr bool value =
-				!std::is_same<decltype(test_get<Ptr>(0)), false_test>::value &&
-				!std::is_same<
-				decltype(test_op_arrow<Ptr>(0)), false_test>::value &&
-				!std::is_same<
-				decltype(test_op_star<Ptr>(0)), false_test>::value;
-		};
+		static constexpr bool value =
+			!std::is_same<decltype(test_get<Ptr>(0)), false_test>::value &&
+			!std::is_same<
+			decltype(test_op_arrow<Ptr>(0)), false_test>::value &&
+			!std::is_same<
+			decltype(test_op_star<Ptr>(0)), false_test>::value;
+	};
 
-		/// Non-class types can't be smart pointers
-		template <typename Ptr>
-		struct has_smart_pointer_ops<Ptr, false> : std::false_type {};
+	/// Non-class types can't be smart pointers
+	template <typename Ptr>
+	struct has_smart_pointer_ops<Ptr, false> : std::false_type {};
 
-		/// Ensure that the smart pointer operations give consistent return
-		/// types
-		template <typename Ptr>
-		struct smart_pointer_ops_consistent
-			: std::integral_constant<
-			bool,
-			std::is_pointer<decltype(
-				std::declval<Ptr const&>().get())>::value&&
-			std::is_reference<decltype(
-				*std::declval<Ptr const&>())>::value&&
-			std::is_pointer<decltype(
-				std::declval<Ptr const&>().operator->())>::value&&
-			std::is_same<
-			decltype(std::declval<Ptr const&>().get()),
-			decltype(std::declval<Ptr const&>().
-				operator->())>::value&&
-			std::is_same<
-			decltype(*std::declval<Ptr const&>().get()),
-			decltype(*std::declval<Ptr const&>())>::value> {
-		};
+	/// Ensure that the smart pointer operations give consistent return
+	/// types
+	template <typename Ptr>
+	struct smart_pointer_ops_consistent
+		: std::integral_constant<
+		bool,
+		std::is_pointer<decltype(
+			std::declval<Ptr const&>().get())>::value&&
+		std::is_reference<decltype(
+			*std::declval<Ptr const&>())>::value&&
+		std::is_pointer<decltype(
+			std::declval<Ptr const&>().operator->())>::value&&
+		std::is_same<
+		decltype(std::declval<Ptr const&>().get()),
+		decltype(std::declval<Ptr const&>().
+			operator->())>::value&&
+		std::is_same<
+		decltype(*std::declval<Ptr const&>().get()),
+		decltype(*std::declval<Ptr const&>())>::value> {
+	};
 
-		/// Assume Ptr is a smart pointer if it has the relevant ops and they
-		/// are consistent
-		template <typename Ptr, bool = has_smart_pointer_ops<Ptr>::value>
-		struct is_smart_pointer
-			: std::integral_constant<
-			bool, smart_pointer_ops_consistent<Ptr>::value> {
-		};
+	/// Assume Ptr is a smart pointer if it has the relevant ops and they
+	/// are consistent
+	template <typename Ptr, bool = has_smart_pointer_ops<Ptr>::value>
+	struct is_smart_pointer
+		: std::integral_constant<
+		bool, smart_pointer_ops_consistent<Ptr>::value> {
+	};
 
-		/// If Ptr doesn't have the relevant ops then it can't be a smart
-		/// pointer
-		template <typename Ptr>
-		struct is_smart_pointer<Ptr, false> : std::false_type {};
+	/// If Ptr doesn't have the relevant ops then it can't be a smart
+	/// pointer
+	template <typename Ptr>
+	struct is_smart_pointer<Ptr, false> : std::false_type {};
 
-		/// Check if Ptr is a smart pointer that holds a pointer convertible to
-		/// T*
-		template <typename Ptr, typename T, bool = is_smart_pointer<Ptr>::value>
-		struct is_convertible_smart_pointer
-			: std::integral_constant<
-			bool, std::is_convertible<
-			decltype(std::declval<Ptr const&>().get()),
-			T*>::value> {
-		};
+	/// Check if Ptr is a smart pointer that holds a pointer convertible to
+	/// T*
+	template <typename Ptr, typename T, bool = is_smart_pointer<Ptr>::value>
+	struct is_convertible_smart_pointer
+		: std::integral_constant<
+		bool, std::is_convertible<
+		decltype(std::declval<Ptr const&>().get()),
+		T*>::value> {
+	};
 
-		/// If Ptr isn't a smart pointer then we don't want it
-		template <typename Ptr, typename T>
-		struct is_convertible_smart_pointer<Ptr, T, false> : std::false_type {};
+	/// If Ptr isn't a smart pointer then we don't want it
+	template <typename Ptr, typename T>
+	struct is_convertible_smart_pointer<Ptr, T, false> : std::false_type {};
 
 
 	template <typename T>
@@ -124,7 +115,7 @@ namespace IKIGAI::UTILS {
 
 	template<ComponentT T>
 	class WeakPtr {
-		ControlBlock* m_cb = nullptr;
+		ControlBlock* mCb = nullptr;
 	public:
 		using element_type = std::remove_extent_t<T>;
 		WeakPtr() = default;
@@ -132,14 +123,14 @@ namespace IKIGAI::UTILS {
 		constexpr WeakPtr(nullptr_t) noexcept {}
 
 		explicit WeakPtr(ControlBlockHandler& component) {
-			m_cb = component.getControlBlock();
-			m_cb->m_rc += 1;
+			mCb = component.getControlBlock();
+			mCb->mRC += 1;
 		}
 
 		explicit WeakPtr(T* component) {
-			m_cb = component->getControlBlock();
-			if (m_cb && m_cb->m_ptr) {
-				m_cb->m_rc += 1;
+			mCb = component->getControlBlock();
+			if (mCb && mCb->mPtr) {
+				mCb->mRC += 1;
 			}
 		}
 
@@ -148,50 +139,51 @@ namespace IKIGAI::UTILS {
 		}
 
 		WeakPtr(const WeakPtr& obj) {
-			m_cb = obj.m_cb;
-			if (m_cb && m_cb->m_ptr) {
-				m_cb->m_rc += 1;
+			mCb = obj.mCb;
+			if (mCb && mCb->mPtr) {
+				mCb->mRC += 1;
 			}
 		}
 
 		template<class T1>
 		explicit WeakPtr(const WeakPtr& obj, T1* component) {
-			m_cb = component->getControlBlock();
-			m_cb->m_rc += 1;
+			mCb = component->getControlBlock();
+			mCb->mRC += 1;
 		}
 
 		template<class T1>
 		explicit WeakPtr(WeakPtr&& obj, T1* component) {
-			m_cb = component->getControlBlock();
-			m_cb->m_rc += 1;
+			mCb = component->getControlBlock();
+			mCb->mRC += 1;
 			obj = WeakPtr();
 		}
 
 		//template<class T1>
 		//explicit WeakPtr(const WeakPtr<T1>& obj) {
-		//	m_cb = obj->getControlBlock();
-		//	m_cb->m_rc += 1;
+		//	mCb = obj->getControlBlock();
+		//	mCb->m_rc += 1;
 		//}
 		//
 		//template<class T1>
 		//explicit WeakPtr(WeakPtr<T1>&& obj) {
-		//	m_cb = obj->getControlBlock();
-		//	m_cb->m_rc += 1;
+		//	mCb = obj->getControlBlock();
+		//	mCb->m_rc += 1;
 		//	obj = WeakPtr();
 		//}
+
 		template<typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
 		constexpr WeakPtr(U* ptr_) noexcept {
-			m_cb = ptr_->getControlBlock();
-			if (m_cb && m_cb->m_ptr) {
-				m_cb->m_rc += 1;
+			mCb = ptr_->getControlBlock();
+			if (mCb && mCb->mPtr) {
+				mCb->mRC += 1;
 			}
 		}
 
 		template<typename Ptr, typename = std::enable_if_t<std::is_convertible<Ptr, T>::value>>
 		constexpr WeakPtr(const WeakPtr<Ptr> & other) noexcept {
-			m_cb = other->getControlBlock();
-			if (m_cb && m_cb->m_ptr) {
-				m_cb->m_rc += 1;
+			mCb = other->getControlBlock();
+			if (mCb && mCb->mPtr) {
+				mCb->mRC += 1;
 			}
 		}
 
@@ -200,40 +192,40 @@ namespace IKIGAI::UTILS {
 				return *this;
 			}
 			cleanup();
-			m_cb = obj.m_cb;
-			if (obj.m_cb->m_ptr) {
-				m_cb->m_rc += 1;
+			mCb = obj.mCb;
+			if (obj.mCb->mPtr) {
+				mCb->mRC += 1;
 			}
 			return *this;
 		}
 
 		WeakPtr& operator=(nullptr_t) noexcept {
 			cleanup();
-			m_cb = nullptr;
+			mCb = nullptr;
 			return *this;
 		}
 
 		WeakPtr(WeakPtr&& obj) noexcept {
-			m_cb = obj.m_cb;
-			obj.m_cb = nullptr;
+			mCb = obj.mCb;
+			obj.mCb = nullptr;
 		}
 
 		WeakPtr& operator=(WeakPtr&& obj) noexcept {
 			cleanup();
-			m_cb = obj.m_cb;
-			obj.m_cb = nullptr;
+			mCb = obj.mCb;
+			obj.mCb = nullptr;
 			return *this;
 		}
 
-		bool operator==(const WeakPtr& c) {
-			if (m_cb->m_ptr == c.m_cb->m_ptr) {
+		bool operator==(const WeakPtr& c) const {
+			if (mCb->mPtr == c.mCb->mPtr) {
 				return true;
 			}
 			return false;
 		}
 
 		bool operator!=(const WeakPtr& c) {
-			if (m_cb->m_ptr != c.m_cb->m_ptr) {
+			if (mCb->mPtr != c.mCb->mPtr) {
 				return true;
 			}
 			return false;
@@ -244,31 +236,31 @@ namespace IKIGAI::UTILS {
 		}
 
 		[[nodiscard]] bool isAlive() const {
-			return m_cb && (m_cb->m_ptr != nullptr);
+			return mCb && (mCb->mPtr != nullptr);
 		}
 
 		T& operator*() const {
-			return *static_cast<T*>(m_cb->m_ptr);
+			return *static_cast<T*>(mCb->mPtr);
 		}
 
 		T* operator->() const {
-			return static_cast<T*>(m_cb->m_ptr);
+			return static_cast<T*>(mCb->mPtr);
 		}
 
 		T* get() {
 			if (!isAlive()) {
 				throw;
 			}
-			return static_cast<T*>(m_cb->m_ptr);
+			return static_cast<T*>(mCb->mPtr);
 		}
 
 
 	private:
 		void cleanup() const {
-			if (m_cb && m_cb->m_rc > 0) {
-				m_cb->m_rc -= 1;
-				if (m_cb->m_rc == 0) {
-					delete m_cb;
+			if (mCb && mCb->mRC > 0) {
+				mCb->mRC -= 1;
+				if (mCb->mRC == 0) {
+					delete mCb;
 				}
 			}
 		}

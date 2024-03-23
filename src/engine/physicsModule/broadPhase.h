@@ -1,9 +1,8 @@
 #pragma once
 
 #include <stack>
+#include <vector>
 #include <renderModule/frustum.h>
-
-import glmath;
 
 namespace IKIGAI
 {
@@ -126,11 +125,11 @@ namespace IKIGAI
 				float growth2 = m_children[1]->m_volume.calcGrowth(volume);
 
 				if (growth1 == 0.f) {
-					growth1 = FLT_MAX;
+					growth1 = std::numeric_limits<float>::max();
 				}
 
 				if (growth2 == 0.f) {
-					growth2 = FLT_MAX;
+					growth2 = std::numeric_limits<float>::max();
 				}
 
 				if (growth1 < growth2) {

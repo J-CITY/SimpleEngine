@@ -1,0 +1,14 @@
+{
+  "ShaderPath": "assets/shaders/skybox.json",
+  "Blendable": false,
+  "BackfaceCulling":  false,
+  "FrontfaceCulling": true,
+  "DepthTest":  true,
+  "DepthWriting": true,
+  "ColorWriting":  true,
+  "GpuInstances": 1,
+  "IsDeferred":  false,
+  "Uniforms": {
+    "u_SkyBoxTexture": "assets/textures/skybox.json"
+  }
+}

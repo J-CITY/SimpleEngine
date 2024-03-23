@@ -2,17 +2,17 @@
 #include <cmath>
 using namespace IKIGAI;
 using namespace IKIGAI::PHYSICS;
-using namespace IKIGAI::MATHGL;
+using namespace IKIGAI::MATH;
 
 unsigned Joint::addContact(Contact *contact, unsigned limit) const
 {
     // Calculate the position of each connection point in world coordinates
-    Vector3 a_pos_world = body[0]->getPointInWorldSpace(position[0]);
-    Vector3 b_pos_world = body[1]->getPointInWorldSpace(position[1]);
+    Vector3f a_pos_world = body[0]->getPointInWorldSpace(position[0]);
+    Vector3f b_pos_world = body[1]->getPointInWorldSpace(position[1]);
 
     // Calculate the length of the joint
-    Vector3 a_to_b = b_pos_world - a_pos_world;
-    Vector3 normal = a_to_b;
+    Vector3f a_to_b = b_pos_world - a_pos_world;
+    Vector3f normal = a_to_b;
     normal.normalise();
     float length = a_to_b.magnitude();
 
@@ -32,8 +32,8 @@ unsigned Joint::addContact(Contact *contact, unsigned limit) const
     return 0;
 }
 
-void Joint::set(RigidBody *a, const Vector3& a_pos,
-                RigidBody *b, const Vector3& b_pos,
+void Joint::set(RigidBody *a, const Vector3f& a_pos,
+                RigidBody *b, const Vector3f& b_pos,
                 float error)
 {
     body[0] = a;

@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.h>
 #include "driverVk.h"
 #include "../interface/uniformBufferInterface.h"
-#include <coreModule/resourceManager/ServiceManager.h>
+#include <resourceModule/serviceManager.h>
 #include "textureVk.h"
 #include "shaderVk.h"
 namespace IKIGAI::RENDER {

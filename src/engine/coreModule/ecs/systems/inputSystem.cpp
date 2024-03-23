@@ -2,7 +2,7 @@
 #include <sceneModule/sceneManager.h>
 
 IKIGAI::ECS::InputSystem::InputSystem() {
-
+	mComponentsRead.insert(typeid(InputComponent).name());
 }
 
 void IKIGAI::ECS::InputSystem::onUpdate(std::chrono::duration<double> dt) {

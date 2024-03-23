@@ -1,0 +1,4 @@
+{
+  "Vertex": "assets/shaders/opengl/standart.vert",
+  "Fragment": "assets/shaders/opengl/standart.frag"
+}

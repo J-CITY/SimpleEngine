@@ -5,6 +5,8 @@
 #include <spine/spine.h>
 //#include "GLBatchRender.h"
 
+#ifdef OPENGL_BACKEND
+
 namespace IKIGAI
 {
 	namespace RENDER
@@ -13,13 +15,6 @@ namespace IKIGAI
 	}
 }
 
-namespace IKIGAI
-{
-	namespace MATHGL
-	{
-		struct Vector4;
-	}
-}
 
 namespace IKIGAI::RENDER::SPINE {
 	class SkeletonDrawable;
@@ -171,3 +166,4 @@ public:
 };
 
 }
+#endif

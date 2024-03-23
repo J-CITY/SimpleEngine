@@ -13,19 +13,11 @@
 #include <coreModule/ecs/components/ModelRenderer.h>
 #include <coreModule/ecs/components/MaterialRenderer.h>
 
-namespace IKIGAI
-{
-	namespace MATHGL
-	{
-		struct Quaternion;
-	}
-}
-
 using namespace IKIGAI::SCRIPTING;
 
 void LuaComponentBinder::BindComponent(sol::state & p_luaState)
 {
-	using namespace IKIGAI::MATHGL;
+	using namespace IKIGAI::MATH;
 	using namespace IKIGAI::ECS;
 	
 	p_luaState.new_usertype<Component>("Component",
@@ -41,15 +33,15 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
 		"SetLocalPosition", &TransformComponent::setLocalPosition,
 		"SetLocalRotation", &TransformComponent::setLocalRotation,
 		"SetLocalScale", &TransformComponent::setLocalScale,
-		"GetPosition", [](TransformComponent& p_this) -> Vector3 { return p_this.getWorldPosition(); },
-		"GetRotation", [](TransformComponent& p_this) -> Quaternion { return p_this.getWorldRotation(); },
-		"GetScale", [](TransformComponent& p_this) -> Vector3 { return p_this.getWorldScale(); },
-		"GetLocalPosition", [](TransformComponent& p_this) -> Vector3 { return p_this.getLocalPosition(); },
-		"GetLocalRotation", [](TransformComponent& p_this) -> Quaternion { return p_this.getLocalRotation(); },
-		"GetLocalScale", [](TransformComponent& p_this) -> Vector3 { return p_this.getLocalScale(); },
-		"GetWorldPosition", [](TransformComponent& p_this) -> Vector3 { return p_this.getWorldPosition(); },
-		"GetWorldRotation", [](TransformComponent& p_this) -> Quaternion { return p_this.getWorldRotation(); },
-		"GetWorldScale", [](TransformComponent& p_this) -> Vector3 { return p_this.getWorldScale(); },
+		"GetPosition", [](TransformComponent& p_this) -> Vector3f { return p_this.getWorldPosition(); },
+		"GetRotation", [](TransformComponent& p_this) -> QuaternionF { return p_this.getWorldRotation(); },
+		"GetScale", [](TransformComponent& p_this) -> Vector3f { return p_this.getWorldScale(); },
+		"GetLocalPosition", [](TransformComponent& p_this) -> Vector3f { return p_this.getLocalPosition(); },
+		"GetLocalRotation", [](TransformComponent& p_this) -> QuaternionF { return p_this.getLocalRotation(); },
+		"GetLocalScale", [](TransformComponent& p_this) -> Vector3f { return p_this.getLocalScale(); },
+		"GetWorldPosition", [](TransformComponent& p_this) -> Vector3f { return p_this.getWorldPosition(); },
+		"GetWorldRotation", [](TransformComponent& p_this) -> QuaternionF { return p_this.getWorldRotation(); },
+		"GetWorldScale", [](TransformComponent& p_this) -> Vector3f { return p_this.getWorldScale(); },
 		"GetForward", &TransformComponent::getWorldForward,
 		"GetUp", &TransformComponent::getWorldUp,
 		"GetRight", &TransformComponent::getWorldRight,

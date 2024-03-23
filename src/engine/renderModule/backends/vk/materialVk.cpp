@@ -2,6 +2,7 @@
 #ifdef VULKAN_BACKEND
 #include "frameBufferVk.h"
 #include "shaderVk.h"
+#include "utilsModule/pathGetter.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -77,12 +78,12 @@ void MaterialVk::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, 
 }
 
 struct DataUBO {
-	MATHGL::Vector4        u_Albedo;
+	MATH::Vector4f        u_Albedo;
 	float       u_Metallic;
 	float       u_Roughness;
-	MATHGL::Vector2f        u_TextureTiling;
-	MATHGL::Vector2f        u_TextureOffset;
-	MATHGL::Vector3        u_Specular;
+	MATH::Vector2f        u_TextureTiling;
+	MATH::Vector2f        u_TextureOffset;
+	MATH::Vector3f        u_Specular;
 	float       u_Shininess;
 	float       u_HeightScale;
 	int        u_EnableNormalMapping;
@@ -137,6 +138,54 @@ void MaterialVk::set(const std::string& name, const std::string& memberName, Uni
 	}
 }
 
+inline void SerializeVec4(nlohmann::json& j, const MATH::Vector4f& vec) {
+	j = {vec.x, vec.y, vec.z, vec.w};
+}
+inline void DeserializeVec4(const nlohmann::json& j, MATH::Vector4f& vec) {
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+	vec.w = j[3];
+}
+inline MATH::Vector4f DeserializeVec4(const nlohmann::json& j) {
+	MATH::Vector4f vec;
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+	vec.w = j[3];
+	return vec;
+}
+
+inline void SerializeVec3(nlohmann::json& j, const MATH::Vector3f& vec) {
+	j = { vec.x, vec.y, vec.z };
+}
+inline void DeserializeVec3(const nlohmann::json& j, MATH::Vector3f& vec) {
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+}
+inline MATH::Vector3f DeserializeVec3(const nlohmann::json& j) {
+	MATH::Vector3f vec;
+	vec.x = j[0];
+	vec.y = j[1];
+	vec.z = j[2];
+	return vec;
+}
+
+inline void SerializeVec2(nlohmann::json& j, const MATH::Vector2f& vec) {
+	j = {vec.x, vec.y};
+}
+inline void DeserializeVec2(const nlohmann::json& j, MATH::Vector2f& vec) {
+	vec.x = j[0];
+	vec.y = j[1];
+}
+inline MATH::Vector2f DeserializeVec2(const nlohmann::json& j) {
+	MATH::Vector2f vec;
+	vec.x = j[0];
+	vec.y = j[1];
+	return vec;
+}
+
 bool MaterialVk::trySetSimpleMember(const std::string& k, const nlohmann::json& v, std::optional<std::string> subname) {
 	auto _set = [this]<typename T>(const std::string & k, const std::optional<std::string>&subname, const T & v) {
 		if (subname) {
@@ -159,26 +208,26 @@ bool MaterialVk::trySetSimpleMember(const std::string& k, const nlohmann::json& 
 		return true;
 	}
 	else if (v.type() == nlohmann::json::value_t::array && v.size() == 2) {
-		MATHGL::Vector2 dummy;
-		RESOURCES::DeserializeVec2(v, dummy);
+		MATH::Vector2f dummy;
+		DeserializeVec2(v, dummy);
 		_set(k, subname, dummy);
 		return true;
 	}
 	else if (v.type() == nlohmann::json::value_t::array && v.size() == 3) {
-		MATHGL::Vector3 dummy;
-		RESOURCES::DeserializeVec3(v, dummy);
+		MATH::Vector3f dummy;
+		DeserializeVec3(v, dummy);
 		_set(k, subname, dummy);
 		return true;
 	}
 	else if (v.type() == nlohmann::json::value_t::array && v.size() == 4) {
-		MATHGL::Vector4 dummy;
-		RESOURCES::DeserializeVec4(v, dummy);
+		MATH::Vector4f dummy;
+		DeserializeVec4(v, dummy);
 		_set(k, subname, dummy);
 		return true;
 	}
 	else if (v.type() == nlohmann::json::value_t::string) {
 		//TODO: get shader from resource system
-		_set(k, subname, TextureVk::create(IKIGAI::UTILS::getRealPath(v.get<std::string>())));
+		_set(k, subname, TextureVk::create(IKIGAI::UTILS::GetRealPath(v.get<std::string>())));
 		//uniformsData[k] = RESOURCES::TextureLoader::CreateFromFile(v.get<std::string>());
 		return true;
 	}

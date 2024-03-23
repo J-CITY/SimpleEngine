@@ -1,0 +1,39 @@
+{
+  "ShaderPath": "assets/shaders/box.json",
+  "Blendable": false,
+  "BackfaceCulling":  true,
+  "FrontfaceCulling": false,
+  "DepthTest":  true,
+  "DepthWriting": true,
+  "ColorWriting":  true,
+  "GpuInstances": 1,
+  "IsDeferred":  false,
+  "Uniforms": {
+    "u_TextureTiling": {
+      "X": 1.0,
+      "Y": 1.0
+    },
+    "u_TextureOffset": {
+      "X": 0.0,
+      "Y": 0.0
+    },
+    "u_Diffuse": {
+      "X": 1.0,
+      "Y": 1.0,
+      "Z": 1.0,
+      "W": 1.0
+    },
+    "u_Specular": {
+      "X": 1.0,
+      "Y": 1.0,
+      "Z": 1.0
+    },
+    "u_Shininess": 100.0,
+    "u_HeightScale": 0.0,
+    "u_EnableNormalMapping": true,
+    "u_DiffuseMap": "assets/textures/brick_albedo.jpg",
+    "u_SpecularMap": "assets/textures/brick_metalic.png",
+    "u_NormalMap": "assets/textures/brick_normal.jpg",
+    "u_HeightMap": "assets/textures/brick_height.jpg"
+  }
+}

@@ -1,18 +1,15 @@
 #include "shaderGl.h"
-
-#include <array>
-
 #include "../interface/reflectionStructs.h"
+#include "utilsModule/pathGetter.h"
+#include "utilsModule/stringUtils.h"
 #ifdef OPENGL_BACKEND
+#include <array>
 #include <filesystem>
 #include <iostream>
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
-#include <glm/mat3x3.hpp>
+
+#include "coreModule/glmWrapper.hpp"
 
 //#include "../../utils/shaderUtils.h"
-
-import logger;
 
 namespace IKIGAI
 {
@@ -63,11 +60,11 @@ std::vector<uint32_t> load_spirv_file(const std::filesystem::path& path)
 //	}
 //}
 
-#include <utilsModule/loader.h>
+//#include <utilsModule/loader.h>
 
 
 std::string readFile(const std::string& path) {
-	std::ifstream ifs(IKIGAI::UTILS::getRealPath(path));
+	std::ifstream ifs(UTILS::GetRealPath(path));
 	std::string content((std::istreambuf_iterator<char>(ifs)),
 		(std::istreambuf_iterator<char>()));
 	return content;
@@ -141,6 +138,7 @@ ShaderGl::ShaderGl(const ShaderResource& res) {
 	useBinary &= checkBinarySupport();
 	auto binPath = res.path + ".bin";
 	if (useBinary && std::filesystem::exists(binPath)) {
+#ifndef USING_GLES
 		ID = glCreateProgram();
 		//GLenum format = 0;
 		std::ifstream inputStream(binPath, std::ios::binary);
@@ -156,7 +154,7 @@ ShaderGl::ShaderGl(const ShaderResource& res) {
 		glGetIntegerv(GL_PROGRAM_BINARY_FORMATS, binaryFormats.data());
 	
 		glProgramBinary(ID, binaryFormats[0], buffer.data(), buffer.size());
-		LOG_INFO("Reading from " + binPath + ", binary format = ");
+		//LOG_INFO("Reading from " + binPath + ", binary format = ");
 		// Check for success/failure
 		GLint status;
 		glGetProgramiv(ID, GL_LINK_STATUS, &status);
@@ -164,6 +162,7 @@ ShaderGl::ShaderGl(const ShaderResource& res) {
 			// Handle failure ...
 		}
 		//glValidateProgram(ID);
+#endif
 	}
 	else {
 		auto source = read(
@@ -180,16 +179,18 @@ ShaderGl::ShaderGl(const ShaderResource& res) {
 	}
 	if (ID) {
 		if (useBinary && !std::filesystem::exists(binPath)) {
+#ifndef USING_GLES
 			GLint length = 0;
 			glGetProgramiv(ID, GL_PROGRAM_BINARY_LENGTH, &length);
 	
 			std::vector<GLubyte> buffer(length);
 			GLenum format = 0;
 			glGetProgramBinary(ID, length, NULL, &format, buffer.data());
-			LOG_INFO("Writing to " + binPath + ", binary format = " + std::to_string(format));
+			//LOG_INFO("Writing to " + binPath + ", binary format = " + std::to_string(format));
 			std::ofstream out(binPath.c_str(), std::ios::binary);
 			out.write(reinterpret_cast<char*>(buffer.data()), length);
 			out.close();
+#endif
 		}
 	}
 
@@ -197,13 +198,17 @@ ShaderGl::ShaderGl(const ShaderResource& res) {
 }
 
 bool ShaderGl::checkBinarySupport() {
+#ifndef USING_GLES
 	GLint formats = 0;
 	glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
 	if (formats < 1) {
-		LOG_INFO("Driver does not support any binary formats.");
+		//LOG_INFO("Driver does not support any binary formats.");
 		return false;
 	}
 	return true;
+#else
+	return false;
+#endif
 }
 
 std::array<std::string, 6> ShaderGl::read(std::optional<std::string> vertexPath, std::optional<std::string> fragmentPath,
@@ -245,6 +250,9 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	unsigned int vertex=0, fragment=0, geometry=0, tessControl=0, tessEval=0, compute=0;
 	// vertex shader
 	if (vertexPath) {
+#ifdef USING_GLES
+		vertexCode = UTILS::ReplaceSubstringsRegex(vertexCode, "#version [[:digit:]]+\n", "#version 100\n");
+#endif
 		const char* vShaderCode = vertexCode.c_str();
 		vertex = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vertex, 1, &vShaderCode, NULL);
@@ -253,6 +261,9 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	}
 	// fragment Shader
 	if (fragmentPath) {
+#ifdef USING_GLES
+		fragmentCode = UTILS::ReplaceSubstringsRegex(fragmentCode, "#version [[:digit:]]+\n", "#version 100\nprecision mediump float;");
+#endif
 		const char* fShaderCode = fragmentCode.c_str();
 		fragment = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(fragment, 1, &fShaderCode, NULL);
@@ -261,6 +272,7 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	}
 	//std::cout << "-------------------------------\n";
 	//std::cout << fShaderCode;
+#ifndef USING_GLES
 	if (geometryPath) {
 		const char* gShaderCode = geometryCode.c_str();
 		geometry = glCreateShader(GL_GEOMETRY_SHADER);
@@ -289,6 +301,7 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 		glCompileShader(compute);
 		checkCompileErrors(compute, "COMPUTE: " + computePath.value());
 	}
+#endif
 	// if geometry shader is given, compile geometry shader
 	//unsigned int geometry;
 	//if (geometryPath != nullptr)
@@ -307,6 +320,7 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	if (fragmentPath) {
 		glAttachShader(ID, fragment);
 	}
+#ifndef USING_GLES
 	if (geometryPath) {
 		glAttachShader(ID, geometry);
 	}
@@ -319,6 +333,19 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	if (computePath) {
 		glAttachShader(ID, compute);
 	}
+#endif
+
+	//for old opengl
+	auto ver = glGetString(GL_SHADING_LANGUAGE_VERSION);
+	if (vertexCode.find("#version 120") != std::string::npos || vertexCode.find("#version 100") != std::string::npos) {
+		glBindAttribLocation(ID, 0, "geo_Pos");
+		glBindAttribLocation(ID, 1, "geo_TexCoords");
+		glBindAttribLocation(ID, 2, "geo_Normal");
+		glBindAttribLocation(ID, 3, "geo_Tangent");
+		glBindAttribLocation(ID, 4, "geo_Bitangent");
+		glBindAttribLocation(ID, 5, "boneIds");
+		glBindAttribLocation(ID, 6, "weights");
+	}
 	glLinkProgram(ID);
 	checkCompileErrors(ID, "PROGRAM");
 
@@ -328,6 +355,7 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	if (fragmentPath) {
 		glDeleteShader(fragment);
 	}
+#ifndef USING_GLES
 	if (geometryPath) {
 		glDeleteShader(geometry);
 	}
@@ -340,6 +368,7 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	if (computePath) {
 		glDeleteShader(compute);
 	}
+#endif
 }
 
 /*ShaderGl::ShaderGl(std::string computePath) {
@@ -410,10 +439,14 @@ void ShaderGl::getReflection() {
 		{ GL_FLOAT, IKIGAI::RENDER::UNIFORM_TYPE::FLOAT },
 		{ GL_BOOL, IKIGAI::RENDER::UNIFORM_TYPE::BOOL },
 		{ GL_SAMPLER_2D, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D },
+#ifndef USING_GLES
 		{ GL_SAMPLER_3D, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_3D },
 		{ GL_SAMPLER_2D_ARRAY, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D_ARRAY},
+#endif
 		{ GL_SAMPLER_CUBE, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_CUBE },
+#ifndef USING_GLES
 		{ GL_IMAGE_3D, IKIGAI::RENDER::UNIFORM_TYPE::IMAGE_3D }
+#endif
 	};
 	const std::unordered_map<IKIGAI::RENDER::UNIFORM_TYPE, unsigned> typeToSize = {
 		{ IKIGAI::RENDER::UNIFORM_TYPE::MAT4, sizeof(float) * 16 },
@@ -425,10 +458,14 @@ void ShaderGl::getReflection() {
 		{ IKIGAI::RENDER::UNIFORM_TYPE::FLOAT, sizeof(float) * 1 },
 		{ IKIGAI::RENDER::UNIFORM_TYPE::BOOL, sizeof(bool) * 1 },
 		{ IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D, sizeof(int) * 1 },
+#ifndef USING_GLES
 		{ IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_3D, sizeof(int) * 1 },
+#endif
 		{ IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_CUBE, sizeof(int) * 1 },
+#ifndef USING_GLES
 		{ IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D_ARRAY, sizeof(int) * 1 },
 		{ IKIGAI::RENDER::UNIFORM_TYPE::IMAGE_3D, sizeof(int) * 1 },
+#endif
 	};
 
 	std::array<IKIGAI::RENDER::SHADER_TYPE, 6> shaderTypes = {
@@ -448,14 +485,14 @@ void ShaderGl::getReflection() {
 		GLsizei actualLength = 0;
 		glGetActiveUniform(ID, unif, static_cast<GLsizei>(nameData.size()), &actualLength, &arraySize, &type, &nameData[0]);
 		std::string name(static_cast<char*>(nameData.data()), actualLength);
-
+		std::array<GLint, 8> blockData{};
+#ifndef USING_GLES
 		std::array<GLenum, 8> blockProperties{ GL_OFFSET, GL_BLOCK_INDEX,
 			GL_REFERENCED_BY_VERTEX_SHADER, GL_REFERENCED_BY_TESS_CONTROL_SHADER,
 			GL_REFERENCED_BY_TESS_EVALUATION_SHADER, GL_REFERENCED_BY_GEOMETRY_SHADER,
 			GL_REFERENCED_BY_FRAGMENT_SHADER, GL_REFERENCED_BY_COMPUTE_SHADER };
-		std::array<GLint, 8> blockData{};
 		glGetProgramResourceiv(ID, GL_UNIFORM, unif, blockProperties.size(), blockProperties.data(), blockData.size(), nullptr, blockData.data());
-
+#endif
 		if (name.back() == '\0') {
 			name.pop_back();
 		}
@@ -522,6 +559,7 @@ void ShaderGl::getReflection() {
 		//	//}
 		//}
 	}
+#ifndef USING_GLES
 	std::array<GLenum, 10> blockProperties{
 		GL_NAME_LENGTH, GL_NUM_ACTIVE_VARIABLES,
 		GL_BUFFER_DATA_SIZE, GL_BUFFER_BINDING,
@@ -581,6 +619,8 @@ void ShaderGl::getReflection() {
 		});
 		mUniforms[uniform.name] = uniform;
 	}
+#endif
+
 }
 
 void ShaderGl::bind()
@@ -646,30 +686,35 @@ void ShaderGl::setMat4(const std::string& name, const glm::mat4& mat) const
 	glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 }
 
-void ShaderGl::setMat4(const std::string& name, const IKIGAI::MATHGL::Matrix4& mat) const
+void ShaderGl::setMat4(const std::string& name, const IKIGAI::MATH::Matrix4f& mat) const
 {
-	glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_TRUE, mat.data._values);
+	glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_TRUE, mat.getData());
 }
 
 
-void ShaderGl::setVec2(const std::string& name, const IKIGAI::MATHGL::Vector2f& vec2) {
+void ShaderGl::setVec2(const std::string& name, const IKIGAI::MATH::Vector2f& vec2) {
 	glUniform2f(getUniformLocation(name), vec2.x, vec2.y);
 }
 
-void ShaderGl::setVec3(const std::string& name, const IKIGAI::MATHGL::Vector3& vec3) {
+void ShaderGl::setVec3(const std::string& name, const IKIGAI::MATH::Vector3f& vec3) {
 	glUniform3f(getUniformLocation(name), vec3.x, vec3.y, vec3.z);
 }
 
-void ShaderGl::setVec4(const std::string& name, const IKIGAI::MATHGL::Vector4& vec4) {
+void ShaderGl::setVec4(const std::string& name, const IKIGAI::MATH::Vector4f& vec4) {
 	glUniform4f(getUniformLocation(name), vec4.x, vec4.y, vec4.z, vec4.w);
 }
 
-void ShaderGl::setMat4(const std::string& name, const IKIGAI::MATHGL::Matrix4& mat4) {
-	glUniformMatrix4fv(getUniformLocation(name), 1, GL_TRUE, mat4.data._values);
+void ShaderGl::setMat4(const std::string& name, const IKIGAI::MATH::Matrix4f& mat4) {
+#ifndef USING_GLES
+	glUniformMatrix4fv(getUniformLocation(name), 1, GL_TRUE, mat4.getData());
+#else
+	auto m = IKIGAI::MATH::Matrix4f::Transpose(mat4);
+	glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, m.getData());
+#endif
 }
 
-void ShaderGl::setMat3(const std::string& name, const IKIGAI::MATHGL::Matrix3& mat3) {
-	glUniformMatrix3fv(getUniformLocation(name), 1, GL_TRUE, mat3.data._values);
+void ShaderGl::setMat3(const std::string& name, const IKIGAI::MATH::Matrix3f& mat3) {
+	glUniformMatrix3fv(getUniformLocation(name), 1, GL_TRUE, mat3.getData());
 }
 
 
@@ -703,40 +748,52 @@ void ShaderGl::checkCompileErrors(GLuint shader, std::string type)
 }
 
 
-IKIGAI::MATHGL::Vector2f ShaderGl::getUniformVec2(const std::string& name) {
+IKIGAI::MATH::Vector2f ShaderGl::getUniformVec2(const std::string& name) {
 	GLfloat values[2];
+#ifndef USING_GLES
 	glGetnUniformfv(ID, getUniformLocation(name), 2 * sizeof(float), values);
-	return reinterpret_cast<IKIGAI::MATHGL::Vector2f&>(values);
+#endif
+	return reinterpret_cast<IKIGAI::MATH::Vector2f&>(values);
 }
 
-IKIGAI::MATHGL::Vector3 ShaderGl::getUniformVec3(const std::string& name) {
+IKIGAI::MATH::Vector3f ShaderGl::getUniformVec3(const std::string& name) {
 	GLfloat values[3];
+#ifndef USING_GLES
 	glGetnUniformfv(ID, getUniformLocation(name), 3 * sizeof(float), values);
-	return reinterpret_cast<IKIGAI::MATHGL::Vector3&>(values);
+#endif
+	return reinterpret_cast<IKIGAI::MATH::Vector3f&>(values);
 }
 
-IKIGAI::MATHGL::Vector4 ShaderGl::getUniformVec4(const std::string& name) {
+IKIGAI::MATH::Vector4f ShaderGl::getUniformVec4(const std::string& name) {
 	GLfloat values[4];
+#ifndef USING_GLES
 	glGetnUniformfv(ID, getUniformLocation(name), 4 * sizeof(float), values);
-	return reinterpret_cast<IKIGAI::MATHGL::Vector4&>(values);
+#endif
+	return reinterpret_cast<IKIGAI::MATH::Vector4f&>(values);
 }
 
-IKIGAI::MATHGL::Matrix4 ShaderGl::getUniformMat4(const std::string& name) {
+IKIGAI::MATH::Matrix4f ShaderGl::getUniformMat4(const std::string& name) {
 	GLfloat values[16];
+#ifndef USING_GLES
 	glGetnUniformfv(ID, getUniformLocation(name), 16 * sizeof(float), values);
-	return reinterpret_cast<IKIGAI::MATHGL::Matrix4&>(values);
+#endif
+	return reinterpret_cast<IKIGAI::MATH::Matrix4f&>(values);
 }
 
 
 int ShaderGl::getUniformInt(const std::string& name) {
 	int value;
+#ifndef USING_GLES
 	glGetUniformiv(ID, getUniformLocation(name), &value);
+#endif
 	return value;
 }
 
 float ShaderGl::getUniformFloat(const std::string& name) {
 	float value;
+#ifndef USING_GLES
 	glGetUniformfv(ID, getUniformLocation(name), &value);
+#endif
 	return value;
 }
 

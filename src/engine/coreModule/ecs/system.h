@@ -9,13 +9,6 @@
 namespace IKIGAI::ECS {
 	class System {
 	public:
-		enum class SystemComponentProperties {
-			READ,
-			WRITE
-		};
-		constexpr static auto SYSTEM_COMPONENTS_READ = SystemComponentProperties::READ;
-		constexpr static auto SYSTEM_COMPONENTS_WRITE = SystemComponentProperties::WRITE;
-
 		virtual ~System() = default;
 
 		virtual void onAwake() {}
@@ -36,7 +29,12 @@ namespace IKIGAI::ECS {
 		std::set<Entity>& getEntities();
 		[[nodiscard]] const std::set<Entity>& getEntities() const;
 
-	private:
+		const std::set<std::string>& getComponentsWrite() const;
+		const std::set<std::string>& getComponentsRead() const;
+	protected:
+		std::set<std::string> mComponentsWrite;
+		std::set<std::string> mComponentsRead;
+
 		std::set<Entity> m_entities;
 		UTILS::LockFreeQueue<std::function<void()>> m_delayedTask;
 	};

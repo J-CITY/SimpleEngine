@@ -1,0 +1,11 @@
+{
+  "TexType": "TEXTURE_CUBE",
+  "PathTexture": [
+    "assets/textures/LeftImage.png",
+    "assets/textures/RightImage.png",
+    "assets/textures/TopImage.png",
+    "assets/textures/BottomImage.png",
+    "assets/textures/FrontImage.png",
+    "assets/textures/BackImage.png"
+  ]
+}

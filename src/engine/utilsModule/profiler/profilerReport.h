@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 
 namespace IKIGAI::PROFILER {
 	struct ProfilerReport {

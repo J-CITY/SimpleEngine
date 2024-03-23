@@ -2,7 +2,7 @@
 #ifdef OPENGL_BACKEND
 #include "textureGl.h"
 
-#include <gl/glew.h>
+#include <coreModule/graphicsWrapper.hpp>
 #include <iostream>
 
 using namespace IKIGAI;
@@ -31,7 +31,9 @@ void FrameBufferGl::create(std::vector<std::shared_ptr<TextureGl>> textures, std
 		i++;
 	}
 	if (attachments.size()) {
+#ifndef USING_GLES
 		glDrawBuffers(attachments.size(), attachments.data());
+#endif
 	}
 	if (!depthTexture) {
 		const unsigned int SCR_WIDTH = textures[0]->width;
@@ -43,7 +45,7 @@ void FrameBufferGl::create(std::vector<std::shared_ptr<TextureGl>> textures, std
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
 		// finally check if framebuffer is complete
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "Framebuffer not complete!" << std::endl;
+			std::cout << "Framebuffer not complete!" << glCheckFramebufferStatus(GL_FRAMEBUFFER) << std::endl;
 	}
 	else {
 		if (depthTexture->type == TextureType::TEXTURE_2D) {
@@ -51,10 +53,14 @@ void FrameBufferGl::create(std::vector<std::shared_ptr<TextureGl>> textures, std
 		}
 		else
 		{
+#ifndef USING_GLES
 			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture->id, 0);
+#endif
 		}
+#ifndef USING_GLES
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
+#endif
 		int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (status != GL_FRAMEBUFFER_COMPLETE) {
 			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!";
@@ -75,8 +81,10 @@ void FrameBufferGl::unbind()
 }
 
 void FrameBufferGl::CopyDepth(const FrameBufferGl& from, const FrameBufferGl& to, unsigned w, unsigned h) {
+#ifndef USING_GLES
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, from.id);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, to.id);
 	glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+#endif
 }
 #endif

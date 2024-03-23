@@ -7,8 +7,7 @@
 
 namespace IKIGAI::RENDER {
 	struct QueueFamilyIndices;
-
-	class TextureVk;
+	
 	class CommandHandler
 	{
 	public:

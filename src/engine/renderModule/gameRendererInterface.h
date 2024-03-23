@@ -1,21 +1,21 @@
 #pragma once
+#include "mathModule/math.h"
 
-import glmath;
 
 namespace IKIGAI::RENDER {
 	struct EngineUBO {
-		MATHGL::Matrix4    View;
-		MATHGL::Matrix4    Projection;
-		MATHGL::Vector3    ViewPos;
+		MATH::Matrix4f    View;
+		MATH::Matrix4f    Projection;
+		MATH::Vector3f    ViewPos;
 		float   Time = 0.0f;
-		MATHGL::Vector2f    ViewportSize;
+		MATH::Vector2f    ViewportSize;
 		float FPS = 0.0f;
 		int FrameCount = 0;
 	};
 
 	class GameRendererInterface {
 	public:
-		MATHGL::Vector2i viewPoreSize = MATHGL::Vector2i(800, 600);
+		MATH::Vector2i viewPoreSize = MATH::Vector2i(800, 600);
 		virtual ~GameRendererInterface() = default;
 		virtual void renderScene() = 0;
 		virtual void resize() {}; //TODO: make pure virtual
