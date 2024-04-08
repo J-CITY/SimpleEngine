@@ -33,6 +33,14 @@ void AmbientLight::setSize(const MATH::Vector3f& val) {
 	data.quadratic = val.z;
 }
 
+AmbientLight::Descriptor AmbientLight::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<AmbientLight>();
+	descriptor.Color = getColor();
+	descriptor.Intensity = getIntensity();
+	descriptor.Size = getSize();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

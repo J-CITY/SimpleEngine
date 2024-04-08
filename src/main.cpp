@@ -72,7 +72,7 @@ struct Obj
 {
 	int id = 0;
 	void setId(int i) { id = i;}
-	int getId() { return id; }
+	int getId() const { return id; }
 	
 	std::variant<int, std::string, float, ComponentB, std::shared_ptr<Text>> variantData;
 	std::string strData;
@@ -184,7 +184,7 @@ int main(int, char* []) {
 
 	IKIGAI::CORE::App app;
 	//app.getCore()->sceneManager->loadFromFile("assets/scenes/scene.json");
-	app.getCore()->sceneManager->loadFromFile("assets/scenes/scene.json");
+	app.getCore()->sceneManager->loadFromFile("scenes/scene.json");
 	//app.getCore()->sceneManager->loadFromFile("assets/scenes/sceneDx12.json");
 	/*
 	auto& scene = app.getCore()->sceneManager->getCurrentScene();

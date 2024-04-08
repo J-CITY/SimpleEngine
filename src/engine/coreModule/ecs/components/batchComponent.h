@@ -24,6 +24,8 @@ namespace IKIGAI::ECS {
 		BatchComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
 			BatchComponent(obj) {
 		};
+
+		[[nodiscard]] Descriptor getDescriptor() const;
 #ifdef OPENGL_BACKEND
 		void init();
 		void CreateAtlases(const MaterialRenderer& material);
@@ -34,6 +36,7 @@ namespace IKIGAI::ECS {
 			return std::tuple{
 			};
 		}
+
 	};
 
 

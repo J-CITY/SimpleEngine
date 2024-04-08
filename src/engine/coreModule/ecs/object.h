@@ -47,6 +47,9 @@ namespace IKIGAI::ECS {
 					.field(&Self::Components, "Components");
 			}
 		};
+
+		Descriptor getDescriptor() const;
+
 		using Id_ = Id<Object>;
 		using ObjPtr = std::shared_ptr<Object>;
 
@@ -192,9 +195,9 @@ namespace IKIGAI::ECS {
 		EVENT::Event<>				setModelEvent;
 
 		//for serealization
-		int getIDInt();
+		int getIDInt() const;
 		void setIDInt(int _id);
-		int getParentId();
+		int getParentId() const;
 		void setParentId(int _id);
 	protected:
 		Id_ id;

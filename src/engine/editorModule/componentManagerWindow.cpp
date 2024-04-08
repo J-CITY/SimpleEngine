@@ -106,6 +106,30 @@ void removeComponentFromObject(std::shared_ptr<IKIGAI::ECS::Object> obj, std::st
 
 //----------------------------------
 
+
+template<class CLASS, class PTR>
+void widgetFloat4(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+	const std::string& propName = prop.getName();
+	if (!IKIGAI::IMGUI::CombineVecEdit::Data.contains(propName)) {
+		IKIGAI::IMGUI::CombineVecEdit::Data.insert({propName, IKIGAI::IMGUI::CombineVecEdit(propName, 4, IKIGAI::IMGUI::CombineVecEdit::MODE::POS)});
+	}
+	auto val = prop.get(*comp);
+	if (IKIGAI::IMGUI::CombineVecEdit::Data.at(propName).draw(val)) {
+		prop.set(*comp, val);
+	}
+}
+
+template<class CLASS, class PTR>
+void widgetColor4(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+	const std::string& propName = prop.getName();
+	if (!IKIGAI::IMGUI::CombineVecEdit::Data.contains(propName)) {
+		IKIGAI::IMGUI::CombineVecEdit::Data.insert({propName, IKIGAI::IMGUI::CombineVecEdit(propName, 4, IKIGAI::IMGUI::CombineVecEdit::MODE::COLOR)});
+	}
+	auto val = prop.get(*comp);
+	if (IKIGAI::IMGUI::CombineVecEdit::Data.at(propName).draw(val)) {
+		prop.set(*comp, val);
+	}
+}
 template<class CLASS, class PTR>
 void widgetFloat3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	const std::string& propName = prop.getName();
@@ -131,12 +155,14 @@ void widgetColor3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 }
 
 template<class CLASS, class PTR>
-void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) { }
+template<class CLASS>
+void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, float>& prop) {
 	const std::string& propName = prop.getName();
-	auto val = prop.get(*comp);
+	float val = prop.get(*comp);
 
-	const auto flagsRageData = prop.getMetadata().at();
-	const auto flagsStepData = prop.get_metadata();
+	//const auto flagsRageData = prop.getMetadata().at();
+	//const auto flagsStepData = prop.get_metadata();
 	auto _speed = 1;
 	auto _min = 0.0f;
 	auto _max = 0.0f;
@@ -154,7 +180,34 @@ void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 }
 
 template<class CLASS, class PTR>
-void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+void widgetInt(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
+template<class CLASS>
+void widgetInt(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, int>& prop) {
+	const std::string& propName = prop.getName();
+	auto val = prop.get(*comp);
+
+	//const auto flagsRageData = prop.getMetadata().at();
+	//const auto flagsStepData = prop.get_metadata();
+	auto _speed = 1;
+	auto _min = 0;
+	auto _max = 0;
+	if (prop.getMetadata().contains(IKIGAI::UTILS::MetaParam::EDIT_RANGE)) {
+		auto v = std::get<IKIGAI::MATH::Vector2f>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_RANGE));
+		_min = v.x;
+		_max = v.y;
+	}
+	if (prop.getMetadata().contains(IKIGAI::UTILS::MetaParam::EDIT_STEP)) {
+		_speed = std::get<int>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_STEP));
+	}
+	if (ImGui::DragInt(propName.c_str(), &val, _speed, _min, _max)) {
+		prop.set(*comp, val);
+	}
+}
+
+template<class CLASS, class PTR>
+void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
+template<class CLASS>
+void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, bool>& prop) {
 	const std::string& propName = prop.getName();
 	auto val = prop.get(*comp);
 	if (ImGui::Checkbox(propName.c_str(), &val)) {
@@ -188,7 +241,17 @@ void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 //}
 
 template<class CLASS, class PTR>
-void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
+template<class CLASS>
+void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, const std::string&>& prop) {
+	const std::string& propName = prop.getName();
+	auto val = prop.get(*comp);
+	if (ImGui::InputText(propName.c_str(), &val)) {
+		prop.set(*comp, val);
+	}
+}
+template<class CLASS>
+void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, std::string>& prop) {
 	const std::string& propName = prop.getName();
 	auto val = prop.get(*comp);
 	if (ImGui::InputText(propName.c_str(), &val)) {
@@ -275,45 +338,43 @@ void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 //		ImGui::PopID();
 //	}
 //}
+template<class CLASS, class PTR, typename std::enable_if<!std::is_enum<PTR>::value>::type* = nullptr>
+void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
 
-//void widgetCombo(UTILS::WeakPtr<ECS::Component> component, const rttr::property& prop) {
-//	const std::string propName = prop.get_name().to_string();
-//	std::unique_ptr<rttr::instance> inst;
-//	getInstance(component, inst);
-//	auto val = prop.get_value(*inst);
-//
-//	if (val.get_type().is_enumeration()) {
-//		const auto names = val.get_type().get_enumeration().get_names();
-//		const auto values = val.get_type().get_enumeration().get_values();
-//		const auto enumNames = std::vector(names.begin(), names.end());
-//		const auto enumValues = std::vector(values.begin(), values.end());
-//
-//		int itemCurrentIndex = [&enumValues, &val]() {
-//			int i = 0;
-//			for (auto& e : enumValues) {
-//				if (e == val) {
-//					break;
-//				}
-//				i++;
-//			}
-//			return i;
-//		}();
-//		const auto comboLabel = enumNames[itemCurrentIndex].to_string();
-//		if (ImGui::BeginCombo(propName.c_str(), comboLabel.c_str())) {
-//			for (int n = 0; n < enumNames.size(); n++) {
-//				const bool isSelected = (itemCurrentIndex == n);
-//				if (ImGui::Selectable(enumNames[n].to_string().c_str(), isSelected)) {
-//					itemCurrentIndex = n;
-//					std::ignore = prop.set_value(*inst, enumValues[itemCurrentIndex]);
-//				}
-//				if (isSelected) {
-//					ImGui::SetItemDefaultFocus();
-//				}
-//			}
-//			ImGui::EndCombo();
-//		}
-//	}
-//}
+template<class CLASS, class PTR, typename std::enable_if<std::is_enum<PTR>::value>::type* = nullptr>
+void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+	//TODO: support my enums
+	const std::string propName = prop.getName();
+	
+	auto val = prop.get(*comp);
+	constexpr auto enumNames = magic_enum::enum_names<PTR>();
+	constexpr auto enumValues = magic_enum::enum_values<PTR>();
+
+	int itemCurrentIndex = [&enumValues, &val]() {
+		int i = 0;
+		for (auto& e : enumValues) {
+			if (e == val) {
+				break;
+			}
+			i++;
+		}
+		return i;
+	}();
+	const auto comboLabel = enumNames[itemCurrentIndex];
+	if (ImGui::BeginCombo(propName.c_str(), comboLabel.data())) {
+		for (int n = 0; n < enumNames.size(); n++) {
+			const bool isSelected = (itemCurrentIndex == n);
+			if (ImGui::Selectable(enumNames[n].data(), isSelected)) {
+				itemCurrentIndex = n;
+				prop.set(*comp, enumValues[itemCurrentIndex]);
+			}
+			if (isSelected) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+}
 
 //template<class T>
 //auto GetMembers() {
@@ -347,8 +408,40 @@ void getPropsImpl(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp) {
 				const auto propName = prop.getName();
 				const auto wType = std::get<IKIGAI::UTILS::WidgetType>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
 				switch (wType) {
+				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
+					widgetFloat4(static_cast<T*>(comp.get()), prop);
+					break;
+				}
+				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_4: {
+					widgetColor4(static_cast<T*>(comp.get()), prop);
+					break;
+				}
 				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_3: {
 					widgetFloat3(static_cast<T*>(comp.get()), prop);
+					break;
+				}
+				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_3: {
+					widgetColor3(static_cast<T*>(comp.get()), prop);
+					break;
+				}
+				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT: {
+					widgetFloat(static_cast<T*>(comp.get()), prop);
+					break;
+				}
+				case IKIGAI::UTILS::WidgetType::DRAG_INT: {
+					widgetInt(static_cast<T*>(comp.get()), prop);
+					break;
+				}
+				case IKIGAI::UTILS::WidgetType::BOOL: {
+					widgetBool(static_cast<T*>(comp.get()), prop);
+					break;
+				}
+				case IKIGAI::UTILS::WidgetType::STRING: {
+					widgetString(static_cast<T*>(comp.get()), prop);
+					break;
+				}
+				case IKIGAI::UTILS::WidgetType::COMBO: {
+					widgetCombo(static_cast<T*>(comp.get()), prop);
 					break;
 				}
 				}

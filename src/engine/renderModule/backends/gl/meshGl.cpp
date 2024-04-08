@@ -19,7 +19,6 @@ MeshGl::MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned
 		//std::string s = std::to_string(e.position.x) + " " + std::to_string(e.position.y) + " " + std::to_string(e.position.z);
 		//std::cout << e.position.x << " " << e.position.y << " " << e.position.z << std::endl;
 		std::string s = std::to_string(e);
-		std::cout << e << std::endl;
 #ifdef __ANDROID__
 		// Android doesn't emit the standard output streams by default, so instead we will
 		// pump the logging through the Android Logcat system. If you enter 'a-simple-triangle'
@@ -109,7 +108,7 @@ void MeshGl::createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_i
 	mVertexArray->bindAttribute(2, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
 	mVertexArray->bindAttribute(3, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
 	mVertexArray->bindAttribute(4, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
-	mVertexArray->bindAttribute(5, *mVertexBuffer, VertexArray::Type::FLOAT,   4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	mVertexArray->bindAttribute(5, *mVertexBuffer, VertexArray::Type::INT,   4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
 	mVertexArray->bindAttribute(6, *mVertexBuffer, VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
 #endif
 }

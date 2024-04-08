@@ -20,6 +20,7 @@ namespace IKIGAI::ECS{
 				using namespace serde::attribute;
 				serde::serde_struct(context, value)
 					.field(&Self::Type, "PointLightType")
+					.field(&Self::Color, "Color", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
 					.field(&Self::Intensity, "Intensity")
 					.field(&Self::Constant, "Constant")
 					.field(&Self::Linear, "Linear")
@@ -62,6 +63,7 @@ namespace IKIGAI::ECS{
 		MATH::Matrix4f shadowProjectionMat;
 		std::array<MATH::Matrix4f, 6> ProjectionMatrices;
 
+		[[nodiscard]] Descriptor getDescriptor() const;
 
 		//std::shared_ptr<RESOURCES::CubeMap> DepthMap;
 
@@ -72,6 +74,43 @@ namespace IKIGAI::ECS{
 	public:
 		static auto GetMembers() {
 			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfoLambda<PointLight, const MATH::Vector3f&>("Color", 
+				[](PointLight& obj) { return obj.getColor(); }, 
+				[](PointLight& obj, const MATH::Vector3f& data) { obj.setColor(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_COLOR_3},
+				}),
+				IKIGAI::UTILS::MakeMemberInfoLambda<PointLight, float>("Intensity",
+				[](PointLight& obj){ return obj.getIntensity(); }, 
+				[](PointLight& obj, float data) { return obj.setIntensity(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Linear", &PointLight::getLinear, &PointLight::setLinear,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Quadratic", &PointLight::getQuadratic, &PointLight::setQuadratic,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Constant", &PointLight::getConstant, &PointLight::setConstant,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				})
 			};
 		}
 	};

@@ -637,8 +637,8 @@ static VertexDescriptor genVertexDescriptor(const SpvReflectShaderModule& module
 
 
 void ShaderVk::getReflection(std::string vertex, std::string fragment, bool needVertDescr) {
-	auto vertShaderCode = readFile(vertex);
-	auto fragShaderCode = readFile(fragment);
+	auto vertShaderCode = readFile(constructRealPath(vertex));
+	auto fragShaderCode = readFile(constructRealPath(fragment));
 
 	{//reflection
 		SpvReflectShaderModule module;
@@ -678,11 +678,11 @@ void ShaderVk::getReflection(std::string vertex, std::string fragment, bool need
 void ShaderVk::create(VkRenderPass renderPass, std::string vertex, std::string fragment, 
 	std::optional<std::string> geometry, std::optional<std::string> tessControl, std::optional<std::string> tesEval) {
 	auto render = UtilityVk::GetDriver();
-	auto vertShaderCode = readFile(vertex);
-	auto fragShaderCode = readFile(fragment);
-
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+	//auto vertShaderCode = readFile(constructRealPath(vertex));
+	//auto fragShaderCode = readFile(constructRealPath(fragment));
+	//
+	//VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+	//VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 
@@ -693,7 +693,7 @@ void ShaderVk::create(VkRenderPass renderPass, std::string vertex, std::string f
 	int i = 0;
 	for (auto& shaderString : shadersStrings) {
 		if (shaderString) {
-			auto code = readFile(shaderString.value());
+			auto code = readFile(constructRealPath(shaderString.value()));
 			VkShaderModule shaderModule = createShaderModule(code);
 
 			VkPipelineShaderStageCreateInfo shaderStageInfo{};
@@ -862,7 +862,7 @@ void ShaderVk::create(VkRenderPass renderPass, std::string vertex, std::string f
 		throw std::runtime_error("Failed to create a Graphics Pipeline!");
 	}
 
-	vkDestroyShaderModule(render->m_MainDevice.LogicalDevice, fragShaderModule, nullptr);
-	vkDestroyShaderModule(render->m_MainDevice.LogicalDevice, vertShaderModule, nullptr);
+	//vkDestroyShaderModule(render->m_MainDevice.LogicalDevice, fragShaderModule, nullptr);
+	//vkDestroyShaderModule(render->m_MainDevice.LogicalDevice, vertShaderModule, nullptr);
 }
 #endif

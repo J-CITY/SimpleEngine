@@ -77,7 +77,7 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		"Distance", &Vector3f::Distance
 		);
 
-	p_luaState.new_usertype<Vector4f>("Vector4f",
+	p_luaState.new_usertype<Vector4f>("Vector4",
 		/* Constructors */
 		sol::constructors
 		<
@@ -110,7 +110,7 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		//"Lerp", &Vector4f::Lerp
 		);
 
-	p_luaState.new_usertype<Matrix3f>("Matrix3f",
+	p_luaState.new_usertype<Matrix3f>("Matrix3",
 		/* Constructors */
 		sol::constructors
 		<
@@ -158,7 +158,7 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		"Set", [](Matrix3f& target, int row, int col, float value) { target(row, col) = value; }
 	);
 
-	p_luaState.new_usertype<Matrix4f>("Matrix4f",
+	p_luaState.new_usertype<Matrix4f>("Matrix4",
 		/* Constructors */
 		sol::constructors
 		<
@@ -222,7 +222,7 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		sol::resolve<Vector3f(const Vector3f&, const QuaternionF&, const Vector3f&)>(&QuaternionF::RotatePoint) // Rotate with pivot
 	);
 
-	p_luaState.new_usertype<QuaternionF>("QuaternionF",
+	p_luaState.new_usertype<QuaternionF>("Quaternion",
 		/* Constructors */
 		sol::constructors
 		<
@@ -253,6 +253,7 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		"Normalize", &QuaternionF::Normalize,
 		"Length", &QuaternionF::Length,
 		"LengthSquare", &QuaternionF::LengthSquare,
+		"ToQuaternion", &QuaternionF::ToQuaternion,
 		//"GetAngle", &QuaternionF::GetAngle,
 		//"GetRotationAxis", &QuaternionF::GetRotationAxis,
 		//"Inverse", &QuaternionF::Inverse,

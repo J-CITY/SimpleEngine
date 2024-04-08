@@ -1,12 +1,16 @@
 #pragma once
 #include "drawable.h"
 #include "gameRendererInterface.h"
+#include "backends/interface/frameBufferInterface.h"
+#include "backends/interface/textureInterface.h"
+#include "utilsModule/enum.h"
 #include "utilsModule/ref.h"
+
 #ifdef OPENGL_HARD_RENDER
 #include "drawable.h"
 #include "frustum.h"
 #include "gameRendererInterface.h"
-
+#include "backends/gl/materialGl.h"
 
 namespace IKIGAI::SCENE_SYSTEM {
 	class Scene;
@@ -16,7 +20,7 @@ namespace IKIGAI::ECS {
 	class CameraComponent;
 }
 
-namespace IKIGAI::CORE_SYSTEM {
+namespace IKIGAI::CORE {
 		class Core;
 }
 
@@ -62,7 +66,7 @@ namespace IKIGAI::RENDER {
 	class GameRendererGl:  public GameRendererInterface {
 	public:
 		struct SSAO {
-			std::vector<MATHGL::Vector3> mSSAOKernel;
+			std::vector<MATH::Vector3f> mSSAOKernel;
 			bool mUseSSAO = true;
 		};
 		struct SSR {
@@ -79,7 +83,7 @@ namespace IKIGAI::RENDER {
 			float mDirNearPlane = 0.1f;
 			float mDirFarPlane = 500.0f;
 			std::vector<float> mShadowCascadeLevels{ mDirFarPlane / 50.0f, mDirFarPlane / 25.0f, mDirFarPlane / 10.0f, mDirFarPlane / 2.0f };
-			MATHGL::Matrix4 dirLightSpaceMatrix;
+			MATH::Matrix4f dirLightSpaceMatrix;
 
 			unsigned int mSpotShadowMapResolution = 1024;
 			float mSpotNearPlane = 1.0f;
@@ -95,7 +99,7 @@ namespace IKIGAI::RENDER {
 		};
 
 		struct ChromaticAbberation {
-			MATHGL::Vector3 params = MATHGL::Vector3(0.8f, 0.08f, 0.8f);
+			MATH::Vector3f params = MATH::Vector3f(0.8f, 0.08f, 0.8f);
 		};
 
 		struct HDR {
@@ -105,9 +109,9 @@ namespace IKIGAI::RENDER {
 		};
 
 		struct ColorGrading {
-			MATHGL::Vector3 r = MATHGL::Vector3(1.0f, 0.0f, 0.0f);
-			MATHGL::Vector3 g = MATHGL::Vector3(0.0f, 1.0f, 0.0f);
-			MATHGL::Vector3 b = MATHGL::Vector3(0.0f, 0.0f, 1.0f);
+			MATH::Vector3f r = MATH::Vector3f(1.0f, 0.0f, 0.0f);
+			MATH::Vector3f g = MATH::Vector3f(0.0f, 1.0f, 0.0f);
+			MATH::Vector3f b = MATH::Vector3f(0.0f, 0.0f, 1.0f);
 		};
 
 		struct Vignette {
@@ -120,7 +124,7 @@ namespace IKIGAI::RENDER {
 		};
 
 		struct Fog {
-			MATHGL::Vector3 color = MATHGL::Vector3(0.7f, 0.7f, 0.7f);
+			MATH::Vector3f color = MATH::Vector3f(0.7f, 0.7f, 0.7f);
 			float linearStart = 20.0f;
 			float linearEnd = 75.0f;
 			float density = 0.01f;
@@ -142,7 +146,7 @@ namespace IKIGAI::RENDER {
 		};
 
 		struct Pipeline {
-			MATHGL::Vector4 mClearColor = MATHGL::Vector4(0.0f, 0.0f, 0.50f, 1.0f);
+			MATH::Vector4f mClearColor = MATH::Vector4f(0.0f, 0.0f, 0.50f, 1.0f);
 
 			bool mIsPBR = false;
 
@@ -181,7 +185,7 @@ namespace IKIGAI::RENDER {
 		std::array<std::shared_ptr<TextureGl>, 2> pingPongTex;
 
 		void setSkyBoxTexture(const std::string& path);
-		GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context);
+		GameRendererGl(IKIGAI::CORE::Core& context);
 		void createShaders();
 		void sendEngineUBO();
 		void sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader);
@@ -229,7 +233,7 @@ namespace IKIGAI::RENDER {
 		void updateDebug3dTextureFB();
 
 		struct EngineDirShadowUBO {
-			std::vector<MATHGL::Matrix4> lightSpaceMatrices;
+			std::vector<MATH::Matrix4f> lightSpaceMatrices;
 		};
 
 		std::map<std::string, bool> activeCustomPP;
@@ -276,8 +280,8 @@ namespace IKIGAI::RENDER {
 		std::shared_ptr<TextureGl> gVelocityGlobalTex;
 	protected:
 		
-		EngineDirShadowUBO getLightSpaceMatrices(const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos);
-		MATHGL::Matrix4 getLightSpaceMatrix(float nearPlane, float farPlane, const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos);
+		EngineDirShadowUBO getLightSpaceMatrices(const MATH::Vector3f& lightDir, const MATH::Vector3f& lightPos);
+		MATH::Matrix4f getLightSpaceMatrix(float nearPlane, float farPlane, const MATH::Vector3f& lightDir, const MATH::Vector3f& lightPos);
 		bool prepareDirShadowMap(const std::string& id);
 		bool prepareDirCascadeShadowMap(const std::string& id);
 		void prepareSpotShadow();
@@ -304,10 +308,10 @@ namespace IKIGAI::RENDER {
 		void drawDrawableWithShader(std::shared_ptr<ShaderGl> shader, const Drawable& p_toDraw);
 
 
-		void sendEngineUBO(ShaderGl& shader, const MATHGL::Matrix4& world);
+		void sendEngineUBO(ShaderGl& shader, const MATH::Matrix4f& world);
 		void sendEngineShadowData(ShaderGl& shader);
 
-		IKIGAI::CORE_SYSTEM::Core& mContext;
+		IKIGAI::CORE::Core& mContext;
 
 		OpaqueDrawables	mOpaqueMeshesForward;
 		TransparentDrawables mTransparentMeshesForward;
@@ -349,7 +353,123 @@ namespace IKIGAI::RENDER {
 	class FrameBufferGl;
 	class DriverGl;
 
+
+	enum class DrawContent {
+		FORWARD,
+		DEFERRED,
+		GUI,
+		QUAD
+	};
+
+	struct PipelineStage {
+		using UniformType = std::variant<float, int, bool,
+			MATH::Vector2f, MATH::Vector3f, MATH::Vector4f,
+			std::shared_ptr<TextureInterface>>;
+
+		struct Descriptor {
+			using UniformTypeDescr = std::variant<float, int, bool,
+				MATH::Vector2f, MATH::Vector3f, MATH::Vector4f,
+				std::string>;
+			std::string Name;
+			DrawContent Draw;
+			std::string Material;
+			std::string FrameBuffer;
+			std::map<std::string, UniformTypeDescr> Uniforms;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, Descriptor& value) {
+				using Self = Descriptor;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Name, "Name")
+					.field(&Self::Draw, "Draw")
+					.field(&Self::Material, "Material")
+					.field(&Self::FrameBuffer, "FrameBuffer", default_{""})
+					.field(&Self::Uniforms, "Uniforms");
+			}
+		};
+		PipelineStage() = default;
+		//PipelineStage(const Descriptor& descriptor) {
+		//
+		//}
+		
+		std::string mName;
+		std::shared_ptr<FrameBufferInterface> mFrameBuffer;
+		std::shared_ptr<MaterialInterface> mMaterial;
+		DrawContent mDrawContent;
+		std::map<std::string, UniformType> mUniforms;
+	};
+
+	struct RenderGraphPipeline {
+		struct TextDescr {
+			std::string Name;
+			std::string TexturePath;
+			int Width = 0;
+			int Height = 0;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, TextDescr& value) {
+				using Self = TextDescr;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Name, "Name")
+					.field(&Self::TexturePath, "TexturePath", default_{""})
+					.field(&Self::Height, "Height", default_{0})
+					.field(&Self::Width, "Width", default_{0});
+			}
+		};
+
+		struct FrameDesc {
+			std::string Name;
+			std::vector<std::string> Textures;
+			std::string Depth;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, FrameDesc& value) {
+				using Self = FrameDesc;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Name, "Name")
+					.field(&Self::Textures, "Textures")
+					.field(&Self::Depth, "Depth", default_{""});
+			}
+		};
+
+		struct Descriptor {
+			std::string Name;
+			std::vector<TextDescr> Textures;
+			std::vector<FrameDesc> FrameBuffers;
+			std::vector<PipelineStage::Descriptor> StartStages;
+			std::vector<PipelineStage::Descriptor> Stages;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, Descriptor& value) {
+				using Self = Descriptor;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Name, "Name")
+					.field(&Self::Textures, "Textures")
+					.field(&Self::FrameBuffers, "FrameBuffers")
+					.field(&Self::Stages, "Stages")
+					.field(&Self::StartStages, "StartStages");
+			}
+		};
+
+		RenderGraphPipeline() = default;
+		RenderGraphPipeline(const Descriptor& descriptor);
+
+		std::map<std::string, std::shared_ptr<FrameBufferInterface>> mFrameBuffers;
+		std::map<std::string, std::shared_ptr<TextureInterface>> mTextures;
+
+		std::list<std::unique_ptr<PipelineStage>> mStartStages;
+		std::list<std::unique_ptr<PipelineStage>> mStages;
+	};
+
+
+
 	class GameRendererGl : public GameRendererInterface {
+		std::unique_ptr<RenderGraphPipeline> mRenderPipeline;
+
 		IKIGAI::CORE::Core& mContext;
 		DriverGl* mDriver;
 		int frameCount = 0;
@@ -362,6 +482,7 @@ namespace IKIGAI::RENDER {
 
 		void renderScene(UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
 		void drawDrawable(const Drawable& p_toDraw);
+		void renderPipeline(UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
 
 	public:
 		GameRendererGl(CORE::Core& context);
@@ -374,6 +495,8 @@ namespace IKIGAI::RENDER {
 							   uint32_t viewID);
 #endif
 		void renderToScreen();
+		void drawGUISubtree(UTILS::Ref<ECS::Object> obj);
+		void drawGUI();
 	};
 }
 #endif

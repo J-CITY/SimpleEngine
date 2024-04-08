@@ -47,11 +47,13 @@ namespace IKIGAI::ECS {
 		void updateMaterialList();
 		[[nodiscard]] const MaterialList& getMaterials() const;
 		const MaterialNames& getMaterialNames();
+
+		[[nodiscard]] Descriptor getDescriptor() const;
 	private:
 		void setMaterialsByPath(std::vector<std::string> paths);
-		std::vector<std::string> getMaterialsPaths();
+		std::vector<std::string> getMaterialsPaths() const;
 		void setMaterialsNames(std::vector<std::string> paths);
-		std::vector<std::string> getMaterialsNames();
+		std::vector<std::string> getMaterialsNames() const;
 		MaterialRenderer* getMaterialRenderer();
 
 		MaterialList materials;

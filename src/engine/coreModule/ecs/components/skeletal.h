@@ -39,10 +39,12 @@ namespace IKIGAI::ECS {
 		void setAnimation(std::string id);
 
 		void setAnimationPath(std::string id);
-		std::string getAnimationPath();
+		std::string getAnimationPath() const;
 		//void setAnimation(int id);
 
-		std::string getCurrentAnimationName();
+		std::string getCurrentAnimationName() const;
+
+		[[nodiscard]] Descriptor getDescriptor() const;
 
 		std::map<std::string, std::shared_ptr<IKIGAI::RESOURCES::Animation>> animations;
 		std::shared_ptr<IKIGAI::RESOURCES::Animator> animator;
@@ -51,6 +53,16 @@ namespace IKIGAI::ECS {
 	public:
 		static auto GetMembers() {
 			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfo("AnimationPath", &Skeletal::getAnimationPath, &Skeletal::setAnimationPath,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::STRING},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Animation", &Skeletal::getCurrentAnimationName, &Skeletal::setAnimation,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::STRING},
+				})
 			};
 		}
 	};

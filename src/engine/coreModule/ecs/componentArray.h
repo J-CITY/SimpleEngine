@@ -36,14 +36,33 @@ namespace IKIGAI::ECS {
 			size++;
 		}
 
-		T removeData(Entity entity) {
+		void insertData(Entity entity, T&& component) {
+			assert(!entityToIndexInArray.contains(entity) && "Component added to same entity more than once.");
+
+			auto newIndex = size;
+			entityToIndexInArray[entity] = newIndex;
+			indexInArrayToEntity.insert(std::make_pair(newIndex, entity));
+			if (componentArray.size() > newIndex) {
+				componentArray.moveTo(newIndex, std::move(component));
+				//componentArray[newIndex] = std::move(component);
+			} else {
+				componentArray.push_back(component);
+			}
+			// Update cb ptr
+			componentArray[newIndex].getControlBlock()->mPtr = &componentArray[newIndex];
+			size++;
+		}
+
+		T&& removeData(Entity entity) {
 			assert(entityToIndexInArray.contains(entity) && "Removing non-existent component.");
 
 			// Copy element at end into deleted element's place to maintain density
 			size_t indexOfRemovedEntity = entityToIndexInArray[entity];
 			size_t indexOfLastElement = size - 1;
-			auto component = std::move(componentArray[indexOfRemovedEntity]);
-			componentArray[indexOfRemovedEntity] = std::move(componentArray[indexOfLastElement]);
+			T&& component = componentArray.moveFrom(indexOfRemovedEntity);
+			T&& moveElem = componentArray.moveFrom(indexOfLastElement);
+			componentArray.moveTo(indexOfRemovedEntity,std::move(moveElem));
+			//componentArray[indexOfRemovedEntity] =std::move(moveElem);
 			// Update cb ptr
 			componentArray[indexOfRemovedEntity].getControlBlock()->mPtr = &componentArray[indexOfRemovedEntity];
 
@@ -54,11 +73,10 @@ namespace IKIGAI::ECS {
 			entityToIndexInArray.erase(entity);
 			indexInArrayToEntity.erase(indexOfLastElement);
 			size--;
-
-			//TODO: add support change chunk size without remove last element
+			
 			componentArray.pop_back();
 
-			return component;
+			return std::move(component);
 		}
 
 		T& getData(Entity entity) {
@@ -67,22 +85,22 @@ namespace IKIGAI::ECS {
 			return componentArray[entityToIndexInArray[entity]];
 		}
 
-		void insertDataAny(Entity entity, std::any component) override {
-			if (!component.has_value()) {
-				throw;
-				return;
-			}
-			auto data = std::any_cast<T>(component);
-			insertData(entity, data);
-		}
+		//void insertDataAny(Entity entity, UTILS::unique_any&& component) override {
+		//	if (!component.has_value()) {
+		//		throw;
+		//		return;
+		//	}
+		//	auto data = UTILS::any_cast<T>(component);
+		//	insertData(entity, data);
+		//}
 
-		std::any removeDataAny(Entity entity) override {
-			return removeData(entity);
-		}
+		//UTILS::unique_any&& removeDataAny(Entity entity) override {
+		//	return removeData(entity);
+		//}
 
-		std::any getDataAny(Entity entity) override {
-			return getData(entity);
-		}
+		//std::any getDataAny(Entity entity) override {
+		//	return getData(entity);
+		//}
 
 		UTILS::WeakPtr<T> getDataPtr(Entity entity) {
 			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");

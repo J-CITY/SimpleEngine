@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7)
 
 project(cross_test)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fexceptions -O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -D WITH_MINIAUDIO -s USE_WEBGL2=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS -s USE_FREETYPE=1")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fexceptions -O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -D WITH_MINIAUDIO -s FULL_ES3 -s USE_WEBGL2=1 -s GL_SUPPORT_AUTOMATIC_ENABLE_EXTENSIONS=1 -s OFFSCREEN_FRAMEBUFFER=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS -s USE_FREETYPE=1")
 
 set(THIRD_PARTY_DIR "../3rd")
 set(MAIN_SOURCE_DIR "../src")
@@ -177,6 +177,7 @@ add_compile_definitions(USE_SDL)
 add_compile_definitions(USING_GLES)
 # if (backend == opengl)
 add_compile_definitions(OPENGL_BACKEND)
+add_compile_definitions(OPENGL_SIMPLE_RENDER)
 
 add_executable(
     cross_test
@@ -192,9 +193,19 @@ target_link_libraries(cross_test soloud)
 target_link_libraries(cross_test lua)
 target_link_libraries(cross_test imgui)
 
+list(APPEND PLATFORM_OPTIONS
+    "-pthread"
+)
+
+target_compile_options(
+    cross_test
+    PUBLIC 
+    ${PLATFORM_OPTIONS}
+)
+
 set_target_properties(
     cross_test
     PROPERTIES
     LINK_FLAGS
-    "-O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -s USE_SDL_IMAGE=2 -D WITH_MINIAUDIO -s SDL2_IMAGE_FORMATS=\"['png']\" -s USE_WEBGL2=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS  -s USE_FREETYPE=1 --preload-file ../../assets@/assets"
+    "-O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -s USE_SDL_IMAGE=2 -D WITH_MINIAUDIO -s SDL2_IMAGE_FORMATS=\"['png']\" -s FULL_ES3 -s USE_WEBGL2=1 -s GL_SUPPORT_AUTOMATIC_ENABLE_EXTENSIONS=1 -s OFFSCREEN_FRAMEBUFFER=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS  -s USE_FREETYPE=1 --preload-file ../../assets@/assets"
 )

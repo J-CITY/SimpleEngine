@@ -32,10 +32,26 @@ namespace IKIGAI::ECS {
 		};
 		MATH::Vector3f getSize() const;
 		void setSize(const MATH::Vector3f& val);
-
+		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
 		static auto GetMembers() {
 			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfoLambda<AmbientLight, const MATH::Vector3f&>("Color",
+				[](AmbientLight& obj) { return obj.getColor(); },
+				[](AmbientLight& obj, const MATH::Vector3f& data) { obj.setColor(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_COLOR_3},
+				}),
+				IKIGAI::UTILS::MakeMemberInfoLambda<AmbientLight, float>("Intensity",
+				[](AmbientLight& obj) { return obj.getIntensity(); },
+				[](AmbientLight& obj, float data) { return obj.setIntensity(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				})
 			};
 		}
 		

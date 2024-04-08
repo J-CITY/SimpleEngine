@@ -98,14 +98,28 @@ IKIGAI::RENDER::Camera& CameraComponent::getCamera() {
 	return camera;
 }
 
+CameraComponent::Descriptor CameraComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<CameraComponent>();
+	descriptor.Fov = getFov();
+	descriptor.Size = getSize();
+	descriptor.Near = getNear();
+	descriptor.Far = getFar();
+	descriptor.GeometryCulling = isFrustumGeometryCulling();
+	descriptor.GeometryBVHCulling = isFrustumGeometryBVHCulling();
+	descriptor.LightCulling = isFrustumLightCulling();
+	descriptor.Mode = getProjectionMode();
+	return descriptor;
+}
+
 VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj): CameraComponent(_obj) {
 	__NAME__ = "VrCamera";
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
 #ifdef OPENGL_BACKEND
-	leftTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, 0x1406/*GL_FLOAT*/); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	leftTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406/*GL_FLOAT*/); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//leftTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 
-	rightTexture = RENDER::TextureGl::createForAttach(screenRes.x, screenRes.y, 0x1406); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	rightTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 	//rightTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
 #endif
 	
@@ -184,6 +198,20 @@ void VrCameraComponent::updateEyes() {
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
 	left->getComponent<CameraComponent>()->getCamera().cacheMatrices(screenRes.x, screenRes.y, position + LEyeDistance, obj->getTransform()->getWorldRotation());
 	right->getComponent<CameraComponent>()->getCamera().cacheMatrices(screenRes.x, screenRes.y, position + REyeDistance, obj->getTransform()->getWorldRotation());
+}
+
+VrCameraComponent::Descriptor VrCameraComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<VrCameraComponent>();
+	descriptor.Fov = getFov();
+	descriptor.Size = getSize();
+	descriptor.Near = getNear();
+	descriptor.Far = getFar();
+	descriptor.GeometryCulling = isFrustumGeometryCulling();
+	descriptor.GeometryBVHCulling = isFrustumGeometryBVHCulling();
+	descriptor.LightCulling = isFrustumLightCulling();
+	descriptor.Mode = getProjectionMode();
+	return descriptor;
 }
 
 /*

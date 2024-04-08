@@ -58,13 +58,19 @@ void ModelRenderer::setModelByPath(std::string path) {
 	mat->updateMaterialList();
 }
 
-std::string ModelRenderer::getModelPath() {
+std::string ModelRenderer::getModelPath() const {
 	if (!m_model) {
 		return "";
 	}
 	return m_model->getPath();
 }
 
+ModelRenderer::Descriptor ModelRenderer::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<ModelRenderer>();
+	descriptor.Path = getModelPath();
+	return descriptor;
+}
 //---------------------------------------
 
 
@@ -140,7 +146,7 @@ void ModelLODRenderer::setModelsByPath(std::vector<ModelLODRenderer::ModelLodRef
 	}
 }
 
-std::vector<ModelLODRenderer::ModelLodRefl> ModelLODRenderer::getModelsPath() {
+std::vector<ModelLODRenderer::ModelLodRefl> ModelLODRenderer::getModelsPath() const {
 	std::vector<ModelLODRenderer::ModelLodRefl> res;
 	for (auto e : m_models) {
 		res.push_back({ e.m_distance, e.m_model->getPath() });
@@ -148,6 +154,12 @@ std::vector<ModelLODRenderer::ModelLodRefl> ModelLODRenderer::getModelsPath() {
 	return res;
 }
 
+ModelLODRenderer::Descriptor ModelLODRenderer::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<ModelLODRenderer>();
+	descriptor.Paths = getModelsPath();
+	return descriptor;
+}
 
 //#include <rttr/registration>
 //
@@ -185,3 +197,23 @@ std::vector<ModelLODRenderer::ModelLodRefl> ModelLODRenderer::getModelsPath() {
 //	);
 //}
 
+//----------------------------------------------
+
+
+ChunkModelRenderer::ChunkModelRenderer(UTILS::Ref<ECS::Object> p_owner) : Component(p_owner) {
+	__NAME__ = "ChunkModelRenderer";
+	mModel = std::make_shared<superchunk>();
+}
+
+ChunkModelRenderer::ChunkModelRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : Component(_obj) {
+	__NAME__ = "ChunkModelRenderer";
+	mModel = std::make_shared<superchunk>();
+	//setModelByPath(_descriptor.Path);
+}
+
+ChunkModelRenderer::Descriptor ChunkModelRenderer::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<ChunkModelRenderer>();
+	//descriptor.Path = getModelPath();
+	return descriptor;
+}

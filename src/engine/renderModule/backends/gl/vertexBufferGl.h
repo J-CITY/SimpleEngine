@@ -63,7 +63,6 @@ namespace IKIGAI::RENDER
 			glGenBuffers(1, &ID);
 			glBindBuffer(GL_ARRAY_BUFFER, ID);
 			glBufferData(GL_ARRAY_BUFFER, elements * sizeof(T), data, GL_STATIC_DRAW);
-			std::cout << "CREATE VERTEX BUFF " << elements;
 		}
 		
 		inline VertexBufferGl(T* data, size_t elements, UsageType type) {
@@ -105,8 +104,9 @@ namespace IKIGAI::RENDER
 #endif
 		}
 
-		void bufferData(GLsizeiptr size, void* data, GLenum usage) const {
+		void bufferData(GLsizeiptr size, void* data, GLenum usage) {
 			bind();
+			sz = size / sizeof(T);
 			glBufferData(GL_ARRAY_BUFFER, size, data, usage);
 		}
 

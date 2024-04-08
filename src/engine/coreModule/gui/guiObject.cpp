@@ -72,19 +72,11 @@ Font::Font(std::string fontPath, int size) {
 		glTexImage2D(
 			GL_TEXTURE_2D,
 			0,
-#ifdef USING_GLES
             GL_ALPHA,
-#else
-		    GL_RED,
-#endif
 			1024,
 			1024,
 			0,
-#ifdef USING_GLES
 			GL_ALPHA,
-#else
-			GL_RED,
-#endif
 			GL_UNSIGNED_BYTE,
 			textureData.data()
 		);
@@ -93,7 +85,7 @@ Font::Font(std::string fontPath, int size) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		
+
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 	
@@ -124,7 +116,7 @@ std::shared_ptr<ECS::Object> GuiHelper::CreateLabel(const std::string& name, con
 	}
 	obj->getTransform()->getTransform().turnOnAnchorPivot();
 
-	auto font = std::make_shared<IKIGAI::GUI::Font>(IKIGAI::UTILS::GetRealPath("./Fonts/a_AlternaSw.TTF"), 42);
+	auto font = std::make_shared<IKIGAI::GUI::Font>(IKIGAI::UTILS::GetRealPath("fonts/a_AlternaSw.TTF"), 42);
 	obj->addComponent<IKIGAI::ECS::LabelComponent>(label, font);
 	return obj;
 }

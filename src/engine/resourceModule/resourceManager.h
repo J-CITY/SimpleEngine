@@ -18,11 +18,11 @@ namespace IKIGAI {
 			//template<typename T>
 			ResourcePtr<T> loadResource(const std::string& path) {
 				std::string _path = UTILS::ReplaceSubstrings(path, "\\", "/");
-				auto pos = _path.find("Assets/Engine/");
+				auto pos = _path.find("assets/engine/");
 				if (pos != std::string::npos) {
 					_path = _path.substr(pos + 14);
 				}
-				pos = _path.find("Assets/Game/");
+				pos = _path.find("assets/game/");
 				if (pos != std::string::npos) {
 					_path = _path.substr(pos + 12);
 				}

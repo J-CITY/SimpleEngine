@@ -29,8 +29,6 @@ namespace IKIGAI::RENDER {
 
 		static std::shared_ptr<TextureDx12> Create(std::string path);
 		static std::shared_ptr<TextureDx12> CreateForAttach(size_t width, size_t height);
-		size_t mWidth = 0;
-		size_t mHeight = 0;
 
 		void buildDescriptorHeaps();
 

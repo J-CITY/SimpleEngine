@@ -63,6 +63,23 @@ namespace IKIGAI::ECS {
 		//std::optional<size_t> row;
 	};
 
+	template<typename T>
+	void moveComponentImpl(Entity entity, std::shared_ptr<ComponentArrayInterface> arrTo, std::shared_ptr<ComponentArrayInterface> arrFrom, const std::string& tname) {
+		auto t = IKIGAI::ECS::GetType<T>();
+		if (tname == t) {
+			std::static_pointer_cast<ComponentArray<T>>(arrTo)->insertData(entity, std::static_pointer_cast<ComponentArray<T>>(arrFrom)->removeData(entity));
+		}
+	}
+
+	template<template<typename...> class Container, typename...ComponentType>
+	void moveComponent(Entity entity, std::shared_ptr<ComponentArrayInterface> arrTo, std::shared_ptr<ComponentArrayInterface> arrFrom, const std::string& tname, Container<ComponentType...> opt) {
+		(moveComponentImpl<ComponentType>(entity, arrTo, arrFrom, tname), ...);
+	}
+
+	inline void moveComponent(Entity entity, std::shared_ptr<ComponentArrayInterface> arrTo, std::shared_ptr<ComponentArrayInterface> arrFrom, const std::string& tname) {
+		moveComponent(entity, arrTo, arrFrom, tname, IKIGAI::ECS::ComponentsTypeProviderType{});
+	}
+
 	class ComponentManager : public UTILS::SingletonService<ComponentManager> {
 		FRIEND_SINGLETON_SERVICE(ComponentManager)
 		std::unique_ptr<SystemManager> systemManager;
@@ -76,19 +93,23 @@ namespace IKIGAI::ECS {
 	private:
 		ComponentType nextComponentType = IdGenerator<ComponentManager>::generateId();
 
-		std::unordered_map<const char*, ComponentType> componentTypes;
-		std::unordered_map<const char*, std::shared_ptr<ComponentArrayInterface>> componentArrays;
-		std::unordered_map<const char*, std::shared_ptr<ComponentArrayInterface>> componentArraysOff;
+		std::unordered_map<std::string, ComponentType> componentTypes;
+		std::unordered_map<std::string, std::shared_ptr<ComponentArrayInterface>> componentArrays;
+		std::unordered_map<std::string, std::shared_ptr<ComponentArrayInterface>> componentArraysOff;
 
 		//Archetype
 		std::unordered_map<Entity, Record> entityRecords;
 		std::unordered_map<Signature, std::shared_ptr<Archetype>> maskToArchetype;
-		std::unordered_map<const char*, std::shared_ptr<ComponentArrayInterface>> defaultArraysArchetype;
+		std::unordered_map<std::string, std::shared_ptr<ComponentArrayInterface>> defaultArraysArchetype;
 	public:
 
 		template<typename T>
 		void registerComponent() {
-			const char* typeName = typeid(T).name();
+			auto typeName = GetType<T>();
+			if (typeName.empty()) {
+				//TODO: remove it in future
+				typeName = typeid(T).name();
+			}
 
 			assert(!componentTypes.count(typeName) && "Registering component type more than once.");
 
@@ -104,8 +125,11 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		ComponentType getComponentType() {
-			const char* typeName = typeid(T).name();
-			assert(componentTypes.count(typeName) && "Component not registered before use.");
+			auto typeName = GetType<T>();
+			//const char* typeName = typeid(T).name();
+			//std::cout << typeName << std::endl;
+			assert(componentTypes.count(typeName) && "getComponentType Component not registered before use.");
+			
 			return componentTypes.at(typeName);
 		}
 		
@@ -257,7 +281,7 @@ namespace IKIGAI::ECS {
 				//move all component to new Archetype
 				for (auto& [ctype, cvec] : from->componentArrays) {
 					if (to->componentArrays.contains(ctype)) {
-						to->componentArrays.at(ctype)->insertDataAny(entity, cvec->removeDataAny(entity));
+						moveComponent(entity, to->componentArrays.at(ctype), cvec, ctype);
 					}
 				}
 
@@ -269,7 +293,7 @@ namespace IKIGAI::ECS {
 			const auto cname = typeid(T).name();
 			if (to->componentArrays.contains(cname)) {
 				T newComponent;
-				to->componentArrays.at(cname)->insertDataAny(entity, newComponent);
+				std::static_pointer_cast<ComponentArray<T>>(to->componentArrays.at(cname))->insertData(entity, newComponent);
 			}
 
 			record.archetype = to;
@@ -380,22 +404,37 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		std::shared_ptr<ECS::ComponentArray<T>> getComponentArray() {
-			const char* typeName = typeid(T).name();
-			assert(componentTypes.count(typeName) && "Component not registered before use.");
+			auto typeName = GetType<T>();
+			if (typeName.empty()) {
+				//TODO: remove it in future
+				typeName = typeid(T).name();
+			}
+			assert(componentTypes.count(typeName) && "getComponentArray Component not registered before use.");
+			//std::cout << typeName << std::endl;
 			return std::static_pointer_cast<ComponentArray<T>>(componentArrays[typeName]);
 		}
 
 		template<typename T>
 		ECS::ComponentArray<T>& getComponentArrayRef() {
-			const char* typeName = typeid(T).name();
-			assert(componentTypes.count(typeName) && "Component not registered before use.");
+			auto typeName = GetType<T>();
+			if (typeName.empty()) {
+				//TODO: remove it in future
+				typeName = typeid(T).name();
+			}
+			assert(componentTypes.count(typeName) && "getComponentArrayRef Component not registered before use.");
+			//std::cout << typeName << std::endl;
 			return *std::static_pointer_cast<ComponentArray<T>>(componentArrays[typeName]);
 		}
 
 		template<typename T>
 		std::shared_ptr<ComponentArray<T>> getComponentArrayOff() {
-			const char* typeName = typeid(T).name();
-			assert(componentTypes.count(typeName) && "Component not registered before use.");
+			auto typeName = GetType<T>();
+			if (typeName.empty()) {
+				//TODO: remove it in future
+				typeName = typeid(T).name();
+			}
+			assert(componentTypes.count(typeName) && "getComponentArrayOff Component not registered before use.");
+			//std::cout << typeName << std::endl;
 			return std::static_pointer_cast<ComponentArray<T>>(componentArraysOff[typeName]);
 		}
 

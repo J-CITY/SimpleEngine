@@ -25,7 +25,11 @@ namespace IKIGAI::EDITOR {
 			MODEL,
 			TEXT,
 			FONT,
-			MATERIAL
+			MATERIAL,
+			TEXTURE_RES,
+			SHADER_RES,
+			AUDIO_RES,
+			MODEL_RES,
 		};
 		FileType type;
 		std::filesystem::path path;
@@ -41,6 +45,10 @@ namespace IKIGAI::EDITOR {
 		inline static std::set<std::string> objExt = {".obj", ".fbx", ".dae"};
 		inline static std::set<std::string> fontExt = {".ttf"};
 		inline static std::set<std::string> materialExt = {".mat"};
+		inline static std::set<std::string> textureResExt = {".texture"};
+		inline static std::set<std::string> shaderResExt = {".shader"};
+		inline static std::set<std::string> audioResExt = {".sound"};
+		inline static std::set<std::string> modelResExt = {".model"};
 	public:
 		static FileType GetFileType(const std::filesystem::path& path);
 		static std::string GetExtension(const std::filesystem::path& path);

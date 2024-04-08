@@ -10,6 +10,11 @@ PhysicsComponent::PhysicsComponent(UTILS::Ref<ECS::Object> obj): Component(obj){
 	__NAME__ = "PhysicsComponent";
 }
 
+PhysicsComponent::Descriptor PhysicsComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<PhysicsComponent>();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

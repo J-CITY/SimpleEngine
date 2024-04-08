@@ -1,4 +1,6 @@
 #include "materialWindow.h"
+
+#include "utilsModule/log/loggerDefine.h"
 #ifdef USE_EDITOR
 #include "editorRender.h"
 #include "IconsFontAwesome5.h"
@@ -23,12 +25,16 @@ void IKIGAI::EDITOR::MaterialWindow::draw() {
 	ImGui::Begin("Material Editor");
 
 	if (ImGui::Button("Save")) {
-		nlohmann::json data;
-		//TODO:
-		//material->onSerialize(data);
-		//std::ofstream f(UTILS::getRealPath(material->mPath));
-		//f << data.dump(4) << std::endl;
-		//f.close();
+		auto d = material->getDescriptor();
+		auto dataRes = UTILS::ToJson(d);
+		if (dataRes.isErr()) {
+			LOG_ERROR << "Can not save: " << material->mPath;
+		}
+		else {
+			std::ofstream f(UTILS::GetRealPath(material->mPath));
+			f << dataRes.unwrap().dump(4) << std::endl;
+			f.close();
+		}
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Reload")) {
@@ -36,11 +42,11 @@ void IKIGAI::EDITOR::MaterialWindow::draw() {
 		//editMaterial = RESOURCES::MaterialLoader::Create(path);
 		EditorRender::GlobalState.mSelectMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(path);
 	}
-	ImGui::SameLine();
-	if (ImGui::Button("Create new")) {
-		//TODO:
-		//popupStates["create_new_material"] = true;
-	}
+	//ImGui::SameLine();
+	//if (ImGui::Button("Create new")) {
+	//	//TODO:
+	//	//popupStates["create_new_material"] = true;
+	//}
 
 	ImGui::Text("Name:", material->mPath);
 

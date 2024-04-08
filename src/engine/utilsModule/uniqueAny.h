@@ -262,7 +262,7 @@ namespace IKIGAI::UTILS {
     template <class T>
     auto any_cast(const unique_any& operand) -> T {
         using U = std::remove_cv_t<std::remove_reference_t<T>>;
-        static_assert(std::is_constructible_v<T, const U&>);
+        //static_assert(std::is_constructible_v<T, const U&>);
         if (auto ptr = any_cast<std::add_const_t<U>>(&operand)) {
             return static_cast<T>(*ptr);
         }
@@ -273,7 +273,7 @@ namespace IKIGAI::UTILS {
     template <class T>
     auto any_cast(unique_any& operand) -> T {
         using U = std::remove_cv_t<std::remove_reference_t<T>>;
-        static_assert(std::is_constructible_v<T, U&>);
+        //static_assert(std::is_constructible_v<T, U&>);
         if (auto ptr = any_cast<U>(&operand)) {
             return static_cast<T>(*ptr);
         }
@@ -284,7 +284,7 @@ namespace IKIGAI::UTILS {
     template <class T>
     auto any_cast(unique_any&& operand) -> T {
         using U = std::remove_cv_t<std::remove_reference_t<T>>;
-        static_assert(std::is_constructible_v<T, U>);
+        //static_assert(std::is_constructible_v<T, U>);
         if (auto ptr = any_cast<U>(&operand)) {
             return static_cast<T>(std::move(*ptr));
         }

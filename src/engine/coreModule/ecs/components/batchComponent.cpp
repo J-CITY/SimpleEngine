@@ -18,6 +18,12 @@ BatchComponent::BatchComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
 	init();
 #endif
 }
+
+BatchComponent::Descriptor BatchComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<BatchComponent>();
+	return descriptor;
+}
 #ifdef OPENGL_BACKEND
 void BatchComponent::init() {
 	auto model = obj->getComponent<ModelRenderer>();
@@ -289,11 +295,11 @@ TextureAtlas::~TextureAtlas()
 
 void TextureAtlas::GetSmallestTextureSize() {
 	for (auto& texturePair : mTexturePairs) {
-		if (texturePair.texID->width < mSmallestTextureWidth)
-			mSmallestTextureWidth = texturePair.texID->width;
+		if (texturePair.texID->getWidth() < mSmallestTextureWidth)
+			mSmallestTextureWidth = texturePair.texID->getWidth();
 
-		if (texturePair.texID->height < mSmallestTextureHeight)
-			mSmallestTextureHeight = texturePair.texID->height;
+		if (texturePair.texID->getHeight() < mSmallestTextureHeight)
+			mSmallestTextureHeight = texturePair.texID->getHeight();
 	}
 }
 
@@ -310,19 +316,19 @@ void TextureAtlas::OccupySlotsForTexture(TexturePair texturePair) {
 
 	mCurrentSlotBundle.GetCurrentSlot().Checked();
 
-	int requiredHorizontalSlots = texturePair.texID->height / mSmallestTextureWidth;
-	int requiredVerticalSlots = texturePair.texID->height / mSmallestTextureHeight;
+	int requiredHorizontalSlots = texturePair.texID->getWidth() / mSmallestTextureWidth;
+	int requiredVerticalSlots = texturePair.texID->getHeight() / mSmallestTextureHeight;
 
 	//First check texture can't be placed in Atlas condition
-	if (mCurrentSlotBundle.GetCurrentSlot().rect.x + texturePair.texID->width > mAtlasWidth &&
-		mCurrentSlotBundle.GetCurrentSlot().rect.y + texturePair.texID->height > mAtlasHeight)
+	if (mCurrentSlotBundle.GetCurrentSlot().rect.x + texturePair.texID->getWidth() > mAtlasWidth &&
+		mCurrentSlotBundle.GetCurrentSlot().rect.y + texturePair.texID->getHeight() > mAtlasHeight)
 	{
 		texturePair.checkedPlacement = true;
 		texturePair.placed = false;
 	}
 	else
 	{
-		if (mCurrentSlotBundle.GetCurrentSlot().rect.x + texturePair.texID->width <= (float)mAtlasWidth)
+		if (mCurrentSlotBundle.GetCurrentSlot().rect.x + texturePair.texID->getWidth() <= (float)mAtlasWidth)
 		{
 			for (uint32_t y = 0; y < requiredVerticalSlots; y++)
 			{
@@ -368,8 +374,8 @@ void TextureAtlas::OccupySlotsForTexture(TexturePair texturePair) {
 			mCurrentSlotBundle.SetTexture(texturePair.texID);
 
 			mCurrentSlotBundle.CalculateRectForTexture(
-				texturePair.texID->width,
-				texturePair.texID->height,
+				texturePair.texID->getWidth(),
+				texturePair.texID->getHeight(),
 				mAtlasWidth,
 				mAtlasHeight);
 
@@ -548,8 +554,8 @@ GLuint TextureAtlas::CreateTextureForAtlas(std::vector<SlotBundle> slotBundles, 
 
 	for (uint32_t i = 0; i < slotBundles.size(); i++)
 	{
-		std::vector<unsigned char> texData = RENDER::TextureGl::getPixels(UTILS::GetRealPath(slotBundles[i].GetTexture()->mPath));
-		uint32_t channels = slotBundles[i].GetTexture()->chanels;
+		std::vector<unsigned char> texData = RENDER::TextureGl::GetPixels(UTILS::GetRealPath(slotBundles[i].GetTexture()->getPath()));
+		uint32_t channels = slotBundles[i].GetTexture()->getChannels();
 		Rect rect = slotBundles[i].GetRect();
 
 		AddTextureToAtlas(rect, channels, texData, atlasData);

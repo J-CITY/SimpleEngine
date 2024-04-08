@@ -33,8 +33,8 @@ namespace IKIGAI {
 			using UniformType = std::variant<UniformBufferGl<std::vector<unsigned char>>, Uniform>;
 		public:
 			std::shared_ptr<ShaderGl> mShader;
-			std::unordered_map<std::string, UniformData> mUniformData;
-			std::unordered_map<std::string, UniformType> mUniforms;
+			std::map<std::string, UniformData> mUniformData;
+			std::map<std::string, UniformType> mUniforms;
 
 			bool mBlendable = false;
 			bool mBackfaceCulling = true;
@@ -135,7 +135,7 @@ namespace IKIGAI {
 				}
 			}
 
-
+			MaterialResource getDescriptor() override;
 
 			//void set(const std::string& name, UniformData data, size_t offset) {
 			//	//TODO: add check for uniform type and check that uniform is Uniform Buffer

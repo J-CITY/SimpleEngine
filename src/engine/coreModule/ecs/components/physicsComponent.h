@@ -53,6 +53,8 @@ namespace IKIGAI::ECS {
 		//std::unique_ptr<PHYSICS::CollisionPrimitive> collider;
 
 		CollisionType collisionType = CollisionType::NONE;
+
+		[[nodiscard]] Descriptor getDescriptor() const;
 	private:
 		bool m_dirtyFlag = false;
 

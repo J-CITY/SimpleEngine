@@ -1,14 +1,25 @@
 ﻿#include "gameRendererGl.h"
 
+#include "vertex.h"
 #include "backends/gl/driverGl.h"
 #include "backends/gl/frameBufferGl.h"
 #include "backends/gl/materialGl.h"
 #include "backends/gl/shaderGl.h"
 #include "backends/interface/meshInterface.h"
 #include "coreModule/core/core.h"
+#include "coreModule/gui/guiObject.h"
+#include "resourceModule/materialManager.h"
+#include "resourceModule/modelManager.h"
 #include "resourceModule/serviceManager.h"
+#include "resourceModule/shaderManager.h"
+#include "resourceModule/textureManager.h"
+#include "resourceModule/resource/bone.h"
 #include "sceneModule/sceneManager.h"
 #include "utilsModule/format.h"
+#include "utilsModule/meshGenerator.h"
+#include "utilsModule/visitorHelper.h"
+#include "utilsModule/time/time.h"
+#include "windowModule/inputManager/inputManager.h"
 #include "windowModule/window/window.h"
 
 //#include "coreModule/resourceManager/materialManager.h"
@@ -30,11 +41,14 @@
 #include <random>
 #include "backends/gl/storageBufferGl.h"
 #include "backends/gl/uniformBufferGl.h"
-#include <utilsModule/loader.h>
 #include "backends/gl/driverGl.h"
 #include "backends/gl/frameBufferGl.h"
 #include "backends/gl/meshGl.h"
 #include <utilsModule/time/time.h>
+#include "backends/gl/materialGl.h"
+#include "coreModule/core/core.h"
+
+
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -47,24 +61,24 @@ std::shared_ptr<UniformBufferGl<EngineUBO>> mEngineUbo;
 
 
 struct EnginePointShadowUBO {
-	MATHGL::Vector3 LightPos;
+	MATH::Vector3f LightPos;
 	float FarPlane = 0.0f;
-	MATHGL::Matrix4  Matricies[6];
+	MATH::Matrix4f  Matricies[6];
 };
 std::shared_ptr<UniformBufferGl<EnginePointShadowUBO>> mEnginePointShadowUBO;
 
 
 struct EngineSpotShadowUBO{
-	MATHGL::Matrix4 LightSpaceMatrix;
+	MATH::Matrix4f LightSpaceMatrix;
 };
 std::shared_ptr<UniformBufferGl<EngineSpotShadowUBO>> mEngineSpotShadowUBO;
 
 
 struct EngineShadowDataUBO {
-	MATHGL::Matrix4 dirLightSpaceMatrix;
+	MATH::Matrix4f dirLightSpaceMatrix;
 	int dirCascadeCount;
-	MATHGL::Vector3 dirLightDir;
-	MATHGL::Vector3 dirLightPos;
+	MATH::Vector3f dirLightDir;
+	MATH::Vector3f dirLightPos;
 	float dirFarPlane;
 	float dirLightShadowStrong = 13;
 	//PCSS light
@@ -81,9 +95,9 @@ struct EngineShadowDataUBO {
 	bool usePointLightShadow = false;
 
 
-	std::vector<MATHGL::Matrix4> dirMatrices;
-	std::vector<MATHGL::Matrix4> dirProjMatrices;
-	std::vector<MATHGL::Matrix4> dirViewMatrices;
+	std::vector<MATH::Matrix4f> dirMatrices;
+	std::vector<MATH::Matrix4f> dirProjMatrices;
+	std::vector<MATH::Matrix4f> dirViewMatrices;
 	//dir light
 	float dirCascadePlaneDistances[16];
 };
@@ -117,27 +131,24 @@ void renderQuadGUI();
 void renderCube();
 void renderQuadSpineGUI(std::vector<SPINE::SpineVertex>& vertexes);
 
-#include <coreModule/resourceManager/modelManager.h>
-#include "backends/gl/materialGl.h"
-
 
 void GameRendererGl::setSkyBoxTexture(const std::string& path) {
 	mHDRSkyBoxTexture = std::static_pointer_cast<TextureGl>(
 		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFileHDR(path, false));
-	mHDRSkyBoxTexture->mPath = path;
+	//mHDRSkyBoxTexture->mPath = path;
 }
 
 RESOURCES::ResourcePtr<RENDER::ModelInterface> sphere;
 std::shared_ptr<RENDER::MaterialGl> emptyMaterial;
-GameRendererGl::GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context): mContext(context) {
+GameRendererGl::GameRendererGl(IKIGAI::CORE::Core& context): mContext(context) {
 	mLightSSBO = std::make_shared<ShaderStorageBufferGl>(AccessSpecifier::STREAM_DRAW);
 
 	mEngineUbo = std::make_shared<UniformBufferGl<EngineUBO>>("Engine_UBO", 0);
 
 	mEmptyTexture = std::static_pointer_cast<TextureGl>(
-		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("Textures/snow.png", true));
+		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("textures/snow.png", true));
 
-	setSkyBoxTexture("Textures/sky.hdr");
+	setSkyBoxTexture("textures/sky.hdr");
 	//mEngineDirShadowUBO = std::make_shared<UniformBufferGl<EngineDirShadowUBO>>("EngineDirShadowUBO", 1);
 
 	mEngineShadowDataUBO = std::make_shared<UniformBufferGl<EngineShadowDataUBO>>("EngineShadowDataUBO", 1);
@@ -154,11 +165,11 @@ GameRendererGl::GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context): mContext(con
 	prepareIBL();
 
 
-	sphere = RESOURCES::ModelLoader().CreateFromFile("Models/Sphere.fbx");
+	sphere = RESOURCES::ModelLoader().CreateFromFile("models/Sphere.fbx");
 
 	emptyMaterial = std::make_shared<RENDER::MaterialGl>();
-	emptyMaterial->setShader(std::make_shared<ShaderGl>("Shaders/gl/Unlit.vs.glsl", "Shaders/gl/Unlit.fs.glsl"));
-	emptyMaterial->set("u_Diffuse", MATHGL::Vector4(1.f, 0.f, 1.f, 1.f));
+	emptyMaterial->setShader(std::make_shared<ShaderGl>("shaders/gl/Unlit.vs.glsl", "shaders/gl/Unlit.fs.glsl"));
+	emptyMaterial->set("u_Diffuse", MATH::Vector4(1.f, 0.f, 1.f, 1.f));
 	emptyMaterial->set("u_DiffuseMap", nullptr);
 
 	//mEmptyTexture = TextureGl::create(IKIGAI::UTILS::getRealPath("textures/brick_albedo.jpg"));
@@ -169,7 +180,7 @@ GameRendererGl::GameRendererGl(IKIGAI::CORE_SYSTEM::Core& context): mContext(con
 	preparePipeline();
 }
 
-MATHGL::Vector2f haltonSequence[128];
+MATH::Vector2f haltonSequence[128];
 float CreateHaltonSequence(unsigned int index, int base) {
 	float f = 1;
 	float r = 0;
@@ -189,8 +200,8 @@ float CreateHaltonSequence(unsigned int index, int base) {
 void GameRendererGl::createShaders() {
 	auto& shaderLoader = RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>();
 
-	//mShaders["deferredGBuffer"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredGBuffer.vs.glsl", "./Shaders/gl/deferredGBuffer.fs.glsl");
-	mShaders["deferredGBuffer"] = std::static_pointer_cast<ShaderGl>(shaderLoader.loadResource("./Shaders/gl/deferredGBuffer.shader"));
+	//mShaders["deferredGBuffer"] = std::make_shared<ShaderGl>("./shaders/gl/deferredGBuffer.vs.glsl", "./shaders/gl/deferredGBuffer.fs.glsl");
+	mShaders["deferredGBuffer"] = std::static_pointer_cast<ShaderGl>(shaderLoader.loadResource("./shaders/gl/deferredGBuffer.shader"));
 
 	mShaders["deferredGBuffer"]->bind();
 	mShaders["deferredGBuffer"]->setBool("engine_Settings.useTAA", true);
@@ -199,16 +210,16 @@ void GameRendererGl::createShaders() {
 	mShaders["deferredGBuffer"]->setInt("engine_JitterSettings.numSamples", 16);
 	mShaders["deferredGBuffer"]->setFloat("engine_JitterSettings.ditheringScale", 0.0f);
 	for (int iter = 0; iter < 128; iter++) {
-		haltonSequence[iter] = MATHGL::Vector2f(CreateHaltonSequence(iter + 1, 2), CreateHaltonSequence(iter + 1, 3));
+		haltonSequence[iter] = MATH::Vector2f(CreateHaltonSequence(iter + 1, 2), CreateHaltonSequence(iter + 1, 3));
 		mShaders["deferredGBuffer"]->setVec2("engine_JitterSettings.haltonSequence[" + std::to_string(iter) + "]", haltonSequence[iter]);
 	}
 	mShaders["deferredGBuffer"]->unbind();
 
 
-	mShaders["deferredLightning"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredLightning.vs.glsl", "./Shaders/gl/deferredLightning.fs.glsl");
-	mShaders["deferredLightningPbr"] = std::make_shared<ShaderGl>("./Shaders/gl/deferredLightningPbr.vs.glsl", "./Shaders/gl/deferredLightningPbr.fs.glsl");
+	mShaders["deferredLightning"] = std::make_shared<ShaderGl>("./shaders/gl/deferredLightning.vs.glsl", "./shaders/gl/deferredLightning.fs.glsl");
+	mShaders["deferredLightningPbr"] = std::make_shared<ShaderGl>("./shaders/gl/deferredLightningPbr.vs.glsl", "./shaders/gl/deferredLightningPbr.fs.glsl");
 
-	mShaders["debugMeshShader"] = std::make_shared<ShaderGl>("./Shaders/gl/standardLines.vs.glsl", "./Shaders/gl/standardLines.fs.glsl");
+	//mShaders["debugMeshShader"] = std::make_shared<ShaderGl>("./shaders/gl/standardLines.vs.glsl", "./shaders/gl/standardLines.fs.glsl");
 
 	//TODO: update it when mPipeline.mIsPbr change
 	mDeferredShader = mShaders["deferredLightning"];
@@ -221,51 +232,51 @@ void GameRendererGl::createShaders() {
 	//mDeferredShader->setInt("u_Velocity", 4);
 	mDeferredShader->unbind();
 
-	mShaders["renderToScreen"] = std::make_shared<ShaderGl>("./Shaders/gl/renderToScreen.vs.glsl", "./Shaders/gl/renderToScreen.fs.glsl");
+	mShaders["renderToScreen"] = std::make_shared<ShaderGl>("./shaders/gl/renderToScreen.vs.glsl", "./shaders/gl/renderToScreen.fs.glsl");
 	mShaders["renderToScreen"]->bind();
 	mShaders["renderToScreen"]->setInt("inputTexture", 0);
 	mShaders["renderToScreen"]->unbind();
 
 
-	mShaders["renderToScreenVr"] = std::make_shared<ShaderGl>("./Shaders/gl/vrCamera.vs.glsl", "./Shaders/gl/vrCamera.fs.glsl");
+	mShaders["renderToScreenVr"] = std::make_shared<ShaderGl>("./shaders/gl/vrCamera.vs.glsl", "./shaders/gl/vrCamera.fs.glsl");
 	mShaders["renderToScreenVr"]->bind();
 	mShaders["renderToScreenVr"]->setInt("leftEyeTex", 0);
 	mShaders["renderToScreenVr"]->setInt("rightEyeTex", 1);
 	mShaders["renderToScreenVr"]->unbind();
 	
 	mShaders["dirShadowMap"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/dirShadow.vs.glsl", "./Shaders/gl/dirShadow.fs.glsl", "./Shaders/gl/dirShadow.gs.glsl");
+		"./shaders/gl/dirShadow.vs.glsl", "./shaders/gl/dirShadow.fs.glsl", "./shaders/gl/dirShadow.gs.glsl");
 
 	mShaders["spotShadowMap"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/spotShadow.vs.glsl", "./Shaders/gl/spotShadow.fs.glsl");
+		"./shaders/gl/spotShadow.vs.glsl", "./shaders/gl/spotShadow.fs.glsl");
 
 	mShaders["pointShadowMap"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/pointShadow.vs.glsl", "./Shaders/gl/pointShadow.fs.glsl", "./Shaders/gl/pointShadow.gs.glsl");
+		"./shaders/gl/pointShadow.vs.glsl", "./shaders/gl/pointShadow.fs.glsl", "./shaders/gl/pointShadow.gs.glsl");
 
 	mShaders["equirectangularToCubemap"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/equirectangularToCubemap.vs.glsl", "./Shaders/gl/equirectangularToCubemap.fs.glsl");
+		"./shaders/gl/equirectangularToCubemap.vs.glsl", "./shaders/gl/equirectangularToCubemap.fs.glsl");
 
 	mShaders["irradianceConvolution"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/irradianceConvolution.vs.glsl", "./Shaders/gl/irradianceConvolution.fs.glsl");
+		"./shaders/gl/irradianceConvolution.vs.glsl", "./shaders/gl/irradianceConvolution.fs.glsl");
 
 	mShaders["prefilterShader"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/prefilterShader.vs.glsl", "./Shaders/gl/prefilterShader.fs.glsl");
+		"./shaders/gl/prefilterShader.vs.glsl", "./shaders/gl/prefilterShader.fs.glsl");
 
 	mShaders["brdf"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/brdf.vs.glsl", "./Shaders/gl/brdf.fs.glsl");
+		"./shaders/gl/brdf.vs.glsl", "./shaders/gl/brdf.fs.glsl");
 
 	mShaders["hdrSkyboxShader"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/hdrSkyboxShader.vs.glsl", "./Shaders/gl/hdrSkyboxShader.fs.glsl");
+		"./shaders/gl/hdrSkyboxShader.vs.glsl", "./shaders/gl/hdrSkyboxShader.fs.glsl");
 
 	mShaders["fog"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/fog.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/fog.fs.glsl");
 	mShaders["fog"]->bind();
 	mShaders["fog"]->setInt("u_Scene", 0);
 	mShaders["fog"]->setInt("positionTexture", 1);
 	mShaders["fog"]->unbind();
 
 	mShaders["volumetricLight"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/volumetricLight.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/volumetricLight.fs.glsl");
 	mShaders["volumetricLight"]->bind();
 	mShaders["volumetricLight"]->setInt("cameraOutput", 0);
 	mShaders["volumetricLight"]->setInt("depthMap", 1);
@@ -273,19 +284,19 @@ void GameRendererGl::createShaders() {
 	mShaders["volumetricLight"]->unbind();
 
 
-	mShaders["ssao"] = std::make_shared<ShaderGl>("./Shaders/gl/ssao.vs.glsl", "./Shaders/gl/ssao.fs.glsl");
+	mShaders["ssao"] = std::make_shared<ShaderGl>("./shaders/gl/ssao.vs.glsl", "./shaders/gl/ssao.fs.glsl");
 	mShaders["ssao"]->bind();
 	mShaders["ssao"]->setInt("gPosition", 0);
 	mShaders["ssao"]->setInt("gNormal", 1);
 	mShaders["ssao"]->setInt("gTexNoise", 2);
 	mShaders["ssao"]->unbind();
 
-	mShaders["ssaoBlur"] = std::make_shared<ShaderGl>("./Shaders/gl/ssaoBlur.vs.glsl", "./Shaders/gl/ssaoBlur.fs.glsl");
+	mShaders["ssaoBlur"] = std::make_shared<ShaderGl>("./shaders/gl/ssaoBlur.vs.glsl", "./shaders/gl/ssaoBlur.fs.glsl");
 	mShaders["ssaoBlur"]->bind();
 	mShaders["ssaoBlur"]->setInt("gInput", 0);
 	mShaders["ssaoBlur"]->unbind();
 
-	mShaders["ssr"] = std::make_shared<ShaderGl>("./Shaders/gl/ssr.vs.glsl", "./Shaders/gl/ssr.fs.glsl");
+	mShaders["ssr"] = std::make_shared<ShaderGl>("./shaders/gl/ssr.vs.glsl", "./shaders/gl/ssr.fs.glsl");
 	mShaders["ssr"]->bind();
 	//mShaders["ssr"]->setInt("albedoTex", 0);
 	mShaders["ssr"]->setInt("normalTex", 0);
@@ -293,7 +304,7 @@ void GameRendererGl::createShaders() {
 	mShaders["ssr"]->setInt("HDRTex", 2);
 	mShaders["ssr"]->unbind();
 
-	mShaders["ssgi"] = std::make_shared<ShaderGl>("./Shaders/gl/ssgi.vs.glsl", "./Shaders/gl/ssgi.fs.glsl");
+	mShaders["ssgi"] = std::make_shared<ShaderGl>("./shaders/gl/ssgi.vs.glsl", "./shaders/gl/ssgi.fs.glsl");
 	mShaders["ssgi"]->bind();
 	mShaders["ssgi"]->setInt("inputTex", 0);
 	mShaders["ssgi"]->setInt("depthTex", 1);
@@ -302,7 +313,7 @@ void GameRendererGl::createShaders() {
 	//mShaders["ssgi"]->setInt("depthTex", 3);
 	mShaders["ssgi"]->unbind();
 
-	mShaders["sss"] = std::make_shared<ShaderGl>("./Shaders/gl/sss.vs.glsl", "./Shaders/gl/sss.fs.glsl");
+	mShaders["sss"] = std::make_shared<ShaderGl>("./shaders/gl/sss.vs.glsl", "./shaders/gl/sss.fs.glsl");
 	mShaders["sss"]->bind();
 	mShaders["sss"]->setInt("depthTex", 0);
 	//mShaders["sss"]->setInt("inputTex", 1);
@@ -311,7 +322,7 @@ void GameRendererGl::createShaders() {
 	//mShaders["ssgi"]->setInt("depthTex", 3);
 	mShaders["ssgi"]->unbind();
 
-	mShaders["ssrApply"] = std::make_shared<ShaderGl>("./Shaders/gl/ssrApply.vs.glsl", "./Shaders/gl/ssrApply.fs.glsl");
+	mShaders["ssrApply"] = std::make_shared<ShaderGl>("./shaders/gl/ssrApply.vs.glsl", "./shaders/gl/ssrApply.fs.glsl");
 	mShaders["ssrApply"]->bind();
 	mShaders["ssrApply"]->setInt("albedoTex", 0);
 	mShaders["ssrApply"]->setInt("SSRTex", 1);
@@ -320,14 +331,14 @@ void GameRendererGl::createShaders() {
 	mShaders["ssrApply"]->setInt("inputTex", 4);
 	mShaders["ssrApply"]->unbind();
 
-	mShaders["ssgiApply"] = std::make_shared<ShaderGl>("./Shaders/gl/ssgiApply.vs.glsl", "./Shaders/gl/ssgiApply.fs.glsl");
+	mShaders["ssgiApply"] = std::make_shared<ShaderGl>("./shaders/gl/ssgiApply.vs.glsl", "./shaders/gl/ssgiApply.fs.glsl");
 	mShaders["ssgiApply"]->bind();
 	mShaders["ssgiApply"]->setInt("inputTex", 0);
 	mShaders["ssgiApply"]->setInt("SSGITex", 1);
 	mShaders["ssgiApply"]->setInt("albedoTex", 2);
 	mShaders["ssgiApply"]->unbind();
 
-	mShaders["sssApply"] = std::make_shared<ShaderGl>("./Shaders/gl/sssApply.vs.glsl", "./Shaders/gl/sssApply.fs.glsl");
+	mShaders["sssApply"] = std::make_shared<ShaderGl>("./shaders/gl/sssApply.vs.glsl", "./shaders/gl/sssApply.fs.glsl");
 	mShaders["sssApply"]->bind();
 	mShaders["sssApply"]->setInt("inputTex", 1);
 	mShaders["sssApply"]->setInt("SSSTex", 0);
@@ -336,7 +347,7 @@ void GameRendererGl::createShaders() {
 
 
 	mShaders["taa"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/taa.vs.glsl", "./Shaders/gl/taa.fs.glsl");
+		"./shaders/gl/taa.vs.glsl", "./shaders/gl/taa.fs.glsl");
 	mShaders["taa"]->bind();
 	mShaders["taa"]->setFloat("engine_TaaSettings.feedbackFactor", 0.9f);
 	mShaders["taa"]->setFloat("engine_TaaSettings.maxDepthFalloff", 1.0f);
@@ -349,70 +360,70 @@ void GameRendererGl::createShaders() {
 	mShaders["taa"]->unbind();
 
 	mShaders["motionBlur"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/motionBlur.vs.glsl", "./Shaders/gl/motionBlur.fs.glsl");
+		"./shaders/gl/motionBlur.vs.glsl", "./shaders/gl/motionBlur.fs.glsl");
 	mShaders["motionBlur"]->bind();
 	mShaders["motionBlur"]->setInt("velTex", 0);
 	mShaders["motionBlur"]->setInt("colorTexture", 1);
 	mShaders["motionBlur"]->unbind();
 
 	mShaders["brightTexture"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/bright.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/bright.fs.glsl");
 	mShaders["brightTexture"]->bind();
 	mShaders["brightTexture"]->setInt("u_Scene", 0);
 	mShaders["brightTexture"]->unbind();
 
 	mShaders["blurTexture"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/blur.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/blur.fs.glsl");
 	mShaders["blurTexture"]->bind();
 	mShaders["blurTexture"]->setInt("image", 0);
 	mShaders["blurTexture"]->unbind();
 
 	mShaders["bloom"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/bloom.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/bloom.fs.glsl");
 	mShaders["bloom"]->bind();
 	mShaders["bloom"]->setInt("u_Scene", 0);
 	mShaders["bloom"]->setInt("u_BloomBlur", 1);
 	mShaders["bloom"]->unbind();
 
 	mShaders["godRaysTexture"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/godRaysTexture.vs.glsl", "./Shaders/gl/godRaysTexture.fs.glsl");
+		"./shaders/gl/godRaysTexture.vs.glsl", "./shaders/gl/godRaysTexture.fs.glsl");
 	mShaders["godRaysTexture"]->bind();
 	mShaders["godRaysTexture"]->setInt("image", 0);
 	mShaders["godRaysTexture"]->unbind();
 
 	mShaders["godRays"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/godRays.vs.glsl", "./Shaders/gl/godRays.fs.glsl");
+		"./shaders/gl/godRays.vs.glsl", "./shaders/gl/godRays.fs.glsl");
 	mShaders["godRays"]->bind();
 	mShaders["godRays"]->setInt("u_Scene", 0);
 	mShaders["godRays"]->setInt("u_BinaryScene", 1);
 	mShaders["godRays"]->unbind();
 
 	mShaders["fxaa"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/fxaa.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/fxaa.fs.glsl");
 	mShaders["fxaa"]->bind();
 	mShaders["fxaa"]->setInt("u_Scene", 0);
 	mShaders["fxaa"]->unbind();
 
 	mShaders["hdr"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/hdr.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/hdr.fs.glsl");
 	mShaders["hdr"]->bind();
 	mShaders["hdr"]->setInt("u_Scene", 0);
 	mShaders["hdr"]->unbind();
 
 	mShaders["colorGrading"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/colorGrading.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/colorGrading.fs.glsl");
 	mShaders["colorGrading"]->bind();
 	mShaders["colorGrading"]->setInt("u_Scene", 0);
 	mShaders["colorGrading"]->unbind();
 
 	mShaders["vignette"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/vignette.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/vignette.fs.glsl");
 	mShaders["vignette"]->bind();
 	mShaders["vignette"]->setInt("u_Scene", 0);
 	mShaders["vignette"]->unbind();
 
 	mShaders["depthOfField"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/depthOfField.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/depthOfField.fs.glsl");
 	mShaders["depthOfField"]->bind();
 	mShaders["depthOfField"]->setInt("u_Scene", 0);
 	mShaders["depthOfField"]->setInt("positionTexture", 1);
@@ -421,7 +432,7 @@ void GameRendererGl::createShaders() {
 	mShaders["depthOfField"]->unbind();
 
 	mShaders["outline"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/outline.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/outline.fs.glsl");
 	mShaders["outline"]->bind();
 	mShaders["outline"]->setInt("u_Scene", 0);
 	mShaders["outline"]->setInt("positionTexture", 1);
@@ -429,45 +440,45 @@ void GameRendererGl::createShaders() {
 	mShaders["outline"]->unbind();
 
 	mShaders["chromaticAbberation"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/chromaticAbberation.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/chromaticAbberation.fs.glsl");
 	mShaders["chromaticAbberation"]->bind();
 	mShaders["chromaticAbberation"]->setInt("u_Scene", 0);
 	mShaders["chromaticAbberation"]->unbind();
 
 	mShaders["posterize"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/posterize.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/posterize.fs.glsl");
 	mShaders["posterize"]->bind();
 	mShaders["posterize"]->setInt("u_Scene", 0);
 	mShaders["posterize"]->setInt("positionTexture", 1);
 	mShaders["posterize"]->unbind();
 
 	mShaders["pixelize"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/pixelize.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/pixelize.fs.glsl");
 	mShaders["pixelize"]->bind();
 	mShaders["pixelize"]->setInt("u_Scene", 0);
 	mShaders["pixelize"]->setInt("positionTexture", 1);
 	mShaders["pixelize"]->unbind();
 
 	mShaders["sharpen"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/sharpen.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/sharpen.fs.glsl");
 	mShaders["sharpen"]->bind();
 	mShaders["sharpen"]->setInt("u_Scene", 0);
 	mShaders["sharpen"]->unbind();
 
 	mShaders["dilation"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/dilation.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/dilation.fs.glsl");
 	mShaders["dilation"]->bind();
 	mShaders["dilation"]->setInt("u_Scene", 0);
 	mShaders["dilation"]->unbind();
 
 	mShaders["filmGrain"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/base.vs.glsl", "./Shaders/gl/filmGrain.fs.glsl");
+		"./shaders/gl/base.vs.glsl", "./shaders/gl/filmGrain.fs.glsl");
 	mShaders["filmGrain"]->bind();
 	mShaders["filmGrain"]->setInt("u_Scene", 0);
 	mShaders["filmGrain"]->unbind();
 
 	mShaders["GBuffer"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/GBuffer.vs.glsl", "./Shaders/gl/GBuffer.fs.glsl");
+		"./shaders/gl/GBuffer.vs.glsl", "./shaders/gl/GBuffer.fs.glsl");
 	mShaders["GBuffer"]->bind();
 	mShaders["GBuffer"]->setBool("engine_Settings.useTAA", true);
 	mShaders["GBuffer"]->setFloat("engine_JitterSettings.haltonScale", 1.0f);
@@ -475,59 +486,59 @@ void GameRendererGl::createShaders() {
 	mShaders["GBuffer"]->setInt("engine_JitterSettings.numSamples", 16);
 	mShaders["GBuffer"]->setFloat("engine_JitterSettings.ditheringScale", 0.0f);
 	for (int iter = 0; iter < 128; iter++) {
-		haltonSequence[iter] = MATHGL::Vector2f(CreateHaltonSequence(iter + 1, 2), CreateHaltonSequence(iter + 1, 3));
+		haltonSequence[iter] = MATH::Vector2f(CreateHaltonSequence(iter + 1, 2), CreateHaltonSequence(iter + 1, 3));
 		mShaders["GBuffer"]->setVec2("engine_JitterSettings.haltonSequence[" + std::to_string(iter) + "]", haltonSequence[iter]);
 	}
 	mShaders["GBuffer"]->unbind();
 
 	//gui
 	mShaders["sprite"] = std::make_shared<ShaderGl>(
-		"./Shaders/gui/sprite.vs.glsl", "./Shaders/gui/sprite.fs.glsl");
+		"./shaders/gui/sprite.vs.glsl", "./shaders/gui/sprite.fs.glsl");
 	mShaders["sprite"]->bind();
 	mShaders["sprite"]->setInt("image", 0);
 	mShaders["sprite"]->bind();
 
 	mShaders["spine"] = std::make_shared<ShaderGl>(
-		"./Shaders/gui/spine.vs.glsl", "./Shaders/gui/spine.fs.glsl");
+		"./shaders/gui/spine.vs.glsl", "./shaders/gui/spine.fs.glsl");
 	mShaders["spine"]->bind();
 	mShaders["spine"]->setInt("image", 0);
 	mShaders["spine"]->bind();
 
 	mShaders["label"] = std::make_shared<ShaderGl>(
-		"./Shaders/gui/text.vs.glsl", "./Shaders/gui/text.fs.glsl");
+		"./shaders/gui/text.vs.glsl", "./shaders/gui/text.fs.glsl");
 	mShaders["label"]->bind();
 	mShaders["label"]->setInt("u_engine_text", 0);
 	mShaders["label"]->bind();
 
 	mShaders["grid"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/grid.vs.glsl", "./Shaders/gl/grid.fs.glsl");
+		"./shaders/gl/grid.vs.glsl", "./shaders/gl/grid.fs.glsl");
 
 	//START CLOUDS
-	mShaders["clouds"] = std::make_shared<ShaderGl>("./Shaders/gl/Volumetric/triangle_vs.glsl", "./Shaders/gl/Volumetric/clouds_fs.glsl");
-	mShaders["shape_noise"] = std::make_shared<ShaderGl>(ShaderResource{ .compute = "./Shaders/gl/Volumetric/shape_noise_cs.glsl" });
-	mShaders["detail_noise"] = std::make_shared<ShaderGl>(ShaderResource{ .compute = "./Shaders/gl/Volumetric/detail_noise_cs.glsl" });
+	mShaders["clouds"] = std::make_shared<ShaderGl>("./shaders/gl/Volumetric/triangle_vs.glsl", "./shaders/gl/Volumetric/clouds_fs.glsl");
+	mShaders["shape_noise"] = std::make_shared<ShaderGl>(ShaderResource{ .compute = "./shaders/gl/Volumetric/shape_noise_cs.glsl" });
+	mShaders["detail_noise"] = std::make_shared<ShaderGl>(ShaderResource{ .compute = "./shaders/gl/Volumetric/detail_noise_cs.glsl" });
 	mTextures["blue_noise"] = std::static_pointer_cast<TextureGl>(
-		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("Textures/LDR_LLL1_0.png", true));
+		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("textures/LDR_LLL1_0.png", true));
 	mTextures["curl_noise"] = std::static_pointer_cast<TextureGl>(
-		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("Textures/curlNoise.png", true));
-	mTextures["shape_noise_texture"] = TextureGl::createEmpty3d(128, 128, 128);
-	mTextures["detail_noise_texture"] = TextureGl::createEmpty3d(32, 32, 32);
+		RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile("textures/curlNoise.png", true));
+	mTextures["shape_noise_texture"] = TextureGl::CreateEmpty3d(128, 128, 128);
+	mTextures["detail_noise_texture"] = TextureGl::CreateEmpty3d(32, 32, 32);
 		
 
 	//run
 	mShaders["shape_noise"]->bind();
-	mShaders["shape_noise"]->setInt("u_Size", (int)mTextures["shape_noise_texture"]->width);
+	mShaders["shape_noise"]->setInt("u_Size", (int)mTextures["shape_noise_texture"]->getWidth());
 	mTextures["shape_noise_texture"]->bindImage(0, 0, 0, GL_READ_WRITE, GL_RGBA16F);
-	uint32_t TEXTURE_SIZE = mTextures["shape_noise_texture"]->width;
+	uint32_t TEXTURE_SIZE = mTextures["shape_noise_texture"]->getWidth();
 	uint32_t NUM_THREADS = 8;
 	glDispatchCompute(TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS);
 	glFinish();
 	glGenerateTextureMipmap(mTextures["shape_noise_texture"]->id);
 
 	mShaders["detail_noise"]->bind();
-	mShaders["detail_noise"]->setInt("u_Size", (int)mTextures["detail_noise_texture"]->width);
+	mShaders["detail_noise"]->setInt("u_Size", (int)mTextures["detail_noise_texture"]->getWidth());
 	mTextures["detail_noise_texture"]->bindImage(0, 0, 0, GL_READ_WRITE, GL_RGBA16F);
-	TEXTURE_SIZE = mTextures["detail_noise_texture"]->width;
+	TEXTURE_SIZE = mTextures["detail_noise_texture"]->getWidth();
 	NUM_THREADS = 8;
 	glDispatchCompute(TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS, TEXTURE_SIZE / NUM_THREADS);
 	glFinish();
@@ -536,7 +547,7 @@ void GameRendererGl::createShaders() {
 
 
 	mShaders["debug3DTex"] = std::make_shared<ShaderGl>(
-		"./Shaders/gl/debug3DTex.vs.glsl", "./Shaders/gl/debug3DTex.fs.glsl");
+		"./shaders/gl/debug3DTex.vs.glsl", "./shaders/gl/debug3DTex.fs.glsl");
 }
 
 std::array<std::shared_ptr<FrameBufferGl>, 2> pingPongFb;
@@ -556,10 +567,10 @@ void GameRendererGl::initDebug3dTextureFB(std::shared_ptr<TextureGl> _debug3dTex
 	}
 	debug3dTexture = _debug3dTexture;
 	debug3dTextureFB = std::make_shared<FrameBufferGl>();
-	mTextures["debug3dTexture"] = TextureGl::createForAttach(debug3dTexture->width, debug3dTexture->height, GL_FLOAT);
+	mTextures["debug3dTexture"] = TextureGl::CreateForAttach(debug3dTexture->getWidth(), debug3dTexture->getHeight(), GL_FLOAT);
 	debug3dTextureFB->create({ mTextures["debug3dTexture"] });
 
-	debug3dTextureLayers = debug3dTexture->depth;
+	debug3dTextureLayers = debug3dTexture->getDepth();
 	debug3dTextureLayersCur = 0;
 }
 void GameRendererGl::updateDebug3dTextureFB() {
@@ -568,10 +579,10 @@ void GameRendererGl::updateDebug3dTextureFB() {
 	}
 	debug3dTextureFB->bind();
 
-	mDriver->setViewport(*mShaders["debug3DTex"], 0, 0, debug3dTexture->width, debug3dTexture->height);
+	mDriver->setViewport(*mShaders["debug3DTex"], 0, 0, debug3dTexture->getWidth(), debug3dTexture->getHeight());
 	mShaders["debug3DTex"]->bind();
 	
-	if (debug3dTexture->type == TextureType::TEXTURE_2D_ARRAY) {
+	if (debug3dTexture->getType() == TextureType::TEXTURE_2D_ARRAY) {
 		debug3dTexture->bind(0);
 	}
 	else {
@@ -583,7 +594,7 @@ void GameRendererGl::updateDebug3dTextureFB() {
 	mShaders["debug3DTex"]->setInt("isPerspective", debug3dTextureIsPersp);
 	mShaders["debug3DTex"]->setInt("layer", debug3dTextureLayersCur);
 	mShaders["debug3DTex"]->setInt("isRGB", debug3dTextureIsRGB);
-	mShaders["debug3DTex"]->setInt("is3D", debug3dTexture->type == TextureType::TEXTURE_3D ? 1 : 0);
+	mShaders["debug3DTex"]->setInt("is3D", debug3dTexture->getType() == TextureType::TEXTURE_3D ? 1 : 0);
 	mShaders["debug3DTex"]->setFloat("near_plane", 0.0f);
 	mShaders["debug3DTex"]->setFloat("far_plane", 0.0f);
 
@@ -597,87 +608,89 @@ void GameRendererGl::updateDebug3dTextureFB() {
 void GameRendererGl::createFrameBuffers() {
 	mFramebuffers.clear();
 
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	auto sz = mContext.window->getSize();
+	auto winWidth = sz.x;
+	auto winHeight = sz.y;
 
 	pingPongFb[0] = std::make_shared<FrameBufferGl>();
-	pingPongTex[0] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	pingPongTex[0] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	pingPongFb[0]->create({ pingPongTex[0] });
 	pingPongFb[1] = std::make_shared<FrameBufferGl>();
-	pingPongTex[1] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	pingPongTex[1] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	pingPongFb[1]->create({ pingPongTex[1] });
 
 	pingPongBlurFb[0] = std::make_shared<FrameBufferGl>();
-	pingPongBlurTex[0] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	pingPongBlurTex[0] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	pingPongBlurFb[0]->create({ pingPongBlurTex[0] });
 	pingPongBlurFb[1] = std::make_shared<FrameBufferGl>();
-	pingPongBlurTex[1] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	pingPongBlurTex[1] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	pingPongBlurFb[1]->create({ pingPongBlurTex[1] });
 
 	gbufferFb = std::make_shared<FrameBufferGl>();
-	gPositionTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	gPrevPositionTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	gNormalTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	gAlbedoSpecTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	gRoughAOTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	gPositionTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
+	gPrevPositionTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
+	gNormalTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
+	gAlbedoSpecTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
+	gRoughAOTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	std::vector<std::shared_ptr<TextureGl>> gtexs = std::vector{ gPositionTex, gNormalTex, gAlbedoSpecTex, gRoughAOTex };
 	gbufferFb->create(gtexs);
 
 	gbufferGlobalFb = std::make_shared<FrameBufferGl>();
-	gPositionGlobalTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	gVelocityGlobalTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	gEyePositionGlobalTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	gPositionGlobalTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
+	gVelocityGlobalTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
+	gEyePositionGlobalTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	std::vector<std::shared_ptr<TextureGl>> ggtexs = std::vector{ gPositionGlobalTex, gVelocityGlobalTex, gEyePositionGlobalTex };
 	gbufferGlobalFb->create(ggtexs);
 
 	deferredFb = std::make_shared<FrameBufferGl>();
-	deferredResTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	deferredResTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	std::vector<std::shared_ptr<TextureGl>> deferredtexs = std::vector{ deferredResTex };
 	deferredFb->create(deferredtexs);
 
 	//TODO: update it when mPipeline.mIsPbr change
 	mDeferredFb = deferredFb;
 	mDeferredTexture = deferredResTex;
-	mPrevDeferredTexture = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mPrevDeferredTexture = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 
 	deferredPBRFb = std::make_shared<FrameBufferGl>();
-	deferredResPBRTex = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	deferredResPBRTex = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	std::vector<std::shared_ptr<TextureGl>> deferredPBRtexs = std::vector{ deferredResPBRTex };
 	deferredPBRFb->create(deferredPBRtexs);
 
-	mTextures["brightTexture"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["brightTexture"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["brightTexture"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["brightTexture"]->create({ mTextures["brightTexture"] });
 
-	mTextures["godRaysTexture"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["godRaysTexture"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["godRaysTexture"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["godRaysTexture"]->create({ mTextures["godRaysTexture"] });
 
-	mTextures["dirShadowMap"] = TextureGl::createDepthForAttach2DArray(mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mShadowCascadeLevels.size() + 1);
+	mTextures["dirShadowMap"] = TextureGl::CreateDepthForAttach2DArray(mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mShadowCascadeLevels.size() + 1);
 	mFramebuffers["dirShadowMap"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["dirShadowMap"]->create({ }, mTextures["dirShadowMap"]);
 
-	mTextures["dirShadowMapBaked"] = TextureGl::createDepthForAttach2DArray(mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mShadowCascadeLevels.size() + 1);
+	mTextures["dirShadowMapBaked"] = TextureGl::CreateDepthForAttach2DArray(mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mDirShadowMapResolution, mPipeline.mDirShadowMap.mShadowCascadeLevels.size() + 1);
 	mFramebuffers["dirShadowMapBaked"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["dirShadowMapBaked"]->create({ }, mTextures["dirShadowMapBaked"]);
 
-	mTextures["spotShadowMap"] = TextureGl::createDepthForAttach(mPipeline.mDirShadowMap.mSpotShadowMapResolution, mPipeline.mDirShadowMap.mSpotShadowMapResolution);
+	mTextures["spotShadowMap"] = TextureGl::CreateDepthForAttach(mPipeline.mDirShadowMap.mSpotShadowMapResolution, mPipeline.mDirShadowMap.mSpotShadowMapResolution);
 	mFramebuffers["spotShadowMap"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["spotShadowMap"]->create({ }, mTextures["spotShadowMap"]);
 
 
-	mTextures["deferredTextureSave"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
-	mTextures["blur"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["deferredTextureSave"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["blur"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 
-	mTextures["ssao"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["ssao"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["ssao"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["ssao"]->create({ mTextures["ssao"] });
 
-	mTextures["ssaoBlur"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["ssaoBlur"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["ssaoBlur"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["ssaoBlur"]->create({ mTextures["ssaoBlur"] });
 
 	//FOR EDITOR
-	mEditorTexture = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mEditorTexture = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 
 	//mFramebuffers["equirectangularToCubemap"] = std::make_shared<FrameBufferGl>();
 	//mFramebuffers["equirectangularToCubemap"]->create();
@@ -691,8 +704,8 @@ void GameRendererGl::createFrameBuffers() {
 		return a + f * (b - a);
 	};
 	for (unsigned int i = 0; i < 64; ++i) {
-		MATHGL::Vector3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
-		sample = MATHGL::Vector3::Normalize(sample);
+		MATH::Vector3f sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
+		sample = MATH::Vector3f::Normalize(sample);
 		sample *= randomFloats(generator);
 		float scale = float(i) / 64.0;
 		// Масштабируем точки выборки, чтобы они распологались ближе к центру ядра
@@ -718,15 +731,15 @@ void GameRendererGl::createFrameBuffers() {
 	//mFramebuffers["pointShadowMap"]->create({ }, mTextures["pointShadowMap"]);
 
 
-	mTextures["ssr"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["ssr"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["ssr"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["ssr"]->create({ mTextures["ssr"] });
 
-	mTextures["ssgi"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["ssgi"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["ssgi"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["ssgi"]->create({ mTextures["ssgi"] });
 
-	mTextures["sss"] = TextureGl::createForAttach(winWidth, winHeight, GL_FLOAT);
+	mTextures["sss"] = TextureGl::CreateForAttach(winWidth, winHeight, GL_FLOAT);
 	mFramebuffers["sss"] = std::make_shared<FrameBufferGl>();
 	mFramebuffers["sss"]->create({ mTextures["sss"] });
 
@@ -865,7 +878,7 @@ void GameRendererGl::renderSkybox() {
 
 		loc = shader->getUniformLocation("engine_u_SunDir");
 		if (loc >= 0) {
-			MATHGL::Vector3 m_light_direction;
+			MATH::Vector3f m_light_direction;
 			for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 				m_light_direction = -light.obj->getTransform()->getWorldForward();
 				break;
@@ -926,14 +939,14 @@ void GameRendererGl::prepareIBL() {//ibl
 	mTextures["hdrSkybox"] = TextureGl::CreateHDREmptyCubemap(512, 512);
 
 	// PBR: установка матриц проекции и вида для захвата данных по всем 6 направлениям граней кубической карты
-	auto captureProjection = MATHGL::Matrix4::CreatePerspective(90.0f, 1.0f, 0.1f, 10.0f);
-	std::vector<MATHGL::Matrix4> captureViews = {
-		MATHGL::Matrix4::CreateView(MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(1.0f,  0.0f,  0.0f), MATHGL::Vector3(0.0f, -1.0f,  0.0f)),
-		MATHGL::Matrix4::CreateView(MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(-1.0f,  0.0f,  0.0f),MATHGL::Vector3(0.0f, -1.0f,  0.0f)),
-		MATHGL::Matrix4::CreateView(MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f,  1.0f,  0.0f), MATHGL::Vector3(0.0f,  0.0f,  1.0f)),
-		MATHGL::Matrix4::CreateView(MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f,  0.0f), MATHGL::Vector3(0.0f,  0.0f, -1.0f)),
-		MATHGL::Matrix4::CreateView(MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f,  0.0f,  1.0f), MATHGL::Vector3(0.0f, -1.0f,  0.0f)),
-		MATHGL::Matrix4::CreateView(MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f,  0.0f, -1.0f), MATHGL::Vector3(0.0f, -1.0f,  0.0f))
+	auto captureProjection = MATH::Matrix4f::CreatePerspective(90.0f, 1.0f, 0.1f, 10.0f);
+	std::vector<MATH::Matrix4f> captureViews = {
+		MATH::Matrix4f::CreateView(MATH::Vector3f(0.0f, 0.0f, 0.0f), MATH::Vector3f(1.0f,  0.0f,  0.0f), MATH::Vector3f(0.0f, -1.0f,  0.0f)),
+		MATH::Matrix4f::CreateView(MATH::Vector3f(0.0f, 0.0f, 0.0f), MATH::Vector3f(-1.0f,  0.0f,  0.0f),MATH::Vector3f(0.0f, -1.0f,  0.0f)),
+		MATH::Matrix4f::CreateView(MATH::Vector3f(0.0f, 0.0f, 0.0f), MATH::Vector3f(0.0f,  1.0f,  0.0f), MATH::Vector3f(0.0f,  0.0f,  1.0f)),
+		MATH::Matrix4f::CreateView(MATH::Vector3f(0.0f, 0.0f, 0.0f), MATH::Vector3f(0.0f, -1.0f,  0.0f), MATH::Vector3f(0.0f,  0.0f, -1.0f)),
+		MATH::Matrix4f::CreateView(MATH::Vector3f(0.0f, 0.0f, 0.0f), MATH::Vector3f(0.0f,  0.0f,  1.0f), MATH::Vector3f(0.0f, -1.0f,  0.0f)),
+		MATH::Matrix4f::CreateView(MATH::Vector3f(0.0f, 0.0f, 0.0f), MATH::Vector3f(0.0f,  0.0f, -1.0f), MATH::Vector3f(0.0f, -1.0f,  0.0f))
 	};
 
 	// PBR: конвертирование равнопромежуточной HDR-карты окружения в кубическую
@@ -1036,7 +1049,7 @@ void GameRendererGl::prepareIBL() {//ibl
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		// PBR: генерируем 2D LUT-текстуру при помощи используемых уравнений BRDF
-		mTextures["brdfLUTTexture"] = TextureGl::createForAttach(512, 512, GL_FLOAT);
+		mTextures["brdfLUTTexture"] = TextureGl::CreateForAttach(512, 512, GL_FLOAT);
 
 		// Убеждаемся, что режим наложения задан как GL_CLAMP_TO_EDGE
 		//pipeline.ibl.brdfLUTTexture->setFilter(RESOURCES::TextureFiltering::LINEAR, RESOURCES::TextureFiltering::LINEAR);
@@ -1064,7 +1077,9 @@ void GameRendererGl::prepareIBL() {//ibl
 		//captureFBO.unbind();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		auto [winWidth, winHeight] = mContext.window->getSize();
+		auto sz = mContext.window->getSize();
+		auto winWidth = sz.x;
+		auto winHeight = sz.y;
 		mDriver->setViewPort(0, 0, winWidth, winHeight);
 }
 
@@ -1095,16 +1110,18 @@ void GameRendererGl::applySSAO() {
 	renderQuad();
 	mFramebuffers["ssaoBlur"]->unbind();
 }
-MATHGL::Matrix4 PrevView;
-MATHGL::Matrix4 View;
+MATH::Matrix4f PrevView;
+MATH::Matrix4f View;
 void GameRendererGl::sendEngineUBO() {
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	auto sz = mContext.window->getSize();
+	auto winWidth = sz.x;
+	auto winHeight = sz.y;
 	const auto& cameraPosition = mainCameraComponent.value()->obj->getTransform()->getWorldPosition();
 	EngineUBO data;
-	data.Projection = MATHGL::Matrix4::Transpose(mainCameraComponent.value()->getCamera().getProjectionMatrix());
-	data.View = MATHGL::Matrix4::Transpose(mainCameraComponent.value()->getCamera().getViewMatrix());
+	data.Projection = MATH::Matrix4f::Transpose(mainCameraComponent.value()->getCamera().getProjectionMatrix());
+	data.View = MATH::Matrix4f::Transpose(mainCameraComponent.value()->getCamera().getViewMatrix());
 	data.ViewPos = cameraPosition;
-	data.ViewportSize = MATHGL::Vector2f(winWidth, winHeight);
+	data.ViewportSize = MATH::Vector2f(winWidth, winHeight);
 
 	data.Time = static_cast<float>(IKIGAI::TIME::Timer::GetInstance().getTimeSinceStart().count());
 	data.FPS = static_cast<float>(IKIGAI::TIME::Timer::GetInstance().getFPS());
@@ -1171,14 +1188,14 @@ void GameRendererGl::sendEngineShadowUBO(std::shared_ptr<ShaderGl> shader) {
 }
 
 void GameRendererGl::renderScene() {
-	//DEBUG::DebugRender::debugCamera->setActive(true);
-	DEBUG::DebugRender::debugCamera->setActive(false);
-	if (mContext.sceneManager->hasCurrentScene()) {
-		mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera();
-	}
-	//renderEditorScene(*DEBUG::DebugRender::debugCamera->getComponent<ECS::CameraComponent>());
-	renderEditorScene(*mainCameraComponent);
-	DEBUG::DebugRender::debugCamera->setActive(false);
+	////DEBUG::DebugRender::debugCamera->setActive(true);
+	//DEBUG::DebugRender::debugCamera->setActive(false);
+	//if (mContext.sceneManager->hasCurrentScene()) {
+	//	mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera();
+	//}
+	////renderEditorScene(*DEBUG::DebugRender::debugCamera->getComponent<ECS::CameraComponent>());
+	//renderEditorScene(*mainCameraComponent);
+	//DEBUG::DebugRender::debugCamera->setActive(false);
 
 
 	mainCameraComponent = std::nullopt;
@@ -1186,7 +1203,9 @@ void GameRendererGl::renderScene() {
 		mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera();
 	}
 	if (mainCameraComponent) {
-		auto [winWidth, winHeight] = mContext.window->getSize();
+		auto sz = mContext.window->getSize();
+		auto winWidth = sz.x;
+		auto winHeight = sz.y;
 		const auto& cameraPosition = mainCameraComponent.value()->obj->getTransform()->getWorldPosition();
 		const auto& cameraRotation = mainCameraComponent.value()->obj->getTransform()->getWorldRotation();
 		mainCameraComponent->getPtr()->getCamera().cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
@@ -1240,7 +1259,9 @@ void GameRendererGl::renderEditorScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraCom
 	mainCameraComponent = editorCamera;
 	
 	if (mainCameraComponent) {
-		auto [winWidth, winHeight] = mContext.window->getSize();
+		auto sz = mContext.window->getSize();
+		auto winWidth = sz.x;
+		auto winHeight = sz.y;
 		const auto& cameraPosition = mainCameraComponent.value()->obj->getTransform()->getWorldPosition();
 		const auto& cameraRotation = mainCameraComponent.value()->obj->getTransform()->getWorldRotation();
 		mainCameraComponent->getPtr()->getCamera().cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
@@ -1271,13 +1292,13 @@ void GameRendererGl::renderEditorScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraCom
 	//}
 }
 
-std::vector<MATHGL::Vector4> getFrustumCornersWorldSpace(const MATHGL::Matrix4& projview) {
-	const auto inv = MATHGL::Matrix4::Inverse(projview);
-	std::vector<MATHGL::Vector4> frustumCorners;
+std::vector<MATH::Vector4f> getFrustumCornersWorldSpace(const MATH::Matrix4f& projview) {
+	const auto inv = MATH::Matrix4f::Inverse(projview);
+	std::vector<MATH::Vector4f> frustumCorners;
 	for (unsigned int x = 0; x < 2; ++x) {
 		for (unsigned int y = 0; y < 2; ++y) {
 			for (unsigned int z = 0; z < 2; ++z) {
-				const auto pt = inv * MATHGL::Vector4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
+				const auto pt = inv * MATH::Vector4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
 				frustumCorners.push_back(pt / pt.w);
 			}
 		}
@@ -1286,35 +1307,37 @@ std::vector<MATHGL::Vector4> getFrustumCornersWorldSpace(const MATHGL::Matrix4& 
 }
 
 
-std::vector<MATHGL::Vector4> getFrustumCornersWorldSpace(const MATHGL::Matrix4& proj, const MATHGL::Matrix4& view) {
+std::vector<MATH::Vector4f> getFrustumCornersWorldSpace(const MATH::Matrix4f& proj, const MATH::Matrix4f& view) {
 	return getFrustumCornersWorldSpace(proj * view);
 }
 
-MATHGL::Matrix4 GameRendererGl::getLightSpaceMatrix(float nearPlane, float farPlane, const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos) {
-	auto [winWidth, winHeight] = mContext.window->getSize();
-	const auto proj = MATHGL::Matrix4::CreatePerspective(
+MATH::Matrix4f GameRendererGl::getLightSpaceMatrix(float nearPlane, float farPlane, const MATH::Vector3f& lightDir, const MATH::Vector3f& lightPos) {
+	auto sz = mContext.window->getSize();
+	auto winWidth = sz.x;
+	auto winHeight = sz.y;
+	const auto proj = MATH::Matrix4f::CreatePerspective(
 		45.0f, (float)winWidth / (float)winHeight, nearPlane,
 		farPlane);
 
-	MATHGL::Quaternion lightRot;
+	MATH::QuaternionF lightRot;
 	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 		lightRot= light.obj->transform->getWorldRotation();
 		break;
 	}
 
-	//auto proj = MATHGL::Matrix4::CreateOrthographic(-50, 50, -50, 50, nearPlane, farPlane);
+	//auto proj = MATH::Matrix4::CreateOrthographic(-50, 50, -50, 50, nearPlane, farPlane);
 	const auto corners = getFrustumCornersWorldSpace(proj,
 		//mainCameraComponent.value()->getCamera().calculateViewMatrix(lightPos, lightRot));
 		mainCameraComponent.value()->getCamera().getViewMatrix());
 
-	auto center = MATHGL::Vector3(0.0f);
+	auto center = MATH::Vector3f(0.0f);
 	for (const auto& v : corners) {
-		center += MATHGL::Vector3(v.x, v.y, v.z);
+		center += MATH::Vector3f(v.x, v.y, v.z);
 	}
 	center /= corners.size();
 
-	//const auto lightView = MATHGL::Matrix4::CreateView(center + lightPos, center, MATHGL::Vector3(0.0f, 1.0f, 0.0f));
-	const auto lightView = MATHGL::Matrix4::CreateView(center - lightDir, center, MATHGL::Vector3(0.0f, 1.0f, 0.0f));
+	//const auto lightView = MATH::Matrix4::CreateView(center + lightPos, center, MATH::Vector3(0.0f, 1.0f, 0.0f));
+	const auto lightView = MATH::Matrix4f::CreateView(center - lightDir, center, MATH::Vector3f(0.0f, 1.0f, 0.0f));
 
 	float minX = std::numeric_limits<float>::max();
 	float maxX = std::numeric_limits<float>::lowest();
@@ -1347,7 +1370,7 @@ MATHGL::Matrix4 GameRendererGl::getLightSpaceMatrix(float nearPlane, float farPl
 		maxZ *= zMult;
 	}
 
-	const auto lightProjection = MATHGL::Matrix4::CreateOrthographic(minX, maxX, minY, maxY, minZ, maxZ);
+	const auto lightProjection = MATH::Matrix4f::CreateOrthographic(minX, maxX, minY, maxY, minZ, maxZ);
 
 	mEngineShadowData.dirProjMatrices.push_back(lightProjection);
 	mEngineShadowData.dirViewMatrices.push_back(lightView);
@@ -1403,7 +1426,7 @@ void GameRendererGl::preparePipeline() {
 	}
 }
 
-GameRendererGl::EngineDirShadowUBO GameRendererGl::getLightSpaceMatrices(const MATHGL::Vector3& lightDir, const MATHGL::Vector3& lightPos) {
+GameRendererGl::EngineDirShadowUBO GameRendererGl::getLightSpaceMatrices(const MATH::Vector3f& lightDir, const MATH::Vector3f& lightPos) {
 	EngineDirShadowUBO ret;
 	ret.lightSpaceMatrices.resize(16);
 	mEngineShadowData.dirProjMatrices.clear();
@@ -1423,7 +1446,7 @@ GameRendererGl::EngineDirShadowUBO GameRendererGl::getLightSpaceMatrices(const M
 	}
 
 //for (auto& e : ret.lightSpaceMatrices) {
-//	e = MATHGL::Matrix4::Transpose(e);
+//	e = MATH::Matrix4::Transpose(e);
 //}
 
 	return ret;
@@ -1449,11 +1472,11 @@ bool GameRendererGl::prepareDirShadowMap(const std::string& id) {
 
 		//set uniform
 		float nearPlane = 1.0f, farPlane = 100.0f;
-		auto lightProjection = MATHGL::Matrix4::CreateOrthographic(-50, 50, -50, 50, nearPlane, farPlane);
+		auto lightProjection = MATH::Matrix4f::CreateOrthographic(-50, 50, -50, 50, nearPlane, farPlane);
 		//std::cout << light.obj->getTransform()->getWorldPosition().x << " "
 		//	<< light.obj->getTransform()->getWorldPosition().y << " "
 		//	<< light.obj->getTransform()->getWorldPosition().z << "\n";
-		auto lightView = MATHGL::Matrix4::CreateView(light.obj->getTransform()->getWorldPosition(), MATHGL::Vector3(0.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
+		auto lightView = MATH::Matrix4f::CreateView(light.obj->getTransform()->getWorldPosition(), MATH::Vector3(0.0f, 0.0f, 0.0f), MATH::Vector3f(0.0, 1.0, 0.0));
 		auto lightSpaceMatrix = lightProjection * lightView;
 		mPipeline.mDirShadowMap.dirLightSpaceMatrix = lightSpaceMatrix;
 		mShaders[id]->setMat4("LightSpaceMatrix", lightSpaceMatrix);
@@ -1494,26 +1517,28 @@ bool GameRendererGl::prepareDirShadowMap(const std::string& id) {
 		//glCullFace(GL_BACK);
 		mShaders[id]->unbind();
 		mFramebuffers[id]->unbind();
-		auto [winWidth, winHeight] = mContext.window->getSize();
+		auto sz = mContext.window->getSize();
+		auto winWidth = sz.x;
+		auto winHeight = sz.y;
 		mDriver->setViewport(*mShaders[id], 0, 0, winWidth, winHeight);
 		return isDrawSmth;
 	}
 	return false;
 }
 
-glm::vec3 toGLM(MATHGL::Vector3 v)
+glm::vec3 toGLM(MATH::Vector3f v)
 {
 	return {v.x, v.y, v.z};
 }
 
-glm::vec4 toGLM(MATHGL::Vector4 v)
+glm::vec4 toGLM(MATH::Vector4f v)
 {
 	return { v.x, v.y, v.z, v.w };
 }
 
-glm::mat4 toGLM(MATHGL::Matrix4 v)
+glm::mat4 toGLM(MATH::Matrix4f v)
 {
-	//auto v = MATHGL::Matrix4::Transpose(_v);
+	//auto v = MATH::Matrix4::Transpose(_v);
 	return {
 		v(0,0), v(0,1), v(0,2), v(0,3),
 		v(1,0), v(1,1), v(1,2), v(1,3),
@@ -1572,7 +1597,9 @@ bool GameRendererGl::prepareDirCascadeShadowMap(const std::string& id) {
 		glCullFace(GL_BACK);
 		mFramebuffers["dirShadowMap"]->unbind();
 		shader->unbind();
-		auto [winWidth, winHeight] = mContext.window->getSize();
+		auto sz = mContext.window->getSize();
+		auto winWidth = sz.x;
+		auto winHeight = sz.y;
 		mDriver->setViewport(*shader, 0, 0, winWidth, winHeight);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
@@ -1589,12 +1616,12 @@ void GameRendererGl::prepareSpotShadow() {
 
 		float near_plane = mPipeline.mDirShadowMap.mSpotNearPlane;
 		float far_plane = mPipeline.mDirShadowMap.mSpotFarPlane;
-		auto lightProjection = MATHGL::Matrix4::CreatePerspective(45.0f, (GLfloat)mPipeline.mDirShadowMap.mSpotShadowMapResolution /
+		auto lightProjection = MATH::Matrix4f::CreatePerspective(45.0f, (GLfloat)mPipeline.mDirShadowMap.mSpotShadowMapResolution /
 			(GLfloat)mPipeline.mDirShadowMap.mSpotShadowMapResolution, near_plane, far_plane);
-		auto lightView = MATHGL::Matrix4::CreateView(lightPos, MATHGL::Vector3(0.0f), MATHGL::Vector3(0.0, 1.0, 0.0));
+		auto lightView = MATH::Matrix4f::CreateView(lightPos, MATH::Vector3(0.0f), MATH::Vector3f(0.0, 1.0, 0.0));
 		auto lightSpaceMatrix = lightProjection * lightView;
 		EngineSpotShadowUBO ubo;
-		ubo.LightSpaceMatrix = MATHGL::Matrix4::Transpose(lightSpaceMatrix);
+		ubo.LightSpaceMatrix = MATH::Matrix4f::Transpose(lightSpaceMatrix);
 		mEngineSpotShadowUBO->set(ubo);
 
 		mFramebuffers["spotShadow"]->bind();
@@ -1631,7 +1658,9 @@ void GameRendererGl::prepareSpotShadow() {
 		mFramebuffers["spotShadow"]->unbind();
 	}
 
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	auto sz = mContext.window->getSize();
+	auto winWidth = sz.x;
+	auto winHeight = sz.y;
 	mDriver->setViewport(*mShaders["spotShadow"], 0, 0, winWidth, winHeight);
 }
 
@@ -1643,21 +1672,21 @@ void GameRendererGl::preparePointShadow() {
 		float near_plane = mPipeline.mDirShadowMap.mPointNearPlane;
 		float far_plane = mPipeline.mDirShadowMap.mPointFarPlane;
 
-		auto shadowProj = MATHGL::Matrix4::CreatePerspective(90.0f, (float)mPipeline.mDirShadowMap.mPointShadowMapResolution /
+		auto shadowProj = MATH::Matrix4f::CreatePerspective(90.0f, (float)mPipeline.mDirShadowMap.mPointShadowMapResolution /
 			(float)mPipeline.mDirShadowMap.mPointShadowMapResolution, near_plane, far_plane);
-		std::vector<MATHGL::Matrix4> shadowTransforms;
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(1.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(-1.0f, 0.0f, 0.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(0.0f, 1.0f, 0.0f), MATHGL::Vector3(0.0f, 0.0f, 1.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(0.0f, -1.0f, 0.0f), MATHGL::Vector3(0.0f, 0.0f, -1.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(0.0f, 0.0f, 1.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
-		shadowTransforms.push_back(shadowProj * MATHGL::Matrix4::CreateView(lightPos, lightPos + MATHGL::Vector3(0.0f, 0.0f, -1.0f), MATHGL::Vector3(0.0f, -1.0f, 0.0f)));
+		std::vector<MATH::Matrix4f> shadowTransforms;
+		shadowTransforms.push_back(shadowProj * MATH::Matrix4f::CreateView(lightPos, lightPos + MATH::Vector3f(1.0f, 0.0f, 0.0f), MATH::Vector3f(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATH::Matrix4f::CreateView(lightPos, lightPos + MATH::Vector3f(-1.0f, 0.0f, 0.0f), MATH::Vector3f(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATH::Matrix4f::CreateView(lightPos, lightPos + MATH::Vector3f(0.0f, 1.0f, 0.0f), MATH::Vector3f(0.0f, 0.0f, 1.0f)));
+		shadowTransforms.push_back(shadowProj * MATH::Matrix4f::CreateView(lightPos, lightPos + MATH::Vector3f(0.0f, -1.0f, 0.0f), MATH::Vector3f(0.0f, 0.0f, -1.0f)));
+		shadowTransforms.push_back(shadowProj * MATH::Matrix4f::CreateView(lightPos, lightPos + MATH::Vector3f(0.0f, 0.0f, 1.0f), MATH::Vector3f(0.0f, -1.0f, 0.0f)));
+		shadowTransforms.push_back(shadowProj * MATH::Matrix4f::CreateView(lightPos, lightPos + MATH::Vector3f(0.0f, 0.0f, -1.0f), MATH::Vector3f(0.0f, -1.0f, 0.0f)));
 
 		EnginePointShadowUBO ubo;
 		ubo.LightPos = lightPos;
 		ubo.FarPlane = far_plane;
 		for (unsigned int i = 0; i < 6; ++i) {
-			ubo.Matricies[i] = MATHGL::Matrix4::Transpose(shadowTransforms[i]);
+			ubo.Matricies[i] = MATH::Matrix4f::Transpose(shadowTransforms[i]);
 		}
 		mEnginePointShadowUBO->set(ubo);
 		// 1. render scene to depth cubemap
@@ -1685,7 +1714,9 @@ void GameRendererGl::preparePointShadow() {
 		mFramebuffers["pointShadowMap"]->unbind();
 	}
 
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	auto sz = mContext.window->getSize();
+	auto winWidth = sz.x;
+	auto winHeight = sz.y;
 	mDriver->setViewport(*mShaders["spotShadow"], 0, 0, winWidth, winHeight);
 }
 
@@ -1734,7 +1765,7 @@ void GameRendererGl::renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent
 		gbufferGlobalFb->bind();
 		mDriver->clear(true, true, false);
 		mShaders["GBuffer"]->bind();
-		mShaders["GBuffer"]->setMat4("engine_TempData.previousView", MATHGL::Matrix4::Transpose(PrevView));
+		mShaders["GBuffer"]->setMat4("engine_TempData.previousView", MATH::Matrix4f::Transpose(PrevView));
 		for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
 			drawDrawableWithShader(mShaders["GBuffer"], drawable);
 		}
@@ -1766,7 +1797,9 @@ void GameRendererGl::renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent
 	}
 
 	TextureGl::CopyTexture(*pingPongTex[!pingPong], *mDeferredTexture);
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	auto sz = mContext.window->getSize();
+	auto winWidth = sz.x;
+	auto winHeight = sz.y;
 	FrameBufferGl::CopyDepth(*gbufferFb, *mDeferredFb, winWidth, winHeight);
 	
 	drawForward();
@@ -1803,7 +1836,7 @@ void GameRendererGl::renderScene(IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent
 		d.mesh = sphere->getMeshes()[0];
 		d.material = emptyMaterial;
 		d.world = drawable.world;
-		//d.world *= MATHGL::Matrix4::Scaling(drawable.mesh->getBoundingSphere().radius);
+		//d.world *= MATH::Matrix4::Scaling(drawable.mesh->getBoundingSphere().radius);
 		drawDrawableDebug(d);
 	}
 	for (const auto& [distance, drawable] : mTransparentMeshesDeferred) {
@@ -1917,7 +1950,7 @@ void GameRendererGl::prepareGodRaysTexture() {
 	mFramebuffers["godRaysTexture"]->bind();
 	mDriver->clear(true, true, false);
 	mShaders["godRaysTexture"]->bind();
-	mShaders["godRaysTexture"]->setVec3("u_Color", MATHGL::Vector3(0.0f, 0.0f, 0.0f));
+	mShaders["godRaysTexture"]->setVec3("u_Color", MATH::Vector3(0.0f, 0.0f, 0.0f));
 
 	for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
 		drawDrawableWithShader(mShaders["godRaysTexture"], drawable);
@@ -1925,7 +1958,7 @@ void GameRendererGl::prepareGodRaysTexture() {
 	for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
 		drawDrawableWithShader(mShaders["godRaysTexture"], drawable);
 	}
-	mShaders["godRaysTexture"]->setVec3("u_Color", MATHGL::Vector3(1.0f, 1.0f, 1.0f));
+	mShaders["godRaysTexture"]->setVec3("u_Color", MATH::Vector3(1.0f, 1.0f, 1.0f));
 	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 		Drawable d;
 		d.mesh = sphere->getMeshes()[0];
@@ -2038,8 +2071,8 @@ void GameRendererGl::applyDepthOfField() {
 	gPositionGlobalTex->bind(1);
 	mTextures["noiseTexture"]->bind(2);
 	mTextures["blur"]->bind(3);
-	mShaders["depthOfField"]->setVec2("nearFar", MATHGL::Vector2{ mainCameraComponent.value()->getNear(), mainCameraComponent.value()->getFar() });
-	mShaders["depthOfField"]->setVec3("focusPoint", MATHGL::Vector3(400.0f, 300.0f, 0.0f));
+	mShaders["depthOfField"]->setVec2("nearFar", MATH::Vector2{ mainCameraComponent.value()->getNear(), mainCameraComponent.value()->getFar() });
+	mShaders["depthOfField"]->setVec3("focusPoint", MATH::Vector3(400.0f, 300.0f, 0.0f));
 	renderQuad();
 	mShaders["depthOfField"]->unbind();
 
@@ -2055,8 +2088,8 @@ void GameRendererGl::applyOutline() {
 
 	gPositionGlobalTex->bind(1);
 	mTextures["noiseTexture"]->bind(2);
-	mShaders["outline"]->setVec2("nearFar", MATHGL::Vector2{ mainCameraComponent.value()->getNear(), mainCameraComponent.value()->getFar() });
-	mShaders["outline"]->setVec2("gamma", MATHGL::Vector2{ 2.2f, 1.0f / 2.2f });
+	mShaders["outline"]->setVec2("nearFar", MATH::Vector2{ mainCameraComponent.value()->getNear(), mainCameraComponent.value()->getFar() });
+	mShaders["outline"]->setVec2("gamma", MATH::Vector2{ 2.2f, 1.0f / 2.2f });
 	renderQuad();
 	mShaders["outline"]->unbind();
 
@@ -2101,7 +2134,7 @@ void GameRendererGl::applyVolumetricLight() {
 
 	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 		mShaders["volumetricLight"]->setMat4("light.transform", light.obj->transform->getWorldMatrix());
-		mShaders["volumetricLight"]->setVec4("light.color", MATHGL::Vector4(light.getColor(), 1.0f));
+		mShaders["volumetricLight"]->setVec4("light.color", MATH::Vector4f(light.getColor(), 1.0f));
 		mShaders["volumetricLight"]->setVec3("light.direction", (mPipeline.vl.dir ? -1 : 1) * light.obj->getTransform()->getWorldForward());
 		
 		
@@ -2115,14 +2148,14 @@ void GameRendererGl::applyVolumetricLight() {
 		
 		mShaders["volumetricLight"]->setInt("voutmat", mPipeline.vl.map);
 		
-		auto m = MATHGL::Matrix4::CreatePerspective(45.0f, 800.0f / 600.0f, 0.1f, 1000.0f);// *mEngineShadowData.dirViewMatrices[3];
+		auto m = MATH::Matrix4f::CreatePerspective(45.0f, 800.0f / 600.0f, 0.1f, 1000.0f);// *mEngineShadowData.dirViewMatrices[3];
 
 		constexpr auto ProjectionBiasMatrix = [](size_t projectionIndex)
 		{
 			float scale = 1.0f;
 			float offset = projectionIndex * scale;
 
-			MATHGL::Matrix4 Result(
+			MATH::Matrix4 Result(
 				0.5f * scale, 0.0f, 0.0f, 0.0f,
 				0.0f, 0.5f, 0.0f, 0.0f,
 				0.0f, 0.0f, 0.5f, 0.0f,
@@ -2187,7 +2220,7 @@ void GameRendererGl::applyPixelize() {
 	mShaders["pixelize"]->bind();
 	pingPongTex[!pingPong]->bind(0);
 	gPositionGlobalTex->bind(1);
-	mShaders["pixelize"]->setVec2("parameters", MATHGL::Vector2{ 5.0f, 0.0f });
+	mShaders["pixelize"]->setVec2("parameters", MATH::Vector2{ 5.0f, 0.0f });
 	renderQuad();
 	mShaders["pixelize"]->unbind();
 
@@ -2216,7 +2249,7 @@ void GameRendererGl::applyDilation() {
 	mShaders["dilation"]->bind();
 	pingPongTex[!pingPong]->bind(0);
 	mDriver->clear(true, true, false);
-	mShaders["dilation"]->setVec2("parameters", MATHGL::Vector2{ 4.0f, 2.0f });
+	mShaders["dilation"]->setVec2("parameters", MATH::Vector2{ 4.0f, 2.0f });
 	renderQuad();
 	mShaders["dilation"]->unbind();
 
@@ -2293,8 +2326,10 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 	}
 
 	auto transform = obj->getComponent<ECS::TransformComponent>();
-	MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
-	auto [winWidth, winHeight] = mContext.window->getSize();
+	MATH::Matrix4 projection = MATH::Matrix4f::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
+	auto sz = mContext.window->getSize();
+	auto winWidth = sz.x;
+	auto winHeight = sz.y;
 
 	if (auto component = obj->getComponent<ECS::SpriteComponent>()) {
 		auto _component = component;
@@ -2311,9 +2346,9 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 			uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(_component->mTexturePiece);
 		}
 
-		auto model = transform->getWorldMatrix() * MATHGL::Matrix4::Scaling(MATHGL::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
+		auto model = transform->getWorldMatrix() * MATH::Matrix4f::Scaling(MATH::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
 
-		std::array<MATHGL::Vector4, 6> verts;
+		std::array<MATH::Vector4f, 6> verts;
 		verts[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		verts[1] = { 1.0f, 0.0f, 0.0f, 1.0f };
 		verts[2] = { 0.0f, 1.0f, 0.0f, 1.0f };
@@ -2346,7 +2381,7 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 		//mShaders["sprite"]->setVec4("spriteColor", _component->mColor);
 		//mShaders["sprite"]->setMat4("u_engine_model", 
 		//	transform->getWorldMatrix() * 
-		//	MATHGL::Matrix4::Scaling(MATHGL::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f)));
+		//	MATH::Matrix4::Scaling(MATH::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f)));
 		//mShaders["sprite"]->setMat4("u_engine_projection", projection);
 		//
 		//renderQuadGUI();
@@ -2369,7 +2404,7 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 			}
 			const auto& emmiter = component->emmiters[particle.emmiterId];
 			AtlasRect uv(0.0f, 0.0f, 1.0f, 1.0f);
-			MATHGL::Vector2f texSize = { tex->width, tex->height };
+			MATH::Vector2f texSize = { tex->getWidth(), tex->getHeight() };
 			if (!emmiter.piece.empty()) {
 				uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(emmiter.piece);
 				auto rect = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPiece(emmiter.piece);
@@ -2377,10 +2412,10 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 			}
 
 			auto model = transform->getWorldMatrix() * 
-				MATHGL::Matrix4::Scaling(MATHGL::Vector3(texSize.x * particle.size, texSize.y * particle.size, 1.0f)) *
-				MATHGL::Matrix4::Translation(emmiter.localPos + particle.pos);
+				MATH::Matrix4f::Scaling(MATH::Vector3f(texSize.x * particle.size, texSize.y * particle.size, 1.0f)) *
+				MATH::Matrix4f::Translation(emmiter.localPos + particle.pos);
 
-			std::array<MATHGL::Vector4, 6> verts;
+			std::array<MATH::Vector4f, 6> verts;
 			verts[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
 			verts[1] = { 1.0f, 0.0f, 0.0f, 1.0f };
 			verts[2] = { 0.0f, 1.0f, 0.0f, 1.0f };
@@ -2416,9 +2451,9 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 		//if (!_component->mTexturePiece.empty()) {
 		//	uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(_component->mTexturePiece);
 		//}
-		auto model = transform->getWorldMatrix() * MATHGL::Matrix4::Scaling(MATHGL::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
+		auto model = transform->getWorldMatrix() * MATH::Matrix4f::Scaling(MATH::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
 
-		std::array<MATHGL::Vector4, 6> verts;
+		std::array<MATH::Vector4f, 6> verts;
 		verts[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		verts[1] = { 1.0f, 0.0f, 0.0f, 1.0f };
 		verts[2] = { 0.0f, 1.0f, 0.0f, 1.0f };
@@ -2496,7 +2531,7 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 		for (auto c : component->mLabel) {
 			auto scaleX = transform->getWorldScale().x; /// transform->getTransform().getLocalSize().x;
 			auto scaleY = transform->getWorldScale().y; /// transform->getTransform().getLocalSize().y;
-			GUI::Character ch = component->font->Characters[c];
+			GUI::Character ch = component->mFont->Characters[c];
 		
 			float xpos = x + ch.Bearing.x * scaleX;
 			float ypos = y - (ch.Size.y - ch.Bearing.y) * scaleY;
@@ -2512,49 +2547,49 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 			//	{ xpos + w, ypos + h, (ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f },
 			//	{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f }
 			//};
-			std::array<ECS::BatchVertex, 6> verts;
-			verts[0].color = component->color;
+			std::array<Vertex, 6> verts;
+			verts[0].m_Weights = component->color;
 			{
-				auto pos = model * MATHGL::Vector4(xpos, ypos + h, 0.0f, 1.0f);
-				verts[0].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
-				verts[0].texCoord = MATHGL::Vector2(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+				auto pos = model * MATH::Vector4(xpos, ypos + h, 0.0f, 1.0f);
+				verts[0].position = MATH::Vector3(pos.x, pos.y, pos.z);
+				verts[0].texCoord = MATH::Vector2(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
 
 			}
-			verts[1].color = component->color;
+			verts[1].m_Weights = component->color;
 			{
-				auto pos = model * MATHGL::Vector4(xpos + w, ypos, 0.0f, 1.0f);
-				verts[1].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
-				verts[1].texCoord = MATHGL::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
+				auto pos = model * MATH::Vector4(xpos + w, ypos, 0.0f, 1.0f);
+				verts[1].position = MATH::Vector3(pos.x, pos.y, pos.z);
+				verts[1].texCoord = MATH::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
 
 			}
-			verts[2].color = component->color;
+			verts[2].m_Weights = component->color;
 			{
-				auto pos = model * MATHGL::Vector4(xpos, ypos, 0.0f, 1.0f);
-				verts[2].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
-				verts[2].texCoord = MATHGL::Vector2(ch.Start.x / 1024.0f, ch.Start.y / 1024.0f);
+				auto pos = model * MATH::Vector4(xpos, ypos, 0.0f, 1.0f);
+				verts[2].position = MATH::Vector3(pos.x, pos.y, pos.z);
+				verts[2].texCoord = MATH::Vector2(ch.Start.x / 1024.0f, ch.Start.y / 1024.0f);
 
 			}
-			verts[3].color = component->color;
+			verts[3].m_Weights = component->color;
 			{
-				auto pos = model * MATHGL::Vector4(xpos, ypos + h, 0.0f, 1.0f);
-				verts[3].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
-				verts[3].texCoord = MATHGL::Vector2(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+				auto pos = model * MATH::Vector4(xpos, ypos + h, 0.0f, 1.0f);
+				verts[3].position = MATH::Vector3(pos.x, pos.y, pos.z);
+				verts[3].texCoord = MATH::Vector2(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
 
 			}
-			verts[4].color = component->color;
+			verts[4].m_Weights = component->color;
 			{
-				auto pos = model * MATHGL::Vector4(xpos + w, ypos + h, 0.0f, 1.0f);
-				verts[4].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
-				verts[4].texCoord = MATHGL::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+				auto pos = model * MATH::Vector4(xpos + w, ypos + h, 0.0f, 1.0f);
+				verts[4].position = MATH::Vector3(pos.x, pos.y, pos.z);
+				verts[4].texCoord = MATH::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
 			}
-			verts[5].color = component->color;
+			verts[5].m_Weights = component->color;
 			{
-				auto pos = model * MATHGL::Vector4(xpos + w, ypos, 0.0f, 1.0f);
-				verts[5].position = MATHGL::Vector3(pos.x, pos.y, pos.z);
-				verts[5].texCoord = MATHGL::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
+				auto pos = model * MATH::Vector4(xpos + w, ypos, 0.0f, 1.0f);
+				verts[5].position = MATH::Vector3(pos.x, pos.y, pos.z);
+				verts[5].texCoord = MATH::Vector2((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
 			}
 
-			barcher->Draw(verts, component->font->texture, mShaders["label"], component->mIs3D);
+			barcher->Draw(verts, component->mFont->texture, mShaders["label"], component->mIs3D);
 
 			//glBindBuffer(GL_ARRAY_BUFFER, VBO);
 			//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
@@ -2602,7 +2637,7 @@ void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
 				width = std::max<float>(width, childTransform.getLocalSize().x * childTransform.getWorldScale().x);
 			}
 		}
-		transform->getTransform().setLocalSize(MATHGL::Vector2{ width, height });
+		transform->getTransform().setLocalSize(MATH::Vector2{ width, height });
 	}
 	if (auto component = obj->getComponent<ECS::ClipComponent>()) {
 		barcher->Flush();
@@ -2706,7 +2741,7 @@ void GameRendererGl::drawDeferredGBuffer() {
 	gbufferFb->bind();
 	mDriver->clear(true, true, false);
 	mShaders["deferredGBuffer"]->bind();
-	mShaders["deferredGBuffer"]->setMat4("engine_TempData.previousView", MATHGL::Matrix4::Transpose(PrevView));
+	mShaders["deferredGBuffer"]->setMat4("engine_TempData.previousView", MATH::Matrix4f::Transpose(PrevView));
 	for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
 		drawDrawableDeferred(drawable);
 	}
@@ -2812,7 +2847,7 @@ void GameRendererGl::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Fru
 	mLightSSBO->SendBlocks(lightMatrices.data(), lightMatrices.size() * sizeof(LightOGL));
 }
 
-void GameRendererGl::sendEngineUBO(ShaderGl& shader, const MATHGL::Matrix4& world) {
+void GameRendererGl::sendEngineUBO(ShaderGl& shader, const MATH::Matrix4f& world) {
 	shader.setUniform(*mEngineUbo);
 	shader.setMat4("engine_Model.model", world);
 }
@@ -2845,18 +2880,18 @@ void GameRendererGl::drawDrawable(const Drawable& p_toDraw) {
 }
 
 void GameRendererGl::drawDrawableDebug(const Drawable& p_toDraw) {
-	if (p_toDraw.material->hasShader() && p_toDraw.material->getGPUInstances() > 0) {
-		sendEngineUBO(*mShaders["debugMeshShader"], p_toDraw.world);
-		if (p_toDraw.animator) {
-			sendBounseDataToShader(std::static_pointer_cast<MaterialGl>(p_toDraw.material),
-				*p_toDraw.animator,
-				mShaders["debugMeshShader"]);
-		}
-		else {
-			mShaders["debugMeshShader"]->setInt("u_UseBone", false);
-		}
-		mDriver->draw(*p_toDraw.mesh, PrimitiveMode::LINES, p_toDraw.material->getGPUInstances());
-	}
+	//if (p_toDraw.material->hasShader() && p_toDraw.material->getGPUInstances() > 0) {
+	//	sendEngineUBO(*mShaders["debugMeshShader"], p_toDraw.world);
+	//	if (p_toDraw.animator) {
+	//		sendBounseDataToShader(std::static_pointer_cast<MaterialGl>(p_toDraw.material),
+	//			*p_toDraw.animator,
+	//			mShaders["debugMeshShader"]);
+	//	}
+	//	else {
+	//		mShaders["debugMeshShader"]->setInt("u_UseBone", false);
+	//	}
+	//	mDriver->draw(*p_toDraw.mesh, PrimitiveMode::LINES, p_toDraw.material->getGPUInstances());
+	//}
 }
 
 //use external shader
@@ -3128,27 +3163,109 @@ namespace IKIGAI::RENDER {
 	std::shared_ptr<RENDER::TextureGl> emptyTexture;
 	std::shared_ptr<RENDER::ShaderGl> renderToScreenShader;
 	std::vector<LightOGL> lights;
-
+	std::unique_ptr<ECS::SpriteBatcher> barcher;
+	std::unordered_map<std::string, std::shared_ptr<ShaderGl>> mShaders;
+	std::shared_ptr<RENDER::ModelInterface> quad;
 	GameRendererGl::GameRendererGl(IKIGAI::CORE::Core& context): mContext(context) {
 		mDriver = dynamic_cast<DriverGl*>(context.driver.get());
 
 		emptyMaterial = std::make_shared<RENDER::MaterialGl>();
-		emptyMaterial->setShader(std::make_shared<ShaderGl>("assets/shaders/opengl/empty.vert", "assets/shaders/opengl/empty.frag"));
+		emptyMaterial->setShader(std::make_shared<ShaderGl>("shaders/emptyEs.vert", "shaders/emptyEs.frag"));
 		emptyMaterial->set("u_Color", MATH::Vector4(0.f, 0.f, 1.f, 1.f));
 
-		emptyTexture = TextureGl::Create("assets/textures/empty.png", true);
+		emptyTexture = TextureGl::Create("textures/empty.png", true);
+
+		quad = MeshGenerator::CreateQuad();
 
 		createShaders();
 		createFrameBuffers();
+
+		//TODO: add native support and set pipeline from editor (Maybe add parametr to scene, or other config)
+		//auto descriptorRes = UTILS::FromJson<RenderGraphPipeline::Descriptor>("pipelines/test.json");
+		//if (descriptorRes.isErr()) {
+		//	std::cout << descriptorRes.err().value().text;
+		//}
+		//mRenderPipeline = std::make_unique<RenderGraphPipeline>(descriptorRes.unwrap());
+	}
+
+	RenderGraphPipeline::RenderGraphPipeline(const Descriptor& descriptor) {
+		for (auto& t : descriptor.Textures) {
+			if (t.TexturePath.empty()) {
+				mTextures[t.Name] = TextureGl::CreateForAttach(t.Width, t.Height, GL_FLOAT); //RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().crea
+			}
+			else {
+				mTextures[t.Name] = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromResource(t.TexturePath);
+			}
+		}
+		for (auto& f : descriptor.FrameBuffers) {
+			auto _f = std::make_shared<FrameBufferGl>();
+			std::vector<std::shared_ptr<TextureGl>> textures;
+			for (auto& t : f.Textures) {
+				textures.push_back(std::static_pointer_cast<TextureGl>(mTextures[t]));
+			}
+			_f->create(textures, f.Depth.empty() ? nullptr : std::static_pointer_cast<TextureGl>(mTextures[f.Depth]));
+			mFrameBuffers[f.Name] = _f;
+		}
+
+
+		for (auto& s : descriptor.StartStages) {
+			mStartStages.push_back(std::make_unique<PipelineStage>());
+			mStartStages.back()->mDrawContent = s.Draw;
+			mStartStages.back()->mFrameBuffer = mFrameBuffers[s.FrameBuffer];
+			mStartStages.back()->mName = s.Name;
+			mStartStages.back()->mMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().CreateFromFile(s.Material);
+
+			for (auto& u : s.Uniforms) {
+				std::visit([this, &u](auto&& arg) {
+					using T = std::decay_t<decltype(arg)>;
+					if constexpr (std::is_same_v<T, std::string>)
+						mStartStages.back()->mUniforms[u.first] = mTextures[arg];
+					else
+						mStartStages.back()->mUniforms[u.first] = arg;
+				}, u.second);
+			}
+		}
+		for (auto& s : descriptor.Stages) {
+			mStages.push_back(std::make_unique<PipelineStage>());
+			mStages.back()->mDrawContent = s.Draw;
+			mStages.back()->mFrameBuffer = mFrameBuffers[s.FrameBuffer];
+			mStages.back()->mName = s.Name;
+			if (!s.Material.empty()) {
+				mStages.back()->mMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().CreateFromFile(s.Material);
+			}
+			for (auto& u : s.Uniforms) {
+				std::visit([this, &u](auto&& arg) {
+					using T = std::decay_t<decltype(arg)>;
+					if constexpr (std::is_same_v<T, std::string>)
+						mStages.back()->mUniforms[u.first] = mTextures[arg];
+					else
+						mStages.back()->mUniforms[u.first] = arg;
+				}, u.second);
+			}
+		}
 	}
 
 	void GameRendererGl::createShaders() {
-		renderToScreenShader = std::make_shared<ShaderGl>("assets/shaders/opengl/renderToScreen.vert", "assets/shaders/opengl/renderToScreen.frag");
+		renderToScreenShader = std::make_shared<ShaderGl>("shaders/renderToScreenEs.vert", "shaders/renderToScreenEs.frag");
+		mShaders["sprite"] = std::make_shared<ShaderGl>("shaders/spriteEs.vert", "shaders/spriteEs.frag");
+		mShaders["sprite"]->bind();
+		mShaders["sprite"]->setInt("image", 0);
+		mShaders["sprite"]->bind();
+
+		mShaders["label"] = std::make_shared<ShaderGl>("shaders/textEs.vert", "shaders/textEs.frag");
+		mShaders["label"]->bind();
+		mShaders["label"]->setInt("u_engine_text", 0);
+		mShaders["label"]->bind();
+
+		mShaders["spine"] = std::make_shared<ShaderGl>("shaders/spineEs.vert", "shaders/spineEs.frag");
+		mShaders["spine"]->bind();
+		mShaders["spine"]->setInt("image", 0);
+		mShaders["spine"]->bind();
 	}
 
 	void GameRendererGl::createFrameBuffers() {
 		auto sz = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::WINDOW::Window>().getSize();
-		sceneTexture = TextureGl::createForAttach(sz.x, sz.y, GL_FLOAT);
+		sceneTexture = TextureGl::CreateForAttach(sz.x, sz.y, GL_FLOAT);
 		mainFb = std::make_shared<FrameBufferGl>();
 		mainFb->create({sceneTexture});
 	}
@@ -3174,6 +3291,12 @@ namespace IKIGAI::RENDER {
 		std::tie(mOpaqueMeshesForward, mTransparentMeshesForward, mOpaqueMeshesDeferred, mTransparentMeshesDeferred) =
 			currentScene.findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
 
+		//TODO:
+		auto vp = camera.getProjectionMatrix() * camera.getViewMatrix();
+		for (auto& e : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ChunkModelRenderer>()) {
+			auto m = e.obj->getComponent<ECS::MaterialRenderer>()->getMaterials()[0];
+			e.mModel->update(mOpaqueMeshesForward, vp, m, cameraPosition);
+		}
 
 		mDriver->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 		mDriver->clear(true, true, false);
@@ -3188,6 +3311,7 @@ namespace IKIGAI::RENDER {
 		for (const auto& [distance, drawable] : mTransparentMeshesForward) {
 			drawDrawable(drawable);
 		}
+		drawGUI();
 		mainFb->unbind();
 
 		//renderSkybox();
@@ -3242,6 +3366,125 @@ namespace IKIGAI::RENDER {
 		}
 	}
 
+
+	void fillUniforms(PipelineStage& stage) {
+		auto _material = std::static_pointer_cast<MaterialGl>(stage.mMaterial);
+		auto textureSlot = _material->textureSlot;
+		
+		for (auto& [name, uniform] : stage.mUniforms) {
+			std::visit(overloaded{
+				[&name, _material](bool arg) {
+					_material->mShader->setBool(name, arg);
+				},
+				[&name, _material](int arg) {
+					_material->mShader->setInt(name, arg);
+				},
+				[&name, _material](float arg) {
+					_material->mShader->setFloat(name, arg);
+				},
+				[&name, _material](MATH::Vector2f& arg) {
+					_material->mShader->setVec2(name, arg);
+				},
+				[&name, _material](MATH::Vector3f& arg) {
+					_material->mShader->setVec3(name, arg);
+				},
+				[&name, _material](MATH::Vector4f& arg) {
+					_material->mShader->setVec4(name, arg);
+				},
+				[&name, _material, &textureSlot](std::shared_ptr<TextureInterface> arg) {
+					std::static_pointer_cast<TextureGl>(arg)->bind(textureSlot);
+					_material->mShader->setInt(name, textureSlot);
+					textureSlot++;
+				}
+			}, uniform);
+		}
+	}
+
+
+	void GameRendererGl::renderPipeline(UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent) {
+		auto& currentScene = mContext.sceneManager->getCurrentScene();
+
+		auto& camera = mainCameraComponent->getCamera();
+		lights = currentScene.findLightData();
+		//if (mainCameraComponent->isFrustumLightCulling()) {
+		//	updateLightsInFrustum(currentScene, mainCameraComponent->getCamera().getFrustum());
+		//} else {
+		//	updateLights(currentScene);
+		//}
+
+		OpaqueDrawables	mOpaqueMeshesForward;
+		TransparentDrawables mTransparentMeshesForward;
+
+		OpaqueDrawables	mOpaqueMeshesDeferred;
+		TransparentDrawables mTransparentMeshesDeferred;
+		const auto& cameraPosition = mainCameraComponent->obj->getTransform()->getWorldPosition();
+		std::tie(mOpaqueMeshesForward, mTransparentMeshesForward, mOpaqueMeshesDeferred, mTransparentMeshesDeferred) =
+			currentScene.findDrawables(cameraPosition, camera, nullptr, emptyMaterial);
+
+		auto runStage = [this, &mOpaqueMeshesForward, &mTransparentMeshesForward, &mOpaqueMeshesDeferred, &mTransparentMeshesDeferred](PipelineStage& stage) {
+			if (stage.mFrameBuffer) {
+				std::static_pointer_cast<FrameBufferGl>(stage.mFrameBuffer)->bind();
+			}
+			mDriver->setClearColor(0.0f, 1.0f, 0.0f, 1.0f);
+			mDriver->clear(true, true, false);
+
+			if (stage.mMaterial) {
+				stage.mMaterial->bind(emptyTexture, true);
+				fillUniforms(stage);
+			}
+
+			switch (stage.mDrawContent) {
+			case DrawContent::FORWARD:
+			{
+				for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
+					drawDrawable(drawable);
+				}
+				for (const auto& [distance, drawable] : mTransparentMeshesForward) {
+					drawDrawable(drawable);
+				}
+			}
+			break;
+			case DrawContent::DEFERRED:
+			{
+				for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
+					drawDrawable(drawable);
+				}
+				for (const auto& [distance, drawable] : mTransparentMeshesDeferred) {
+					drawDrawable(drawable);
+				}
+			}
+			break;
+			case DrawContent::GUI: break; //TODO:
+			case DrawContent::QUAD:
+			{
+				mDriver->draw(*quad->getMeshes()[0], PrimitiveMode::TRIANGLES, 1);
+			}
+			break;
+			default: break;
+			}
+			if (stage.mMaterial) {
+				stage.mMaterial->unbind();
+			}
+			if (stage.mFrameBuffer) {
+				std::static_pointer_cast<FrameBufferGl>(stage.mFrameBuffer)->unbind();
+			}
+		};
+
+		mDriver->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+		mDriver->clear(true, true, false);
+
+		static bool isInit = false;
+		if (!isInit) {
+			isInit = true;
+			for (auto& stage : mRenderPipeline->mStartStages) {
+				runStage(*stage);
+			}
+		}
+		for (auto& stage : mRenderPipeline->mStages) {
+			runStage(*stage);
+		}
+	}
+
 	void GameRendererGl::renderScene() {
 
 		auto& scene = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::SCENE_SYSTEM::SceneManager>().getCurrentScene();
@@ -3263,6 +3506,8 @@ namespace IKIGAI::RENDER {
 
 			const auto glState = mDriver->fetchGLState();
 
+			//TODO: uncomment it when add support render pipeline config from editor
+			//renderPipeline(mainCameraComponent.value());
 			renderScene(mainCameraComponent.value());
 			renderToScreen();
 
@@ -3278,9 +3523,423 @@ namespace IKIGAI::RENDER {
 	void GameRendererGl::renderToScreen() {
 		renderToScreenShader->bind();
 		sceneTexture->bind(0);
-		renderQuad();
+
+		//renderQuad();
+		//glCullFace(GL_FRONT_AND_BACK);
+		//quad->getMeshes()[0]->bind();
+		//glDrawElements(GL_TRIANGLES, quad->getMeshes()[0]->getIndexCount(), GL_UNSIGNED_INT, nullptr);
+		//glDrawArrays(GL_TRIANGLES, 0, quad->getMeshes()[0]->getVertexCount());
+		mDriver->draw(*quad->getMeshes()[0], PrimitiveMode::TRIANGLES, 1);
+		//quad->getMeshes()[0]->unbind();
+
 		renderToScreenShader->unbind();
 	}
+
+	void GameRendererGl::drawGUISubtree(UTILS::Ref<ECS::Object> obj) {
+		if (!barcher) {
+			barcher = std::make_unique<ECS::SpriteBatcher>();
+		}
+		//static bool initLblBfrs = false;
+		//static unsigned VAO = 0;
+		//static unsigned VBO = 0;
+		//if (!initLblBfrs) {
+		//	initLblBfrs = true;
+		//	glGenVertexArrays(1, &VAO);
+		//	glGenBuffers(1, &VBO);
+		//	glBindVertexArray(VAO);
+		//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		//	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+		//	glEnableVertexAttribArray(0);
+		//	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+		//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+		//	glBindVertexArray(0);
+		//}
+
+		auto transform = obj->getComponent<ECS::TransformComponent>();
+		auto size = mContext.window->getSize();
+		auto winWidth = size.x;
+		auto winHeight = size.y;
+		MATH::Matrix4f projection = MATH::Matrix4f::CreateOrthographic(0.0f, static_cast<float>(winWidth), static_cast<float>(winHeight), 0.0f, -1, 1);
+
+		if (auto component = obj->getComponent<ECS::SpriteComponent>()) {
+			auto _component = component;
+			_component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+			glDisable(GL_CULL_FACE);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+			auto tex = _component->mTexture ? std::static_pointer_cast<TextureGl>(_component->mTexture) : emptyTexture;
+
+			AtlasRect uv(0.0f, 0.0f, 1.0f, 1.0f);
+			if (!_component->mTexturePiece.empty()) {
+				uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(_component->mTexturePiece);
+			}
+
+			auto model = transform->getWorldMatrix() * MATH::Matrix4f::Scaling(MATH::Vector3f(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
+
+			std::array<MATH::Vector4f, 6> verts;
+			verts[0] = {0.0f, 0.0f, 0.0f, 1.0f};
+			verts[1] = {1.0f, 0.0f, 0.0f, 1.0f};
+			verts[2] = {0.0f, 1.0f, 0.0f, 1.0f};
+			verts[3] = {0.0f, 1.0f, 0.0f, 1.0f};
+			verts[4] = {1.0f, 1.0f, 0.0f, 1.0f};
+			verts[5] = {1.0f, 0.0f, 0.0f, 1.0f};
+
+			for (auto& e : verts) {
+				e = model * e;
+			}
+
+			barcher->Draw(
+				verts, uv,
+				_component->mColor,
+				tex,
+				mShaders["sprite"],
+				component->mIs3D
+			);
+			//barcher->Flush();
+
+
+			//mShaders["sprite"]->bind();
+			//if (_component->mTexture) {
+			//	static_cast<TextureGl*>(_component->mTexture.get())->bind(0);
+			//}
+			//else
+			//{
+			//	mEmptyTexture->bind(0);
+			//}
+			//mShaders["sprite"]->setVec4("spriteColor", _component->mColor);
+			//mShaders["sprite"]->setMat4("u_engine_model", 
+			//	transform->getWorldMatrix() * 
+			//	MATH::Matrix4::Scaling(MATH::Vector3(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f)));
+			//mShaders["sprite"]->setMat4("u_engine_projection", projection);
+			//
+			//renderQuadGUI();
+			//mShaders["sprite"]->unbind();
+		}
+
+		if (auto component = obj->getComponent<ECS::SpriteParticleComponent>()) {
+			auto _component = component;
+			component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+			component->update();
+			glDisable(GL_CULL_FACE);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+			auto tex = _component->mTexture ? std::static_pointer_cast<TextureGl>(_component->mTexture) : emptyTexture;
+
+			for (const auto& particle : component->particles) {
+				if (!particle.isAlive) {
+					continue;
+				}
+				const auto& emmiter = component->emmiters[particle.emmiterId];
+				AtlasRect uv(0.0f, 0.0f, 1.0f, 1.0f);
+				MATH::Vector2f texSize = {tex->getWidth(), tex->getHeight()};
+				if (!emmiter.piece.empty()) {
+					uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(emmiter.piece);
+					auto rect = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPiece(emmiter.piece);
+					texSize = {rect.mW, rect.mH};
+				}
+
+				auto model = transform->getWorldMatrix() *
+					MATH::Matrix4f::Scaling(MATH::Vector3f(texSize.x * particle.size, texSize.y * particle.size, 1.0f)) *
+					MATH::Matrix4f::Translation(emmiter.localPos + particle.pos);
+
+				std::array<MATH::Vector4f, 6> verts;
+				verts[0] = {0.0f, 0.0f, 0.0f, 1.0f};
+				verts[1] = {1.0f, 0.0f, 0.0f, 1.0f};
+				verts[2] = {0.0f, 1.0f, 0.0f, 1.0f};
+				verts[3] = {0.0f, 1.0f, 0.0f, 1.0f};
+				verts[4] = {1.0f, 1.0f, 0.0f, 1.0f};
+				verts[5] = {1.0f, 0.0f, 0.0f, 1.0f};
+				for (auto& e : verts) {
+					e = model * e;
+				}
+				barcher->Draw(
+					verts, uv,
+					emmiter.color,
+					tex,
+					mShaders["sprite"],
+					component->mIs3D
+				);
+			}
+		}
+
+		if (auto component = obj->getComponent<ECS::SpriteAnimateComponent>()) {
+			auto _component = component;
+			component->updateAnim();
+			component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+			glDisable(GL_CULL_FACE);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+			auto tex = _component->mTexture ? std::static_pointer_cast<TextureGl>(_component->mTexture) : emptyTexture;
+
+			//AtlasRect uv(0.0f, 0.0f, 1.0f, 1.0f);
+			//if (!_component->mTexturePiece.empty()) {
+			//	uv = std::static_pointer_cast<TextureAtlas>(_component->mTexture)->getPieceUV(_component->mTexturePiece);
+			//}
+			auto model = transform->getWorldMatrix() * MATH::Matrix4f::Scaling(MATH::Vector3f(transform->getTransform().getLocalSize().x, transform->getTransform().getLocalSize().y, 1.0f));
+
+			std::array<MATH::Vector4f, 6> verts;
+			verts[0] = {0.0f, 0.0f, 0.0f, 1.0f};
+			verts[1] = {1.0f, 0.0f, 0.0f, 1.0f};
+			verts[2] = {0.0f, 1.0f, 0.0f, 1.0f};
+			verts[3] = {0.0f, 1.0f, 0.0f, 1.0f};
+			verts[4] = {1.0f, 1.0f, 0.0f, 1.0f};
+			verts[5] = {1.0f, 0.0f, 0.0f, 1.0f};
+
+			for (auto& e : verts) {
+				e = model * e;
+			}
+
+			barcher->Draw(
+				verts, component->mUVRect,
+				_component->mColor,
+				tex,
+				mShaders["sprite"],
+				component->mIs3D
+			);
+		}
+
+		if (auto component = obj->getComponent<ECS::SpineComponent>()) {
+			barcher->Flush();
+			auto _component = component;
+
+			_component->spine->spineDraw(TIME::Timer::GetInstance().getDeltaTime().count());
+
+			_component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+			glDisable(GL_CULL_FACE);
+
+			glEnable(GL_BLEND);
+			glBlendFunc(component->spine->_drawable->_states.blendSrc, component->spine->_drawable->_states.blendDst);
+
+			//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			mShaders["spine"]->bind();
+
+			auto texture = component->spine->_drawable->_states.texture;
+			if (texture) {
+				texture->bind(0);
+			} else {
+				emptyTexture->bind(0);
+			}
+			//mShaders["spine"]->setVec4("spriteColor", _component->mColor);
+			mShaders["spine"]->setMat4("u_engine_model",
+				transform->getWorldMatrix());
+			mShaders["spine"]->setMat4("u_engine_projection", projection);
+
+			//renderQuadSpineGUI(component->spine->_drawable->vertexArray);
+			mShaders["spine"]->unbind();
+		}
+
+		if (auto component = obj->getComponent<ECS::LabelComponent>()) {
+			barcher->Flush();
+
+			component->mIs3D ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+			glDisable(GL_CULL_FACE);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+			//mShaders["label"]->bind();
+			//mShaders["label"]->setVec3("textColor", { component->color.x, component->color.y, component->color.z});
+			//mShaders["label"]->setMat4("u_engine_projection", projection);
+			//_component->font->texture->bind(0);
+			//glBindTexture(GL_TEXTURE_2D, component->font->texture);
+
+			//std::string::const_iterator c;
+			//mShaders["label"]->setMat4("u_engine_model", transform->getWorldMatrix());
+
+			//glBindVertexArray(VAO);
+
+			auto model = transform->getWorldMatrix();
+			float x = 0.0f;//model(0, 3);
+			float y = 0.0f;//model(1, 3);
+			for (auto c : component->mLabel) {
+				auto scaleX = transform->getWorldScale().x; /// transform->getTransform().getLocalSize().x;
+				auto scaleY = transform->getWorldScale().y; /// transform->getTransform().getLocalSize().y;
+				GUI::Character ch = component->mFont->Characters[c];
+
+				float xpos = x + ch.Bearing.x * scaleX;
+				float ypos = y - (ch.Size.y - ch.Bearing.y) * scaleY;
+
+				float w = ch.Size.x * scaleX;
+				float h = ch.Size.y * scaleY;
+
+				//float vertices[6][4] = {
+				//	{ xpos,     ypos + h, ch.Start.x / 1024.0f,               (ch.Start.y + ch.Size.y) / 1024.0f },
+				//	{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0f,  ch.Start.y / 1024.0f},
+				//	{ xpos,     ypos,     ch.Start.x / 1024.0f,               ch.Start.y / 1024.0f },
+				//	{ xpos,     ypos + h, ch.Start.x / 1024.0f,               (ch.Start.y + ch.Size.y) / 1024.0f  },
+				//	{ xpos + w, ypos + h, (ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f },
+				//	{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f }
+				//};
+				std::array<Vertex, 6> verts;
+				verts[0].m_Weights = component->color;
+				{
+					auto pos = model * MATH::Vector4f(xpos, ypos + h, 0.0f, 1.0f);
+					verts[0].position = MATH::Vector3f(pos.x, pos.y, pos.z);
+					verts[0].texCoord = MATH::Vector2f(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+
+				}
+				verts[1].m_Weights = component->color;
+				{
+					auto pos = model * MATH::Vector4f(xpos + w, ypos, 0.0f, 1.0f);
+					verts[1].position = MATH::Vector3f(pos.x, pos.y, pos.z);
+					verts[1].texCoord = MATH::Vector2f((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
+
+				}
+				verts[2].m_Weights = component->color;
+				{
+					auto pos = model * MATH::Vector4f(xpos, ypos, 0.0f, 1.0f);
+					verts[2].position = MATH::Vector3f(pos.x, pos.y, pos.z);
+					verts[2].texCoord = MATH::Vector2f(ch.Start.x / 1024.0f, ch.Start.y / 1024.0f);
+
+				}
+				verts[3].m_Weights = component->color;
+				{
+					auto pos = model * MATH::Vector4f(xpos, ypos + h, 0.0f, 1.0f);
+					verts[3].position = MATH::Vector3f(pos.x, pos.y, pos.z);
+					verts[3].texCoord = MATH::Vector2f(ch.Start.x / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+
+				}
+				verts[4].m_Weights = component->color;
+				{
+					auto pos = model * MATH::Vector4f(xpos + w, ypos + h, 0.0f, 1.0f);
+					verts[4].position = MATH::Vector3f(pos.x, pos.y, pos.z);
+					verts[4].texCoord = MATH::Vector2f((ch.Start.x + ch.Size.x) / 1024.0f, (ch.Start.y + ch.Size.y) / 1024.0f);
+				}
+				verts[5].m_Weights = component->color;
+				{
+					auto pos = model * MATH::Vector4f(xpos + w, ypos, 0.0f, 1.0f);
+					verts[5].position = MATH::Vector3f(pos.x, pos.y, pos.z);
+					verts[5].texCoord = MATH::Vector2f((ch.Start.x + ch.Size.x) / 1024.0f, ch.Start.y / 1024.0f);
+				}
+
+				barcher->Draw(verts, component->mFont->texture, mShaders["label"], component->mIs3D);
+
+				//glBindBuffer(GL_ARRAY_BUFFER, VBO);
+				//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+				//glBindBuffer(GL_ARRAY_BUFFER, 0);
+				//glDrawArrays(GL_TRIANGLES, 0, 6);
+				//renderQuadGUI();
+
+				x += (ch.Advance >> 6) * scaleX;
+			}
+			//glBindVertexArray(0);
+			//mShaders["label"]->unbind();
+		}
+		if (auto component = obj->getComponent<ECS::LayoutComponent>()) {
+
+			auto model = transform->getWorldMatrix();
+
+			float width = 0.0f;
+			float height = 0.0f;
+			auto startX = component->mHorizontalOffset;
+			auto startY = component->mVerticalOffset;
+			for (auto& child : obj->getChildren()) {
+				auto& childTransform = child->getTransform()->getTransform();
+				if (component->mType == ECS::LayoutComponent::Type::HORIZONTAL) {
+					child->getTransform()->setLocalPosition(
+						{
+							startX,
+							startY,
+							child->getTransform()->getLocalPosition().z
+						}
+					);
+					startX += component->mHorizontalOffset + childTransform.getLocalSize().x * childTransform.getWorldScale().x;
+					width += childTransform.getLocalSize().x * childTransform.getWorldScale().x + component->mHorizontalOffset;
+					height = std::max<float>(height, childTransform.getLocalSize().y * childTransform.getWorldScale().y);
+				} else {
+					child->getTransform()->setLocalPosition(
+						{
+							startX,
+							startY,
+							child->getTransform()->getLocalPosition().z
+						}
+					);
+					startY += component->mVerticalOffset + childTransform.getLocalSize().y * childTransform.getWorldScale().y;
+					height += childTransform.getLocalSize().y * childTransform.getWorldScale().y + component->mVerticalOffset;
+					width = std::max<float>(width, childTransform.getLocalSize().x * childTransform.getWorldScale().x);
+				}
+			}
+			transform->getTransform().setLocalSize(MATH::Vector2{width, height});
+		}
+		if (auto component = obj->getComponent<ECS::ClipComponent>()) {
+			barcher->Flush();
+			glEnable(GL_SCISSOR_TEST);
+			glScissor(
+				transform->getWorldPosition().x,
+				winHeight - transform->getWorldPosition().y - component->mHeight,
+				component->mWidth * transform->getWorldScale().x,
+				component->mHeight * transform->getWorldScale().y);
+
+			for (auto child : obj->getChildren()) {
+				drawGUISubtree(*child);
+			}
+
+			glScissor(0, 0, winWidth, winHeight);
+			glDisable(GL_SCISSOR_TEST);
+			return;
+		}
+		if (auto component = obj->getComponent<ECS::InteractionComponent>()) {
+			auto ev = ECS::GuiEventType::NONE;
+			auto mpos = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().getMousePosition();
+			if (component->contains(mpos.x, mpos.y)) {
+				if (RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().isMouseButtonPressed(INPUT_SYSTEM::EMouseButton::MOUSE_BUTTON_1)) {
+					ev = ECS::GuiEventType::PRESS;
+				} else if (RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().isMouseButtonReleased(INPUT_SYSTEM::EMouseButton::MOUSE_BUTTON_1)) {
+					ev = ECS::GuiEventType::RELEASE;
+				} else {
+					ev = ECS::GuiEventType::COVER;
+				}
+			} else {
+				ev = ECS::GuiEventType::UNCOVER;
+			}
+
+			if (component->mCurEvent == ev && (component->mCurEvent == ECS::GuiEventType::PRESS || component->mCurEvent == ECS::GuiEventType::PRESS_CONTINUE)) {
+				if (component->mOnPressContinue) component->mOnPressContinue();
+			}
+
+			if (component->mCurEvent != ev) {
+				component->mCurEvent = ev;
+				switch (ev) {
+				case ECS::GuiEventType::COVER: if (component->mOnCover) component->mOnCover();  break;
+				case ECS::GuiEventType::PRESS: if (component->mOnPress) component->mOnPress();  break;
+				case ECS::GuiEventType::RELEASE: if (component->mOnRelease) component->mOnRelease();  break;
+				case ECS::GuiEventType::UNCOVER: if (component->mOnUncover) component->mOnUncover();  break;
+				default: break;
+				}
+			}
+		}
+		if (auto component = obj->getComponent<ECS::ScrollComponent>()) {
+
+		}
+
+		for (auto child : obj->getChildren()) {
+			drawGUISubtree(*child);
+		}
+	}
+
+
+	void GameRendererGl::drawGUI() {
+		//pingPongFb[!pingPong]->bind();
+
+		for (auto& guiRoot : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::RootGuiComponent>()) {
+			auto obj = guiRoot.obj;
+			drawGUISubtree(obj);
+		}
+
+		if (barcher)
+			barcher->Flush();
+
+		//set to default
+		//pingPongFb[!pingPong]->unbind();
+		//pingPong = !pingPong;
+	}
+
+
 #ifdef OCULUS
 	void GameRendererGl::renderSceneOculus(XrCompositionLayerProjectionView &layerView,
 						   render_target_t &rtarget, XrPosef &stagePose,

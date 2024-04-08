@@ -1,4 +1,7 @@
 #include "editorRender.h"
+
+#include "resourceEditorWindow.h"
+#include "utilsModule/log/loggerDefine.h"
 #ifdef USE_EDITOR
 #include "cameraControlWindow.h"
 #include "componentManagerWindow.h"
@@ -14,6 +17,7 @@
 #include "sceneModule/sceneManager.h"
 #include "utilsModule/pathGetter.h"
 #include "utilsModule/imguiHelper/ImGuiFileBrowser.h"
+#include "renderModule/backends/interface/resourceStruct.h"
 
 #ifdef DX12_BACKEND
 #include "renderModule/gameRendererDx12.h"
@@ -30,6 +34,7 @@ struct EditorRender::Internal {
 	std::unique_ptr<MenuBar> mMenu;
 
 	std::list<std::unique_ptr<EditorWindow>> mWindows;
+	std::list<std::unique_ptr<EditorWindow>> mResWindows;
 
 	Internal() {
 		mMenu = std::make_unique<MenuBar>();
@@ -38,6 +43,9 @@ struct EditorRender::Internal {
 		mWindows.push_back(std::make_unique<ComponentManagerWindow>());
 		mWindows.push_back(std::make_unique<TreeWindow>());
 		mWindows.push_back(std::make_unique<FileBrowserWindow>(Config::ROOT + Config::ASSETS_PATH));
+
+		//RENDER::ShaderResource res;
+		//mWindows.push_back(std::make_unique<ResourceEditorWindow<RENDER::ShaderResource>>(res));
 	}
 	
 };
@@ -71,13 +79,72 @@ EditorRender::EditorRender() {
 //#ifdef DX12_BACKEND
 //	auto& render = reinterpret_cast<IKIGAI::RENDER::GameRendererDx12&>(IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RENDER::GameRendererInterface>());
 //#endif
-
-	
 }
 
 void EditorRender::draw() {
 	mData->mMenu->draw();
 	for (auto& win : mData->mWindows) {
+		win->draw();
+	}
+
+	if (!GlobalState.mResPath.empty()) {
+		switch (GlobalState.mResType) {
+		case File::FileType::MATERIAL: 
+		{
+			auto res = UTILS::FromJson<RENDER::MaterialResource>(GlobalState.mResPath);
+			if (res.isErr()) {
+				LOG_ERROR << "Cant open: " << GlobalState.mResType;
+				break;
+			}
+			auto data = res.unwrap();
+			mData->mResWindows.push_back(std::make_unique<ResourceEditorWindow<RENDER::MaterialResource>>(GlobalState.mResPath, data)); break;
+		}
+		case File::FileType::TEXTURE_RES:
+		{
+			auto res = UTILS::FromJson<RENDER::TextureResource>(GlobalState.mResPath);
+			if (res.isErr()) {
+				LOG_ERROR << "Cant open: " << GlobalState.mResType;
+				break;
+			}
+			auto data = res.unwrap();
+			mData->mResWindows.push_back(std::make_unique<ResourceEditorWindow<RENDER::TextureResource>>(GlobalState.mResPath, data)); break;
+		}
+		case File::FileType::SHADER_RES:
+		{
+			auto res = UTILS::FromJson<RENDER::ShaderResource>(GlobalState.mResPath);
+			if (res.isErr()) {
+				LOG_ERROR << "Cant open: " << GlobalState.mResType;
+				break;
+			}
+			auto data = res.unwrap();
+			mData->mResWindows.push_back(std::make_unique<ResourceEditorWindow<RENDER::ShaderResource>>(GlobalState.mResPath, data)); break;
+		}
+		case File::FileType::AUDIO_RES:
+		{
+			auto res = UTILS::FromJson<AUDIO::SoundConfig>(GlobalState.mResPath);
+			if (res.isErr()) {
+				LOG_ERROR << "Cant open: " << GlobalState.mResType;
+				break;
+			}
+			auto data = res.unwrap();
+			mData->mResWindows.push_back(std::make_unique<ResourceEditorWindow<AUDIO::SoundConfig>>(GlobalState.mResPath, data)); break;
+		}
+		case File::FileType::MODEL_RES:
+		{
+			auto res = UTILS::FromJson<RENDER::ModelResource>(GlobalState.mResPath);
+			if (res.isErr()) {
+				LOG_ERROR << "Cant open: " << GlobalState.mResType;
+				break;
+			}
+			auto data = res.unwrap();
+			mData->mResWindows.push_back(std::make_unique<ResourceEditorWindow<RENDER::ModelResource>>(GlobalState.mResPath, data)); break;
+		}
+		default:;
+		}
+		GlobalState.mResPath = "";
+	}
+	std::erase_if(mData->mResWindows, [](auto& win) { return !win->isOpen(); });
+	for (auto& win : mData->mResWindows) {
 		win->draw();
 	}
 

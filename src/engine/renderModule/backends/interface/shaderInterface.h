@@ -30,6 +30,8 @@ namespace IKIGAI::RENDER {
 		virtual void setPushConstant(const PushConstantInterface& uniform) = 0;
 
 		virtual const std::unordered_map<std::string, IKIGAI::RENDER::UniformInform>& getUniformsInfo() const = 0;
+
+		std::string constructRealPath(const std::string& path);
 	};
 }
 

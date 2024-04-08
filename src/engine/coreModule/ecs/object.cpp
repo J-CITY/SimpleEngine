@@ -31,6 +31,33 @@ EVENT::Event<Object&> Object::dettachEvent;
 //	//createdEvent.run(*this);
 //}
 
+template<typename T>
+void WriteComponentDescriptorImpl(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj) {
+	if (auto comp = obj->getComponent<T>()) {
+		components.push_back(comp->getDescriptor());
+	}
+}
+
+template<template<typename...> class Container, typename...ComponentType>
+void WriteComponentDescriptor(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj, Container<ComponentType...> opt) {
+	(WriteComponentDescriptorImpl<ComponentType>(components, obj), ...);
+}
+
+void WriteComponentDescriptor(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj) {
+	WriteComponentDescriptor(components, obj, ECS::ComponentsTypeProviderType{});
+}
+
+Object::Descriptor Object::getDescriptor() const {
+	Descriptor d;
+	d.Name = getName();
+	d.Tag = getTag();
+	d.Id = getIDInt();
+	d.ParentId = getParentId();
+	d.IsActive = isActive;
+	WriteComponentDescriptor(d.Components, this);
+	return d;
+}
+
 Object::Object(Id<Object> actorID, const std::string& name, const std::string& tag) :
 	id(actorID),
 	name(name),
@@ -42,7 +69,6 @@ Object::Object(Id<Object> actorID, const std::string& name, const std::string& t
 
 template<class Desc, typename T>
 void AddComponentImpl(const Desc& data, ECS::Object* obj) {
-	std::cout << "LOAD SCENE Comp" << ECS::GetType<T>() << std::endl;
 	if (data.Type == ECS::GetType<T>()) {
 		auto c = obj->addComponent<T>(static_cast<const Component::Descriptor&>(data));
 	}
@@ -60,13 +86,12 @@ void AddComponent(const Desc& data, ECS::Object* obj) {
 
 //TODO: set parent? when call this
 Object::Object(const Descriptor& _descriptor): id(_descriptor.Id), name(_descriptor.Name), tag(_descriptor.Tag) {
-	std::cout << "LOAD SCENE Obj" << std::endl;
 	setActive(_descriptor.IsActive);
 
 	for (auto& component : _descriptor.Components) {
 		std::visit(overloaded{[this](auto& arg) {AddComponent(arg, this);}}, component);
+		transform = getComponent<TransformComponent>();
 	}
-	transform = getComponent<TransformComponent>();
 }
 
 Object::~Object() {
@@ -279,11 +304,11 @@ UTILS::WeakPtr<TransformComponent> Object::getTransform() const {
 //	return res;
 //}
 
-int Object::getIDInt() { return static_cast<int>(id); }
+int Object::getIDInt() const { return static_cast<int>(id); }
 
 void Object::setIDInt(int _id) { id = Id(id); }
 
-int Object::getParentId() {
+int Object::getParentId() const {
 	auto _p = parent.lock();
 	if (!_p) {
 		return -1;

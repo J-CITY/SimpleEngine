@@ -8,7 +8,7 @@ using namespace IKIGAI::INPUT_SYSTEM;
 //TODO: remove USE_STL after add wrapper to oculus window
 
 InputManager::InputManager(IKIGAI::WINDOW::Window& _window) : mWindow(_window) {
-#ifdef USE_SDL
+
 	mKeyPressedListener = mWindow.keyPressedEvent.add(std::bind(&InputManager::onKeyPressed, this, std::placeholders::_1));
 	mKeyReleasedListener = mWindow.keyReleasedEvent.add(std::bind(&InputManager::onKeyReleased, this, std::placeholders::_1));
 	mMouseButtonPressedListener = mWindow.mouseButtonPressedEvent.add(std::bind(&InputManager::onMouseButtonPressed, this, std::placeholders::_1));
@@ -18,14 +18,14 @@ InputManager::InputManager(IKIGAI::WINDOW::Window& _window) : mWindow(_window) {
 	mGamepadButtonReleasedListener = mWindow.gamepadButtonReleasedEvent.add(std::bind(&InputManager::onGamepadButtonReleased, this, std::placeholders::_1, std::placeholders::_2));
 	mGamepadAxisListener = mWindow.gamepadAxisEvent.add(std::bind(&InputManager::onGamepadAxis, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	mGamepadTriggerListener = mWindow.gamepadTriggerEvent.add(std::bind(&InputManager::onGamepadTrigger, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-
+#ifdef USE_SDL
 	mGamepadAddListener = mWindow.gamepadAddEvent.add(std::bind(&InputManager::addGamepad, this, std::placeholders::_1));
 	mGamepadRemoveListener = mWindow.gamepadRemoveEvent.add(std::bind(&InputManager::removeGamepad, this, std::placeholders::_1));
 #endif
 }
 
 InputManager::~InputManager() {
-#ifdef USE_SDL
+
 	mWindow.keyPressedEvent.removeListener(mKeyPressedListener);
 	mWindow.keyReleasedEvent.removeListener(mKeyReleasedListener);
 	mWindow.mouseButtonPressedEvent.removeListener(mMouseButtonPressedListener);
@@ -34,7 +34,7 @@ InputManager::~InputManager() {
 	mWindow.gamepadButtonReleasedEvent.removeListener(mGamepadButtonReleasedListener);
 	mWindow.gamepadAxisEvent.removeListener(mGamepadAxisListener);
 	mWindow.gamepadTriggerEvent.removeListener(mGamepadTriggerListener);
-
+#ifdef USE_SDL
 	mWindow.gamepadAddEvent.removeListener(mGamepadAddListener);
 	mWindow.gamepadRemoveEvent.removeListener(mGamepadRemoveListener);
 #endif
@@ -98,11 +98,7 @@ bool InputManager::isGamepadExist(int id) const {
 }
 
 IKIGAI::MATH::Vector2i InputManager::getMousePosition() const {
-#ifdef USE_SDL
 	return mWindow.getMousePos();
-#else
-	return {0,0};
-#endif
 }
 
 void InputManager::clearEvents() {

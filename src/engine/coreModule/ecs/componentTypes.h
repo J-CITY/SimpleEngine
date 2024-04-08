@@ -19,7 +19,71 @@
 #include "../gui/components/spriteComponent.h"
 
 namespace IKIGAI::ECS {
+#ifdef OPENGL_BACKEND
+#define COMPONENTS_DEF TransformComponent,\
+		AmbientLight,\
+		AmbientSphereLight,\
+		AudioComponent,\
+		CameraComponent,\
+		DirectionalLight,\
+		InputComponent,\
+		LogicComponent,\
+		MaterialRenderer,\
+		ModelRenderer,\
+		ModelLODRenderer,\
+		PointLight,\
+		ScriptComponent,\
+		Skeletal,\
+		SpotLight,\
+		PhysicsComponent,\
+		AudioListenerComponent,\
+		VrCameraComponent,\
+		BatchComponent, \
+		RootGuiComponent, \
+		SpriteComponent, \
+		SpriteAnimateComponent, \
+		SpriteParticleComponent, \
+		SpineComponent, \
+		LabelComponent, \
+		InteractionComponent, \
+		ClipComponent, \
+		ScrollComponent, \
+		LayoutComponent, \
+		ChunkModelRenderer
 
+#define COMPONENTS_DESCRIPTOR_DEF TransformComponent::Descriptor,\
+		AmbientLight::Descriptor,\
+		AmbientSphereLight::Descriptor,\
+		AudioComponent::Descriptor,\
+		CameraComponent::Descriptor,\
+		DirectionalLight::Descriptor,\
+		InputComponent::Descriptor,\
+		LogicComponent::Descriptor,\
+		MaterialRenderer::Descriptor,\
+		ModelRenderer::Descriptor,\
+		ModelLODRenderer::Descriptor,\
+		PointLight::Descriptor,\
+		ScriptComponent::Descriptor,\
+		Skeletal::Descriptor,\
+		SpotLight::Descriptor,\
+		PhysicsComponent::Descriptor,\
+		AudioListenerComponent::Descriptor,\
+		VrCameraComponent::Descriptor,\
+		BatchComponent::Descriptor, \
+		RootGuiComponent::Descriptor, \
+		SpriteComponent::Descriptor, \
+		SpriteAnimateComponent::Descriptor, \
+		SpriteParticleComponent::Descriptor, \
+		SpineComponent::Descriptor, \
+		LabelComponent::Descriptor, \
+		InteractionComponent::Descriptor, \
+		ClipComponent::Descriptor, \
+		ScrollComponent::Descriptor, \
+		LayoutComponent::Descriptor, \
+		ChunkModelRenderer::Descriptor
+#endif
+
+#ifndef OPENGL_BACKEND
 #define COMPONENTS_DEF TransformComponent,\
 		AmbientLight,\
 		AmbientSphereLight,\
@@ -40,12 +104,6 @@ namespace IKIGAI::ECS {
 		VrCameraComponent,\
 		BatchComponent
 
-//	RootGuiComponent, \
-//		SpriteComponent, \
-//		SpriteAnimateComponent, \
-//		SpriteParticleComponent, \
-//		SpineComponent, \
-
 #define COMPONENTS_DESCRIPTOR_DEF TransformComponent::Descriptor,\
 		AmbientLight::Descriptor,\
 		AmbientSphereLight::Descriptor,\
@@ -65,6 +123,7 @@ namespace IKIGAI::ECS {
 		AudioListenerComponent::Descriptor,\
 		VrCameraComponent::Descriptor,\
 		BatchComponent::Descriptor
+#endif
 
 	//ArCameraComponent,\
 

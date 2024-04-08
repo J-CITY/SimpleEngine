@@ -4,6 +4,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include "../parser/assimpParser.h"
+#include "utilsModule/pathGetter.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::RESOURCES;
@@ -117,7 +118,7 @@ MATH::Matrix4f Bone::InterpolateRotation(float animationTime) {
     return MATH::QuaternionF::ToMatrix4(MATH::QuaternionF::Normalize(res));
 }
 
-MATH::Matrix4f Bone::Bone::InterpolateScaling(float animationTime) {
+MATH::Matrix4f Bone::InterpolateScaling(float animationTime) {
     if (1 == m_NumScalings)
         return MATH::Matrix4f::Scaling(m_Scales[0].scale);
 
@@ -220,7 +221,7 @@ std::map<std::string, std::shared_ptr<Animation>> Animation::LoadAnimations(cons
     std::map<std::string, std::shared_ptr<Animation>> res;
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(animationPath, aiProcess_Triangulate);
+    const aiScene* scene = importer.ReadFile(UTILS::GetRealPath(animationPath), aiProcess_Triangulate);
     assert(scene && scene->mRootNode);
 
     for (auto i = 0u; i < scene->mNumAnimations; i++) {
@@ -247,7 +248,7 @@ void Animator::UpdateAnimation(float dt) {
     }
     m_DeltaTime = dt;
     if (m_CurrentAnimation) {
-        m_CurrentTime += m_CurrentAnimation->GetTicksPerSecond() * dt;
+		m_CurrentTime += m_CurrentAnimation->GetTicksPerSecond() * dt;
         m_CurrentTime = fmod(m_CurrentTime, m_CurrentAnimation->GetDuration());
         CalculateBoneTransform(&m_CurrentAnimation->GetRootNode(), MATH::Matrix4f(1.0f));
     }
@@ -262,11 +263,11 @@ void Animator::CalculateBoneTransform(const AssimpNodeData* node, MATH::Matrix4f
     std::string nodeName = node->name;
     auto nodeTransform = node->transformation;
 
-    Bone* Bone = m_CurrentAnimation->FindBone(nodeName);
+    Bone* bone = m_CurrentAnimation->FindBone(nodeName);
 
-    if (Bone) {
-        Bone->Update(m_CurrentTime);
-        nodeTransform = Bone->GetLocalTransform();
+    if (bone) {
+        bone->Update(m_CurrentTime);
+        nodeTransform = bone->GetLocalTransform();
     }
 
     auto globalTransformation = parentTransform * nodeTransform;

@@ -6,3 +6,4 @@
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtx/hash.hpp>
+#include <glm/gtc/noise.hpp>

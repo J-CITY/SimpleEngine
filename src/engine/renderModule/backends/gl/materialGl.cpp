@@ -144,6 +144,7 @@ void MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, 
 			case UNIFORM_TYPE::VEC4: {
 				mShader->setVec4(name, std::get<MATH::Vector4f>(mUniformData.at(name))); break;
 			}
+			case UNIFORM_TYPE::SAMPLER_CUBE:
 			case UNIFORM_TYPE::SAMPLER_2D: {
 				if (useTextures) {
 					if (auto tex = std::get<std::shared_ptr<TextureGl>>(mUniformData.at(name))) {
@@ -236,37 +237,64 @@ void MaterialGl::unbind() {
 void MaterialGl::set(const std::string& name, UniformData data)
 {
 	//TODO: add check for uniform type
-	//if (mUniformData.contains(name)) // TODO: because do nopt have refl for gles
-	//mUniformData.at(name) = data;
-	mUniformData[name] = data;
+	if (mUniformData.contains(name)) // TODO: because do nopt have refl for gles
+		mUniformData.at(name) = data;
+	//mUniformData[name] = data;
 
 	//TODO: FOR gles
-	std::visit(overloaded{
-		[&name, this](float arg) {
-			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::FLOAT, 0, 0};
+	//std::visit(overloaded{
+	//	[&name, this](float arg) {
+	//		mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::FLOAT, 0, 0};
+	//	},
+	//	[&name, this](int arg) {
+	//		mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::INT, 0, 0};
+	//	},
+	//	[&name, this](MATH::Vector2f arg) {
+	//		mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC2, 0, MATH::Vector2f()};
+	//	},
+	//	[&name, this](MATH::Vector3f arg) {
+	//		mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC3, 0, MATH::Vector3f()};
+	//	},
+	//	[&name, this](MATH::Vector4f arg) {
+	//		mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC4, 0, MATH::Vector4f()};
+	//	},
+	//	[&name, this](bool arg) {
+	//		mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::BOOL, 0, false};
+	//	},
+	//	[&name, this](std::shared_ptr<TextureGl> arg) {
+	//		mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D, 0, nullptr};
+	//	},
+	//	[&name, this](auto arg) {
+	//		
+	//	},
+	//}, data);
+}
+
+MaterialResource MaterialGl::getDescriptor() {
+	MaterialResource d;
+	d.NeedFileWatch = false;//TODO
+
+	d.ShaderPath = mShader ? mShader->mPath : "";
+	d.BackfaceCulling = isBackfaceCulling();
+	d.Blendable = isBlendable();
+	d.ColorWriting = isColorWriting();
+	d.DepthFunc = getDepthFunc();
+	d.DepthTest = isDepthTest();
+	d.DepthWriting = isDepthWriting();
+	d.FrontfaceCulling = isFrontfaceCulling();
+	d.IsDeferred = isDeferred();
+	d.GpuInstances = getGPUInstances();
+	for (auto& [k, v] : mUniformData) {
+		std::visit(overloaded{
+		[&d, &k](std::shared_ptr<TextureGl> arg) {
+			d.Uniforms[k] = arg->getPath();
 		},
-		[&name, this](int arg) {
-			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::INT, 0, 0};
-		},
-		[&name, this](MATH::Vector2f arg) {
-			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC2, 0, MATH::Vector2f()};
-		},
-		[&name, this](MATH::Vector3f arg) {
-			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC3, 0, MATH::Vector3f()};
-		},
-		[&name, this](MATH::Vector4f arg) {
-			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::VEC4, 0, MATH::Vector4f()};
-		},
-		[&name, this](bool arg) {
-			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::BOOL, 0, false};
-		},
-		[&name, this](std::shared_ptr<TextureGl> arg) {
-			mUniforms[name] = Uniform{name, IKIGAI::RENDER::UNIFORM_TYPE::SAMPLER_2D, 0, nullptr};
-		},
-		[&name, this](auto arg) {
-			
-		},
-	}, data);
+		[](std::vector<unsigned char >& arg) {},
+		[&d, &k](auto& arg) {
+			d.Uniforms[k] = arg;
+		}}, v);
+	}
+	return d;
 }
 
 //TODO: update FileWatcher if texture already was in uniforms

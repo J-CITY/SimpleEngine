@@ -410,8 +410,8 @@ void SpineTextureLoader::load(AtlasPage& page, const String& path) {
         //texture->vWrap = cvtTextureWrap(page.vWrap);
 
         page.texture = texture.get();
-        page.width = texture->width;
-        page.height = texture->height;
+        page.width = texture->getWidth();
+        page.height = texture->getHeight();
 
 
         textures[texture.get()] = texture;

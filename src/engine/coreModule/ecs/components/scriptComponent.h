@@ -33,15 +33,22 @@ namespace IKIGAI::ECS {
 		sol::table& getTable();
 
 		[[nodiscard]] const std::string& getName() const;
+
+		[[nodiscard]] Descriptor getDescriptor() const;
 	private:
 		void setScript(std::string name);
-		std::string getScriptName();
+		std::string getScriptName() const;
 
 		std::string name;
 		sol::table object = sol::nil;
 	public:
 		static auto GetMembers() {
 			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfo("Path", &ScriptComponent::getScriptName, &ScriptComponent::setScript,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::STRING},
+				})
 			};
 		}
 	};

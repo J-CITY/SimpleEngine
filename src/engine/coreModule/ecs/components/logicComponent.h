@@ -66,6 +66,8 @@ namespace IKIGAI::ECS {
 		virtual void onSerialize(nlohmann::json& j) override {
 		}
 
+		[[nodiscard]] Descriptor getDescriptor() const;
+
 	public:
 		static auto GetMembers() {
 			return std::tuple{

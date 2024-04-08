@@ -1,4 +1,5 @@
 #pragma once
+#include "fileBrowser.h"
 #ifdef USE_EDITOR
 #include <functional>
 #include <map>
@@ -39,6 +40,9 @@ namespace IKIGAI::EDITOR {
 
 
 			std::unordered_map<std::string, std::shared_ptr<RENDER::TextureInterface>> mTextureCache;
+
+			std::string mResPath;
+			File::FileType mResType = File::FileType::TEXT;//??
 		};
 		inline static GlobalState GlobalState;
 

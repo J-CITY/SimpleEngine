@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <vector>
 
+#include "utilsModule/jsonLoader.h"
 #include "utilsModule/pathGetter.h"
 #include "utilsModule/stdLoader.h"
 
@@ -63,7 +64,7 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool gener
 
     IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
     //stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &width, &height, &nrComponents, 0);
+    unsigned char* data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &nrComponents, 0);
     if (data)
     {
         GLenum format = GL_RGBA;
@@ -81,13 +82,16 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool gener
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         if (generateMipmap) {
-            //glGenerateMipmap(GL_TEXTURE_2D);
+            glGenerateMipmap(GL_TEXTURE_2D);
         }
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); // Use GL_NEAREST_MIPMAP_LINEAR if you want to use mipmaps
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        
         IKIGAI::UTILS::STBiImageFree(data);
     }
     else
@@ -98,9 +102,9 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool gener
 
     tex->id = textureID;
     tex->mPath = path;
-    tex->width = width;
-    tex->height = height;
-    tex->chanels = nrComponents;
+    tex->mWidth = width;
+    tex->mHeight = height;
+    tex->mChannels = nrComponents;
     return tex;
 }
 
@@ -308,10 +312,10 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
                 UTILS::STBiImageFree((unsigned char*)d);
             }
         }
-        tex->width = width;
-        tex->height = height;
-        tex->depth = res.depth;
-        tex->chanels = chanels;
+        tex->mWidth = width;
+        tex->mHeight = height;
+        tex->mDepth = res.depth;
+        tex->mChannels = chanels;
     }
     else {
         if (res.isFloat) {
@@ -324,9 +328,9 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
         std::vector<void*> datas;
         datas.push_back((void*)data);
     	createTexture(res.texType, getInternalFormat2(res.pixelType, res.isFloat), getFormat2(res.pixelType), res.width, res.height, res.depth, res.isFloat, datas);
-        tex->width = res.width;
-        tex->height = res.height;
-        tex->depth = res.depth;
+        tex->mWidth = res.width;
+        tex->mHeight = res.height;
+        tex->mDepth = res.depth;
     }
 
     if (res.useMipmap) {
@@ -336,7 +340,7 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromResource(const RENDER::TextureRe
     
     tex->id = texId;
     tex->mPath = res.path;
-    tex->type = res.texType;
+    tex->mType = res.texType;
     
     return tex;
 }
@@ -368,19 +372,19 @@ std::shared_ptr<TextureGl> TextureGl::CreateHDR(const std::string& path, bool ge
 
     auto tex = std::make_shared<TextureGl>();
     tex->id = hdrTexture;
-    tex->width = width;
-    tex->height = height;
+    tex->mWidth = width;
+    tex->mHeight = height;
     return tex;
 }
 
 void TextureGl::CopyTexture(const TextureGl& from, const TextureGl& to) {
-    if (from.width != to.width || from.height != to.height) {
+    if (from.mWidth != to.mWidth || from.mHeight != to.mHeight) {
         throw std::logic_error("Textures have different size");
     }
 #ifndef USING_GLES
     glCopyImageSubData(from.id, GL_TEXTURE_2D, 0, 0, 0, 0,
         to.id, GL_TEXTURE_2D, 0, 0, 0, 0,
-        from.width, from.height, 1);
+        from.mWidth, from.mHeight, 1);
 #endif
 }
 
@@ -405,12 +409,12 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(uint8_t* data, uint32_t w
     glBindTexture(GL_TEXTURE_2D, 0);
 
     tex->id = textureID;
-    tex->width = width;
-    tex->height = height;
+    tex->mWidth = width;
+    tex->mHeight = height;
     return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::createForAttach(int texWidth, int texHeight, int type) {
+std::shared_ptr<TextureGl> TextureGl::CreateForAttach(int texWidth, int texHeight, int type) {
     unsigned int texId;
     // position color buffer
     glGenTextures(1, &texId);
@@ -418,22 +422,26 @@ std::shared_ptr<TextureGl> TextureGl::createForAttach(int texWidth, int texHeigh
 #ifndef USING_GLES
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, texWidth, texHeight, 0, GL_RGBA, type, NULL);
 #else
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, type, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 #endif
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_LINEAR);
 
     glGenerateMipmap(GL_TEXTURE_2D);
 
     auto tex = std::make_shared<TextureGl>();
     tex->id = texId;
-    tex->width = texWidth;
-    tex->height = texHeight;
-    tex->chanels = 4;
+    tex->mWidth = texWidth;
+    tex->mHeight = texHeight;
+    tex->mChannels = 4;
     return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::createDepthForAttachCubemap(int texWidth, int texHeight, int type) {
+std::shared_ptr<TextureGl> TextureGl::CreateDepthForAttachCubemap(int texWidth, int texHeight, int type) {
     unsigned int texId;
    
     glGenTextures(1, &texId);
@@ -449,12 +457,12 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttachCubemap(int texWidth, 
 #endif
 	auto tex = std::make_shared<TextureGl>();
     tex->id = texId;
-    tex->width = texWidth;
-    tex->height = texHeight;
+    tex->mWidth = texWidth;
+    tex->mHeight = texHeight;
     return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::createDepthForAttach(unsigned texWidth, unsigned texHeight)
+std::shared_ptr<TextureGl> TextureGl::CreateDepthForAttach(unsigned texWidth, unsigned texHeight)
 {
     unsigned int texId;
     // position color buffer
@@ -471,12 +479,12 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttach(unsigned texWidth, un
 #endif
     auto tex = std::make_shared<TextureGl>();
     tex->id = texId;
-    tex->width = texWidth;
-    tex->height = texHeight;
+    tex->mWidth = texWidth;
+    tex->mHeight = texHeight;
     return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::createDepthForAttach2DArray(int texWidth, int texHeight, int arrSize) {
+std::shared_ptr<TextureGl> TextureGl::CreateDepthForAttach2DArray(int texWidth, int texHeight, int arrSize) {
     unsigned int id;
     glGenTextures(1, &id);
 #ifndef USING_GLES
@@ -496,14 +504,14 @@ std::shared_ptr<TextureGl> TextureGl::createDepthForAttach2DArray(int texWidth, 
 
     auto tex = std::make_shared<TextureGl>();
     tex->id = id;
-    tex->type = TextureType::TEXTURE_2D_ARRAY;
-    tex->width = texWidth;
-    tex->height = texHeight;
-    tex->depth = arrSize;
+    tex->mType = TextureType::TEXTURE_2D_ARRAY;
+    tex->mWidth = texWidth;
+    tex->mHeight = texHeight;
+    tex->mDepth = arrSize;
     return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ) {
+std::shared_ptr<TextureGl> TextureGl::CreateEmpty3d(int texX, int texY, int texZ) {
     int m_mip_levels = 1;
     int width = texX;
     int height = texY;
@@ -535,14 +543,14 @@ std::shared_ptr<TextureGl> TextureGl::createEmpty3d(int texX, int texY, int texZ
 #endif
     auto tex = std::make_shared<TextureGl>();
     tex->id = id;
-    tex->type = TextureType::TEXTURE_3D;
-    tex->width = texX;
-    tex->height = texY;
-    tex->depth = texZ;
+    tex->mType = TextureType::TEXTURE_3D;
+    tex->mWidth = texX;
+    tex->mHeight = texY;
+    tex->mDepth = texZ;
     return tex;
 }
 
-std::vector<unsigned char> TextureGl::getPixels(const std::string& path) {
+std::vector<unsigned char> TextureGl::GetPixels(const std::string& path) {
     int width = 0, height = 0, nrComponents = 0;
     unsigned char* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &width, &height, &nrComponents, 0);
     std::vector<unsigned char> res(data, data + width * height * nrComponents);
@@ -553,18 +561,18 @@ std::vector<unsigned char> TextureGl::getPixels(const std::string& path) {
 void TextureGl::bind(int _slot) {
     slot = _slot;
     glActiveTexture(GL_TEXTURE0 + slot);
-    if (type == TextureType::TEXTURE_2D) {
+    if (mType == TextureType::TEXTURE_2D) {
         glBindTexture(GL_TEXTURE_2D, id);
     }
-    else if (type == TextureType::TEXTURE_CUBE) {
+    else if (mType == TextureType::TEXTURE_CUBE) {
         glBindTexture(GL_TEXTURE_CUBE_MAP, id);
     }
-    else if (type == TextureType::TEXTURE_2D_ARRAY) {
+    else if (mType == TextureType::TEXTURE_2D_ARRAY) {
 #ifndef USING_GLES
         glBindTexture(GL_TEXTURE_2D_ARRAY, id);
 #endif
     }
-    else if (type == TextureType::TEXTURE_3D) {
+    else if (mType == TextureType::TEXTURE_3D) {
 #ifndef USING_GLES
         glBindTexture(GL_TEXTURE_3D, id);
 #endif
@@ -576,15 +584,15 @@ void TextureGl::unbind() {
 }
 
 void TextureGl::generateMipmaps() {
-    if (type == TextureType::TEXTURE_2D) {
+    if (mType == TextureType::TEXTURE_2D) {
         glBindTexture(GL_TEXTURE_2D, id);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
-    else if (type == TextureType::TEXTURE_CUBE) {
+    else if (mType == TextureType::TEXTURE_CUBE) {
         glBindTexture(GL_TEXTURE_CUBE_MAP, id);
         glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
     }
-    else if (type == TextureType::TEXTURE_3D) {
+    else if (mType == TextureType::TEXTURE_3D) {
 #ifndef USING_GLES
         glBindTexture(GL_TEXTURE_3D, id);
         glGenerateMipmap(GL_TEXTURE_3D);
@@ -597,7 +605,7 @@ void TextureGl::bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, uns
 #ifndef USING_GLES
     glBindTexture(GL_TEXTURE_3D, id);
 
-	if (type == TextureType::TEXTURE_3D)
+	if (mType == TextureType::TEXTURE_3D)
 		glBindImageTexture(unit, id, mip_level, GL_TRUE, layer, access, format);
 	else
 		glBindImageTexture(unit, id, mip_level, GL_FALSE, 0, access, format);
@@ -628,13 +636,13 @@ std::shared_ptr<TextureGl> TextureGl::CreateHDREmptyCubemap(int width, int heigh
 
     auto tex = std::make_shared<TextureGl>();
     tex->id = envCubemap;
-    tex->type = TextureType::TEXTURE_CUBE;
-    tex->width = width;
-    tex->height = height;
+    tex->mType = TextureType::TEXTURE_CUBE;
+    tex->mWidth = width;
+    tex->mHeight = height;
     return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::createCubemap(std::array<std::string, 6> path) {
+std::shared_ptr<TextureGl> TextureGl::CreateCubemap(std::array<std::string, 6> path) {
     unsigned int textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
@@ -661,7 +669,7 @@ std::shared_ptr<TextureGl> TextureGl::createCubemap(std::array<std::string, 6> p
 
     auto tex = std::make_shared<TextureGl>();
     tex->id = textureID;
-    tex->type = TextureType::TEXTURE_CUBE;
+    tex->mType = TextureType::TEXTURE_CUBE;
     return tex;
 }
 
@@ -677,10 +685,10 @@ AtlasRect TextureAtlas::getPiece(const std::string& name) const {
 AtlasRect TextureAtlas::getPieceUV(const std::string& name) const {
 	if (mAtlas.mRects.contains(name)) {
 		auto res = mAtlas.mRects.at(name);
-		res.mX /= width;
-		res.mY /= height;
-		res.mW /= width;
-		res.mH /= height;
+		res.mX /= mWidth;
+		res.mY /= mHeight;
+		res.mW /= mWidth;
+		res.mH /= mHeight;
 		return res;
 	}
 	return AtlasRect();
@@ -731,9 +739,9 @@ std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path,
 
     tex->id = textureID;
     tex->mPath = path;
-    tex->width = width;
-    tex->height = height;
-    tex->chanels = nrComponents;
+    tex->mWidth = width;
+    tex->mHeight = height;
+    tex->mChannels = nrComponents;
 
     std::filesystem::path configPath{ path };
     configPath.replace_extension(".atlas");
@@ -751,13 +759,13 @@ std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path,
     //tex->mAtlas = adata;
 
     //TODO: why is not work
-    //auto res = UTILS::FromJson<AtlasData>(configPath.string());
-    //if (res.isOk()) {
-    //    tex->mAtlas = res.unwrap();
-    //}
-    //else {
-    //    throw;
-    //}
+    auto res = UTILS::FromJson<AtlasData>(configPath.string());
+    if (res.isOk()) {
+        tex->mAtlas = res.unwrap();
+    }
+    else {
+        throw;
+    }
     return tex;
 }
 

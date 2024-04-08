@@ -9,6 +9,7 @@
 #endif
 #include <utilsModule/pathGetter.h>
 
+#include "renderModule/vertex.h"
 #include "resourceModule/textureManager.h"
 #include "renderModule/backends/gl/shaderGl.h"
 #include "renderModule/backends/gl/vertexBufferGl.h"
@@ -27,13 +28,16 @@ SpriteBatcher::SpriteBatcher()
     // Setup vertex buffer
 
 	mVertexArray = std::make_unique<RENDER::VertexArray>();
-	mVbo = std::make_shared<RENDER::VertexBufferGl<BatchVertex>>();
+	mVbo = std::make_shared<RENDER::VertexBufferGl<Vertex>>();
 	
-	uint64_t vertexSize = sizeof(BatchVertex);
-	mVertexArray->bindAttribute(0, *std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(BatchVertex, position));
-	mVertexArray->bindAttribute(1, *std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(BatchVertex, texCoord));
-	mVertexArray->bindAttribute(2, *std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(BatchVertex, color));
-
+	uint64_t vertexSize = sizeof(Vertex);
+	mVertexArray->bindAttribute(0, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
+	mVertexArray->bindAttribute(1, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
+	mVertexArray->bindAttribute(2, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
+	mVertexArray->bindAttribute(3, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
+	mVertexArray->bindAttribute(4, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
+	mVertexArray->bindAttribute(5, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	mVertexArray->bindAttribute(6, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
 	//mVbo = std::make_shared<RENDER::VertexBufferGl<BatchVertex>>();
 	//std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bindAttribute(0, 3, GL_FLOAT, false, sizeof(BatchVertex), (void*)offsetof(BatchVertex, position));
 	//std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bindAttribute(1, 2, GL_FLOAT, false, sizeof(BatchVertex), (void*)offsetof(BatchVertex, texCoord));
@@ -62,17 +66,19 @@ void SpriteBatcher::Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDE
 		mShader = shader;
 		mIs3D = is3D;
     }
+
+	mVertexBuffer.push_back(Vertex({verts[0].x, verts[0].y, verts[0].z}, {uv.mX, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
+	mVertexBuffer.push_back(Vertex({verts[1].x, verts[1].y, verts[1].z}, {uv.mX + uv.mW, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
+	mVertexBuffer.push_back(Vertex({ verts[2].x, verts[2].y, verts[2].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
 	
-	mVertexBuffer.push_back(BatchVertex({ verts[0].x, verts[0].y, verts[0].z }, { uv.mX, 1.0f - uv.mY }, color));
-	mVertexBuffer.push_back(BatchVertex({ verts[1].x, verts[1].y, verts[1].z }, { uv.mX + uv.mW,  1.0f - uv.mY }, color));
-	mVertexBuffer.push_back(BatchVertex({ verts[2].x, verts[2].y, verts[2].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, color));
-	mVertexBuffer.push_back(BatchVertex({ verts[3].x, verts[3].y, verts[3].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, color));
-	mVertexBuffer.push_back(BatchVertex({ verts[4].x, verts[4].y, verts[4].z }, { uv.mX + uv.mW,1.0f - uv.mY - uv.mH }, color));
-	mVertexBuffer.push_back(BatchVertex({ verts[5].x, verts[5].y, verts[5].z }, { uv.mX + uv.mW,1.0f - uv.mY }, color));
+	mVertexBuffer.push_back(Vertex({ verts[3].x, verts[3].y, verts[3].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
+	mVertexBuffer.push_back(Vertex({ verts[4].x, verts[4].y, verts[4].z }, { uv.mX + uv.mW,1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
+	mVertexBuffer.push_back(Vertex({verts[5].x, verts[5].y, verts[5].z}, {uv.mX + uv.mW, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
+
 }
 
 
-void SpriteBatcher::Draw(const std::array<BatchVertex, 6>& verts, std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D) {
+void SpriteBatcher::Draw(const std::array<Vertex, 6>& verts, std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D) {
 	if (mTexture != texture || mShader != shader || mIs3D != is3D) {
 		Flush();
 		mTexture = texture;
@@ -88,6 +94,15 @@ void SpriteBatcher::Draw(const std::array<BatchVertex, 6>& verts, std::shared_pt
 	mVertexBuffer.push_back(verts[5]);
 }
 
+void _bindAttribute(unsigned int attribute, RENDER::VertexArray::Type type, int count, int stride, intptr_t offset) {
+	glEnableVertexAttribArray(attribute);
+	glVertexAttribPointer(attribute, count, static_cast<GLenum>(type), GL_FALSE, stride, reinterpret_cast<const GLvoid*>(offset));
+}
+
+void _unbindAttribute(unsigned int attribute) {
+	glDisableVertexAttribArray(attribute);
+}
+
 void SpriteBatcher::Flush() {
     if (mVertexBuffer.empty() || !mTexture || !mShader) {
         return;
@@ -96,25 +111,74 @@ void SpriteBatcher::Flush() {
     // Set the current shader program.
 	mShader->bind();
 	std::static_pointer_cast<RENDER::TextureGl>(mTexture)->bind(0);
-	std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bufferData(mVertexBuffer.size() * sizeof(BatchVertex), mVertexBuffer.data(), GL_STATIC_DRAW);
+	std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bufferData(mVertexBuffer.size() * sizeof(Vertex), mVertexBuffer.data(), GL_STATIC_DRAW);
 
 	//TODO: get screen size
 	//TODO: check is 3D
 	MATH::Matrix4f projection = MATH::Matrix4f::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
-	std::static_pointer_cast<RENDER::ShaderGl>(mShader)->setMat4("u_engine_projection", projection);
-
-
+	std::static_pointer_cast<RENDER::ShaderGl>(mShader)->setMat4("engine_Projection", projection);
+	
+#ifndef USING_GLES
 	mVertexArray->bind();
+#else
+	std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo)->bind();
+
+	const auto vertexSize = sizeof(Vertex);
+	_bindAttribute(0, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
+	_bindAttribute(1, RENDER::VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
+	_bindAttribute(2, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
+	_bindAttribute(3, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
+	_bindAttribute(4, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
+	_bindAttribute(5, RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	_bindAttribute(6, RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
+#endif
     glDrawArrays(GL_TRIANGLES, 0, mVertexBuffer.size());
+#ifndef USING_GLES
 	mVertexArray->unbind();
+#else
+	for (int i = 0; i <= 6; ++i) {
+		_unbindAttribute(i);
+	}
+	std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo)->unbind();
+#endif
 
 	mShader->unbind();
     mVertexBuffer.clear();
 }
 
+RootGuiComponent::Descriptor RootGuiComponent::getDescriptor() const {
+	Descriptor d;
+	d.Type = GetType<RootGuiComponent>();
+	return d;
+}
+
+RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj) {}
+
+RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	RootGuiComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
 
 //BATCHE END
 
+
+ColorComponent::Descriptor ColorComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<ColorComponent>();
+	d.Color = mColor;
+	return d;
+}
+
+ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj) {
+	mColor = descriptor.Color;
+}
+
+ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	ColorComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
 
 SpriteComponent::SpriteComponent(Object& obj) : Component(obj) {
 }
@@ -128,7 +192,7 @@ void SpriteComponent::setTexture(std::string path) {
 #ifdef OPENGL_BACKEND
 	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path, true);
 	obj->getTransform()->getTransform().setLocalSize(
-		{ static_cast<RENDER::TextureGl*>(mTexture.get())->width, static_cast<RENDER::TextureGl*>(mTexture.get())->height });
+		{ static_cast<RENDER::TextureGl*>(mTexture.get())->getWidth(), static_cast<RENDER::TextureGl*>(mTexture.get())->getHeight() });
 #endif
 }
 
@@ -147,6 +211,9 @@ std::string SpriteComponent::getTexture() {
 
 void SpriteComponent::setAtlasPiece(std::string name)
 {
+	if (name.empty()) {
+		return;
+	}
 	auto rect = static_cast<RENDER::TextureAtlas*>(mTexture.get())->getPiece(name);
 	obj->getTransform()->getTransform().setLocalSize({ rect.mW, rect.mH });
 	mTexturePiece = name;
@@ -156,6 +223,54 @@ std::string SpriteComponent::getAtlasPiece()
 {
 	return mTexturePiece;
 }
+
+SpriteComponent::Descriptor SpriteComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<SpriteComponent>();
+	d.TexturePath = mPath;
+	d.TexturePiece = mTexturePiece;
+	d.Is3D = mIs3D;
+	return d;
+}
+
+SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj)
+{
+	mIs3D = descriptor.Is3D;
+	if (!descriptor.TexturePath.empty()) {
+		setTexture(descriptor.TexturePath);
+	}
+	else if (!descriptor.TextureAtlasPath.empty()) {
+		setTextureAtlas(descriptor.TextureAtlasPath);
+		setAtlasPiece(descriptor.TexturePiece);
+	}
+}
+
+SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	SpriteComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
+void SpriteAnimateComponent::setGridSize(MATH::Vector2f sz)
+{
+	mGridSize = sz;
+}
+
+MATH::Vector2f SpriteAnimateComponent::getGridSize()
+{
+	return mGridSize;
+}
+
+void SpriteAnimateComponent::setFrameCount(int e)
+{
+	mFrameCount = e;
+}
+
+int SpriteAnimateComponent::getFrameCount() const
+{
+	return mFrameCount;
+}
+
 void SpriteAnimateComponent::updateAnim()
 {
 	mCutTime -= TIME::Timer::GetInstance().getDeltaTime().count() * mTimeScale;
@@ -187,6 +302,33 @@ void SpriteAnimateComponent::nextFrame() {
 	}
 }
 
+SpriteAnimateComponent::Descriptor SpriteAnimateComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<SpriteAnimateComponent>();
+	d.TexturePath = mPath;
+	d.TexturePiece = mTexturePiece;
+	d.Is3D = mIs3D;
+	d.GridSize = mGridSize;
+	d.TimeScale = mTimeScale;
+	return d;
+}
+
+SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): SpriteComponent(obj)
+{
+	mIs3D = descriptor.Is3D;
+	mTexturePiece = descriptor.TexturePiece;
+	mGridSize = descriptor.GridSize;
+	mTimeScale = descriptor.TimeScale;
+	mFrameCount = descriptor.FrameCount;
+	setTexture(descriptor.TexturePath);
+}
+
+SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	SpriteAnimateComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
 SpriteParticleComponent::SpriteParticleComponent(Object& obj): SpriteComponent(obj)
 {
 	srand(static_cast <unsigned> (time(0)));
@@ -204,6 +346,7 @@ void SpriteParticleComponent::setEmmiters(std::vector<Emmiter> e)
 	int count = 0;
 	for (auto emmiter : emmiters) {
 		count += emmiter.count;
+		emmiter.curSpawnTime = emmiter.pause;
 	}
 	particles.resize(count);
 	freeParticlesId.resize(count);
@@ -284,8 +427,41 @@ void SpriteParticleComponent::update() {
 	}
 }
 
+SpriteParticleComponent::Descriptor SpriteParticleComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<SpriteParticleComponent>();
+	d.TexturePath = mPath;
+	d.TexturePiece = mTexturePiece;
+	d.Is3D = mIs3D;
+	d.Emmiters = emmiters;
+	return d;
+}
+
+SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): SpriteComponent(obj)
+{
+	mIs3D = descriptor.Is3D;
+	setEmmiters(descriptor.Emmiters);
+	if (!descriptor.TexturePath.empty()) {
+		setTexture(descriptor.TexturePath);
+	}
+	else {
+		setTexture(descriptor.TextureAtlasPath);
+		setAtlasPiece(descriptor.TexturePiece);
+	}
+}
+
+SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	SpriteParticleComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
+LabelComponent::LabelComponent(Object& obj): Component(obj)
+{
+}
+
 LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font) :
-	Component(obj), font(font) {
+	Component(obj), mFont(font) {
 	mLabel = label;
 
 	float width = 0;
@@ -317,6 +493,29 @@ LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<G
 	//glBindVertexArray(0);
 }
 
+LabelComponent::Descriptor LabelComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<LabelComponent>();
+	d.Is3D = mIs3D;
+	d.Label = mLabel;
+	d.Font = ""; //TODO:
+	return d;
+}
+
+LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj)
+{
+	mIs3D = descriptor.Is3D;
+	mLabel = descriptor.Label;
+	//TODO: mGridSize = descriptor.Font;
+	mFont = std::make_shared<IKIGAI::GUI::Font>(IKIGAI::UTILS::GetRealPath("fonts/a_AlternaSw.TTF"), 42);
+}
+
+LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	LabelComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
 void SpineComponent::setSpine(SpineRefl data)
 {
 	skelPath = data.skelPath;
@@ -336,6 +535,27 @@ SpineComponent::SpineComponent(Object& obj) : Component(obj) {
 
 SpineComponent::SpineComponent(Object& obj, std::string skelPath, std::string atlasPath): Component(obj), skelPath(skelPath), atlasPath(atlasPath){
 	spine = std::make_shared<RENDER::SPINE::SpineController>(skelPath, atlasPath);
+}
+
+SpineComponent::Descriptor SpineComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<SpineComponent>();
+	d.Is3D = mIs3D;
+	d.SkelPath = skelPath;
+	d.AtlasPath = atlasPath;
+	return d;
+}
+
+SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): SpineComponent(obj, descriptor.SkelPath, descriptor.AtlasPath)
+{
+	mIs3D = descriptor.Is3D;
+
+}
+
+SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	SpineComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
 }
 
 //void LabelComponentGui::draw() {
@@ -397,10 +617,34 @@ SpineComponent::SpineComponent(Object& obj, std::string skelPath, std::string at
 //	glBindTexture(GL_TEXTURE_2D, 0);
 //}
 
+InteractionComponent::InteractionComponent(Object& obj) : Component(obj)
+{
+}
+
 InteractionComponent::InteractionComponent(Object& obj, float w, float h) : Component(obj), mWidth(w), mHeight(h) {
 	//obj.transform->size = size;
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
+
+InteractionComponent::Descriptor InteractionComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<InteractionComponent>();
+	d.Width = mWidth;
+	d.Height = mHeight;
+	return d;
+}
+
+InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): InteractionComponent(obj, descriptor.Width, descriptor.Height)
+{
+
+}
+
+InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	InteractionComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
 bool InteractionComponent::contains(float x, float y) {
 	auto left = obj->getTransform()->getWorldPosition().x;
 	auto top = obj->getTransform()->getWorldPosition().y;
@@ -413,6 +657,11 @@ bool InteractionComponent::contains(float x, float y) {
 	
 	return (x >= minX) && (x < maxX) && (y >= minY) && (y < maxY);
 }
+
+ClipComponent::ClipComponent(Object& obj) : Component(obj)
+{
+}
+
 //void InteractionComponent::onUpdate(float dt) {
 //	auto ev = GuiEventType::NONE;
 //	auto mpos = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().getMousePosition();
@@ -460,8 +709,68 @@ ClipComponent::ClipComponent(Object& obj, float w, float h) : Component(obj), mW
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
 
+ClipComponent::Descriptor ClipComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<ClipComponent>();
+	d.Width = mWidth;
+	d.Height = mHeight;
+	return d;
+}
+
+ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ClipComponent(obj, descriptor.Width, descriptor.Height)
+{
+
+}
+
+ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	ClipComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
+ScrollComponent::ScrollComponent(Object& obj): Component(obj)
+{
+}
+
 ScrollComponent::ScrollComponent(Object& obj, float w, float h): Component(obj), mWidth(w), mHeight(h) {
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
+}
+
+ScrollComponent::Descriptor ScrollComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<ScrollComponent>();
+	d.Width = mWidth;
+	d.Height = mHeight;
+	return d;
+}
+
+ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ScrollComponent(obj, descriptor.Width, descriptor.Height)
+{
+
+}
+
+ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	ScrollComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
+}
+
+LayoutComponent::Descriptor LayoutComponent::getDescriptor() const
+{
+	Descriptor d;
+	d.Type = GetType<LayoutComponent>();
+	d.Layout = mType;
+	return d;
+}
+
+LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): LayoutComponent(obj, descriptor.Layout)
+{
+
+}
+
+LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+	LayoutComponent(obj, static_cast<const Descriptor&>(descriptor))
+{
 }
 
 ////void ClipComponent::draw() {

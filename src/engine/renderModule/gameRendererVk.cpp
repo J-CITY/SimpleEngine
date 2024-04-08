@@ -21,7 +21,7 @@ std::optional<IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent>> mainCameraCompon
 
 GameRendererVk::GameRendererVk(IKIGAI::CORE::Core& context) : mContext(context) {
 
-	mEmptyTexture = TextureVk::create(IKIGAI::UTILS::GetRealPath("textures/snow.png"));
+	mEmptyTexture = TextureVk::Create(IKIGAI::UTILS::GetRealPath("textures/snow.png"));
 
 	mDriver = dynamic_cast<DriverVk*>(context.driver.get());
 
@@ -128,16 +128,16 @@ void GameRendererVk::createVkResources() {
 	const auto winWidth = sz.x;
 	const auto winHeight = sz.y;
 	mFramebuffers["gbufferFb"] = std::make_shared<FrameBufferVk>();
-	mTextures["gPositionTex"] = TextureVk::createForAttach(winWidth, winHeight);
-	mTextures["gNormalTex"] = TextureVk::createForAttach(winWidth, winHeight);
-	mTextures["gAlbedoSpecTex"] = TextureVk::createForAttach(winWidth, winHeight);
-	mTextures["gRoughAOTex"] = TextureVk::createForAttach(winWidth, winHeight);
+	mTextures["gPositionTex"] = TextureVk::CreateForAttach(winWidth, winHeight);
+	mTextures["gNormalTex"] = TextureVk::CreateForAttach(winWidth, winHeight);
+	mTextures["gAlbedoSpecTex"] = TextureVk::CreateForAttach(winWidth, winHeight);
+	mTextures["gRoughAOTex"] = TextureVk::CreateForAttach(winWidth, winHeight);
 	mFramebuffers["gbufferFb"]->create(std::vector{
 		mTextures["gPositionTex"], mTextures["gNormalTex"], mTextures["gAlbedoSpecTex"], mTextures["gRoughAOTex"]
 		}, mDriver->m_DepthBufferImage);
 
 	mFramebuffers["deferredFb"] = std::make_shared<FrameBufferVk>();
-	mTextures["deferredResult"] = TextureVk::createForAttach(winWidth, winHeight);
+	mTextures["deferredResult"] = TextureVk::CreateForAttach(winWidth, winHeight);
 	mFramebuffers["deferredFb"]->create(std::vector{
 		mTextures["deferredResult"] }, mDriver->m_DepthBufferImage);
 
@@ -150,18 +150,18 @@ void GameRendererVk::createVkResources() {
 	ShaderVk::frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	mShaders["deferredRender"] = std::make_shared<ShaderVk>(
 		mFramebuffers["gbufferFb"]->m_RenderPass,
-		"./shaders/vk/deferredGBuffer.vert.spv", "./shaders/vk/deferredGBuffer.frag.spv");
+		"shaders/deferredGBuffer.vert.spv", "shaders/deferredGBuffer.frag.spv");
 	
 	ShaderVk::push_constant = std::nullopt;
 	ShaderVk::depthWriteEnable = VK_FALSE;
 	ShaderVk::cullMode = VK_CULL_MODE_FRONT_BIT;
 	ShaderVk::frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	mShaders["deferredLightning"] = std::make_shared<ShaderVk>(mFramebuffers["deferredFb"]->m_RenderPass,
-		"./shaders/vk/deferredLightningPbr.vert.spv", "./shaders/vk/deferredLightningPbr.frag.spv");
+		"shaders/deferredLightningPbr.vert.spv", "shaders/deferredLightningPbr.frag.spv");
 
 
 	mShaders["renderToScreen"] = std::make_shared<ShaderVk>(mDriver->defaultFb->m_RenderPass,
-		"./shaders/vk/renderToScreen.vert.spv", "./shaders/vk/renderToScreen.frag.spv");
+		"shaders/renderToScreen.vert.spv", "shaders/renderToScreen.frag.spv");
 
 
 	// we could send it to different shaders if it set in same bind and set

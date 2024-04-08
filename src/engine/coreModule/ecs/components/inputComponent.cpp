@@ -27,6 +27,11 @@ const std::function<void(std::chrono::duration<double>)>& InputComponent::getEve
 	return inputEventFun;
 }
 
+InputComponent::Descriptor InputComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<InputComponent>();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

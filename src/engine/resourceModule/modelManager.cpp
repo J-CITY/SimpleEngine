@@ -124,7 +124,6 @@ ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateVerts(const std::
 }
 
 ModelParserFlags ModelLoader::getDefaultFlag() {
-
 	IKIGAI::RESOURCES::ModelParserFlags flags = IKIGAI::RESOURCES::ModelParserFlags::TRIANGULATE;
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::FLIP_UVS;
@@ -137,7 +136,6 @@ ModelParserFlags ModelLoader::getDefaultFlag() {
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
 	flags |= IKIGAI::RESOURCES::ModelParserFlags::DEBONE;
-
 	//flags |= IKIGAI::RESOURCES::ModelParserFlags::PRE_TRANSFORM_VERTICES;
 	//flags |= IKIGAI::RESOURCES::ModelParserFlags::FLIP_WINDING_ORDER;
 	return flags;

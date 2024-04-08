@@ -132,6 +132,7 @@ namespace IKIGAI::ECS {
 		TransformComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
 			TransformComponent(obj, static_cast<const Descriptor&>(descriptor)) {};
 
+		[[nodiscard]] Descriptor getDescriptor() const;
 
 		void setParent(TransformComponent& p_parent);
 		bool removeParent();
@@ -172,13 +173,13 @@ namespace IKIGAI::ECS {
 
 		MATH::Matrix3f GetNormalMatrix(const MATH::Matrix4f& model) const;
 
-		[[nodiscard]] MATH::Vector3f getLocalRotationDeg();
+		[[nodiscard]] MATH::Vector3f getLocalRotationDeg() const;
 		void setLocalRotationDeg(MATH::Vector3f val);
 	private:
 		[[nodiscard]] float getLocalScaleX() const;
 		[[nodiscard]] float getLocalScaleY() const;
 		[[nodiscard]] float getLocalScaleZ() const;
-		[[nodiscard]] MATH::Vector3f getLocalScale_();
+		[[nodiscard]] MATH::Vector3f getLocalScale_() const;
 
 		void setLocalScaleX(float val);
 		void setLocalScaleY(float val);
@@ -188,7 +189,7 @@ namespace IKIGAI::ECS {
 		[[nodiscard]] float getLocalPositionX() const;
 		[[nodiscard]] float getLocalPositionY() const;
 		[[nodiscard]] float getLocalPositionZ() const;
-		[[nodiscard]] MATH::Vector3f getLocalPosition_();
+		[[nodiscard]] MATH::Vector3f getLocalPosition_() const;
 
 		void setLocalPositionX(float val);
 		void setLocalPositionY(float val);

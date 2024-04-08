@@ -1,5 +1,7 @@
 #include "fileBrowser.h"
 
+#include "editorRender.h"
+
 #ifdef USE_EDITOR
 #include <functional>
 
@@ -52,6 +54,18 @@ File::FileType File::GetFileType(const std::filesystem::path& path) {
 	if (materialExt.contains(ext)) {
 		return FileType::MATERIAL;
 	}
+	if (textureResExt.contains(ext)) {
+		return FileType::TEXTURE_RES;
+	}
+	if (shaderResExt.contains(ext)) {
+		return FileType::SHADER_RES;
+	}
+	if (audioResExt.contains(ext)) {
+		return FileType::AUDIO_RES;
+	}
+	if (modelResExt.contains(ext)) {
+		return FileType::MODEL_RES;
+	}
 	return FileType::TEXT;
 }
 
@@ -70,18 +84,18 @@ FileBrowserWindow::FileBrowserWindow(const std::string& path): mPath(path), mSel
 	mTextureCache["__object__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/cube-white.png"), true);
 #endif
 #ifdef VULKAN_BACKEND
-	mTextureCache["__image__"] = RENDER::TextureVk::create(UTILS::GetRealPath("Textures/Debug/Editor/image-white.png"));
-	mTextureCache["__dir__"] = RENDER::TextureVk::create(UTILS::GetRealPath("Textures/Debug/Editor/folder-white.png"));
-	mTextureCache["__file__"] = RENDER::TextureVk::create(UTILS::GetRealPath("Textures/Debug/Editor/file-white.png"));
-	mTextureCache["__font__"] = RENDER::TextureVk::create(UTILS::GetRealPath("Textures/Debug/Editor/font-white.png"));
-	mTextureCache["__object__"] = RENDER::TextureVk::create(UTILS::GetRealPath("Textures/Debug/Editor/cube-white.png"));
+	mTextureCache["__image__"] = RENDER::TextureVk::Create(UTILS::GetRealPath("textures/debug/editor/image-white.png"));
+	mTextureCache["__dir__"] = RENDER::TextureVk::Create(UTILS::GetRealPath("textures/debug/editor/folder-white.png"));
+	mTextureCache["__file__"] = RENDER::TextureVk::Create(UTILS::GetRealPath("textures/debug/editor/file-white.png"));
+	mTextureCache["__font__"] = RENDER::TextureVk::Create(UTILS::GetRealPath("textures/debug/editor/font-white.png"));
+	mTextureCache["__object__"] = RENDER::TextureVk::Create(UTILS::GetRealPath("textures/debug/editor/cube-white.png"));
 #endif
 #ifdef DX12_BACKEND
-	mTextureCache["__image__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("Textures/Debug/Editor/image-white.png"));
-	mTextureCache["__dir__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("Textures/Debug/Editor/folder-white.png"));
-	mTextureCache["__file__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("Textures/Debug/Editor/file-white.png"));
-	mTextureCache["__font__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("Textures/Debug/Editor/font-white.png"));
-	mTextureCache["__object__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("Textures/Debug/Editor/cube-white.png"));
+	mTextureCache["__image__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("textures/debug/editor/image-white.png"));
+	mTextureCache["__dir__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("textures/debug/editor/folder-white.png"));
+	mTextureCache["__file__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("textures/debug/editor/file-white.png"));
+	mTextureCache["__font__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("textures/debug/editor/font-white.png"));
+	mTextureCache["__object__"] = RENDER::TextureDx12::Create(UTILS::GetRealPath("textures/debug/editor/cube-white.png"));
 #endif
 	initFileTree(mRoot);
 }
@@ -242,7 +256,7 @@ void FileBrowserWindow::drawFolder(std::string_view path)
 				mTextureCache[imPath] = RENDER::TextureGl::Create(imPath, true);
 #endif
 #ifdef VULKAN_BACKEND
-				mTextureCache[imPath] = RENDER::TextureVk::create(imPath);
+				mTextureCache[imPath] = RENDER::TextureVk::Create(imPath);
 #endif
 #ifdef DX12_BACKEND
 				mTextureCache[imPath] = RENDER::TextureDx12::Create(imPath);
@@ -287,9 +301,10 @@ void FileBrowserWindow::drawFolder(std::string_view path)
 			if (isDirectory) {
 				mHistory.push(mSelectedFolderPath);
 				newPath = entry.path().string();
-			} else if (extType == File::FileType::MATERIAL) {
-				//TODO: set to global state
-				//editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(entry.path().string());
+			}	//editMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(entry.path().string());
+			else if (extType == File::FileType::MATERIAL || extType == File::FileType::TEXTURE_RES || extType == File::FileType::SHADER_RES || extType == File::FileType::AUDIO_RES || extType == File::FileType::MODEL_RES) {
+				EditorRender::GlobalState.mResPath = entry.path().string();
+				EditorRender::GlobalState.mResType = extType;
 			}
 		}
 		auto pos = ImGui::GetCursorPos();

@@ -7,7 +7,7 @@
 #include <string>
 
 #include "../interface/textureInterface.h"
-
+#include <serdepp/serde.hpp>
 namespace IKIGAI::RENDER
 {
 	struct TextureResource;
@@ -18,12 +18,7 @@ namespace IKIGAI::RENDER
 		~TextureGl() override;
 		unsigned id = 0;
 		int slot = 0;
-		std::string mPath;
-
-		float width = 0.0f;
-		float height = 0.0f;
-		float depth = 1.0f;
-		float chanels = 1.0f;
+		
 
 		static std::shared_ptr<TextureGl> Create(const std::string& path, bool generateMipmap);
 		static std::shared_ptr<TextureGl> CreateFromResource(const RENDER::TextureResource& res);
@@ -31,13 +26,14 @@ namespace IKIGAI::RENDER
 		static std::shared_ptr<TextureGl> CreateHDR(const std::string& path, bool generateMipmap);
 		static void CopyTexture(const TextureGl& from, const TextureGl& to);
 		static std::shared_ptr<TextureGl> CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, bool generateMipmap);
-		static std::shared_ptr<TextureGl> createForAttach(int texWidth, int texHeight, int type);
-		static std::shared_ptr<TextureGl> createDepthForAttach(unsigned int texWidth, unsigned int texHeight);
-		static std::shared_ptr<TextureGl> createCubemap(std::array<std::string, 6> path);
-		static std::shared_ptr<TextureGl> createDepthForAttachCubemap(int texWidth, int texHeight, int type);
-		static std::shared_ptr<TextureGl> createDepthForAttach2DArray(int texWidth, int texHeight, int arrSize);
-		static std::shared_ptr<TextureGl> createEmpty3d(int texX, int texY, int texZ);
-		static std::vector<unsigned char> getPixels(const std::string& path);
+		static std::shared_ptr<TextureGl> CreateForAttach(int texWidth, int texHeight, int type);
+		static std::shared_ptr<TextureGl> CreateDepthForAttach(unsigned int texWidth, unsigned int texHeight);
+		static std::shared_ptr<TextureGl> CreateCubemap(std::array<std::string, 6> path);
+		static std::shared_ptr<TextureGl> CreateDepthForAttachCubemap(int texWidth, int texHeight, int type);
+		static std::shared_ptr<TextureGl> CreateDepthForAttach2DArray(int texWidth, int texHeight, int arrSize);
+		static std::shared_ptr<TextureGl> CreateEmpty3d(int texX, int texY, int texZ);
+		static std::vector<unsigned char> GetPixels(const std::string& path);
+
 		void bind(int slot);
 		void unbind();
 		void generateMipmaps();
@@ -63,12 +59,32 @@ namespace IKIGAI::RENDER
 		float mY = 0.0f;
 		float mW = 0.0f;
 		float mH = 0.0f;
+
+		template<class Context>
+		constexpr static auto serde(Context& context, AtlasRect& value) {
+			using Self = AtlasRect;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::mX, "X")
+				.field(&Self::mY, "Y")
+				.field(&Self::mW, "W")
+				.field(&Self::mH, "H");
+		}
 	};
 
 	struct AtlasData {
 		AtlasData() = default;
 		std::map<std::string, AtlasRect> mRects;
 		std::string mPath;
+
+		template<class Context>
+		constexpr static auto serde(Context& context, AtlasData& value) {
+			using Self = AtlasData;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::mRects, "Files")
+				.field(&Self::mPath, "Path");
+		}
 
 		void setRects(std::map<std::string, AtlasRect> rects)
 		{

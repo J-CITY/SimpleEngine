@@ -32,7 +32,7 @@ const std::string& ScriptComponent::getName() const {
 	return name;
 }
 
-std::string ScriptComponent::getScriptName() {
+std::string ScriptComponent::getScriptName() const {
 	return name;
 }
 
@@ -41,7 +41,12 @@ void ScriptComponent::setScript(std::string _name) {
 	ScriptComponentEvents::createdEvent.run(getWeak<ScriptComponent>());
 }
 
-
+ScriptComponent::Descriptor ScriptComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<ScriptComponent>();
+	descriptor.Path = getScriptName();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

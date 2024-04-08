@@ -24,6 +24,15 @@ float AmbientSphereLight::getRadius() const {
 void AmbientSphereLight::setRadius(float r) {
 	data.constant = r;
 }
+
+AmbientSphereLight::Descriptor AmbientSphereLight::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<AmbientSphereLight>();
+	descriptor.Color = getColor();
+	descriptor.Radius = getRadius();
+	descriptor.Intensity = getIntensity();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

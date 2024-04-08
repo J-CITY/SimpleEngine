@@ -3,6 +3,8 @@
 #include <renderModule/backends/interface/modelInterface.h>
 #include <utilsModule/event.h>
 
+#include "utilsModule/meshGenerator.h"
+
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS{
@@ -38,10 +40,10 @@ namespace IKIGAI::ECS{
 		EFrustumBehaviour getFrustumBehaviour() const;
 		const RENDER::BoundingSphere& getCustomBoundingSphere() const;
 		void setCustomBoundingSphere(const RENDER::BoundingSphere& boundingSphere);
-		
+		[[nodiscard]] Descriptor getDescriptor() const;
 	private:
 		void setModelByPath(std::string path);
-		std::string getModelPath();
+		std::string getModelPath() const;
 
 		std::shared_ptr<RENDER::ModelInterface> m_model = nullptr;
 		RENDER::BoundingSphere m_customBoundingSphere = { {}, 1.0f };
@@ -77,7 +79,7 @@ namespace IKIGAI::ECS{
 				using Self = Descriptor;
 				using namespace serde::attribute;
 				serde::serde_struct(context, value)
-					.field(&Self::Type, "PhysicsComponentType")
+					.field(&Self::Type, "ModelLODRendererType")
 					.field(&Self::Paths, "Paths");
 			}
 		};
@@ -100,10 +102,10 @@ namespace IKIGAI::ECS{
 		EFrustumBehaviour getFrustumBehaviour() const;
 		const RENDER::BoundingSphere& getCustomBoundingSphere() const;
 		void setCustomBoundingSphere(const RENDER::BoundingSphere& boundingSphere);
-
+		[[nodiscard]] Descriptor getDescriptor() const;
 	private:
 		void setModelsByPath(std::vector<ModelLodRefl> path);
-		std::vector<ModelLodRefl> getModelsPath();
+		std::vector<ModelLodRefl> getModelsPath() const;
 
 		std::vector<ModelLod> m_models;
 		RENDER::BoundingSphere m_customBoundingSphere = { {}, 1.0f };
@@ -134,6 +136,57 @@ namespace IKIGAI::ECS{
 	template <>
 	inline std::string IKIGAI::ECS::GetComponentName<ModelRenderer>() {
 		return "ModelRenderer";
+	}
+
+
+	class ChunkModelRenderer : public Component {
+	public:
+		struct Descriptor : public Component::Descriptor {
+			std::string Type;
+			std::string Path;
+
+			template<class Context>
+			constexpr static auto serde(Context& context, Descriptor& value) {
+				using Self = Descriptor;
+				using namespace serde::attribute;
+				serde::serde_struct(context, value)
+					.field(&Self::Type, "ChunkModelRendererType");
+			}
+		};
+		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj);
+		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor);
+		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+			ChunkModelRenderer(obj, static_cast<const Descriptor&>(descriptor)) {
+		};
+		//void setModel(std::shared_ptr<RENDER::ModelInterface> model);
+		//std::shared_ptr<RENDER::ModelInterface> getModel() const;
+		//void setFrustumBehaviour(EFrustumBehaviour boundingMode);
+		//EFrustumBehaviour getFrustumBehaviour() const;
+		//const RENDER::BoundingSphere& getCustomBoundingSphere() const;
+		//void setCustomBoundingSphere(const RENDER::BoundingSphere& boundingSphere);
+		[[nodiscard]] Descriptor getDescriptor() const;
+	//private:
+		//void setModelByPath(std::string path);
+		//std::string getModelPath() const;
+
+		std::shared_ptr<superchunk> mModel = nullptr;
+		//RENDER::BoundingSphere m_customBoundingSphere = {{}, 1.0f};
+		//EFrustumBehaviour m_frustumBehaviour = EFrustumBehaviour::CULL_MODEL;
+	public:
+		static auto GetMembers() {
+			return std::tuple{
+			};
+		}
+	};
+
+	template <>
+	inline std::string IKIGAI::ECS::GetComponentName<ChunkModelRenderer>() {
+		return "ChunkModelRenderer";
+	}
+
+	template <>
+	inline std::string ECS::GetType<ChunkModelRenderer>() {
+		return "class IKIGAI::ECS::ChunkModelRenderer";
 	}
 
 }

@@ -112,16 +112,15 @@ void SceneManager::loadFromFile(const std::string& sceneFilePath) {
 	nlohmann::json data = nlohmann::json::parse(f);
 	f.close();
 	if (data.contains("Objects")) {
-		std::cout << "LOAD SCENE" << std::endl;
 		for (auto& object : data["Objects"]) {
 			auto newActorRes = IKIGAI::UTILS::FromJson<ECS::Object::Descriptor>(object);
 			if (newActorRes.isErr()) {
 				auto err = newActorRes.unwrapErr();
 				LOG_ERROR << (err.text);
+				std::cout << err.text;
 				continue;
 			}
-
-			std::cout << "LOAD SCENE 1" << std::endl;
+			
 			auto newActor = newActorRes.unwrap();
 			auto obj = m_currentScene->createObject(newActor);
 			//if (actor.contains("Components")) {
@@ -144,25 +143,20 @@ void SceneManager::saveToFile() {
 }
 
 void SceneManager::saveToFile(const std::string& sceneFilePath) {
-	nlohmann::json data;
-
-	data["Actors"] = std::vector<nlohmann::json>();
-	for (auto& actor : m_currentScene->getObjects()) {
-		//auto actorData = actor->getObjectData();
-		//auto actorJson = IKIGAI::UTILS::ToJson(actorData);
-		//actorJson["Components"] = std::vector<nlohmann::json>();
-		//
-		//for (auto& component : actor->getComponents()) {
-		//	actorJson["Components"].push_back({});
-		//	saveComponent(component, actorJson["Components"].back());
-		//}
-		//
-		//data["Actors"].push_back(actorJson);
+	Scene::Descriptor sceneDescriptor;
+	for (auto& obj : m_currentScene->getObjects()) {
+		sceneDescriptor.Objects.push_back(obj->getDescriptor());
 	}
 
+	auto jsonStrRes = UTILS::ToJsonStr(sceneDescriptor);
+	if (jsonStrRes.isErr()) {
+		LOG_ERROR << "SceneManager::saveToFile Can not save: " << sceneFilePath;
+		return;
+	}
+	auto jsonStr = jsonStrRes.unwrap();
 	//write
 	std::ofstream f(UTILS::GetRealPath(sceneFilePath));
-	f << data.dump(4) << std::endl;
+	f << jsonStr << std::endl;
 	f.close();
 }
 

@@ -38,7 +38,15 @@ TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, Vector3f loc
 TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor):
 	TransformComponent(obj, descriptor.LocalPosition, QuaternionF(descriptor.LocalRotation), descriptor.LocalScale)
 {
+}
 
+TransformComponent::Descriptor TransformComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<TransformComponent>();
+	descriptor.LocalPosition = getLocalPosition();
+	descriptor.LocalRotation = getLocalRotationDeg();
+	descriptor.LocalScale = getLocalScale();
+	return descriptor;
 }
 
 void TransformComponent::setParent(TransformComponent& parent) {
@@ -451,7 +459,7 @@ float TransformComponent::getLocalScaleY() const {
 float TransformComponent::getLocalScaleZ() const {
 	return transform->getLocalScale().z;
 }
-Vector3f TransformComponent::getLocalScale_() {
+Vector3f TransformComponent::getLocalScale_() const {
 	return transform->getLocalScale();
 }
 
@@ -477,7 +485,7 @@ float TransformComponent::getLocalPositionY() const {
 float TransformComponent::getLocalPositionZ() const {
 	return transform->getLocalPosition().z;
 }
-Vector3f TransformComponent::getLocalPosition_() {
+Vector3f TransformComponent::getLocalPosition_() const {
 	return transform->getLocalPosition();
 }
 
@@ -507,7 +515,7 @@ float TransformComponent::getLocalRotationZ() const {
 	const auto rot = QuaternionF::ToEulerAngles(getLocalRotation());
 	return TO_DEGREES(rot.z);
 }
-Vector3f TransformComponent::getLocalRotationDeg() {
+Vector3f TransformComponent::getLocalRotationDeg() const {
 	auto rot = QuaternionF::ToEulerAngles(getLocalRotation());
 	rot.x = TO_DEGREES(rot.x);
 	rot.y = TO_DEGREES(rot.y);

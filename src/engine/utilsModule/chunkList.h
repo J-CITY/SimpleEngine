@@ -94,6 +94,19 @@ namespace IKIGAI::UTILS {
 			mList[chunkId]->mData.insert(mList[chunkId]->mData.begin() + elemId, std::move(data));
 		}
 
+		T&& moveFrom(const int index) {
+			auto chunkId = index / CHUNK_SIZE;
+			auto elemId = index % CHUNK_SIZE;
+			return std::move(mList[chunkId]->mData[elemId]);
+		}
+
+		void moveTo(const int index, T&& data) {
+			auto chunkId = index / CHUNK_SIZE;
+			auto elemId = index % CHUNK_SIZE;
+			//*(mList[chunkId]->mData.data() + elemId*sizeof(T)) = std::move(data);
+			mList[chunkId]->mData[elemId] = std::move(data);
+		}
+
 		T& at(const int index) {
 			auto chunkId = index / CHUNK_SIZE;
 			auto elemId = index % CHUNK_SIZE;

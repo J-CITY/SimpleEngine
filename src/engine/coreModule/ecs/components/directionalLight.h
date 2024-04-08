@@ -51,10 +51,26 @@ namespace IKIGAI::ECS {
 		MATH::Matrix4f lightView;
 		MATH::Matrix4f lightSpaceMatrix;
 		size_t depthMapTextureID = 0;
-
+		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
 		static auto GetMembers() {
 			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfoLambda<DirectionalLight, const MATH::Vector3f&>("Color",
+				[](DirectionalLight& obj) { return obj.getColor(); },
+				[](DirectionalLight& obj, const MATH::Vector3f& data) { obj.setColor(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_COLOR_3},
+				}),
+				IKIGAI::UTILS::MakeMemberInfoLambda<DirectionalLight, float>("Intensity",
+				[](DirectionalLight& obj) { return obj.getIntensity(); },
+				[](DirectionalLight& obj, float data) { return obj.setIntensity(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				})
 			};
 		}
 	};

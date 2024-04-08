@@ -72,8 +72,7 @@ Core:: Core(
 #endif
 {
 	//TODO: init Config::ROOT | UTILS::ReplaceSubstrings(std::filesystem::current_path().string(), "\\", "/") + "/";
-
-	std::cout << "FIRST 1" << std::endl;
+	
 	mLogger = std::make_unique<UTILS::LOGG::Logger>();
 	UTILS::LOGG::Manager::AddOutput(std::make_shared<UTILS::LOGG::OutputConsole>());
 	RESOURCES::ServiceManager::Set<UTILS::LOGG::Logger>(mLogger.get());
@@ -102,7 +101,6 @@ Core:: Core(
 	//	LOG_ERROR(renderSettings.unwrapErr().msg);
 	//	throw;
 	//} 
-	std::cout << "FIRST 2" << std::endl;
 	modelManager = std::make_unique<RESOURCES::ModelLoader>();
 	textureManager = std::make_unique<RESOURCES::TextureLoader>();
 	shaderManager = std::make_unique<RESOURCES::ShaderLoader>();
@@ -134,22 +132,16 @@ Core:: Core(
 	if (!driver) {
 		throw;
 	}
-	std::cout << "FIRST 3" << std::endl;
 	scriptInterpreter = std::make_unique<SCRIPTING::ScriptInterpreter>(Config::ROOT + Config::USER_ASSETS_PATH + "scripts\\");
-	std::cout << "FIRST 3 1" << std::endl;
 	audioManager = std::make_unique<AUDIO::AudioManager>();
-	std::cout << "FIRST 3 2" << std::endl;
 	audioSourceLoader = std::make_unique<RESOURCES::AudioSourceLoader>();
-	std::cout << "FIRST 3 3" << std::endl;
 	physicsManger = std::make_unique<PHYSICS::PhysicWorld>(256);
-	std::cout << "FIRST 3 4" << std::endl;
 	taskManger = std::make_unique<TASK::TaskSystem>();
-	std::cout << "FIRST 3 5" << std::endl;
+
 #ifndef __EMSCRIPTEN__
 	taskManger->setup();
 #endif
-
-	std::cout << "FIRST 6" << std::endl;
+	
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::TransformComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientLight>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientSphereLight>();
@@ -182,6 +174,7 @@ Core:: Core(
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::ScrollComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::LayoutComponent>();
 	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpineComponent>();
+	ECS::ComponentManager::GetInstance().registerComponent<ECS::ChunkModelRenderer>();
 #endif
 	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::ScriptSystem>();
 	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::LogicSystem>();
@@ -190,7 +183,6 @@ Core:: Core(
 	ECS::Signature signature;
 	signature.set(static_cast<unsigned int>(ECS::ComponentManager::GetInstance().getComponentType<ECS::AudioComponent>()));
 	ECS::ComponentManager::GetInstance().setSystemSignature<ECS::AudioSystem>(signature);
-	std::cout << "FIRST 4" << std::endl;
 	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(modelManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(textureManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::ShaderLoader>(shaderManager.get());
@@ -200,11 +192,9 @@ Core:: Core(
 	RESOURCES::ServiceManager::Set<AUDIO::AudioManager>(audioManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::AudioSourceLoader>(audioSourceLoader.get());
 	RESOURCES::ServiceManager::Set<TASK::TaskSystem>(taskManger.get());
-	std::cout << "FIRST 5" << std::endl;
 #ifdef OPENGL_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
 		renderer = std::make_unique<RENDER::GameRendererGl>(*this);
-		std::cout << "FIRST 6" << std::endl;
 	}
 #endif
 #ifdef VULKAN_BACKEND
@@ -221,12 +211,10 @@ Core:: Core(
 	}
 #endif
 	if (!renderer) {
-		std::cout << "FIRST !!!!!" << std::endl;
 		throw;
 	}
 
-
-	std::cout << "FIRST 7" << std::endl;
+	
 	//renderer->setCapability(RENDER::RenderingCapability::MULTISAMPLE, true);
 	RESOURCES::ServiceManager::Set<RENDER::GameRendererInterface>(static_cast<RENDER::GameRendererInterface*>(renderer.get()));
 	//driver->init();
@@ -241,7 +229,6 @@ Core:: Core(
 #endif
 
 	sceneManager->getCurrentScene().init();
-	std::cout << "FIRST 8" << std::endl;
 }
 
 Core::~Core() = default;

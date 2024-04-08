@@ -13,11 +13,11 @@
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
-std::shared_ptr<IKIGAI::RENDER::TextureVk> TextureVk::createDepthForAttach(unsigned int texWidth, unsigned int texHeight) {
+std::shared_ptr<IKIGAI::RENDER::TextureVk> TextureVk::CreateDepthForAttach(unsigned int texWidth, unsigned int texHeight) {
 	auto texture = std::make_shared<TextureVk>();
 	UtilityVk::CreateDepthBufferImage(*texture, { texWidth, texHeight });
-	texture->width = texWidth;
-	texture->height = texHeight;
+	texture->mWidth = texWidth;
+	texture->mHeight = texHeight;
 	return texture;
 }
 
@@ -76,7 +76,7 @@ void TextureVk::TransitionImageLayout(const VkImage& image, const VkImageLayout&
 	UtilityVk::EndAndSubmitCommandBuffer(command_buffer);
 }
 
-std::shared_ptr<TextureVk> TextureVk::createCubemap(std::array<std::string, 6> path) {
+std::shared_ptr<TextureVk> TextureVk::CreateCubemap(std::array<std::string, 6> path) {
 	auto render = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).getDriver();
 
 	unsigned char* textureData[6];
@@ -127,16 +127,16 @@ std::shared_ptr<TextureVk> TextureVk::createCubemap(std::array<std::string, 6> p
 	UTILS::STBiImageFree(textureData[5]);
 
 	auto texture = std::make_shared<TextureVk>();
-	texture->path = path[0];
-	texture->width = width;
-	texture->height = height;
+	texture->mPath = path[0];
+	texture->mWidth = width;
+	texture->mHeight = height;
 
 	//CRESTE TEXTURE IMAGE
 	VkDeviceMemory m_TextureImageMemory;
 
 	ImageInfo image_info = {};
-	image_info.width = texture->width;
-	image_info.height = texture->height;
+	image_info.width = texture->mWidth;
+	image_info.height = texture->mHeight;
 	image_info.format = VK_FORMAT_R8G8B8A8_UNORM;
 	image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
 	image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -145,7 +145,7 @@ std::shared_ptr<TextureVk> TextureVk::createCubemap(std::array<std::string, 6> p
 	VkImage texture_image = UtilityVk::CreateImage(image_info, &m_TextureImageMemory);
 
 	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	UtilityVk::CopyImageBuffer(m_StagingBuffer, texture_image, texture->width, texture->height);
+	UtilityVk::CopyImageBuffer(m_StagingBuffer, texture_image, texture->mWidth, texture->mHeight);
 	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	texture->Image.push_back(texture_image);
@@ -247,19 +247,19 @@ std::shared_ptr<TextureVk> TextureVk::createCubemap(std::array<std::string, 6> p
 	vkUpdateDescriptorSets(render->m_MainDevice.LogicalDevice, 1, &descriptorWrite, 0, nullptr);
 	texture->descriptor_set = descriptor_set;
 
-	texture->type = TextureType::TEXTURE_CUBE;
+	texture->mType = TextureType::TEXTURE_CUBE;
 	return texture;
 }
 
-std::shared_ptr<TextureVk> TextureVk::create3D(int width, int height, int arrSize) {
+std::shared_ptr<TextureVk> TextureVk::Create3D(int width, int height, int arrSize) {
 	auto render = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).getDriver();
 
 	auto texture = std::make_shared<TextureVk>();
-	texture->path = "";
-	texture->width = width;
-	texture->height = height;
-	texture->depth = arrSize;
-	texture->type = TextureType::TEXTURE_3D;
+	texture->mPath = "";
+	texture->mWidth = width;
+	texture->mHeight = height;
+	texture->mDepth = arrSize;
+	texture->mType = TextureType::TEXTURE_3D;
 	
 	// A 3D texture is described as width x height x depth
 	auto mipLevels = 1;
@@ -292,9 +292,9 @@ std::shared_ptr<TextureVk> TextureVk::create3D(int width, int height, int arrSiz
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.extent.width = texture->width;
-	imageCreateInfo.extent.height = texture->height;
-	imageCreateInfo.extent.depth = texture->depth;
+	imageCreateInfo.extent.width = texture->getWidth();
+	imageCreateInfo.extent.height = texture->getHeight();
+	imageCreateInfo.extent.depth = texture->getDepth();
 	// Set initial layout of the image to undefined
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -356,7 +356,7 @@ void* TextureVk::getImguiId() {
 	return (void*)descriptor_set;
 }
 
-std::shared_ptr<TextureVk> TextureVk::createForAttach(int texWidth, int texHeight) {
+std::shared_ptr<TextureVk> TextureVk::CreateForAttach(int texWidth, int texHeight) {
 	
 	auto texture = std::make_shared<TextureVk>();
 	for (size_t i = 0; i < UtilityVk::m_SwapChain->SwapChainImagesSize(); i++) {
@@ -468,21 +468,25 @@ std::shared_ptr<TextureVk> TextureVk::createForAttach(int texWidth, int texHeigh
 	return texture;
 }
 
-std::shared_ptr<TextureVk> TextureVk::create(std::string path) {
+std::shared_ptr<TextureVk> TextureVk::Create(std::string path) {
 	
 	auto texture = std::make_shared<TextureVk>();
-	texture->path = path;
+	texture->mPath = path;
 
 	//int const texture_image_location = CreateTextureImage();
 
 	int nChannels;
-	unsigned char* image = UTILS::STBiLoad(texture->path.c_str(), &texture->width, &texture->height, &nChannels, 4);
+	int w;
+	int h;
+	unsigned char* image = UTILS::STBiLoad(texture->mPath.c_str(), &w, &h, &nChannels, 4);
+	texture->mWidth = w;
+	texture->mHeight = h;
 
 	if (!image) {
 		throw std::runtime_error("Failed to load a Texture file! (" + path + ")");
 	}
 
-	texture->imageSize = static_cast<uint64_t>((texture->width)) * static_cast<uint64_t>((texture->height)) * 4L;
+	texture->imageSize = static_cast<uint64_t>((texture->mWidth)) * static_cast<uint64_t>((texture->mHeight)) * 4L;
 
 	BufferSettings m_BufferSettings;
 	m_BufferSettings.size = texture->imageSize;
@@ -505,8 +509,8 @@ std::shared_ptr<TextureVk> TextureVk::create(std::string path) {
 	VkDeviceMemory m_TextureImageMemory;
 
 	ImageInfo image_info = {};
-	image_info.width = texture->width;
-	image_info.height = texture->height;
+	image_info.width = texture->mWidth;
+	image_info.height = texture->mHeight;
 	image_info.format = VK_FORMAT_R8G8B8A8_UNORM;
 	image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
 	image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -515,7 +519,7 @@ std::shared_ptr<TextureVk> TextureVk::create(std::string path) {
 	VkImage texture_image = UtilityVk::CreateImage(image_info, &m_TextureImageMemory);
 
 	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	UtilityVk::CopyImageBuffer(m_StagingBuffer, texture_image, texture->width, texture->height);
+	UtilityVk::CopyImageBuffer(m_StagingBuffer, texture_image, texture->getWidth(), texture->getHeight());
 	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	texture->Image.push_back(texture_image);

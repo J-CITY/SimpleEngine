@@ -30,6 +30,15 @@ std::string IKIGAI::UTILS::ReplaceSubstrings(const std::string& _subject, const 
 	return subject;
 }
 
+std::string IKIGAI::UTILS::ReplaceSubstring(const std::string& _subject, const std::string& search, const std::string& replace) {
+	auto subject = _subject;
+	size_t pos = 0;
+	if (subject.find(search, pos) != std::string::npos) {
+		subject.replace(pos, search.length(), replace);
+	}
+	return subject;
+}
+
 std::string IKIGAI::UTILS::ReplaceSubstringsRegex(const std::string& subject, const std::string& search, const std::string& replace) {
 	std::regex vowel_re(search);
 	return std::regex_replace(subject, vowel_re, replace);
@@ -59,4 +68,9 @@ std::string IKIGAI::UTILS::ToUpper(std::string_view s) {
 	std::transform(data.begin(), data.end(), data.begin(),
 		[](unsigned char c) { return std::toupper(c); });
 	return data;
+}
+
+bool IKIGAI::UTILS::IsFindInString(const std::string& s, const std::string& subs)
+{
+	return s.find(subs) != std::string::npos;
 }

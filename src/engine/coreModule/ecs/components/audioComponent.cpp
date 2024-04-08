@@ -23,14 +23,14 @@ AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj) : Component(_obj) {
 	__NAME__ = "AudioComponent";
 }
 
-std::string AudioComponent::getSourcePath() {
+std::string AudioComponent::getSourcePath() const {
 	return res->path;
 }
 void AudioComponent::setSourcePath(std::string val) {
 	res = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().CreateFromFile(val);
 }
 
-std::string AudioComponent::getSoundPath() {
+std::string AudioComponent::getSoundPath()  const {
 	return res->data.pathSoundSource;
 }
 void AudioComponent::setSoundPath(std::string)
@@ -38,7 +38,7 @@ void AudioComponent::setSoundPath(std::string)
 	//TODO
 }
 
-bool AudioComponent::getIs3D() {
+bool AudioComponent::getIs3D()  const {
 	return res->data.is3D;
 }
 void AudioComponent::setIs3D(bool val) {
@@ -47,7 +47,7 @@ void AudioComponent::setIs3D(bool val) {
 	AUDIO::AudioManagerAL::GetInstance().play(*res);
 }
 
-bool AudioComponent::getIsLooped() {
+bool AudioComponent::getIsLooped()  const {
 	return res->data.isLooped;
 }
 void AudioComponent::setIsLooped(bool val) {
@@ -55,7 +55,7 @@ void AudioComponent::setIsLooped(bool val) {
 	AUDIO::AudioManagerAL::GetInstance().setLoop(*res, val);
 }
 
-float AudioComponent::getVolume() {
+float AudioComponent::getVolume()  const {
 	return res->data.volume;
 }
 void AudioComponent::setVolume(float val) {
@@ -63,7 +63,7 @@ void AudioComponent::setVolume(float val) {
 	AUDIO::AudioManagerAL::GetInstance().setVolume(*res, val);
 }
 
-float AudioComponent::getPan() {
+float AudioComponent::getPan() const {
 	return res->data.pan;
 }
 void AudioComponent::setPan(float val) {
@@ -71,7 +71,7 @@ void AudioComponent::setPan(float val) {
 	AUDIO::AudioManagerAL::GetInstance().setPan(*res, val);
 }
 
-AUDIO::SoundStatus AudioComponent::getState() {
+AUDIO::SoundStatus AudioComponent::getState() const {
 	return res->data.state;
 }
 void AudioComponent::setState(AUDIO::SoundStatus val) {
@@ -95,11 +95,22 @@ void AudioComponent::setState(AUDIO::SoundStatus val) {
 	}
 }
 
+AudioComponent::Descriptor AudioComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<AudioComponent>();
+	descriptor.AudioPath = getSourcePath();
+	return descriptor;
+}
+
 AudioListenerComponent::AudioListenerComponent(UTILS::Ref<ECS::Object> obj): Component(obj) {
 	__NAME__ = "AudioListenerComponent";
 }
 
-
+AudioListenerComponent::Descriptor AudioListenerComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<AudioListenerComponent>();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

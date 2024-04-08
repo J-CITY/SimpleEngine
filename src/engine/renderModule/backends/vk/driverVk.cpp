@@ -148,7 +148,7 @@ int DriverVk::init() {
 		//m_PositionBufferImages = TextureVk::createForAttach(m_SwapChain.GetExtent().width, m_SwapChain.GetExtent().height);
 		//m_ColorBufferImages = TextureVk::createForAttach(m_SwapChain.GetExtent().width, m_SwapChain.GetExtent().height);
 		//m_NormalBufferImages = TextureVk::createForAttach(m_SwapChain.GetExtent().width, m_SwapChain.GetExtent().height);
-		m_DepthBufferImage = TextureVk::createDepthForAttach(m_SwapChain.GetExtent().width, m_SwapChain.GetExtent().height);
+		m_DepthBufferImage = TextureVk::CreateDepthForAttach(m_SwapChain.GetExtent().width, m_SwapChain.GetExtent().height);
 
 		//Frame buffers
 		defaultFb = std::make_shared<FrameBufferVk>();

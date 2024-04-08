@@ -276,6 +276,7 @@ void AssimpParser::setVertexBoneData(Vertex& vertex, int boneID, float weight) {
 	for (int i = 0; i < MAX_BONE_WEIGHTS; ++i) {
 		if (vertex.m_BoneIDs[i] < 0) {
 			vertex.m_Weights[i] = weight;
+			//std::cout << vertex.m_Weights[i] << " = " << weight << std::endl;
 			vertex.m_BoneIDs[i] = boneID;
 			break;
 		}
@@ -289,11 +290,11 @@ void AssimpParser::processMesh(void* transform, aiMesh* mesh, const aiScene* sce
 		aiVector3D position = /*meshTransformation * */mesh->mVertices[i];
 		aiVector3D normal = /*meshTransformation * */ (mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f));
 		aiVector3D texCoords = mesh->mTextureCoords[0] ? mesh->mTextureCoords[0][i] : aiVector3D(0.0f, 0.0f, 0.0f);
-		aiVector3D tangent = mesh->mTangents ? meshTransformation * mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f);
-		aiVector3D bitangent = mesh->mBitangents ? meshTransformation * mesh->mBitangents[i] : aiVector3D(0.0f, 0.0f, 0.0f);
+		aiVector3D tangent = mesh->mTangents ? /*meshTransformation * */  mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f);
+		aiVector3D bitangent = mesh->mBitangents ? /*meshTransformation * */  mesh->mBitangents[i] : aiVector3D(0.0f, 0.0f, 0.0f);
 
 		outVertices.push_back(
-			{
+			Vertex(
 				MATH::Vector3f{
 					position.x,
 					position.y,
@@ -318,7 +319,7 @@ void AssimpParser::processMesh(void* transform, aiMesh* mesh, const aiScene* sce
 					bitangent.y,
 					bitangent.z
 				}
-			}
+		)
 		);
 	}
 

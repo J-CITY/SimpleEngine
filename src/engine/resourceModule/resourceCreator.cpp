@@ -29,12 +29,12 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURC
 
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorVulkan::createFromFile(const std::string& filepath, bool generateMipmap) {
 	//TODO
-	return RENDER::TextureVk::create(IKIGAI::UTILS::GetRealPath(filepath));
+	return RENDER::TextureVk::Create(IKIGAI::UTILS::GetRealPath(filepath));
 }
 
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorVulkan::createFromResource(const RENDER::TextureResource& res) {
 	//TODO:
-	return RENDER::TextureVk ::create("");
+	return RENDER::TextureVk ::Create("");
 }
 
 #endif

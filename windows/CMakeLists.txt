@@ -21,6 +21,7 @@ set(LIB_GLEW ${THIRD_PARTY_DIR}/glew/lib/Release/x64/glew32s.lib)
 add_subdirectory(${THIRD_PARTY_DIR}/assimp ./3rd/assimp/build)
 add_subdirectory(${THIRD_PARTY_DIR}/freetype ./3rd/freetype/build)
 
+#if SDL2
 include_directories(${THIRD_PARTY_DIR}/SDL2_windows/include)
 
 # if OPENGL
@@ -40,7 +41,7 @@ include_directories(${THIRD_PARTY_DIR}/soloud/include)
 include_directories(${THIRD_PARTY_DIR}/fmt/include)
 
 #if GLFW
-include_directories(${THIRD_PARTY_DIR}/glfw/include)
+#include_directories(${THIRD_PARTY_DIR}/glfw/include)
 
 # global engine include
 include_directories(${MAIN_SOURCE_DIR}/engine)
@@ -181,7 +182,7 @@ add_compile_definitions(NOMINMAX)
 add_compile_definitions(USE_SDL)
 
 # if GLFW
-# add_compile_definitions(USE_GLFW)
+#add_compile_definitions(USE_GLFW)
 
 # if EDITOR
 add_compile_definitions(USE_EDITOR)

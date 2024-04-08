@@ -52,8 +52,6 @@ App::App(
 	app
 #endif
 ) {
-	std::cout << "FIRST" << std::endl;
-	//core.sceneManager->getCurrentScene().go();
 }
 
 App::~App() = default;
@@ -219,7 +217,6 @@ bool App::runMainLoop() {
 	//_s->unbind();
 	material->unbind();
 	*/
-	//core.window->draw();
 
 
 	//profiler.Update(TIME::Timer::GetInstance().getDeltaTime().count());
@@ -239,10 +236,11 @@ void App::preUpdate(std::chrono::duration<double> dt) {
 //	PROFILER_EVENT();
 	core.window->preUpdate();
 #ifdef VULKAN_BACKEND
-	//core.debugRender->draw(core);
+	core.editorRender->draw();
+	core.window->update();
 #endif
 #ifdef DX12_BACKEND
-	//core.debugRender->draw(core);
+	core.editorRender->draw();
 #endif
 }
 
@@ -306,12 +304,16 @@ void App::update(std::chrono::duration<double> dt) {
 	//EDITOR
 #ifdef USE_EDITOR
 #ifndef OCULUS
+#ifndef VULKAN_BACKEND
 	core.editorRender->draw();
+#endif
 #endif
 #endif
 
 #ifndef OCULUS
+#ifndef VULKAN_BACKEND
 	core.window->update();
+#endif
 #else
 	core.window->update([this](XrCompositionLayerProjectionView &layerView,
 							   render_target_t &rtarget, XrPosef &stagePose,

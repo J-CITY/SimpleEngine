@@ -10,9 +10,7 @@ SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj) : LightComponent(_obj) {
 	//bool initFBOFLag3 = dirShadowFBO.setupFrameBuffer(shadowRes, shadowRes, false);
 }
 
-SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : LightComponent(_obj) {
-	__NAME__ = "SpotLight";
-	data.type = RENDER::Light::Type::SPOT;
+SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : SpotLight(_obj) {
 	data.color = _descriptor.Color;
 	data.intensity = _descriptor.Intensity;
 	data.constant = _descriptor.Constant;
@@ -62,6 +60,18 @@ void SpotLight::setOuterCutoff(float outerCutoff) {
 	data.outerCutoff = outerCutoff;
 }
 
+SpotLight::Descriptor SpotLight::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<SpotLight>();
+	descriptor.Color = getColor();
+	descriptor.Intensity = getIntensity();
+	descriptor.Constant = getConstant();
+	descriptor.Linear = getLinear();
+	descriptor.Quadratic = getQuadratic();
+	descriptor.Cutoff = getCutoff();
+	descriptor.OuterCutoff = getOuterCutoff();
+	return descriptor;
+}
 
 //#include <rttr/registration>
 //

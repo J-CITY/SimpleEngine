@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "renderEnums.h"
+#include "resourceStruct.h"
 #include "shaderInterface.h"
 #include "mathModule/math.h"
 
@@ -33,7 +34,9 @@ namespace IKIGAI::RENDER {
 		virtual ComparaisonAlgorithm getDepthFunc() const = 0;
 
 		virtual void setIsDeferred(bool v, std::shared_ptr<ShaderInterface> shader) = 0;
-		
+
+		virtual MaterialResource getDescriptor() = 0;
+
 		std::string mPath;
 	};
 }

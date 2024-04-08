@@ -9,6 +9,7 @@
 #include "textureInterface.h"
 #include "mathModule/math.h"
 #include "resourceModule/parser/parseFlags.h"
+#include "utilsModule/reflection/reflection.h"
 //#include "coreModule/resourceManager/parser/assimpParser.h"
 
 
@@ -64,6 +65,20 @@ namespace IKIGAI::RENDER {
 				.field(&Self::isFloat, "IsFloat", default_{false})
 				.field(&Self::useMipmap, "UseMipmap", default_{true});
 		}
+		static auto GetMembers() {
+			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfo("NeedFileWatch", &TextureResource::needFileWatch),
+				IKIGAI::UTILS::MakeMemberInfo("TexType", &TextureResource::texType),
+				IKIGAI::UTILS::MakeMemberInfo("PathTexture", &TextureResource::pathTexture),
+				IKIGAI::UTILS::MakeMemberInfo("ColorData", &TextureResource::colorData),
+				IKIGAI::UTILS::MakeMemberInfo("Width", &TextureResource::width),
+				IKIGAI::UTILS::MakeMemberInfo("Height", &TextureResource::height),
+				IKIGAI::UTILS::MakeMemberInfo("Depth", &TextureResource::depth),
+				IKIGAI::UTILS::MakeMemberInfo("PixelType", &TextureResource::pixelType),
+				IKIGAI::UTILS::MakeMemberInfo("IsFloat", &TextureResource::isFloat),
+				IKIGAI::UTILS::MakeMemberInfo("UseMipmap", &TextureResource::useMipmap),
+			};
+		}
 	};
 
 	struct ShaderResource {
@@ -94,6 +109,19 @@ namespace IKIGAI::RENDER {
 				.field(&Self::tessEval, "TessEval", default_{""})
 				.field(&Self::compute, "Compute", default_{""});
 		}
+
+		static auto GetMembers() {
+			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfo("NeedFileWatch", &ShaderResource::needFileWatch),
+				IKIGAI::UTILS::MakeMemberInfo("UseBinary", &ShaderResource::useBinary),
+				IKIGAI::UTILS::MakeMemberInfo("Vertex", &ShaderResource::vertex),
+				IKIGAI::UTILS::MakeMemberInfo("Fragment", &ShaderResource::fragment),
+				IKIGAI::UTILS::MakeMemberInfo("Geometry", &ShaderResource::geometry),
+				IKIGAI::UTILS::MakeMemberInfo("TessControl", &ShaderResource::tessControl),
+				IKIGAI::UTILS::MakeMemberInfo("TessEval", &ShaderResource::tessEval),
+				IKIGAI::UTILS::MakeMemberInfo("Compute", &ShaderResource::compute),
+			};
+		}
 	};
 
 	struct ModelResource {
@@ -112,6 +140,13 @@ namespace IKIGAI::RENDER {
 				.field(&Self::needFileWatch, "NeedFileWatch", default_{true})
 				.field(&Self::pathModel, "PathModel")
 				.field(&Self::flags, "Flags", default_{std::vector<RESOURCES::ModelParserFlags>()});
+		}
+		static auto GetMembers() {
+			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfo("NeedFileWatch", &ModelResource::needFileWatch),
+				IKIGAI::UTILS::MakeMemberInfo("PathModel", &ModelResource::pathModel),
+				IKIGAI::UTILS::MakeMemberInfo("Flags", &ModelResource::flags),
+			};
 		}
 	};
 
@@ -152,6 +187,22 @@ namespace IKIGAI::RENDER {
 				.field(&Self::IsDeferred, "IsDeferred", default_{false})
 				.field(&Self::DepthFunc, "DepthFunc", default_{ComparaisonAlgorithm::LESS})
 				.field(&Self::Uniforms, "Uniforms");
+		}
+		static auto GetMembers() {
+			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfo("NeedFileWatch", &MaterialResource::NeedFileWatch),
+				IKIGAI::UTILS::MakeMemberInfo("ShaderPath", &MaterialResource::ShaderPath),
+				IKIGAI::UTILS::MakeMemberInfo("Blendable", &MaterialResource::Blendable),
+				IKIGAI::UTILS::MakeMemberInfo("BackfaceCulling", &MaterialResource::BackfaceCulling),
+				IKIGAI::UTILS::MakeMemberInfo("FrontfaceCulling", &MaterialResource::FrontfaceCulling),
+				IKIGAI::UTILS::MakeMemberInfo("DepthTest", &MaterialResource::DepthTest),
+				IKIGAI::UTILS::MakeMemberInfo("DepthWriting", &MaterialResource::DepthWriting),
+				IKIGAI::UTILS::MakeMemberInfo("ColorWriting", &MaterialResource::ColorWriting),
+				IKIGAI::UTILS::MakeMemberInfo("GpuInstances", &MaterialResource::GpuInstances),
+				IKIGAI::UTILS::MakeMemberInfo("IsDeferred", &MaterialResource::IsDeferred),
+				IKIGAI::UTILS::MakeMemberInfo("DepthFunc", &MaterialResource::DepthFunc),
+				IKIGAI::UTILS::MakeMemberInfo("Uniforms", &MaterialResource::Uniforms),
+			};
 		}
 	};
 

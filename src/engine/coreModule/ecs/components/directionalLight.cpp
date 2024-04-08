@@ -8,13 +8,21 @@ DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj) : LightComponent
 	data.type = RENDER::Light::Type::DIRECTIONAL;
 }
 
-DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor) : LightComponent(obj) {
+DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor) : DirectionalLight(obj) {
 	data.type = RENDER::Light::Type::DIRECTIONAL;
 	data.color = descriptor.Color;
 	data.intensity = descriptor.Intensity;
 	distance = descriptor.Distance;
 }
 
+DirectionalLight::Descriptor DirectionalLight::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<DirectionalLight>();
+	descriptor.Color = getColor();
+	descriptor.Distance = getDistance();
+	descriptor.Intensity = getIntensity();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

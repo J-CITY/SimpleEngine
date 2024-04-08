@@ -8,7 +8,7 @@ namespace IKIGAI::ECS {
 	class SpotLight : public LightComponent {
 	public:
 		struct Descriptor : public Component::Descriptor {
-			std::string Type;
+			std::string Type = "class IKIGAI::ECS::SpotLight";
 			MATH::Vector3f Color;
 			float Intensity = 0.0f;
 			float Constant = 0.0f;
@@ -23,6 +23,7 @@ namespace IKIGAI::ECS {
 				using namespace serde::attribute;
 				serde::serde_struct(context, value)
 					.field(&Self::Type, "SpotLightType")
+					.field(&Self::Color, "Color", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
 					.field(&Self::Intensity, "Intensity")
 					.field(&Self::Constant, "Constant")
 					.field(&Self::Linear, "Linear")
@@ -59,9 +60,62 @@ namespace IKIGAI::ECS {
 		MATH::Matrix4f projectionMat;
 		MATH::Matrix4f BiasedProjectionMatrix;
 		MATH::Matrix4f Transform;
+
+		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
 		static auto GetMembers() {
 			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfoLambda<SpotLight, const MATH::Vector3f&>("Color",
+				[](SpotLight& obj) { return obj.getColor(); },
+				[](SpotLight& obj, const MATH::Vector3f& data) { obj.setColor(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_COLOR_3},
+				}),
+				IKIGAI::UTILS::MakeMemberInfoLambda<SpotLight, float>("Intensity",
+				[](SpotLight& obj) { return obj.getIntensity(); },
+				[](SpotLight& obj, float data) { return obj.setIntensity(data); },
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Linear", &SpotLight::getLinear, &SpotLight::setLinear,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Quadratic", &SpotLight::getQuadratic, &SpotLight::setQuadratic,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Constant", &SpotLight::getConstant, &SpotLight::setConstant,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Cutoff", &SpotLight::getCutoff, &SpotLight::setCutoff,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("OuterCutoff", &SpotLight::getOuterCutoff, &SpotLight::setOuterCutoff,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.1f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				})
 			};
 		}
 	};

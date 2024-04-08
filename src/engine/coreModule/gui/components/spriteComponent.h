@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../../ecs/components/component.h"
 #include <renderModule/spine/spineDrawable.h>
@@ -18,6 +18,8 @@ namespace IKIGAI
 
 namespace IKIGAI
 {
+	class Vertex;
+
 	namespace RENDER
 	{
 		class VertexArray;
@@ -54,14 +56,14 @@ namespace IKIGAI {
 
 			void Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDER::AtlasRect& uv, MATH::Vector4f color,
 				std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D = false);
-			void Draw(const std::array<BatchVertex, 6>& verts, std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D = false);
+			void Draw(const std::array<Vertex, 6>& verts, std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D = false);
 			void Flush();
 			
 
 		private:
 
 			// Collection of vertices
-			std::vector<BatchVertex> mVertexBuffer;
+			std::vector<Vertex> mVertexBuffer;
 
 			std::shared_ptr<RENDER::VertexBufferInterface> mVbo;
 			std::shared_ptr<RENDER::VertexArray> mVertexArray;
@@ -85,17 +87,86 @@ namespace IKIGAI {
 			//MATHGL::Matrix4 m_screenTransform;
 			//unsigned m_screenTransformUniform = 0;
 		};
-
-
+		
 		class RootGuiComponent: public Component {
 		public:
-			RootGuiComponent(Object& obj): Component(obj) {}
+			RootGuiComponent(Object& obj) : Component(obj) {}
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "RootGuiComponentType");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{};
+			}
+			
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<RootGuiComponent>() {
+			return "class IKIGAI::ECS::RootGuiComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<RootGuiComponent>() {
+			return "RootGuiComponent";
+		}
 
 		class ColorComponent : public Component {
 		public:
+			ColorComponent(Object& obj) : Component(obj) {}
+
 			MATH::Vector4f mColor = { 1, 1, 1, 1 };
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				MATH::Vector4f Color;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "ColorComponentType")
+						.field(&Self::Color, "Color");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+			ColorComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			ColorComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Color", &ColorComponent::mColor,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+					{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 10000.0f}},
+					{UTILS::MetaParam::EDIT_STEP, 0.1f},
+					{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT_4},
+					})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<ColorComponent>() {
+			return "class IKIGAI::ECS::ColorComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<ColorComponent>() {
+			return "ColorComponent";
+		}
 
 		class SpriteComponent : public Component {
 		public:
@@ -116,7 +187,58 @@ namespace IKIGAI {
 
 			//move to component
 			bool mIs3D = false;
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				//MATH::Vector4f Color;
+				std::string TexturePath;
+				std::string TextureAtlasPath;
+				std::string TexturePiece;
+				bool Is3D = false;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "SpriteComponentType")
+						.field(&Self::TexturePath, "TexturePath", default_{""})
+						.field(&Self::TexturePiece, "TexturePiece", default_{""})
+						.field(&Self::TextureAtlasPath, "TextureAtlasPath", default_{""})
+						.field(&Self::Is3D, "Is3D", default_{false});
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			SpriteComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpriteComponent::mIs3D,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("TexturePath", &SpriteComponent::mPath,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("TexturePiece", &SpriteComponent::mTexturePiece,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<SpriteComponent>() {
+			return "class IKIGAI::ECS::SpriteComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<SpriteComponent>() {
+			return "SpriteComponent";
+		}
 
 		class SpriteAnimateComponent : public SpriteComponent {
 		public:
@@ -124,23 +246,13 @@ namespace IKIGAI {
 			SpriteAnimateComponent(Object& obj, const std::string& path): SpriteComponent(obj, path) {};
 
 
-			void setGridSize(MATH::Vector2f sz)
-			{
-				mGridSize = sz;
-			}
-			MATH::Vector2f getGridSize()
-			{
-				return mGridSize;
-			}
+			void setGridSize(MATH::Vector2f sz);
 
-			void setFrameCount(int e)
-			{
-				mFrameCount = e;
-			}
-			int getFrameCount()
-			{
-				return mFrameCount;
-			}
+			MATH::Vector2f getGridSize();
+
+			void setFrameCount(int e);
+
+			int getFrameCount() const;
 
 			//TODO: move to system
 			void updateAnim();
@@ -155,7 +267,70 @@ namespace IKIGAI {
 
 			float mTimeScale = 200.0f;
 			RENDER::AtlasRect mUVRect;
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				//MATH::Vector4f Color;
+				std::string TexturePath;
+				std::string TexturePiece;
+				bool Is3D = false;
+				MATH::Vector2f GridSize;
+				int FrameCount;
+				float TimeScale = 1.0f;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "SpriteAnimateComponentType")
+						.field(&Self::TexturePath, "TexturePath", default_{""})
+						.field(&Self::TexturePiece, "TexturePiece", default_{""})
+						.field(&Self::Is3D, "Is3D", default_{false})
+						.field(&Self::GridSize, "GridSize")
+						.field(&Self::FrameCount, "FrameCount")
+						.field(&Self::TimeScale, "TimeScale", default_{1.0f});
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					//IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpriteAnimateComponent::mIs3D,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//}),
+					//IKIGAI::UTILS::MakeMemberInfo("TexturePath", &SpriteAnimateComponent::mPath,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//}),
+					//IKIGAI::UTILS::MakeMemberInfo("TexturePiece", &SpriteAnimateComponent::mTexturePiece,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//}),
+					IKIGAI::UTILS::MakeMemberInfo("GridSize", &SpriteAnimateComponent::mGridSize,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("TimeScale", &SpriteAnimateComponent::mTimeScale,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<SpriteAnimateComponent>() {
+			return "class IKIGAI::ECS::SpriteAnimateComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<SpriteAnimateComponent>() {
+			return "SpriteAnimateComponent";
+		}
 
 		class SpriteParticleComponent : public SpriteComponent {
 		public:
@@ -190,10 +365,31 @@ namespace IKIGAI {
 
 				std::string piece;
 
+				float pause = 0.0f;
 				float spawnTime = 0.0f;
 				int spawnCount = 0;
 				float curSpawnTime = 0.0f;
 				int curParticleCount = 0;
+
+				template<class Context>
+				constexpr static auto serde(Context& context, Emmiter& value) {
+					using Self = Emmiter;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::count, "Count")
+						.field(&Self::spawnTime, "SpawnTime")
+						.field(&Self::spawnCount, "SpawnCount")
+						.field(&Self::pause, "Pause")
+						.field(&Self::localPos, "LocalPos")
+						.field(&Self::gravity, "Gravity")
+						.field(&Self::color, "Color")
+						.field(&Self::size, "Scale")
+						.field(&Self::weight, "Weight")
+						.field(&Self::angle, "Angle")
+						.field(&Self::angleForce, "AngleForce")
+						.field(&Self::lifeTime, "LifeTime")
+						.field(&Self::piece, "Piece", default_{""});
+				}
 			};
 
 			void setEmmiters(std::vector<Emmiter> e);
@@ -210,18 +406,119 @@ namespace IKIGAI {
 			std::vector<int> freeParticlesId;
 
 			std::vector<Emmiter> emmiters;
+			
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				std::string TexturePath;
+				std::string TextureAtlasPath;
+				std::string TexturePiece;
+				std::vector<Emmiter> Emmiters;
+				bool Is3D = false;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "SpriteParticleComponentType")
+						.field(&Self::TexturePath, "TexturePath", default_{""})
+						.field(&Self::TextureAtlasPath, "TextureAtlasPath", default_{""})
+						.field(&Self::TexturePiece, "TexturePiece", default_{""})
+						.field(&Self::Is3D, "Is3D", default_{false})
+						.field(&Self::Emmiters, "Emmiters");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					//IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpriteParticleComponent::mIs3D,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//}),
+					//IKIGAI::UTILS::MakeMemberInfo("TexturePath", &SpriteParticleComponent::mPath,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//}),
+					//IKIGAI::UTILS::MakeMemberInfo("TexturePiece", &SpriteParticleComponent::mTexturePiece,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<SpriteParticleComponent>() {
+			return "class IKIGAI::ECS::SpriteParticleComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<SpriteParticleComponent>() {
+			return "SpriteParticleComponent";
+		}
 
 		class LabelComponent : public Component {
 		public:
+			LabelComponent(Object& obj);
 			LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font);
 			std::string mLabel;
-			std::shared_ptr<GUI::Font> font;
+			std::shared_ptr<GUI::Font> mFont;
 			MATH::Vector4f color = {1, 1, 1, 1};
 
 			//move to component
 			bool mIs3D = false;
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				std::string Label;
+				std::string Font;
+				bool Is3D = false;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "LabelComponentType")
+						.field(&Self::Label, "Label")
+						.field(&Self::Font, "Font", default_{""})
+						.field(&Self::Is3D, "Is3D", default_{false});
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			LabelComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Is3D", &LabelComponent::mIs3D,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("Label", &LabelComponent::mLabel,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					//IKIGAI::UTILS::MakeMemberInfo("Font", &SpriteAnimateComponent::mFont,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<LabelComponent>() {
+			return "class IKIGAI::ECS::LabelComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<LabelComponent>() {
+			return "LabelComponent";
+		}
 
 		struct SpineRefl
 		{
@@ -244,7 +541,59 @@ namespace IKIGAI {
 
 			//move to component TODO:add support 3d in shader
 			bool mIs3D = false;
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				std::string SkelPath;
+				std::string AtlasPath;
+				bool Is3D = false;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "SpineComponentType")
+						.field(&Self::SkelPath, "SkelPath")
+						.field(&Self::AtlasPath, "AtlasPath")
+						.field(&Self::Is3D, "Is3D");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			SpineComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			SpineComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpineComponent::mIs3D,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("SkelPath", &SpineComponent::skelPath,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("AtlasPath", &SpineComponent::atlasPath,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					//IKIGAI::UTILS::MakeMemberInfo("Font", &SpriteAnimateComponent::mFont,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<SpineComponent>() {
+			return "class IKIGAI::ECS::SpineComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<SpineComponent>() {
+			return "SpineComponent";
+		}
 
 		enum class GuiEventType {
 			NONE,
@@ -269,11 +618,58 @@ namespace IKIGAI {
 
 			float mWidth = 0.0f;
 			float mHeight = 0.0f;
+			InteractionComponent(Object& obj);
 			InteractionComponent(Object& obj, float w, float h);
-			
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				float Height;
+				float Width;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "InteractionComponentType")
+						.field(&Self::Width, "Width")
+						.field(&Self::Height, "Height");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			InteractionComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			InteractionComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Width", &InteractionComponent::mWidth,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("Height", &InteractionComponent::mHeight,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					//IKIGAI::UTILS::MakeMemberInfo("Font", &SpriteAnimateComponent::mFont,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//})
+				};
+			}
+
 		//private:
 			bool contains(float x, float y);
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<InteractionComponent>() {
+			return "class IKIGAI::ECS::InteractionComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<InteractionComponent>() {
+			return "InteractionComponent";
+		}
 
 		class ClipComponent : public Component {
 		public:
@@ -282,8 +678,55 @@ namespace IKIGAI {
 
 			float mWidth = 0.0f;
 			float mHeight = 0.0f;
+			ClipComponent(Object& obj);
 			ClipComponent(Object& obj, float w, float h);
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				float Height;
+				float Width;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "ClipComponentType")
+						.field(&Self::Width, "Width")
+						.field(&Self::Height, "Height");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			ClipComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			ClipComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Width", &ClipComponent::mWidth,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("Height", &ClipComponent::mHeight,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					//IKIGAI::UTILS::MakeMemberInfo("Font", &SpriteAnimateComponent::mFont,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<ClipComponent>() {
+			return "class IKIGAI::ECS::ClipComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<ClipComponent>() {
+			return "ClipComponent";
+		}
 
 		class ScrollComponent : public Component {
 		public:
@@ -300,8 +743,55 @@ namespace IKIGAI {
 			std::shared_ptr<Object> mSelectedObj;
 			MATH::Vector2f mSelectedObjPos;
 
+			ScrollComponent(Object& obj);
 			ScrollComponent(Object& obj, float w, float h);
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				float Height;
+				float Width;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "ScrollComponentType")
+						.field(&Self::Width, "Width")
+						.field(&Self::Height, "Height");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			ScrollComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			ScrollComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Width", &ScrollComponent::mWidth,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					IKIGAI::UTILS::MakeMemberInfo("Height", &ScrollComponent::mHeight,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					}),
+					//IKIGAI::UTILS::MakeMemberInfo("Font", &SpriteAnimateComponent::mFont,
+					//UTILS::Meta_t{
+					//	{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					//})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<ScrollComponent>() {
+			return "class IKIGAI::ECS::ScrollComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<ScrollComponent>() {
+			return "ScrollComponent";
+		}
 		
 		class LayoutComponent : public Component {
 		public:
@@ -314,8 +804,46 @@ namespace IKIGAI {
 			float mHorizontalOffset = 0.0f;
 			float mVerticalOffset = 0.0f;
 
+			LayoutComponent(Object& obj) : Component(obj) {}
 			LayoutComponent(Object& obj, Type type) : Component(obj), mType(type) {}
+
+
+			struct Descriptor : public Component::Descriptor {
+				std::string Type;
+				LayoutComponent::Type Layout;
+				template<class Context>
+				constexpr static auto serde(Context& context, Descriptor& value) {
+					using Self = Descriptor;
+					using namespace serde::attribute;
+					serde::serde_struct(context, value)
+						.field(&Self::Type, "LayoutComponentType")
+						.field(&Self::Layout, "Layout");
+				}
+			};
+			[[nodiscard]] Descriptor getDescriptor() const;
+
+			LayoutComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
+
+			LayoutComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			static auto GetMembers() {
+				return std::tuple{
+					IKIGAI::UTILS::MakeMemberInfo("Layout", &LayoutComponent::mType,
+					UTILS::Meta_t{
+						{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR}
+					})
+				};
+			}
 		};
+
+		template <>
+		inline std::string IKIGAI::ECS::GetType<LayoutComponent>() {
+			return "class IKIGAI::ECS::LayoutComponent";
+		}
+
+		template <>
+		inline std::string IKIGAI::ECS::GetComponentName<LayoutComponent>() {
+			return "LayoutComponent";
+		}
 	}
 }
 

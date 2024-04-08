@@ -18,9 +18,11 @@ namespace IKIGAI::UTILS {
 		UTILS::ControlBlock* mCb = nullptr;
 	public:
 		ControlBlockHandler(ECS::Component* ptr);
-		//TODO: delete copy constructor Need change std::any in component array
+		//TODO: delete copy constructor 
 		ControlBlockHandler(const ControlBlockHandler& obj);
 		ControlBlockHandler& operator=(const ControlBlockHandler& obj);
+		//ControlBlockHandler(const ControlBlockHandler& obj) = delete;
+		//ControlBlockHandler& operator=(const ControlBlockHandler& obj) = delete;
 		ControlBlockHandler(ControlBlockHandler&& obj) noexcept;
 		ControlBlockHandler& operator=(ControlBlockHandler&& obj) noexcept;
 		virtual ~ControlBlockHandler();

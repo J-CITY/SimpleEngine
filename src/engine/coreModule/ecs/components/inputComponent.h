@@ -30,7 +30,7 @@ namespace IKIGAI::ECS {
 		void setActive(bool val);
 		bool getActive() const;
 		const std::function<void(std::chrono::duration<double>)>& getEventFunc();
-
+		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
 		static auto GetMembers() {
 			return std::tuple{

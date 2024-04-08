@@ -148,7 +148,6 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(Id<ECS::Object> actorID
 }
 
 std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::Object::Descriptor& data) {
-	std::cout << "LOAD SCENE 2" << std::endl;
 	objects.push_back(std::make_shared<ECS::Object>(data));
 	auto& instance = objects.back();
 	if (isExecute) {

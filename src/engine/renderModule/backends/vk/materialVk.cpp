@@ -124,6 +124,33 @@ void MaterialVk::unbind() {
 	mShader->unbind();
 }
 
+MaterialResource MaterialVk::getDescriptor() {
+	MaterialResource d;
+	d.NeedFileWatch = false;//TODO
+
+	d.ShaderPath = mShader ? mShader->mPath : "";
+	d.BackfaceCulling = isBackfaceCulling();
+	d.Blendable = isBlendable();
+	d.ColorWriting = isColorWriting();
+	d.DepthFunc = getDepthFunc();
+	d.DepthTest = isDepthTest();
+	d.DepthWriting = isDepthWriting();
+	d.FrontfaceCulling = isFrontfaceCulling();
+	d.IsDeferred = isDeferred();
+	d.GpuInstances = getGPUInstances();
+	//for (auto& [k, v] : mUniformData) {
+	//	std::visit(overloaded{
+	//		[&d, &k](std::shared_ptr<TextureGl> arg) {
+	//			d.Uniforms[k] = arg->getPath();
+	//		},
+	//		[](std::vector<unsigned char >& arg) {},
+	//			[&d, &k](auto& arg) {
+	//			d.Uniforms[k] = arg;
+	//		}}, v);
+	//}
+	return d;
+}
+
 void MaterialVk::set(const std::string& name, const std::string& memberName, UniformData data) {
 	const auto& udinfo = mShader->getUniformsInfo();
 	auto cnt = udinfo.count(name);
@@ -227,7 +254,7 @@ bool MaterialVk::trySetSimpleMember(const std::string& k, const nlohmann::json& 
 	}
 	else if (v.type() == nlohmann::json::value_t::string) {
 		//TODO: get shader from resource system
-		_set(k, subname, TextureVk::create(IKIGAI::UTILS::GetRealPath(v.get<std::string>())));
+		_set(k, subname, TextureVk::Create(IKIGAI::UTILS::GetRealPath(v.get<std::string>())));
 		//uniformsData[k] = RESOURCES::TextureLoader::CreateFromFile(v.get<std::string>());
 		return true;
 	}
@@ -278,27 +305,27 @@ void MaterialVk::onDeserialize(nlohmann::json& j) {
 
 	auto& gameRenderer = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
 
-	auto vertexPath = j["shaderVertex"].get<std::string>();
-	auto fragmentPath = j["shaderFragment"].get<std::string>();
+	auto shaderPath = j["ShaderPath"].get<std::string>();
 	//TODO: get shader from resource system
 
-	if (vertexPath.empty() && fragmentPath.empty()) {
+	if (shaderPath.empty()) {
 		setShader(gameRenderer.mShaders["deferredRender"]);
 	}
 	else {
-		setShader(std::make_shared<ShaderVk>(gameRenderer.mFramebuffers["deferredFb"]->m_RenderPass, vertexPath, fragmentPath));
+		auto shaderRes = UTILS::FromJson<ShaderResource>(UTILS::GetRealPath(shaderPath)).unwrap();
+		setShader(std::make_shared<ShaderVk>(gameRenderer.mFramebuffers["deferredFb"]->m_RenderPass, shaderRes.vertex, shaderRes.fragment));
 	}
-	mBlendable = j.value("blendable", false);
-	mBackfaceCulling = j.value("backfaceCulling", true);
-	mFrontfaceCulling = j.value("frontfaceCulling", false);
-	mDepthTest = j.value("depthTest", true);
-	mDepthWriting = j.value("depthWriting", true);
-	mColorWriting = j.value("colorWriting", true);
-	mGpuInstances = j.value("gpuInstances", 1);
-	mIsDeferred = j.value("isDeferred", false);
+	mBlendable = j.value("Blendable", false);
+	mBackfaceCulling = j.value("BackfaceCulling", true);
+	mFrontfaceCulling = j.value("FrontfaceCulling", false);
+	mDepthTest = j.value("DepthTest", true);
+	mDepthWriting = j.value("DepthWriting", true);
+	mColorWriting = j.value("ColorWriting", true);
+	mGpuInstances = j.value("GpuInstances", 1);
+	mIsDeferred = j.value("IsDeferred", false);
 
-	if (j.count("uniforms")) {
-		for (auto& [k, v] : j["uniforms"].items()) {
+	if (j.count("Uniforms")) {
+		for (auto& [k, v] : j["Uniforms"].items()) {
 			if (!trySetSimpleMember(k, v)) {
 				//uniform buffer
 				for (auto& [name, data] : v.items()) {

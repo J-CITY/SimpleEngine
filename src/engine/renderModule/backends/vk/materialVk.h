@@ -129,6 +129,7 @@ namespace IKIGAI::RENDER {
 			return ComparaisonAlgorithm::LESS_EQUAL;
 		}
 
+		MaterialResource getDescriptor() override;
 
 		//void set(const std::string& name, UniformData data, size_t offset) {
 		//	//TODO: add check for uniform type and check that uniform is Uniform Buffer

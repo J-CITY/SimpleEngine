@@ -59,6 +59,16 @@ void PointLight::setQuadratic(float quadratic) {
 	data.quadratic = quadratic;
 }
 
+PointLight::Descriptor PointLight::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<PointLight>();
+	descriptor.Color = getColor();
+	descriptor.Intensity = getIntensity();
+	descriptor.Constant = getConstant();
+	descriptor.Linear = getLinear();
+	descriptor.Quadratic = getQuadratic();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

@@ -15,3 +15,9 @@ using namespace IKIGAI::ECS;
 //	);
 //}
 
+LogicComponent::Descriptor LogicComponent::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<LogicComponent>();
+	return descriptor;
+}
+

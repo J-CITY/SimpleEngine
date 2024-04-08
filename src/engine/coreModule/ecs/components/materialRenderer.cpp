@@ -101,7 +101,7 @@ void MaterialRenderer::setMaterialsByPath(std::vector<std::string> paths) {
 	}
 }
 
-std::vector<std::string> MaterialRenderer::getMaterialsPaths() {
+std::vector<std::string> MaterialRenderer::getMaterialsPaths() const {
 	std::vector<std::string> res;
 	for (auto& e : materials) {
 		if (!e) {
@@ -120,7 +120,7 @@ void MaterialRenderer::setMaterialsNames(std::vector<std::string> paths) {
 	}
 }
 
-std::vector<std::string> MaterialRenderer::getMaterialsNames() {
+std::vector<std::string> MaterialRenderer::getMaterialsNames() const {
 	std::vector<std::string> res;
 	int i = 0;
 	for (const auto& e : materialNames) {
@@ -137,7 +137,13 @@ MaterialRenderer* MaterialRenderer::getMaterialRenderer() {
 	return obj->getComponent<MaterialRenderer>().get();
 }
 
-
+MaterialRenderer::Descriptor MaterialRenderer::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<MaterialRenderer>();
+	descriptor.MaterialNames = getMaterialsNames();
+	descriptor.Materials = getMaterialsPaths();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

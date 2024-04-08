@@ -1,4 +1,5 @@
 #pragma once
+#include "renderModule/backends/interface/frameBufferInterface.h"
 
 #ifdef OPENGL_BACKEND
 #include <memory>
@@ -7,7 +8,7 @@
 namespace IKIGAI::RENDER {
 	class TextureGl;
 
-	class FrameBufferGl {
+	class FrameBufferGl: public FrameBufferInterface {
 	public:
 		unsigned id = 0;
 

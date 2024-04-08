@@ -18,12 +18,13 @@ namespace IKIGAI {
 		//bone indexes which will influence this vertex
 		std::array<int, 4> m_BoneIDs = {-1,-1,-1,-1};
 		//weights from each bone
-		std::array<float, 4> m_Weights = {0.0f,0.0f,0.0f,0.0f};
+		//std::array<float, 4>  m_Weights = {0.0f,0.0f,0.0f,0.0f};
+		MATH::Vector4f m_Weights = {0.0f,0.0f,0.0f,0.0f};
 
 		Vertex() = default;
-		
+
 		Vertex(const MATH::Vector3f& position, const MATH::Vector2f& texCoord = MATH::Vector2f(0, 0),
 			const  MATH::Vector3f& normal = MATH::Vector3f(0, 0, 0), const  MATH::Vector3f& tangent = MATH::Vector3f(0, 0, 0),
-			const  MATH::Vector3f& bitangent = MATH::Vector3f(0, 0, 0));
+			const  MATH::Vector3f& bitangent = MATH::Vector3f(0, 0, 0), std::array<int, 4> boneIDs = {-1, -1, -1, -1}, const MATH::Vector4f& weights = {0.0f, 0.0f, 0.0f, 0.0f});
 	};
 }

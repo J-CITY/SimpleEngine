@@ -55,18 +55,24 @@ void Skeletal::setAnimationPath(std::string id) {
 	animations = RESOURCES::Animation::LoadAnimations(animationPath, model->getModel().get());
 }
 
-std::string Skeletal::getAnimationPath() {
+std::string Skeletal::getAnimationPath() const {
 	return animationPath;
 }
 
-std::string Skeletal::getCurrentAnimationName() {
+std::string Skeletal::getCurrentAnimationName() const {
 	if (!curAnimation) {
 		return "";
 	}
 	return curAnimation.value();
 }
 
-
+Skeletal::Descriptor Skeletal::getDescriptor() const {
+	Descriptor descriptor;
+	descriptor.Type = GetType<Skeletal>();
+	descriptor.Path = getAnimationPath();
+	descriptor.Animation = getCurrentAnimationName();
+	return descriptor;
+}
 //#include <rttr/registration>
 //
 //RTTR_REGISTRATION

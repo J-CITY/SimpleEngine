@@ -1122,6 +1122,8 @@ namespace IKIGAI::MATH {
 		Vector4<T>() : x(0), y(0), z(0), w(0) {};
 		Vector4<T>(const T& _v) : x(_v), y(_v), z(_v), w(_v) {};
 		Vector4<T>(const T& _x, const T& _y, const T& _z, const T& _w) : x(_x), y(_y), z(_z), w(_w) {};
+		Vector4<T>(const Vector3<T>& v, const T& _w) : x(v.x), y(v.y), z(v.z), w(_w) {};
+
 		operator T* () { return data; };
 		operator const T* () const { return static_cast<const T*>(data); };
 
@@ -1290,7 +1292,7 @@ namespace IKIGAI::MATH {
 	template<class T>
 	struct Matrix3 {
 	private:
-		std::array<T, 9> data;
+		std::array<T, 9> data = {0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	public:
 		static const Matrix3 Identity;
 		static const Matrix3 Zero;
@@ -1709,7 +1711,7 @@ namespace IKIGAI::MATH {
 	template<class T>
 	struct Matrix4 {
 	private:
-		std::array<T, 16> data;
+		std::array<T, 16> data = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	public:
 
 		Matrix4() {

@@ -127,12 +127,12 @@ ShaderGl::ShaderGl(std::optional<std::string> vertexPath, std::optional<std::str
 
 
 ShaderGl::ShaderGl(const ShaderResource& res) {
-	if (!res.vertex.empty()) this->vertexPath = res.vertex;
-	if (!res.fragment.empty()) this->fragmentPath = res.fragment;
-	if (!res.geometry.empty()) this->geometryPath = res.geometry;
-	if (!res.tessEval.empty()) this->tessEvalPath = res.tessEval;
-	if (!res.tessControl.empty()) this->tessControlPath = res.tessControl;
-	if (!res.compute.empty()) this->computePath = res.compute;
+	if (!res.vertex.empty()) this->vertexPath = constructRealPath(res.vertex);
+	if (!res.fragment.empty()) this->fragmentPath = constructRealPath(res.fragment);
+	if (!res.geometry.empty()) this->geometryPath = constructRealPath(res.geometry);
+	if (!res.tessEval.empty()) this->tessEvalPath = constructRealPath(res.tessEval);
+	if (!res.tessControl.empty()) this->tessControlPath = constructRealPath(res.tessControl);
+	if (!res.compute.empty()) this->computePath = constructRealPath(res.compute);
 
 	auto useBinary = res.useBinary;
 	useBinary &= checkBinarySupport();
@@ -218,22 +218,22 @@ std::array<std::string, 6> ShaderGl::read(std::optional<std::string> vertexPath,
 	// 1. retrieve the vertex/fragment source code from filePath
 	try {
 		if (vertexPath) {
-			res[0] = readFileWithInclude(vertexPath.value());
+			res[0] = readFileWithInclude(constructRealPath(vertexPath.value()));
 		}
 		if (fragmentPath) {
-			res[1] = readFileWithInclude(fragmentPath.value());
+			res[1] = readFileWithInclude(constructRealPath(fragmentPath.value()));
 		}
 		if (geometryPath) {
-			res[2] = readFileWithInclude(geometryPath.value());
+			res[2] = readFileWithInclude(constructRealPath(geometryPath.value()));
 		}
 		if (tessControlPath) {
-			res[3] = readFileWithInclude(tessControlPath.value());
+			res[3] = readFileWithInclude(constructRealPath(tessControlPath.value()));
 		}
 		if (tessEvalPath) {
-			res[4] = readFileWithInclude(tessEvalPath.value());
+			res[4] = readFileWithInclude(constructRealPath(tessEvalPath.value()));
 		}
 		if (computePath) {
-			res[5] = readFileWithInclude(computePath.value());
+			res[5] = readFileWithInclude(constructRealPath(computePath.value()));
 		}
 	}
 	catch (std::ifstream::failure& e) {
@@ -251,7 +251,8 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	// vertex shader
 	if (vertexPath) {
 #ifdef USING_GLES
-		vertexCode = UTILS::ReplaceSubstringsRegex(vertexCode, "#version [[:digit:]]+\n", "#version 100\n");
+		vertexCode = UTILS::ReplaceSubstringsRegex(vertexCode, "#version [[:digit:]]+", "#version 100\n");
+		//std::cout << vertexPath.value() << "\n" << vertexCode << std::endl;
 #endif
 		const char* vShaderCode = vertexCode.c_str();
 		vertex = glCreateShader(GL_VERTEX_SHADER);
@@ -262,7 +263,8 @@ void ShaderGl::compile(std::string vertexCode, std::string fragmentCode,
 	// fragment Shader
 	if (fragmentPath) {
 #ifdef USING_GLES
-		fragmentCode = UTILS::ReplaceSubstringsRegex(fragmentCode, "#version [[:digit:]]+\n", "#version 100\nprecision mediump float;");
+		fragmentCode = UTILS::ReplaceSubstringsRegex(fragmentCode, "#version [[:digit:]]+", "#version 100\nprecision mediump float;\n");
+		//std::cout << fragmentPath.value() << "\n" << fragmentCode << std::endl;
 #endif
 		const char* fShaderCode = fragmentCode.c_str();
 		fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -509,9 +511,11 @@ void ShaderGl::getReflection() {
 		data.push_back({ unif, name, fromGlType.at(type), arraySize, blockData[0], blockData[1] });
 
 		// if it is UBO
+#ifndef USING_GLES
 		if (blockData[1] >= 0) {
 			continue;
 		}
+#endif
 		IKIGAI::RENDER::UniformInform uniform;
 		uniform.name = data.back().name;
 		uniform.type = IKIGAI::RENDER::UniformInform::TYPE::UNIFORM;

@@ -35,7 +35,7 @@ namespace IKIGAI {
 			void createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices);
 			void computeBoundingSphere(std::span<Vertex> vertices);
 		public:
-			const unsigned int mVertexCount = 0;
+			unsigned int mVertexCount = 0;
 			const unsigned int mIndicesCount = 0;
 			const unsigned int mMaterialIndex = 0;
 #ifndef USING_GLES

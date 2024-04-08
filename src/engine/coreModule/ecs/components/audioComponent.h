@@ -2,6 +2,8 @@
 #include "component.h"
 #include <audioModule/audioManager.h>
 
+#include "pointLight.h"
+
 
 namespace IKIGAI::ECS { class Object; }
 
@@ -29,32 +31,67 @@ namespace IKIGAI::ECS {
 			AudioComponent(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 
-		std::string getSourcePath();
+		std::string getSourcePath() const;
 		void setSourcePath(std::string val);
 
-		std::string getSoundPath();
+		std::string getSoundPath() const;
 		void setSoundPath(std::string);
 
-		bool getIs3D();
+		bool getIs3D() const;
 		void setIs3D(bool val);
 
-		bool getIsLooped();
+		bool getIsLooped() const;
 		void setIsLooped(bool val);
 
-		float getVolume();
+		float getVolume() const;
 		void setVolume(float val);
 
-		float getPan();
+		float getPan() const;
 		void setPan(float val);
 
-		AUDIO::SoundStatus getState();
+		AUDIO::SoundStatus getState() const;
 		void setState(AUDIO::SoundStatus val);
 
 		std::shared_ptr<AUDIO::SoundResource> res;
 
+		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
 		static auto GetMembers() {
 			return std::tuple{
+				IKIGAI::UTILS::MakeMemberInfo("SourcePath", &AudioComponent::getSourcePath, &AudioComponent::setSourcePath,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::STRING},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Sound", &AudioComponent::getSoundPath, &AudioComponent::setSoundPath,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::STRING},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Is 3D", &AudioComponent::getIs3D, &AudioComponent::setIs3D,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::BOOL},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Volume", &AudioComponent::getVolume, &AudioComponent::setVolume,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 1.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 0.01f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("Pan", &AudioComponent::getPan, &AudioComponent::setPan,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_RANGE, MATH::Vector2f{0.0f, 100.0f}},
+				{UTILS::MetaParam::EDIT_STEP, 1.0f},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("State", &AudioComponent::getState, &AudioComponent::setState,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::COMBO},
+				})
 			};
 		}
 	};
@@ -77,6 +114,7 @@ namespace IKIGAI::ECS {
 			AudioListenerComponent(obj) {
 		};
 
+		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
 		static auto GetMembers() {
 			return std::tuple{
