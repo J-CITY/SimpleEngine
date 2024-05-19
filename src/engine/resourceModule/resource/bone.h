@@ -10,7 +10,14 @@
 
 struct aiNodeAnim;
 
+namespace TRIANGULATION
+{
+	
+}
+
 namespace IKIGAI {
+	class BlenderContext;
+
 	namespace RESOURCES {
         struct AssimpNodeData {
             MATH::Matrix4f transformation;
@@ -89,6 +96,8 @@ namespace IKIGAI {
             const AssimpNodeData& GetRootNode();
             const std::map<std::string, RENDER::BoneInfo>& GetBoneIDMap();
             static std::map<std::string, std::shared_ptr<Animation>> LoadAnimations(const std::string& animationPath, RENDER::ModelInterface* model);
+            //TODO: remove it;
+            RENDER::ModelInterface* model;
         private:
             Animation(const aiAnimation& animation, const aiScene& scene, RENDER::ModelInterface& model);
             void ReadMissingBones(const aiAnimation& animation, RENDER::ModelInterface& model);
@@ -99,6 +108,29 @@ namespace IKIGAI {
             std::vector<Bone> m_Bones;
             AssimpNodeData m_RootNode;
             std::map<std::string, RENDER::BoneInfo> m_BoneInfoMap;
+            
+        };
+
+        class Blander
+        {
+        public:
+            std::unique_ptr<IKIGAI::BlenderContext> context;
+
+            Blander();
+
+            void setPoints(const std::vector<MATH::Vector2f>& points, const std::vector<std::string>& animNames);
+
+            struct AnimWithBlendInfo {
+                std::string name;
+                float factor = 0.0f;
+            };
+            std::vector<AnimWithBlendInfo> getAnimationForBlending(MATH::Vector2f point);
+
+            MATH::Vector2f hor = {0.0f, 1.0f};
+            MATH::Vector2f ver = {0.0f, 1.0f};
+            MATH::Vector2f point;
+            
+            std::map<std::string, Animation*> m_Animations;
         };
 
         class Animator {
@@ -107,10 +139,28 @@ namespace IKIGAI {
             void UpdateAnimation(float dt);
             void PlayAnimation(Animation* pAnimation);
             void CalculateBoneTransform(const AssimpNodeData* node, MATH::Matrix4f parentTransform);
+            void BlendTwoAnimations(Animation* pBaseAnimation, Animation* pLayeredAnimation, float blendFactor,
+                                    float deltaTime);
+            void CalculateBlendTwoBoneTransform(Animation* pAnimationBase, const AssimpNodeData* node,
+                                                Animation* pAnimationLayer,
+                                                const AssimpNodeData* nodeLayered, float currentTimeBase,
+                                                float currentTimeLayered,
+                                                const MATH::Matrix4f& parentTransform, float blendFactor);
+            void BlendThreeAnimations(Animation* pBaseAnimation, Animation* pLayeredAnimation1, Animation* pLayeredAnimation2, float blendFactor1, float blendFactor2, float blendFactor3, float deltaTime);
+            void CalculateBlendThreeBoneTransform(
+                Animation* pAnimationBase, const AssimpNodeData* node,
+                Animation* pAnimationLayer1, const AssimpNodeData* nodeLayered1,
+                Animation* pAnimationLayer2, const AssimpNodeData* nodeLayered2,
+                const float currentTimeBase, const float currentTimeLayered1, const float currentTimeLayered2,
+                const MATH::Matrix4f& parentTransform,
+                const float blendFactor1, const float blendFactor2, const float blendFactor3
+            );
             std::vector<MATH::Matrix4f> GetFinalBoneMatrices();
+            Blander* blender;
         private:
             std::vector<MATH::Matrix4f> m_FinalBoneMatrices;
             Animation* m_CurrentAnimation;
+            
             float m_CurrentTime;
             float m_DeltaTime;
 

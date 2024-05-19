@@ -3317,6 +3317,22 @@ namespace IKIGAI::RENDER {
 		//renderSkybox();
 	}
 
+	void GameRendererGl::sendBounseDataToShader(std::shared_ptr<MaterialGl> material, ECS::Skeletal& animator, std::shared_ptr<ShaderGl> shader) {
+		//shader.bind();
+		bool useBones = false;
+		if (material->mUniformData.count("u_UseBone")) {
+			useBones = std::get<bool>(material->mUniformData["u_UseBone"]);
+			shader->setInt("u_UseBone", useBones);
+		}
+
+		if (useBones) {
+			const auto& transforms = animator.animator->GetFinalBoneMatrices();
+			for (int i = 0; i < transforms.size(); ++i) {
+				shader->setMat4("engine_FinalBonesMatrices[" + std::to_string(i) + "]", transforms[i]);
+			}
+		}
+		//shader.unbind();
+	}
 
 	void GameRendererGl::drawDrawable(const Drawable& p_toDraw) {
 		if (p_toDraw.material->hasShader() && p_toDraw.material->getGPUInstances() > 0) {
@@ -3352,13 +3368,13 @@ namespace IKIGAI::RENDER {
 			}
 			shader->setInt("engine_LightCount", lightsCount);
 
-			//if (p_toDraw.animator) {
-			//	sendBounseDataToShader(std::static_pointer_cast<MaterialGl>(p_toDraw.material),
-			//		*p_toDraw.animator,
-			//		std::static_pointer_cast<ShaderGl>(std::static_pointer_cast<MaterialGl>(p_toDraw.material)->getShader()));
-			//} else {
-			//	mShaders["deferredGBuffer"]->setInt("u_UseBone", false);
-			//}
+			if (p_toDraw.animator) {
+				sendBounseDataToShader(std::static_pointer_cast<MaterialGl>(p_toDraw.material),
+					*p_toDraw.animator,
+					std::static_pointer_cast<ShaderGl>(std::static_pointer_cast<MaterialGl>(p_toDraw.material)->getShader()));
+			} else {
+				shader->setInt("u_UseBone", false);
+			}
 			mDriver->draw(*p_toDraw.mesh, PrimitiveMode::TRIANGLES, p_toDraw.material->getGPUInstances());
 
 			glDepthFunc(OldDepthFuncMode);

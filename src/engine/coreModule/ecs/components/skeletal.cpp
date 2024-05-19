@@ -35,6 +35,8 @@ Skeletal::Skeletal(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) 
 }
 
 void Skeletal::onUpdate(std::chrono::duration<double> dt) {
+	//TODO: refactor it
+	animator->blender->point = {pointX, pointY};
 	animator->UpdateAnimation(static_cast<float>(dt.count()));
 }
 

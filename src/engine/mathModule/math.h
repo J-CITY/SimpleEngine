@@ -2368,32 +2368,32 @@ namespace IKIGAI::MATH {
 			float halfSquare;
 
 			// Check diagonal (trace)
-			const float trace = rotationMatrix.data[0] + rotationMatrix.data[5] + rotationMatrix.data[10];
+			const float trace = rotationMatrix.getData()[0] + rotationMatrix.getData()[5] + rotationMatrix.getData()[10];
 
 			if (trace > 0.0f) {
 				const float InvSquare = 1 / sqrt(trace + 1.f);
 				w = 0.5f * (1.f / InvSquare);
 				halfSquare = 0.5f * InvSquare;
 
-				x = (rotationMatrix.data[6] - rotationMatrix.data[9]) * halfSquare;
-				y = (rotationMatrix.data[8] - rotationMatrix.data[2]) * halfSquare;
-				z = (rotationMatrix.data[1] - rotationMatrix.data[4]) * halfSquare;
+				x = (rotationMatrix.getData()[6] - rotationMatrix.getData()[9]) * halfSquare;
+				y = (rotationMatrix.getData()[8] - rotationMatrix.getData()[2]) * halfSquare;
+				z = (rotationMatrix.getData()[1] - rotationMatrix.getData()[4]) * halfSquare;
 			}
 			else {
 				// diagonal is negative
 				int i = 0;
 
-				if (rotationMatrix.data[5] > rotationMatrix.data[0])
+				if (rotationMatrix.getData()[5] > rotationMatrix.getData()[0])
 					i = 1;
 
-				if (rotationMatrix.data[10] > rotationMatrix.data[0] || rotationMatrix.data[10] > rotationMatrix.data[5])
+				if (rotationMatrix.getData()[10] > rotationMatrix.getData()[0] || rotationMatrix.getData()[10] > rotationMatrix.getData()[5])
 					i = 2;
 
 				static const int next[3] = { 1, 2, 0 };
 				const int j = next[i];
 				const int k = next[j];
 
-				halfSquare = rotationMatrix.data[i * 5] - rotationMatrix.data[j * 5] - rotationMatrix.data[k * 5] + 1.0f;
+				halfSquare = rotationMatrix.getData()[i * 5] - rotationMatrix.getData()[j * 5] - rotationMatrix.getData()[k * 5] + 1.0f;
 
 				const float InvSquare = 1 / sqrt(trace + 1.f);
 
@@ -2403,21 +2403,21 @@ namespace IKIGAI::MATH {
 				halfSquare = 0.5f * InvSquare;
 				//if i is 0, j is 1 and k is 2
 				if (i == 0) {
-					qt[3] = (rotationMatrix.data[6] - rotationMatrix.data[9]) * halfSquare;
-					qt[j] = (rotationMatrix.data[1] + rotationMatrix.data[4]) * halfSquare;
-					qt[k] = (rotationMatrix.data[2] + rotationMatrix.data[8]) * halfSquare;
+					qt[3] = (rotationMatrix.getData()[6] - rotationMatrix.getData()[9]) * halfSquare;
+					qt[j] = (rotationMatrix.getData()[1] + rotationMatrix.getData()[4]) * halfSquare;
+					qt[k] = (rotationMatrix.getData()[2] + rotationMatrix.getData()[8]) * halfSquare;
 				}
 				//if i is 1, j is 2 and k is 0
 				else if (i == 1) {
-					qt[3] = (rotationMatrix.data[8] - rotationMatrix.data[2]) * halfSquare;
-					qt[j] = (rotationMatrix.data[6] + rotationMatrix.data[9]) * halfSquare;
-					qt[k] = (rotationMatrix.data[4] + rotationMatrix.data[1]) * halfSquare;
+					qt[3] = (rotationMatrix.getData()[8] - rotationMatrix.getData()[2]) * halfSquare;
+					qt[j] = (rotationMatrix.getData()[6] + rotationMatrix.getData()[9]) * halfSquare;
+					qt[k] = (rotationMatrix.getData()[4] + rotationMatrix.getData()[1]) * halfSquare;
 				}
 				//if i is 2, j is 0 and k is 1
 				else {
-					qt[3] = (rotationMatrix.data[1] - rotationMatrix.data[4]) * halfSquare;
-					qt[j] = (rotationMatrix.data[8] + rotationMatrix.data[2]) * halfSquare;
-					qt[k] = (rotationMatrix.data[9] + rotationMatrix.data[6]) * halfSquare;
+					qt[3] = (rotationMatrix.getData()[1] - rotationMatrix.getData()[4]) * halfSquare;
+					qt[j] = (rotationMatrix.getData()[8] + rotationMatrix.getData()[2]) * halfSquare;
+					qt[k] = (rotationMatrix.getData()[9] + rotationMatrix.getData()[6]) * halfSquare;
 				}
 				x = qt[0];
 				y = qt[1];
@@ -2470,6 +2470,9 @@ namespace IKIGAI::MATH {
 		}
 
 		static Quaternion Normalize(const Quaternion& target) {
+			if (Length(target) < 0.0001) {
+				return target;
+			}
 			return target / Length(target);
 		}
 
@@ -2749,7 +2752,7 @@ namespace IKIGAI::MATH {
 		static float Dot(const Quaternion& V1, const Quaternion& V2) {
 			return V1.x * V2.x + V1.y * V2.y + V1.z * V2.z + V1.w * V2.w;
 		}
-		static Quaternion Slerp(Quaternion& x, Quaternion& y, float a) {
+		static Quaternion Slerp(const Quaternion& x, const Quaternion& y, float a) {
 			Quaternion z = y;
 
 			float cosTheta = Dot(x, y);
@@ -2852,6 +2855,11 @@ namespace IKIGAI::MATH {
 	template<class T>
 	Quaternion<T> operator/(const float f, const Quaternion<T>& V) {
 		return V / f;
+	}
+
+	template<class T>
+	Vector2<T> operator*(const float f, const Vector2<T>& V) {
+		return Vector2<T>(V.x * f, V.y * f);
 	}
 
 	using Vector2i = Vector2<int>;

@@ -53,16 +53,15 @@ namespace IKIGAI::ECS {
 			size++;
 		}
 
-		T&& removeData(Entity entity) {
+		T removeData(Entity entity) {
 			assert(entityToIndexInArray.contains(entity) && "Removing non-existent component.");
 
 			// Copy element at end into deleted element's place to maintain density
 			size_t indexOfRemovedEntity = entityToIndexInArray[entity];
 			size_t indexOfLastElement = size - 1;
-			T&& component = componentArray.moveFrom(indexOfRemovedEntity);
-			T&& moveElem = componentArray.moveFrom(indexOfLastElement);
-			componentArray.moveTo(indexOfRemovedEntity,std::move(moveElem));
-			//componentArray[indexOfRemovedEntity] =std::move(moveElem);
+			auto component = std::move(componentArray[indexOfRemovedEntity]);
+			auto moveElem = std::move(componentArray[indexOfLastElement]);
+			componentArray[indexOfRemovedEntity] = std::move(moveElem);
 			// Update cb ptr
 			componentArray[indexOfRemovedEntity].getControlBlock()->mPtr = &componentArray[indexOfRemovedEntity];
 
@@ -76,7 +75,7 @@ namespace IKIGAI::ECS {
 			
 			componentArray.pop_back();
 
-			return std::move(component);
+			return component;
 		}
 
 		T& getData(Entity entity) {

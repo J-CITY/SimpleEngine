@@ -149,7 +149,7 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 			scene->mRootNode->mTransformation.c1, scene->mRootNode->mTransformation.c2, scene->mRootNode->mTransformation.c3, scene->mRootNode->mTransformation.c4,
 			scene->mRootNode->mTransformation.d1, scene->mRootNode->mTransformation.d2, scene->mRootNode->mTransformation.d3, scene->mRootNode->mTransformation.d4
 		);
-		aiMesh* mesh = scene->mMeshes[i];
+		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 		processMesh(&nodeTransformation, mesh, scene, vertices, indices);
 
 		loadBones(vertices, mesh, scene, model);
@@ -287,7 +287,7 @@ void AssimpParser::processMesh(void* transform, aiMesh* mesh, const aiScene* sce
 	aiMatrix4x4 meshTransformation = *reinterpret_cast<aiMatrix4x4*>(transform);
 
 	for (uint32_t i = 0; i < mesh->mNumVertices; ++i) {
-		aiVector3D position = /*meshTransformation * */mesh->mVertices[i];
+		aiVector3D position = /*meshTransformation * */ mesh->mVertices[i];
 		aiVector3D normal = /*meshTransformation * */ (mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f));
 		aiVector3D texCoords = mesh->mTextureCoords[0] ? mesh->mTextureCoords[0][i] : aiVector3D(0.0f, 0.0f, 0.0f);
 		aiVector3D tangent = mesh->mTangents ? /*meshTransformation * */  mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f);

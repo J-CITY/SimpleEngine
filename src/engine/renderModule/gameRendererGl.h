@@ -1,6 +1,7 @@
 #pragma once
 #include "drawable.h"
 #include "gameRendererInterface.h"
+#include "backends/gl/materialGl.h"
 #include "backends/interface/frameBufferInterface.h"
 #include "backends/interface/textureInterface.h"
 #include "utilsModule/enum.h"
@@ -481,6 +482,8 @@ namespace IKIGAI::RENDER {
 		void createFrameBuffers();
 
 		void renderScene(UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
+		void sendBounseDataToShader(std::shared_ptr<MaterialGl> material, ECS::Skeletal& animator,
+		                            std::shared_ptr<ShaderGl> shader);
 		void drawDrawable(const Drawable& p_toDraw);
 		void renderPipeline(UTILS::Ref<IKIGAI::ECS::CameraComponent> mainCameraComponent);
 

@@ -137,6 +137,7 @@ Core:: Core(
 	audioSourceLoader = std::make_unique<RESOURCES::AudioSourceLoader>();
 	physicsManger = std::make_unique<PHYSICS::PhysicWorld>(256);
 	taskManger = std::make_unique<TASK::TaskSystem>();
+	eventBroadcaster = std::make_unique<EVENT::EventBroadcaster>();
 
 #ifndef __EMSCRIPTEN__
 	taskManger->setup();
@@ -192,6 +193,7 @@ Core:: Core(
 	RESOURCES::ServiceManager::Set<AUDIO::AudioManager>(audioManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::AudioSourceLoader>(audioSourceLoader.get());
 	RESOURCES::ServiceManager::Set<TASK::TaskSystem>(taskManger.get());
+	RESOURCES::ServiceManager::Set<EVENT::EventBroadcaster>(eventBroadcaster.get());
 #ifdef OPENGL_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
 		renderer = std::make_unique<RENDER::GameRendererGl>(*this);

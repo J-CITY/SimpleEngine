@@ -16,7 +16,12 @@ namespace IKIGAI {
 		MATH::Vector3f bitangent;
 
 		//bone indexes which will influence this vertex
-		std::array<int, 4> m_BoneIDs = {-1,-1,-1,-1};
+#if defined(USING_GLES) || defined(OPENGL_SIMPLE_RENDER)
+		std::array<float, 4> m_BoneIDs = {-1,-1,-1,-1};
+#else
+		std::array<int, 4> m_BoneIDs = {-1, -1, -1, -1};
+#endif
+
 		//weights from each bone
 		//std::array<float, 4>  m_Weights = {0.0f,0.0f,0.0f,0.0f};
 		MATH::Vector4f m_Weights = {0.0f,0.0f,0.0f,0.0f};

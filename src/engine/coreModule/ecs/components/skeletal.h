@@ -50,6 +50,13 @@ namespace IKIGAI::ECS {
 		std::shared_ptr<IKIGAI::RESOURCES::Animator> animator;
 		std::string animationPath;
 		std::optional<std::string> curAnimation;
+
+		float pointX = 0.0f;
+		float pointY = 0.0f;
+		float getx() const { return pointX; }
+		float gety() const { return pointY; }
+		void setx(float v) { pointX = v; }
+		void sety(float v) { pointY = v; }
 	public:
 		static auto GetMembers() {
 			return std::tuple{
@@ -62,6 +69,16 @@ namespace IKIGAI::ECS {
 				UTILS::Meta_t{
 					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
 				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::STRING},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("PointX", &Skeletal::getx, &Skeletal::setx,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
+				}),
+				IKIGAI::UTILS::MakeMemberInfo("PointY", &Skeletal::gety, &Skeletal::sety,
+				UTILS::Meta_t{
+					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
+				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::DRAG_FLOAT},
 				})
 			};
 		}

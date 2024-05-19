@@ -4,6 +4,14 @@
 #ifdef USE_EDITOR
 namespace IKIGAI
 {
+	namespace EVENT
+	{
+		class EventBroadcaster;
+	}
+}
+
+namespace IKIGAI
+{
 	namespace EDITOR
 	{
 		class EditorRender;
@@ -132,6 +140,7 @@ namespace IKIGAI {
 			std::unique_ptr<RESOURCES::AudioSourceLoader>     audioSourceLoader;
 			std::unique_ptr<PHYSICS::PhysicWorld>         physicsManger;
 			std::unique_ptr<TASK::TaskSystem>             taskManger;
+			std::unique_ptr<EVENT::EventBroadcaster>      eventBroadcaster;
 
 #ifdef USE_EDITOR
 			std::unique_ptr<IKIGAI::EDITOR::EditorRender> editorRender;

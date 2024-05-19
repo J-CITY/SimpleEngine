@@ -459,7 +459,7 @@ namespace IKIGAI::ECS {
 		template<typename T>
 		void disableComponentImpl(Entity id) {
 			if (getComponentArray<T>()->count(id)) {
-				auto data = getComponentArray<T>()->removeData(id);
+				auto&& data = getComponentArray<T>()->removeData(id);
 				getComponentArrayOff<T>()->insertData(id, data);
 			}
 		}
