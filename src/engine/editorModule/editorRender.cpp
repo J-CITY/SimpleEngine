@@ -1,6 +1,7 @@
 #include "editorRender.h"
 
 #include "resourceEditorWindow.h"
+#include "timelineAnimationWindow.h"
 #include "utilsModule/log/loggerDefine.h"
 #ifdef USE_EDITOR
 #include "cameraControlWindow.h"
@@ -8,6 +9,7 @@
 #include "treeWindow.h"
 #include <list>
 #include "fileBrowser.h"
+#include "statWindow.h"
 #include "IconsFontAwesome5.h"
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
@@ -42,6 +44,8 @@ struct EditorRender::Internal {
 		mWindows.push_back(std::make_unique<CameraControlWindow>());
 		mWindows.push_back(std::make_unique<ComponentManagerWindow>());
 		mWindows.push_back(std::make_unique<TreeWindow>());
+		mWindows.push_back(std::make_unique<StatWindow>());
+		mWindows.push_back(std::make_unique<TimelineAnimationWindow>());
 		mWindows.push_back(std::make_unique<FileBrowserWindow>(Config::ROOT + Config::ASSETS_PATH));
 
 		//RENDER::ShaderResource res;

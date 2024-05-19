@@ -49,7 +49,7 @@ namespace IKIGAI::ANIMATION {
 		float bounceEaseInOut(float a);
 	}
 
-	using PropType = std::variant<float, int, bool, std::string, MATH::Vector2f, MATH::Vector2u, MATH::Vector2i, MATH::Vector3f, MATH::Vector4f>;
+	using PropType = std::variant<float, int, bool, std::string, MATH::Vector4f, MATH::Vector3f, MATH::Vector2f>;
 
 	enum class InterpolationType {
 		LINEAR,
@@ -82,7 +82,9 @@ namespace IKIGAI::ANIMATION {
 		BACK_IN_OUT,
 		BOUNCE_IN,
 		BOUNCE_OUT,
-		BOUNCE_IN_OUT
+		BOUNCE_IN_OUT,
+
+		CUSTOM
 	};
 	inline std::map<InterpolationType, std::function<float(float)>> functions = {
 			{ InterpolationType::LINEAR, &FUNC::linearInterpolation },
@@ -118,9 +120,32 @@ namespace IKIGAI::ANIMATION {
 			{ InterpolationType::BOUNCE_IN_OUT, &FUNC::bounceEaseInOut }
 	};
 
+	//TODO: move to own file
+	struct Curve {
+		IKIGAI::MATH::Vector2f mLeft;
+		IKIGAI::MATH::Vector2f mRight;
+		IKIGAI::MATH::Vector2f mLeftTangent;
+		IKIGAI::MATH::Vector2f mRightTangent;
+
+		IKIGAI::MATH::Vector2f mLeftYOffset;
+
+		template<class Context>
+		constexpr static auto serde(Context& context, Curve& value) {
+			using Self = Curve;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::mLeft, "Left")
+				.field(&Self::mRight, "Right")
+				.field(&Self::mLeftTangent, "LeftTangent")
+				.field(&Self::mRightTangent, "RightTangent")
+				.field(&Self::mLeftYOffset, "LeftYOffset");
+		}
+	};
+
 	class AnimationProperty {
 		std::string name;
-		std::function<float(float)> interpolation;
+		InterpolationType interpolationType;
+		//std::function<float(float)> interpolation;
 		std::function<void(PropType)> _set;
 		std::function<PropType()> _get;
 	public:
@@ -128,11 +153,73 @@ namespace IKIGAI::ANIMATION {
 		AnimationProperty(std::string name,
 			std::function<void(PropType)> set,
 			std::function<PropType()> get,
-			std::function<float(float)> interpolation = &FUNC::linearInterpolation);
+			InterpolationType type = InterpolationType::LINEAR);
 		void set(PropType val);
 		PropType get();
 		const std::string& getName() const;
-		std::function<float(float)> getInterpolation() const;
+		InterpolationType getInterpolationType() const;
+	};
+
+	struct TimelineAnimationFrameDescriptor {
+		int frame = 0;
+		PropType value;
+
+		InterpolationType curveType = InterpolationType::LINEAR;
+		Curve curve;
+
+		template<class Context>
+		constexpr static auto serde(Context& context, TimelineAnimationFrameDescriptor& value) {
+			using Self = TimelineAnimationFrameDescriptor;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::frame, "Frame")
+				.field(&Self::value, "Value")
+				.field(&Self::curveType, "CurveType")
+				.field(&Self::curve, "Curve");
+		}
+	};
+
+	struct TimelineAnimationTrackDescriptor {
+		std::string objectName;
+		int objectId = -1;
+		std::string componentName;
+		std::string propertyName;
+
+		template<class Context>
+		constexpr static auto serde(Context& context, TimelineAnimationTrackDescriptor& value) {
+			using Self = TimelineAnimationTrackDescriptor;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::objectName, "ObjectName")
+				.field(&Self::objectId, "ObjectId")
+				.field(&Self::componentName, "ComponentName")
+				.field(&Self::propertyName, "PropertyName");
+		}
+	};
+
+	struct TimelineAnimationDescriptor {
+		bool isLooped = false;
+		float framesCount = 100;
+		float FPS = 60;
+		//track name -> track info
+		std::map<std::string, TimelineAnimationTrackDescriptor> tracks;
+
+		//track name -> array of frames
+		std::map<std::string, std::vector<TimelineAnimationFrameDescriptor>> trackFrames;
+
+		std::string pathResource;
+
+		template<class Context>
+		constexpr static auto serde(Context& context, TimelineAnimationDescriptor& value) {
+			using Self = TimelineAnimationDescriptor;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::isLooped, "IsLooped")
+				.field(&Self::framesCount, "FramesCount")
+				.field(&Self::FPS, "FPS")
+				.field(&Self::tracks, "Tracks")
+				.field(&Self::trackFrames, "TrackFrames");
+		}
 	};
 
 	class AnimationBase
@@ -160,6 +247,7 @@ namespace IKIGAI::ANIMATION {
 
 	class Animation : public AnimationBase {
 		friend class Builder;
+	public:
 		int FPS = 30;
 		int framesCount = 50;
 		float time = 0.f;
@@ -167,6 +255,7 @@ namespace IKIGAI::ANIMATION {
 
 		std::map<int, std::map<std::string, PropType>> frames;
 		std::map<std::string, AnimationProperty> props;
+		std::map<std::string, std::map<int, Curve>> curves;
 		bool isInit = false;
 		std::map<std::string, std::vector<int>> fastAccess;
 		std::map<std::string, PropType> curState;
@@ -186,14 +275,31 @@ namespace IKIGAI::ANIMATION {
 		void setFrameCount(unsigned _frameCount);
 		void setFPS(unsigned fps);
 		void setLooped(bool b);
+		unsigned getFrameCount() const {
+			return framesCount;
+		};
+		unsigned getFPS() const {
+			return FPS;
+		};
+		bool getLooped() const {
+			return isLooped;
+		};
 		void init();
+
 		float linearFunc(float x0, float x1, float progress);
 		int linearFunc(int x0, int x1, float progress);
 		bool linearFunc(bool x0, bool x1, float progress);
+
+		void moveFrameInTrack(const std::string& trackName, int oldFrame, int newFrame);
+
 		void addProperty(AnimationProperty p);
+		void delProperty(const std::string& name);
 		void addKeyFrame(int frame, std::map<std::string, PropType> prop);
 		void delKeyFrameProp(int frame, std::map<std::string, PropType> prop);
+		void delKeyFrameProp(int frame, const std::string& propName);
 		void addKeyFrameMerge(int frame, std::map<std::string, PropType> prop);
+
+		bool hasFrameForProperty(int frame, const std::string& name);
 	public:
 		void update(float dt) override;
 		void play() override;
@@ -258,16 +364,27 @@ namespace IKIGAI::ANIMATION {
 		void update() {}
 	};
 
+
+	//class NodableAnimation : public AnimationBase {
+	//	std::unique_ptr<NodableAnimationNode> root;
+	//public:
+	//	void update(float dt) override {
+	//		root->update(dt);
+	//	}
+	//	void stop() override;
+	//	void play() override;
+	//	void pause() override;
+	//};
+
 	class NodableAnimationNode {
 	public:
-		NodableAnimationNode() = default;
-		virtual ~NodableAnimationNode() = default;
-		enum class Status
-		{
+		enum class Status {
 			NOT_START,
 			PROGRESS,
-			FINISH
+			FINISH,
 		};
+		NodableAnimationNode() = default;
+		virtual ~NodableAnimationNode() = default;
 		Status status = Status::NOT_START;
 
 		virtual void update(float dt) = 0;
@@ -304,7 +421,7 @@ namespace IKIGAI::ANIMATION {
 		}
 	};
 
-	class NodableAnimationNodeSimultanious : public NodableAnimationNode {
+	class NodableAnimationNodeSimultaneous : public NodableAnimationNode {
 	public:
 		std::vector<std::unique_ptr<NodableAnimationNode>> childs;
 		size_t currentId = 0;
@@ -349,7 +466,7 @@ namespace IKIGAI::ANIMATION {
 		float time = 0.0f;
 		float curTime = 0.0f;
 		
-
+		Curve curve;
 		AnimationProperty prop;
 	public:
 		NodableAnimationNodePos(ECS::Object::Id_ id, MATH::Vector3f toPos, float time, InterpolationType interpolation = InterpolationType::LINEAR):
@@ -375,7 +492,7 @@ namespace IKIGAI::ANIMATION {
 					}
 					throw;
 				},
-				functions.at(interpolation)
+				interpolation
 			);
 		}
 
@@ -388,7 +505,13 @@ namespace IKIGAI::ANIMATION {
 			}
 
 			curTime += dt;
-			const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
+
+			float progress = 0.0f;
+			if (prop.getInterpolationType() == InterpolationType::CUSTOM) {
+				//progress = cubicBezierCurve(, std::min(1.0f, curTime / time));
+			} else {
+				progress = functions[prop.getInterpolationType()](std::min(1.0f, curTime / time));
+			}
 
 			const auto newPos = MATH::Vector3(
 				fromPos.x + progress * (toPos.x - fromPos.x),
@@ -410,7 +533,7 @@ namespace IKIGAI::ANIMATION {
 		float time = 0.0f;
 		float curTime = 0.0f;
 
-
+		Curve curve;
 		AnimationProperty prop;
 	public:
 		NodableAnimationNodeScale(ECS::Object::Id_ id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
@@ -436,7 +559,7 @@ namespace IKIGAI::ANIMATION {
 						}
 						throw;
 					},
-					functions.at(interpolation)
+					interpolation
 				);
 		}
 
@@ -449,7 +572,14 @@ namespace IKIGAI::ANIMATION {
 			}
 
 			curTime += dt;
-			const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
+			//const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
+
+			float progress = 0.0f;
+			if (prop.getInterpolationType() == InterpolationType::CUSTOM) {
+				//progress = cubicBezierCurve(, std::min(1.0f, curTime / time));
+			} else {
+				progress = functions[prop.getInterpolationType()](std::min(1.0f, curTime / time));
+			}
 
 			const auto newPos = MATH::Vector3(
 				from.x + progress * (to.x - from.x),
@@ -471,7 +601,7 @@ namespace IKIGAI::ANIMATION {
 		float time = 0.0f;
 		float curTime = 0.0f;
 
-
+		Curve curve;
 		AnimationProperty prop;
 	public:
 		NodableAnimationNodeRotate(ECS::Object::Id_ id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
@@ -497,7 +627,7 @@ namespace IKIGAI::ANIMATION {
 						}
 						throw;
 					},
-					functions.at(interpolation)
+					interpolation
 				);
 		}
 
@@ -510,8 +640,13 @@ namespace IKIGAI::ANIMATION {
 			}
 
 			curTime += dt;
-			const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
-
+			//const auto progress = prop.getInterpolation()(std::min(1.0f, curTime / time));
+			float progress = 0.0f;
+			if (prop.getInterpolationType() == InterpolationType::CUSTOM) {
+				//progress = cubicBezierCurve(, std::min(1.0f, curTime / time));
+			} else {
+				progress = functions[prop.getInterpolationType()](std::min(1.0f, curTime / time));
+			}
 			const auto newPos = MATH::Vector3(
 				from.x + progress * (to.x - from.x),
 				from.y + progress * (to.y - from.y),
@@ -551,15 +686,71 @@ namespace IKIGAI::ANIMATION {
 		}
 	};
 
-
-	class NodableAnimation: public AnimationBase {
-		std::unique_ptr<NodableAnimationNode> root;
+	class NodableAnimationNodeEvent : public NodableAnimationNode {
 	public:
-		void update(float dt) override {
-			root->update(dt);
+		float time = 0.0f;
+		float curTime = 0.0f;
+		std::string eventId;
+
+	public:
+		NodableAnimationNodeEvent(const std::string& eventId, float time) :
+			NodableAnimationNode(), time(time), eventId(eventId){
+
 		}
-		void stop() override;
-		void play() override;
-		void pause() override;
+
+		virtual void update(float dt) override {
+			if (status == Status::FINISH) {
+				return;
+			}
+			if (status == Status::NOT_START) {
+				status = Status::PROGRESS;
+			}
+
+			curTime += dt;
+			const auto progress = std::min(1.0f, curTime / time);
+
+			if (progress >= 1.0f) {
+				RESOURCES::ServiceManager::Get<EVENT::EventBroadcaster>().run(eventId, EVENT::EventBroadcaster::Payload{});
+				status = Status::FINISH;
+			}
+		}
 	};
+
+	class NodableAnimation : public AnimationBase {
+	public:
+		NodableAnimation() = default;
+		virtual ~NodableAnimation() = default;
+		Status status = Status::STOP;
+		std::vector<std::unique_ptr<NodableAnimationNode>> animations;
+		int currentAnim = 0;
+		void update(float dt) {
+			if (status == Status::PAUSE || status == Status::STOP) {
+				return;
+			}
+			if (currentAnim >= animations.size()) {
+				status = Status::STOP;
+				return;
+			}
+			animations.at(currentAnim)->update(dt);
+			if (animations.at(currentAnim)->status == NodableAnimationNode::Status::FINISH) {
+				currentAnim++;
+			}
+		};
+
+		void stop() override {
+			status = Status::STOP;
+			if (currentAnim < animations.size()) {
+				status = Status::STOP;
+				animations.at(currentAnim)->status = NodableAnimationNode::Status::NOT_START;
+			}
+			currentAnim = 0;
+		}
+		void play() override {
+			status = Status::PLAY;
+		}
+		void pause() override {
+			status = Status::PAUSE;
+		}
+	};
+	
 }
