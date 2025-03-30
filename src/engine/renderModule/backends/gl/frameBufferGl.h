@@ -9,20 +9,20 @@ namespace IKIGAI::RENDER {
 	class TextureGl;
 
 	class FrameBufferGl: public FrameBufferInterface {
+	private:
+		std::vector<std::shared_ptr<TextureInterface>> mTextures;
+		std::shared_ptr<TextureInterface> mDepth;
 	public:
-		unsigned id = 0;
-
-		FrameBufferGl();
-		~FrameBufferGl();
-
-		void create(std::vector<std::shared_ptr<TextureGl>> textures, std::shared_ptr<TextureGl> depthTexture = nullptr);
-		void create();
+		FrameBufferGl(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth = nullptr);
+		const std::vector<std::shared_ptr<TextureInterface>>& getTextures() const override;
+		const std::shared_ptr<TextureInterface>& getDepth() const override;
 
 		void bind();
 		void unbind();
 
 		static void CopyDepth(const FrameBufferGl& from, const FrameBufferGl& to, unsigned w, unsigned h);
-
+	private:
+		void create();
 	};
 }
 #endif

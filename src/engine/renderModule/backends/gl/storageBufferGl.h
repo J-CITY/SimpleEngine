@@ -1,30 +1,22 @@
 #pragma once
-
 #ifdef OPENGL_BACKEND
-#include <coreModule/graphicsWrapper.hpp>
-
-#include "../../backends/interface/uniformTypes.h"
-
+#include "renderModule/backends/interface/storageBufferInterface.h"
 namespace IKIGAI::RENDER {
-	class ShaderStorageBufferGl {
+	class StorageBufferGl : public StorageBufferInterface {
 	public:
-		ShaderStorageBufferGl(IKIGAI::RENDER::AccessSpecifier p_accessSpecifier);
-		~ShaderStorageBufferGl();
-		void bind(unsigned val);
-		void unbind();
+		using Id = unsigned;
 
-		template<typename T>
-		inline void SendBlocks(T* data, size_t size) {
-#ifndef USING_GLES
-			glBindBuffer(GL_SHADER_STORAGE_BUFFER, bufferID);
-			glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_DRAW);
-			glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-#endif
-		}
+		StorageBufferGl(const void* data, size_t sz, size_t stride);
+		template <class T>
+		StorageBufferGl(const std::vector<T>& vertices) : StorageBufferGl((void*)vertices.data(), vertices.size(), sizeof(T)) {}
+		~StorageBufferGl() override;
+		void setData(const void* data, size_t sz, size_t stride) override;
 
+		void bind() override {};
+		void unbind() override {};
 	private:
-		unsigned bufferID;
-		unsigned bindingPoint = 0;
+		Id mId = 0;
+		Id mBindId = 0;
 	};
 }
 #endif

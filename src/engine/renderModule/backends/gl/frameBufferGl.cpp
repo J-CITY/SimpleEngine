@@ -8,15 +8,6 @@
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-FrameBufferGl::FrameBufferGl() = default;
-
-FrameBufferGl::~FrameBufferGl() {
-	glDeleteFramebuffers(1, &id);
-}
-
-void FrameBufferGl::create() {
-	glGenFramebuffers(1, &id);
-}
 void checkGlError(const char* op, ...) {
 	//if (IS_DEBUG_MODE) {
 	va_list params;
@@ -48,19 +39,19 @@ void checkGlError(const char* op, ...) {
 	va_end(params);
 	//}
 }
-void FrameBufferGl::create(std::vector<std::shared_ptr<TextureGl>> textures, std::shared_ptr<TextureGl> depthTexture) {
-	glGenFramebuffers(1, &id);
-	std::cout << id << std::endl;
+void FrameBufferGl::create() {
+	glGenFramebuffers(1, &mId);
+	std::cout << mId << std::endl;
 	checkGlError("glGenFramebuffers");
 	bind();
 	checkGlError("glBindFramebuffer");
 
 	int i = 0;
 	std::vector<unsigned> attachments;
-	attachments.resize(textures.size());
-	for (auto t : textures) {
+	attachments.resize(mTextures.size());
+	for (auto t : mTextures) {
 		attachments[i] = GL_COLOR_ATTACHMENT0 + i;
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, t->id, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, std::static_pointer_cast<TextureGl>(t)->id, 0);
 		checkGlError("glFramebufferTexture2D");
 		i++;
 	}
@@ -69,22 +60,11 @@ void FrameBufferGl::create(std::vector<std::shared_ptr<TextureGl>> textures, std
 		glDrawBuffers(attachments.size(), attachments.data());
 #endif
 	}
-	if (!depthTexture) {
-		const unsigned int SCR_WIDTH = textures[0]->getWidth();
-		const unsigned int SCR_HEIGHT = textures[0]->getHeight();
+	if (!mDepth) {
+		const unsigned int SCR_WIDTH = mTextures[0]->getWidth();
+		const unsigned int SCR_HEIGHT = mTextures[0]->getHeight();
 		std::cout << SCR_WIDTH << " " << SCR_HEIGHT << std::endl;
-
-		//GLuint depth_texture;
-		//glGenTextures(1, &depth_texture);
-		//glBindTexture(GL_TEXTURE_2D, depth_texture);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		//glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
-		//glBindTexture(GL_TEXTURE_2D, 0);
-		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
-
+		
 		unsigned int rboDepth;
 		glGenRenderbuffers(1, &rboDepth);
 		checkGlError("glGenRenderbuffers");
@@ -100,13 +80,13 @@ void FrameBufferGl::create(std::vector<std::shared_ptr<TextureGl>> textures, std
 			std::cout << "Framebuffer not complete!" << glCheckFramebufferStatus(GL_FRAMEBUFFER) << std::endl;
 	}
 	else {
-		if (depthTexture->getType() == TextureType::TEXTURE_2D) {
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture->id, 0);
+		if (mDepth->getType() == TextureType::TEXTURE_2D) {
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, std::static_pointer_cast<TextureGl>(mDepth)->id, 0);
 		}
 		else
 		{
 #ifndef USING_GLES
-			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture->id, 0);
+			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, std::static_pointer_cast<TextureGl>(mDepth)->id, 0);
 #endif
 		}
 #ifndef USING_GLES
@@ -122,20 +102,30 @@ void FrameBufferGl::create(std::vector<std::shared_ptr<TextureGl>> textures, std
 	unbind();
 }
 
-void FrameBufferGl::bind()
-{
-	glBindFramebuffer(GL_FRAMEBUFFER, id);
+void FrameBufferGl::bind() {
+	glBindFramebuffer(GL_FRAMEBUFFER, mId);
 }
 
-void FrameBufferGl::unbind()
-{
+void FrameBufferGl::unbind() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+FrameBufferGl::FrameBufferGl(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth): mTextures(textures), mDepth(depth) {
+	create();
+}
+
+const std::vector<std::shared_ptr<TextureInterface>>& FrameBufferGl::getTextures() const {
+	return mTextures;
+}
+
+const std::shared_ptr<TextureInterface>& FrameBufferGl::getDepth() const {
+	return mDepth;
 }
 
 void FrameBufferGl::CopyDepth(const FrameBufferGl& from, const FrameBufferGl& to, unsigned w, unsigned h) {
 #ifndef USING_GLES
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, from.id);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, to.id);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, from.mId);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, to.mId);
 	glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 #endif
 }

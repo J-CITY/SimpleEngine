@@ -1,34 +1,42 @@
 #include "storageBufferGl.h"
 #ifdef OPENGL_BACKEND
+#include <coreModule/graphicsWrapper.hpp>
 
-using namespace IKIGAI::RENDER;
 
-ShaderStorageBufferGl::ShaderStorageBufferGl(IKIGAI::RENDER::AccessSpecifier type) {
-	glGenBuffers(1, &bufferID);
+IKIGAI::RENDER::StorageBufferGl::StorageBufferGl(const void* data, size_t sz, size_t stride) : StorageBufferInterface(sz, stride) {
 #ifndef USING_GLES
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, bufferID);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, 0, nullptr, static_cast<GLenum>(type));
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bufferID);
+	glGenBuffers(1, &mId);
+	if (data) {
+		StorageBufferGl::setData(data, sz, stride);
+	}
 #endif
 }
 
-ShaderStorageBufferGl::~ShaderStorageBufferGl() {
+IKIGAI::RENDER::StorageBufferGl::~StorageBufferGl() {
 #ifndef USING_GLES
+	glDeleteBuffers(1, &mId);
+#endif
+}
+
+void IKIGAI::RENDER::StorageBufferGl::setData(const void* data, size_t sz, size_t stride) {
+#ifndef USING_GLES
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, mId);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sz * stride, data, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 #endif
 }
 
-void ShaderStorageBufferGl::bind(unsigned val) {
-	bindingPoint = val;
-#ifndef USING_GLES
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, val, bufferID);
-#endif
-}
-
-void ShaderStorageBufferGl::unbind() {
-#ifndef USING_GLES
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, 0);
-#endif
-}
+//void ShaderStorageBufferGl::bind(unsigned val) {
+//#ifndef USING_GLES
+//	mBindId = val;
+//	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, val, mId);
+//#endif
+//}
+//
+//void ShaderStorageBufferGl::unbind() {
+//#ifndef USING_GLES
+//	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, mBindId, 0);
+//#endif
+//}
 
 #endif

@@ -1,14 +1,14 @@
 #include "shaderGl.h"
 #ifdef OPENGL_BACKEND
-
-#include "../interface/reflectionStructs.h"
-#include "utilsModule/pathGetter.h"
-#include "utilsModule/stringUtils.h"
-#include "utilsModule/log/loggerDefine.h"
 #include <array>
+#include <fstream>
 #include <filesystem>
 #include <iostream>
 #include "coreModule/glmWrapper.hpp"
+#include "../interface/reflectionStructs.h"
+#include "utilsModule/log/loggerDefine.h"
+#include "utilsModule/pathGetter.h"
+#include "utilsModule/stringUtils.h"
 
 //std::vector<uint32_t> load_spirv_file(const std::filesystem::path& path)
 //{
@@ -47,8 +47,6 @@
 //		std::cout << result << std::endl;
 //	}
 //}
-
-
 
 std::string readFile(const std::string& path) {
 	std::ifstream ifs(IKIGAI::UTILS::GetRealPath(path));
@@ -246,10 +244,10 @@ void IKIGAI::RENDER::ShaderGl::compile(const std::map<ShaderType, std::string>& 
 		auto compute = glCreateShader(GL_COMPUTE_SHADER);
 		glShaderSource(compute, 1, &shaderCode, nullptr);
 		glCompileShader(compute);
-		checkCompileErrors(compute, "COMPUTE: " + computePath.value());
+		CheckCompileErrors(compute, "COMPUTE: " + computePath.value());
 		glAttachShader(static_cast<unsigned>(mId), compute);
 		glLinkProgram(static_cast<unsigned>(mId));
-		checkCompileErrors(static_cast<unsigned>(mId), "PROGRAM");
+		CheckCompileErrors(static_cast<unsigned>(mId), "PROGRAM");
 		glDeleteShader(compute);
 		return;
 	}
@@ -261,14 +259,14 @@ void IKIGAI::RENDER::ShaderGl::compile(const std::map<ShaderType, std::string>& 
 		vertex = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vertex, 1, &shaderCode, nullptr);
 		glCompileShader(vertex);
-		checkCompileErrors(vertex, "VERTEX: " + vertexPath.value());
+		CheckCompileErrors(vertex, "VERTEX: " + vertexPath.value());
 	}
 	if (source.contains(ShaderType::FRAGMENT)) {
 		const char* shaderCode = source.at(ShaderType::FRAGMENT).c_str();
 		fragment = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(fragment, 1, &shaderCode, nullptr);
 		glCompileShader(fragment);
-		checkCompileErrors(fragment, "FRAGMENT: " + fragmentPath.value());
+		CheckCompileErrors(fragment, "FRAGMENT: " + fragmentPath.value());
 	}
 #ifndef USING_GLES
 	if (source.contains(ShaderType::GEOMETRY)) {
@@ -276,21 +274,21 @@ void IKIGAI::RENDER::ShaderGl::compile(const std::map<ShaderType, std::string>& 
 		geometry = glCreateShader(GL_GEOMETRY_SHADER);
 		glShaderSource(geometry, 1, &shaderCode, nullptr);
 		glCompileShader(geometry);
-		checkCompileErrors(geometry, "GEOMETRY: " + geometryPath.value());
+		CheckCompileErrors(geometry, "GEOMETRY: " + geometryPath.value());
 	}
 	if (source.contains(ShaderType::TESSELLATION_CONTROL)) {
 		const char* shaderCode = source.at(ShaderType::TESSELLATION_CONTROL).c_str();
 		tessControl = glCreateShader(GL_TESS_CONTROL_SHADER);
 		glShaderSource(tessControl, 1, &shaderCode, nullptr);
 		glCompileShader(tessControl);
-		checkCompileErrors(tessControl, "TESS_CONTROL: " + tessControlPath.value());
+		CheckCompileErrors(tessControl, "TESS_CONTROL: " + tessControlPath.value());
 	}
 	if (source.contains(ShaderType::TESSELLATION_EVALUATION)) {
 		const char* shaderCode = source.at(ShaderType::TESSELLATION_EVALUATION).c_str();
 		tessEval = glCreateShader(GL_TESS_EVALUATION_SHADER);
 		glShaderSource(tessEval, 1, &shaderCode, nullptr);
 		glCompileShader(tessEval);
-		checkCompileErrors(tessEval, "TESS_EVAL: " + tessEvalPath.value());
+		CheckCompileErrors(tessEval, "TESS_EVAL: " + tessEvalPath.value());
 	}
 #endif
 
@@ -325,7 +323,7 @@ void IKIGAI::RENDER::ShaderGl::compile(const std::map<ShaderType, std::string>& 
 	//	glBindAttribLocation(mId, 6, "weights");
 	//}
 	glLinkProgram(static_cast<unsigned>(mId));
-	checkCompileErrors(static_cast<unsigned>(mId), "PROGRAM");
+	CheckCompileErrors(static_cast<unsigned>(mId), "PROGRAM");
 
 	if (vertexPath) {
 		glDeleteShader(vertex);
@@ -536,7 +534,7 @@ void IKIGAI::RENDER::ShaderGl::readReflection() {
 }
 
 //TODO: use logger
-void IKIGAI::RENDER::ShaderGl::checkCompileErrors(GLuint shader, std::string type) {
+void IKIGAI::RENDER::ShaderGl::CheckCompileErrors(GLuint shader, const std::string& type) {
 	GLint success;
 	GLchar infoLog[1024];
 	if (type != "PROGRAM") {

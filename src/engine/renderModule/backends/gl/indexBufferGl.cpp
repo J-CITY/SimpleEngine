@@ -1,37 +1,52 @@
 #include "indexBufferGl.h"
 #ifdef OPENGL_BACKEND
-#include "vertexBufferGl.h"
+#include <coreModule/graphicsWrapper.hpp>
 
-using namespace IKIGAI;
-using namespace IKIGAI::RENDER;
-
-IndexBufferGl::IndexBufferGl(std::span<unsigned> data) {
-	sz = data.size();
-	glGenBuffers(1, &m_bufferID);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_bufferID);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.size() * sizeof(unsigned int), data.data(), GL_STATIC_DRAW);
+namespace IKIGAI::INTERNAL {
+	const GLenum UsageTypeMap[] = {
+		GL_STREAM_DRAW,
+//#ifndef USING_GLES
+		GL_STREAM_READ,
+		GL_STREAM_COPY,
+//#endif
+		GL_STATIC_DRAW,
+//#ifndef USING_GLES
+		GL_STATIC_READ,
+		GL_STATIC_COPY,
+//#endif
+		GL_DYNAMIC_DRAW,
+//#ifndef USING_GLES
+		GL_DYNAMIC_READ,
+		GL_DYNAMIC_COPY
+//#endif
+	};
 }
 
-IndexBufferGl::IndexBufferGl(std::span<unsigned> data, UsageType type) {
-	sz = data.size();
-	glGenBuffers(1, &m_bufferID);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_bufferID);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.size() * sizeof(unsigned int), data.data(), UsageTypeToEnum[static_cast<int>(type)]);
+IKIGAI::RENDER::IndexBufferGl::IndexBufferGl(const void* data, size_t sz, size_t stride, UsageType type) : IndexBufferInterface(sz, stride), mType(type) {
+	glGenBuffers(1, &mId);
+	if (data) {
+		IndexBufferGl::setData(data, sz, stride);
+	}
 }
 
-IndexBufferGl::~IndexBufferGl() {
-	glDeleteBuffers(1, &m_bufferID);
+IKIGAI::RENDER::IndexBufferGl::~IndexBufferGl() {
+	glDeleteBuffers(1, &mId);
 }
 
-void IndexBufferGl::bind() const {
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_bufferID);
+void IKIGAI::RENDER::IndexBufferGl::bind() {
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mId);
 }
 
-void IndexBufferGl::unbind() const {
+void IKIGAI::RENDER::IndexBufferGl::unbind() {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-unsigned IndexBufferGl::getID() const {
-	return m_bufferID;
+void IKIGAI::RENDER::IndexBufferGl::setData(const void* data, size_t sz, size_t stride) {
+	bind();
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sz * stride, data, INTERNAL::UsageTypeMap[static_cast<unsigned>(mType)]);
+}
+
+IKIGAI::RENDER::IndexBufferGl::Id IKIGAI::RENDER::IndexBufferGl::getID() const {
+	return mId;
 }
 #endif

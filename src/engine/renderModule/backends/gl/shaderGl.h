@@ -8,14 +8,6 @@
 #include "../interface/shaderInterface.h"
 #include "../interface/reflectionStructs.h"
 
-namespace IKIGAI
-{
-	namespace RENDER
-	{
-		struct UniformInfo;
-	}
-}
-
 namespace IKIGAI::RENDER
 {
 	class ShaderGl : public IKIGAI::RENDER::ShaderInterface {
@@ -23,18 +15,14 @@ namespace IKIGAI::RENDER
 		static std::shared_ptr<ShaderGl> CreateFromSource(const std::map<ShaderType, std::string>& source);
 		static std::shared_ptr<ShaderGl> CreateFromPath(const std::map<ShaderType, std::string>& path);
 		static std::shared_ptr<ShaderGl> CreateFromPath(const ShaderResource& resource);
-
-
-	// private:
 		//TODO: delete it
 		ShaderGl() = default;
 
 		ShaderGl(const ShaderResource& res, const std::map<ShaderType, std::string>& source);
 		ShaderGl(const ShaderResource& res, const std::vector<std::byte>& source);
+		~ShaderGl() override;
 
 		void recompile(const ShaderResource& res, const std::map<ShaderType, std::string>& source);
-
-		~ShaderGl() override;
 
 		void bind() override;
 		void unbind() override;
@@ -56,7 +44,6 @@ namespace IKIGAI::RENDER
 		void setMat3(const std::string& name, const IKIGAI::MATH::Matrix3f& mat) const;
 		void setMat4(const std::string& name, const glm::mat4& mat) const;
 		void setMat4(const std::string& name, const IKIGAI::MATH::Matrix4f& mat) const;
-
 		IKIGAI::MATH::Vector2f getUniformVec2(const std::string& name) const;
 		IKIGAI::MATH::Vector3f getUniformVec3(const std::string& name) const;
 		IKIGAI::MATH::Vector4f getUniformVec4(const std::string& name) const;
@@ -66,22 +53,18 @@ namespace IKIGAI::RENDER
 		float getUniformFloat(const std::string& name) const;
 		int getUniformLocation(const std::string &name) const;
 
-
-		
 	private:
 		static bool CheckBinarySupport();
+		static void CheckCompileErrors(GLuint shader, const std::string& type);
 
 		void readReflection();
-		void checkCompileErrors(GLuint shader, std::string type);
 		void compile(const std::map<ShaderType, std::string>& source);
 		void create(const ShaderResource& res, const std::map<ShaderType, std::string>& source);
 		void clear() const;
 		void loadBinaryShader(const std::vector<std::byte>& buffer);
 
 		mutable std::unordered_map<std::string, int> uniformLocationCache;
-
 	};
-
 }
 
 #endif

@@ -1,67 +1,45 @@
 #pragma once
-#include <span>
-
 #ifdef OPENGL_BACKEND
 #include <vector>
-#include <coreModule/graphicsWrapper.hpp>
 #include "../interface/indexBufferInterface.h"
 
 namespace IKIGAI::RENDER
 {
 	class IndexBufferGl : public IndexBufferInterface {
 	public:
+		using Id = unsigned;
 		enum class UsageType : uint8_t {
 			STREAM_DRAW,
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			STREAM_READ,
 			STREAM_COPY,
-#endif
+//#endif
 			STATIC_DRAW,
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			STATIC_READ,
 			STATIC_COPY,
-#endif
+//#endif
 			DYNAMIC_DRAW,
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			DYNAMIC_READ,
 			DYNAMIC_COPY,
-#endif
+//#endif
 		};
-		std::vector<GLenum> UsageTypeToEnum = {
-			GL_STREAM_DRAW,
-#ifndef USING_GLES
-			GL_STREAM_READ,
-			GL_STREAM_COPY,
-#endif
-			GL_STATIC_DRAW,
-#ifndef USING_GLES
-			GL_STATIC_READ,
-			GL_STATIC_COPY,
-#endif
-			GL_DYNAMIC_DRAW,
-#ifndef USING_GLES
-			GL_DYNAMIC_READ,
-			GL_DYNAMIC_COPY
-#endif
-		};
-		IndexBufferGl(std::span<unsigned> data);
-		IndexBufferGl(std::span<unsigned> data, UsageType type);
-		virtual ~IndexBufferGl() override;
-		void bind() const;
-		void unbind() const;
-		[[nodiscard]] unsigned getID() const;
+	public:
+		template<class T>
+		IndexBufferGl(const std::vector<T>& vertices, UsageType type = UsageType::STATIC_DRAW) : IndexBufferGl(static_cast<const void*>(vertices.data()), vertices.size(), sizeof(T), type) {}
+		~IndexBufferGl() override;
+		void bind() override;
+		void unbind() override;
+		void setData(const void* data, size_t sz, size_t stride) override;
 
-		int sz = 0;
-		int getIndexCount() override
-		{
-			return sz;
-		}
-		virtual void bind(const ShaderInterface& shader) override
-		{
-			bind();
-		}
+		[[nodiscard]] Id getID() const;
+		
 	private:
-		uint32_t m_bufferID = 0;
+		Id mId = 0;
+		UsageType mType = UsageType::STATIC_DRAW;
+
+		IndexBufferGl(const void* data, size_t sz, size_t stride, UsageType type);
 	};
 }
 #endif

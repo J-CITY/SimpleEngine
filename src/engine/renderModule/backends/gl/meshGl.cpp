@@ -10,7 +10,7 @@ using namespace IKIGAI::RENDER;
 #include <android/log.h>
 #endif
 
-MeshGl::MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned materialIndex) :
+MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsigned materialIndex) :
 	mVertexCount(static_cast<unsigned>(vertices.size())),
 	mIndicesCount(static_cast<unsigned>(indices.size())),
 	mMaterialIndex(materialIndex) {
@@ -32,7 +32,7 @@ MeshGl::MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned
 	computeBoundingSphere(vertices);
 }
 
-MeshGl::MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, size_t offset, unsigned materialIndex) :
+MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, size_t offset, unsigned materialIndex) :
 	mVertexCount(static_cast<unsigned>(vertices.size())),
 	mIndicesCount(static_cast<unsigned>(indices.size())),
 	mMaterialIndex(materialIndex),
@@ -42,14 +42,14 @@ MeshGl::MeshGl(std::span<Vertex> vertices, std::span<unsigned> indices, size_t o
 
 MeshGl::~MeshGl() = default;
 
-void bindAttribute(unsigned int attribute, VertexArray::Type type, int count, int stride, intptr_t offset) {
-	glEnableVertexAttribArray(attribute);
-	glVertexAttribPointer(attribute, count, static_cast<GLenum>(type), GL_FALSE, stride, reinterpret_cast<const GLvoid*>(offset));
-}
-
-void unbindAttribute(unsigned int attribute) {
-	glDisableVertexAttribArray(attribute);
-}
+//void bindAttribute(unsigned int attribute, VertexArray::AttributeType type, int count, int stride, intptr_t offset) {
+//	glEnableVertexAttribArray(attribute);
+//	glVertexAttribPointer(attribute, count, static_cast<GLenum>(type), GL_FALSE, stride, reinterpret_cast<const GLvoid*>(offset));
+//}
+//
+//void unbindAttribute(unsigned int attribute) {
+//	glDisableVertexAttribArray(attribute);
+//}
 
 
 void MeshGl::bind() const {
@@ -83,33 +83,33 @@ void MeshGl::unbind() const {
 #endif
 }
 
-size_t MeshGl::getVertexCount() const {
-	return mVertexCount;
-}
+//size_t MeshGl::getVertexCount() const {
+//	return mVertexCount;
+//}
+//
+//size_t MeshGl::getIndexCount() const {
+//	return mIndicesCount;
+//}
+//
+//uint32_t MeshGl::getMaterialIndex() const {
+//	return mMaterialIndex;
+//}
 
-size_t MeshGl::getIndexCount() const {
-	return mIndicesCount;
-}
-
-uint32_t MeshGl::getMaterialIndex() const {
-	return mMaterialIndex;
-}
-
-void MeshGl::createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices) {
+void MeshGl::createBuffers(std::vector<Vertex> p_vertices, std::vector<uint32_t> p_indices) {
 #ifndef USING_GLES
 	mVertexArray = std::make_unique<VertexArray>();
 #endif
-	mVertexBuffer = std::make_unique<VertexBufferGl<Vertex>> (p_vertices);
+	mVertexBuffer = std::make_unique<VertexBufferGl> (p_vertices);
 	mIndexBuffer = std::make_unique<IndexBufferGl>(p_indices);
 #ifndef USING_GLES
 	uint64_t vertexSize = sizeof(Vertex);
-	mVertexArray->bindAttribute(0, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
-	mVertexArray->bindAttribute(1, *mVertexBuffer, VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
-	mVertexArray->bindAttribute(2, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
-	mVertexArray->bindAttribute(3, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
-	mVertexArray->bindAttribute(4, *mVertexBuffer, VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
-	mVertexArray->bindAttribute(5, *mVertexBuffer, VertexArray::Type::INT,   4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
-	mVertexArray->bindAttribute(6, *mVertexBuffer, VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
+	mVertexArray->bindAttribute(0, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
+	mVertexArray->bindAttribute(1, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
+	mVertexArray->bindAttribute(2, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
+	mVertexArray->bindAttribute(3, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
+	mVertexArray->bindAttribute(4, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
+	mVertexArray->bindAttribute(5, *mVertexBuffer, VertexArray::AttributeType::INT,   4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	mVertexArray->bindAttribute(6, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
 #endif
 }
 

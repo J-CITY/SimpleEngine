@@ -24,20 +24,17 @@ namespace IKIGAI {
 			friend class RESOURCES::AssimpParser;
 
 		public:
-			[[nodiscard]] const std::vector<std::shared_ptr<MeshInterface>>& getMeshes() const;
-			[[nodiscard]] const std::vector<std::string>& getMaterialNames() const;
-			
-			//private:
+			//[[nodiscard]] const std::vector<std::shared_ptr<MeshInterface>>& getMeshes() const;
+			//[[nodiscard]] const std::vector<std::string>& getMaterialNames() const;
 			ModelGl(const std::string& p_path);
-			~ModelGl();
+			ModelGl(const std::string& path, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+			~ModelGl() override;
 
 		public:
-
-
-		public:
-			void createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices);
+			// If all meshes in one buffer
+			void createBuffers(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
 			std::unique_ptr<VertexArray> vertexArray;
-			std::unique_ptr<VertexBufferGl<Vertex>> vertexBuffer;
+			std::unique_ptr<VertexBufferGl> vertexBuffer;
 			std::unique_ptr<IndexBufferGl> indexBuffer;
 		};
 	}
