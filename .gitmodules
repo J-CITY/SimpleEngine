@@ -51,3 +51,6 @@
 [submodule "3rd/serdepp"]
 	path = 3rd/serdepp
 	url = https://github.com/injae/serdepp.git
+[submodule "3rd/vfspp"]
+	path = 3rd/vfspp
+	url = https://github.com/J-CITY/vfspp.git
