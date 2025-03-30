@@ -2,16 +2,19 @@
 #include <string>
 #include <vector>
 
+#include "renderEnums.h"
+
 namespace IKIGAI::RENDER {
-	enum SHADER_TYPE {
-		NONE,
-		VERTEX = 0x00000001,
-		FRAGMENT = 0x00000010,
-		GEOMETRY = 0x00000008,
-		TESSELLATION_CONTROL = 0x00000002,
-		TESSELLATION_EVALUATION = 0x00000004,
-		COMPUTE = 0x00000020
+	enum class ShaderType: int {
+		NONE = 0,
+		VERTEX = 1,
+		FRAGMENT = 2,
+		GEOMETRY = 4,
+		TESSELLATION_CONTROL = 8,
+		TESSELLATION_EVALUATION = 16,
+		COMPUTE = 32
 	};
+
 	enum class UNIFORM_TYPE {
 		NONE, MAT4, MAT3, VEC4, VEC3, VEC2, INT, FLOAT, BOOL, SAMPLER_2D,
 #ifndef USING_GLES
@@ -47,5 +50,55 @@ namespace IKIGAI::RENDER {
 		unsigned shaderType = 0;
 		std::string name;
 		std::vector<Member> members;
+	};
+
+	struct ShaderReflection {
+		struct InputParam {
+			std::string mName;
+			size_t mIndex = 0;
+			size_t mLocation = 0;
+			PixelFormat mFormat = PixelFormat::RGBA_FLOAT;
+			size_t mOffset = 0;
+			size_t mSize = 0;
+		};
+		enum class UniformType {
+			NONE, MAT4, MAT3, VEC4, VEC3, VEC2, INT, FLOAT, BOOL,
+			SAMPLER_2D,
+			SAMPLER_CUBE,
+			SAMPLER_3D,
+			SAMPLER_2D_ARRAY,
+			UNIFORM_BUFFER,
+			STORAGE_BUFFER,
+			IMAGE_2D,
+			IMAGE_3D,
+			IMAGE_2D_ARRAY,
+			IMAGE_CUBE,
+			//TODO: use bits and make TEXTURE mask
+		};
+		struct UniformMember {
+			std::string mName;
+			UniformType mType = UniformType::NONE;
+			int mOffset = 0;
+			int mSize = 0;
+			int mArraySize = 0;
+		};
+		struct Uniform {
+			std::string mName;
+			UniformType mType = UniformType::NONE;
+			size_t mRootId = 0;
+			size_t mBind = 0;
+			size_t mSet = 0;
+			size_t mShaderMask = 0;
+			size_t mSize = 0;
+			std::vector<UniformMember> mMembers;
+
+		};
+		struct OutputParam {
+			PixelFormat mFormat = PixelFormat::RGBA_FLOAT;
+		};
+		std::vector<InputParam> mInputParams;
+		std::vector<OutputParam> mOutputParam;
+		std::vector<Uniform> mUniforms;
+		std::map<std::string, size_t> mNameToUniforms;
 	};
 }

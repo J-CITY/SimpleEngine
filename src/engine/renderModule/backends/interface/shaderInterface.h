@@ -4,6 +4,8 @@
 #include <string>
 #include <optional>
 
+#include "reflectionStructs.h"
+
 
 namespace IKIGAI::RENDER {
 	class PushConstantInterface;
@@ -11,8 +13,16 @@ namespace IKIGAI::RENDER {
 	class UniformVkInterface;
 	struct UniformInform;
 
+
+
 	class ShaderInterface {
 	public:
+		using Id = size_t;
+	protected:
+		ShaderReflection mReflection;
+		Id mId = 0;
+	public:
+		
 		std::string mPath;
 		std::optional<std::string> fragmentPath;
 		std::optional<std::string> vertexPath;
@@ -21,17 +31,23 @@ namespace IKIGAI::RENDER {
 		std::optional<std::string> tessControlPath;
 		std::optional<std::string> computePath;
 
+		const ShaderReflection& getReflection() const {
+			return mReflection;
+		}
+
 		virtual ~ShaderInterface() = default;
 
 		virtual void bind() = 0;
 		virtual void unbind() = 0;
-		virtual int getId() = 0;
-		virtual void setUniform(const UniformBufferInterface& uniform) = 0;
-		virtual void setPushConstant(const PushConstantInterface& uniform) = 0;
+		//virtual void setUniform(const UniformBufferInterface& uniform) = 0;
+		//virtual void setPushConstant(const PushConstantInterface& uniform) = 0;
 
-		virtual const std::unordered_map<std::string, IKIGAI::RENDER::UniformInform>& getUniformsInfo() const = 0;
+		//virtual const std::unordered_map<std::string, IKIGAI::RENDER::UniformInform>& getUniformsInfo() const = 0;
 
-		std::string constructRealPath(const std::string& path);
+		static std::string ConstructRealPath(const std::string& path);
+
+		const std::string& getPath() { return mPath; }
+		Id getId() const { return mId; }
 	};
 }
 

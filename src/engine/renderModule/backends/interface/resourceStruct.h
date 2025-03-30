@@ -21,19 +21,11 @@ namespace IKIGAI::RENDER {
 		AUDIO,
 		MATERIAL
 	};
-
-	enum class TextureResMode
-	{
-		IMAGE,
-		COLOR,
-		DEPTH,
-		EMPTY
-	};
 	
 	struct TextureResource {
 		ResourceType type = ResourceType::TEXTURE;
 		std::string path;
-		bool needFileWatch = false;
+		//bool needFileWatch = false;
 
 		TextureType texType = TextureType::TEXTURE_2D;
 
@@ -43,40 +35,60 @@ namespace IKIGAI::RENDER {
 		int width = 0;
 		int height = 0;
 		int depth = 0;
-		PixelDataFormat pixelType = PixelDataFormat::RGBA;
+		int channels = 0;
+		PixelFormat pixelType = PixelFormat::RGBA_INT;
 
+		MinMagFilter minFilter = MinMagFilter::LINEAR;
+		MinMagFilter magFilter = MinMagFilter::LINEAR;
+
+		WrapFilter wrapS = WrapFilter::CLAMP_TO_EDGE;
+		WrapFilter wrapT = WrapFilter::CLAMP_TO_EDGE;
+		WrapFilter wrapR = WrapFilter::CLAMP_TO_EDGE;
 
 		bool isFloat = false;
 		bool useMipmap = true;
+		int mipMapCount = 0;
 
 		template<class Context>
 		constexpr static auto serde(Context& context, TextureResource& value) {
 			using Self = TextureResource;
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
-				.field(&Self::needFileWatch, "NeedFileWatch", default_{true})
+				//.field(&Self::needFileWatch, "NeedFileWatch", default_{true})
 				.field(&Self::texType, "TexType", default_{TextureType::TEXTURE_2D})
+				.field(&Self::minFilter, "TexType", default_{MinMagFilter::LINEAR})
+				.field(&Self::magFilter, "TexType", default_{MinMagFilter::LINEAR})
+				.field(&Self::wrapS, "TexType", default_{WrapFilter::CLAMP_TO_EDGE})
+				.field(&Self::wrapT, "TexType", default_{WrapFilter::CLAMP_TO_EDGE})
+				.field(&Self::wrapR, "TexType", default_{WrapFilter::CLAMP_TO_EDGE})
 				.field(&Self::pathTexture, "PathTexture", default_{std::vector<std::string>()})
 				.field(&Self::colorData, "ColorData", default_{std::vector<uint8_t>()})
 				.field(&Self::width, "Width", default_{0})
 				.field(&Self::height, "Height", default_{0})
 				.field(&Self::depth, "Depth", default_{0})
-				.field(&Self::pixelType, "PixelType", default_{PixelDataFormat::RGBA})
+				.field(&Self::channels, "Channels", default_{0})
+				.field(&Self::pixelType, "PixelType", default_{PixelFormat::RGBA_INT})
 				.field(&Self::isFloat, "IsFloat", default_{false})
 				.field(&Self::useMipmap, "UseMipmap", default_{true});
 		}
 		static auto GetMembers() {
 			return std::tuple{
-				IKIGAI::UTILS::MakeMemberInfo("NeedFileWatch", &TextureResource::needFileWatch),
+				//IKIGAI::UTILS::MakeMemberInfo("NeedFileWatch", &TextureResource::needFileWatch),
 				IKIGAI::UTILS::MakeMemberInfo("TexType", &TextureResource::texType),
 				IKIGAI::UTILS::MakeMemberInfo("PathTexture", &TextureResource::pathTexture),
 				IKIGAI::UTILS::MakeMemberInfo("ColorData", &TextureResource::colorData),
 				IKIGAI::UTILS::MakeMemberInfo("Width", &TextureResource::width),
 				IKIGAI::UTILS::MakeMemberInfo("Height", &TextureResource::height),
 				IKIGAI::UTILS::MakeMemberInfo("Depth", &TextureResource::depth),
+				IKIGAI::UTILS::MakeMemberInfo("Channels", &TextureResource::channels),
 				IKIGAI::UTILS::MakeMemberInfo("PixelType", &TextureResource::pixelType),
 				IKIGAI::UTILS::MakeMemberInfo("IsFloat", &TextureResource::isFloat),
 				IKIGAI::UTILS::MakeMemberInfo("UseMipmap", &TextureResource::useMipmap),
+				IKIGAI::UTILS::MakeMemberInfo("WrapS", &TextureResource::wrapS),
+				IKIGAI::UTILS::MakeMemberInfo("WrapT", &TextureResource::wrapT),
+				IKIGAI::UTILS::MakeMemberInfo("WrapR", &TextureResource::wrapR),
+				IKIGAI::UTILS::MakeMemberInfo("MinFilter", &TextureResource::minFilter),
+				IKIGAI::UTILS::MakeMemberInfo("MagFilter", &TextureResource::magFilter),
 			};
 		}
 	};
@@ -84,7 +96,6 @@ namespace IKIGAI::RENDER {
 	struct ShaderResource {
 		ResourceType type = ResourceType::SHADER;
 		std::string path;
-		bool needFileWatch = false;
 
 		bool useBinary = false;
 
@@ -100,7 +111,6 @@ namespace IKIGAI::RENDER {
 			using Self = ShaderResource;
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
-				.field(&Self::needFileWatch, "NeedFileWatch", default_{true})
 				.field(&Self::useBinary, "UseBinary", default_{false})
 				.field(&Self::vertex, "Vertex", default_{""})
 				.field(&Self::fragment, "Fragment", default_{""})
@@ -112,7 +122,6 @@ namespace IKIGAI::RENDER {
 
 		static auto GetMembers() {
 			return std::tuple{
-				IKIGAI::UTILS::MakeMemberInfo("NeedFileWatch", &ShaderResource::needFileWatch),
 				IKIGAI::UTILS::MakeMemberInfo("UseBinary", &ShaderResource::useBinary),
 				IKIGAI::UTILS::MakeMemberInfo("Vertex", &ShaderResource::vertex),
 				IKIGAI::UTILS::MakeMemberInfo("Fragment", &ShaderResource::fragment),
@@ -162,11 +171,11 @@ namespace IKIGAI::RENDER {
 		bool DepthTest = true;
 		bool DepthWriting = true;
 		bool ColorWriting = true;
-		int GpuInstances = 1;
+		unsigned GpuInstances = 1;
 		bool IsDeferred = false;
-		ComparaisonAlgorithm DepthFunc = ComparaisonAlgorithm::LESS;
+		DepthFunction DepthFunc = DepthFunction::LESS;
 
-		using UniformType = std::variant<float, int, bool, std::string, MATH::Vector4f, MATH::Vector3f, MATH::Vector2f>;
+		using UniformType = std::variant<float, int, bool, std::string, MATH::Vector4f, MATH::Vector3f, MATH::Vector2f, MATH::Matrix4f, MATH::Matrix3f>;
 
 		std::map<std::string, UniformType> Uniforms;
 
@@ -185,7 +194,7 @@ namespace IKIGAI::RENDER {
 				.field(&Self::ColorWriting, "ColorWriting", default_{true})
 				.field(&Self::GpuInstances, "GpuInstances", default_{1})
 				.field(&Self::IsDeferred, "IsDeferred", default_{false})
-				.field(&Self::DepthFunc, "DepthFunc", default_{ComparaisonAlgorithm::LESS})
+				.field(&Self::DepthFunc, "DepthFunc", default_{DepthFunction::LESS})
 				.field(&Self::Uniforms, "Uniforms");
 		}
 		static auto GetMembers() {

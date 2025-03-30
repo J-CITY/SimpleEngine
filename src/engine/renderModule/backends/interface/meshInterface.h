@@ -13,21 +13,25 @@ namespace IKIGAI
 		public:
 			virtual ~MeshInterface() = default;
 
-			virtual size_t getIndexCount() const = 0;
-			virtual size_t getVertexCount() const = 0;
+			size_t getIndexCount() const { return mIndicesCount; };
+			size_t getVertexCount() const { return mVertexCount; };
+			size_t getMaterialIndex() const { return mMaterialIndex; };
+			size_t getOffset() const { return mOffset; };
 
 			virtual void bind() const = 0;
 			virtual void unbind() const = 0;
 
 			const IKIGAI::RENDER::BoundingSphere& getBoundingSphere() const;
-			virtual uint32_t getMaterialIndex() const = 0;
-			void setOffset(size_t offset) {
-				mOffset = offset;
-			}
+			void setOffset(size_t offset);
+
 		protected:
 			RENDER::BoundingSphere mBoundingSphere;
 
 			size_t mOffset = 0;
+
+			size_t mVertexCount = 0;
+			size_t mIndicesCount = 0;
+			size_t mMaterialIndex = 0;
 		};
 	}
 }

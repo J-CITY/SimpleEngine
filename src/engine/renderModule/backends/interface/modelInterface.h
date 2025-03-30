@@ -29,6 +29,7 @@ namespace IKIGAI
 		class ModelInterface {
 		public:
 			virtual ~ModelInterface() = default;
+
 			[[nodiscard]] const IKIGAI::RENDER::BoundingSphere& getBoundingSphere() const;
 
 			const std::string& getPath();
@@ -66,6 +67,7 @@ namespace IKIGAI
 			void setMeshes(const std::vector<std::shared_ptr<MeshInterface>>& meshes) {
 				mMeshes = meshes;
 			}
+
 			void clearMeshes() {
 				mMeshes.clear();
 			}
@@ -81,7 +83,7 @@ namespace IKIGAI
 			void setUseBatching(bool b) {
 				mUseBatching = b;
 			}
-			bool getUseBatching() {
+			bool getUseBatching() const {
 				return mUseBatching;
 			}
 

@@ -1,16 +1,17 @@
 #pragma once
+#include <vector>
 
 namespace IKIGAI::RENDER {
-	class VertexBufferInterface {
+	class StorageBufferInterface {
 	protected:
 		size_t mSize = 0;
 		size_t mStride = 0;
 		size_t mSizeByte = 0;
 
-		VertexBufferInterface(size_t sz, size_t stride) : mSize(sz), mStride(stride), mSizeByte(sz* stride) {}
+		StorageBufferInterface(size_t sz, size_t stride) : mSize(sz), mStride(stride), mSizeByte(sz* stride) {}
 	public:
-		virtual ~VertexBufferInterface() = default;
-		
+		virtual ~StorageBufferInterface() = default;
+
 		inline size_t getSize() const { return mSize; };
 		inline size_t getStride() const { return mStride; };
 		inline size_t getSizeByte() const { return mSizeByte; };
