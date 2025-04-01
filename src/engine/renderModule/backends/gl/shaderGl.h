@@ -14,12 +14,12 @@ namespace IKIGAI::RENDER
 	public:
 		static std::shared_ptr<ShaderGl> CreateFromSource(const std::map<ShaderType, std::string>& source);
 		static std::shared_ptr<ShaderGl> CreateFromPath(const std::map<ShaderType, std::string>& path);
-		static std::shared_ptr<ShaderGl> CreateFromPath(const ShaderResource& resource);
+		static std::shared_ptr<ShaderGl> Create(const ShaderResource& resource);
 		//TODO: delete it
 		ShaderGl() = default;
 
 		ShaderGl(const ShaderResource& res, const std::map<ShaderType, std::string>& source);
-		ShaderGl(const ShaderResource& res, const std::vector<std::byte>& source);
+		ShaderGl(const ShaderResource& res, const std::vector<char>& source);
 		~ShaderGl() override;
 
 		void recompile(const ShaderResource& res, const std::map<ShaderType, std::string>& source);
@@ -61,7 +61,7 @@ namespace IKIGAI::RENDER
 		void compile(const std::map<ShaderType, std::string>& source);
 		void create(const ShaderResource& res, const std::map<ShaderType, std::string>& source);
 		void clear() const;
-		void loadBinaryShader(const std::vector<std::byte>& buffer);
+		void loadBinaryShader(const std::vector<char>& buffer);
 
 		mutable std::unordered_map<std::string, int> uniformLocationCache;
 	};

@@ -1,17 +1,22 @@
 #include "driverGl.h"
 
-#include <iostream>
-
 #ifdef OPENGL_BACKEND
+#include <iostream>
+#include "storageBufferGl.h"
+#include "textureGl.h"
+#include "uniformBufferGl.h"
 #include <coreModule/graphicsWrapper.hpp>
 #include <string>
 #include "../interface/meshInterface.h"
+#include "indexBufferGl.h"
+#include "shaderGl.h"
 
+constexpr GLenum FrontFaceTable[] = {
+	GL_CW,
+	GL_CCW
+};
 
-using namespace IKIGAI;
-using namespace IKIGAI::RENDER;
-
-GLenum PrimitiveModeTable[] = {
+constexpr GLenum PrimitiveModeTable[] = {
 	GL_POINTS,
 	GL_LINES,
 	GL_LINE_LOOP,
@@ -27,7 +32,7 @@ GLenum PrimitiveModeTable[] = {
 	GL_PATCHES
 #endif
 };
-GLenum RenderingCapabilityTable[] = {
+constexpr GLenum RenderingCapabilityTable[] = {
 	GL_BLEND,
 	GL_CULL_FACE,
 	GL_DEPTH_TEST,
@@ -41,14 +46,14 @@ GLenum RenderingCapabilityTable[] = {
 	GL_MULTISAMPLE
 #endif
 };
-GLenum RasterizationModeTable[] = {
+constexpr GLenum RasterizationModeTable[] = {
 #ifndef USING_GLES
 	GL_POINT,
 	GL_LINE,
 	GL_FILL
 #endif
 };
-GLenum ComparaisonAlgorithmTable[] = {
+constexpr GLenum ComparaisonAlgorithmTable[] = {
 	GL_NEVER,
 	GL_LESS,
 	GL_EQUAL,
@@ -59,7 +64,7 @@ GLenum ComparaisonAlgorithmTable[] = {
 	GL_ALWAYS
 };
 
-GLenum OperationTable[] = {
+constexpr GLenum OperationTable[] = {
 	GL_KEEP,
 	GL_ZERO,
 	GL_REPLACE,
@@ -69,12 +74,12 @@ GLenum OperationTable[] = {
 	GL_DECR_WRAP,
 	GL_INVERT
 };
-GLenum CullFaceTable[] = {
+constexpr GLenum CullFaceTable[] = {
 	GL_FRONT,
 	GL_BACK,
 	GL_FRONT_AND_BACK
 };
-GLenum PixelDataTypeTable[] = {
+constexpr GLenum PixelDataTypeTable[] = {
 	GL_BYTE,
 	GL_UNSIGNED_BYTE,
 #ifndef USING_GLES
@@ -100,7 +105,7 @@ GLenum PixelDataTypeTable[] = {
 	GL_UNSIGNED_INT_2_10_10_10_REV
 #endif
 };
-GLenum PixelDataFormatTable[] = {
+constexpr GLenum PixelDataFormatTable[] = {
 #ifndef USING_GLES
 	GL_COLOR_INDEX,
 	GL_STENCIL_INDEX,
@@ -124,7 +129,7 @@ GLenum PixelDataFormatTable[] = {
 	GL_LUMINANCE_ALPHA
 };
 
-GLenum DepthFunctionTable[] = {
+constexpr GLenum DepthFunctionTable[] = {
 	GL_EQUAL,
 	GL_NOTEQUAL,
 	GL_LESS,
@@ -135,7 +140,7 @@ GLenum DepthFunctionTable[] = {
 	GL_NEVER,
 };
 
-GLenum BlendTable[] = {
+constexpr GLenum BlendTable[] = {
 	0x0,
 	GL_ZERO,
 	GL_ONE,
@@ -153,20 +158,16 @@ GLenum BlendTable[] = {
 };
 
 
-void DriverGl::setViewport(const ShaderInterface& shader, float x, float y, float w, float h) {
-    glViewport(x, y, w, h);
+IKIGAI::RENDER::DriverGl::DriverGl() {
+	DriverGl::init();
 }
 
-void DriverGl::setScissor(const ShaderInterface& shader, int x, int y, unsigned w, unsigned h) {
-    glScissor(x, y, w, h);
+IKIGAI::RENDER::DriverGl::~DriverGl() {
+	//TODO: delete context
 }
 
-void DriverGl::drawIndexed(std::shared_ptr<ShaderInterface> shader, size_t indexCount) {
-	glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
-}
-
-void DriverGl::initGlew() {
-#ifndef USING_GLES
+void IKIGAI::RENDER::DriverGl::initGlew() {
+#if defined(_WIN32) || defined(WIN32)
 	glewExperimental = GL_TRUE;
 	const GLenum error = glewInit();
 	if (error != GLEW_OK) {
@@ -177,7 +178,7 @@ void DriverGl::initGlew() {
 #endif
 }
 
-int DriverGl::init() {
+void IKIGAI::RENDER::DriverGl::init() {
 	initGlew();
 
 #if defined(BEDUG) || defined(_DEBUG)
@@ -193,11 +194,252 @@ int DriverGl::init() {
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glCullFace(GL_BACK);
-	return 0;
+}
+
+//TODO: Remove it
+void IKIGAI::RENDER::DriverGl::setVertexBuffer(std::shared_ptr<VertexBufferInterface> buffer) {
+	mVertexBuffer = std::static_pointer_cast<VertexBufferGl>(buffer);
+}
+//TODO: Remove it
+void IKIGAI::RENDER::DriverGl::setIndexBuffer(std::shared_ptr<IndexBufferInterface> buffer) {
+	mIndexBuffer = std::static_pointer_cast<IndexBufferGl>(buffer);
+}
+
+void IKIGAI::RENDER::DriverGl::setShader(std::shared_ptr<ShaderInterface> shader) {
+	mShader = std::static_pointer_cast<ShaderGl>(shader);
+}
+
+void IKIGAI::RENDER::DriverGl::onResize() {
+	setDirty(Dirty::VIEWPORT);
+	setDirty(Dirty::SCISSOR);
+}
+
+//TODO: add support for FB
+void IKIGAI::RENDER::DriverGl::setMSAA(bool value) {
+	mMSAA = value;
+	if (value) {
+		glEnable(GL_MULTISAMPLE);
+	}
+	else {
+		glDisable(GL_MULTISAMPLE);
+	}
+}
+
+void IKIGAI::RENDER::DriverGl::setPrimitiveMode(PrimitiveMode param) {
+	mPrimitiveMode = param;
+	setDirty(Dirty::PRIMITIVE_MODE);
+}
+
+void IKIGAI::RENDER::DriverGl::setRasterization(RasterizationMode param) {
+	mRasterization = param;
+	setDirty(Dirty::RASTERIZATION_MODE);
+}
+
+void IKIGAI::RENDER::DriverGl::setViewport(const Viewport& param) {
+	mViewport = param;
+	setDirty(Dirty::VIEWPORT);
+}
+
+void IKIGAI::RENDER::DriverGl::resetViewport() {
+	mViewport = std::nullopt;
+	setDirty(Dirty::VIEWPORT);
+}
+
+void IKIGAI::RENDER::DriverGl::setScissor(const Scissor& param) {
+	mScissor = param;
+	setDirty(Dirty::SCISSOR);
+}
+
+void IKIGAI::RENDER::DriverGl::resetScissor() {
+	mViewport = std::nullopt;
+	setDirty(Dirty::SCISSOR);
+}
+
+void IKIGAI::RENDER::DriverGl::setBlend(const Blending& param) {
+	mBlend = param;
+}
+
+void IKIGAI::RENDER::DriverGl::resetBlend() {
+	mBlend = std::nullopt;
+}
+
+void IKIGAI::RENDER::DriverGl::setDepth(const Depth& param) {
+	mDepth = param;
+}
+
+void IKIGAI::RENDER::DriverGl::resetDepth() {
+	mDepth = std::nullopt;
+}
+
+void IKIGAI::RENDER::DriverGl::setStencil(const Stencil& param) {
+	mStencil = param;
+}
+
+void IKIGAI::RENDER::DriverGl::resetStencil() {
+	mStencil = std::nullopt;
+}
+
+void IKIGAI::RENDER::DriverGl::setCull(CullFace param) {
+	mCullFace = param;
+}
+
+void IKIGAI::RENDER::DriverGl::setClearColor(const MATH::Vector4f& color) {
+	mClearColor = color;
+}
+
+void IKIGAI::RENDER::DriverGl::setClearColor(float r, float g, float b, float a) {
+	mClearColor = {r, g, b, a};
+}
+
+void IKIGAI::RENDER::DriverGl::clear(bool clearColor, bool clearDepth, bool clearStencil) {
+	const auto hasScissor = glIsEnabled(GL_SCISSOR_TEST);
+
+	if (hasScissor) {
+		glDisable(GL_SCISSOR_TEST);
+	}
+
+	GLbitfield flags = 0;
+
+	if (clearColor) {
+		flags |= GL_COLOR_BUFFER_BIT;
+		glClearColor(mClearColor.r, mClearColor.g, mClearColor.b, mClearColor.a);
+	}
+	if (clearDepth) {
+		flags |= GL_DEPTH_BUFFER_BIT;
+		glClearDepthf(mDepthValue);
+	}
+	if (clearStencil) {
+		flags |= GL_STENCIL_BUFFER_BIT;
+		glClearStencil(mStencilValue);
+	}
+	glClear(flags);
+
+	if (hasScissor) {
+		glEnable(GL_SCISSOR_TEST);
+	}
+}
+
+void IKIGAI::RENDER::DriverGl::draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) {
+	applyState();
+	glDrawArraysInstanced(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)], vertex_offset, vertex_count, instance_count);
+}
+
+void IKIGAI::RENDER::DriverGl::drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) {
+	applyState();
+	auto index_size = mIndexBuffer->getStride();
+	auto index_type = index_size == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+	glDrawElementsInstanced(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)], index_count, index_type, (void*)(index_offset * index_size), instance_count);
+}
+
+void IKIGAI::RENDER::DriverGl::draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) {
+	if (instances > 0) {
+		mFrameInfo.mBatchCount++;
+		mFrameInfo.mInstanceCount += instances;
+		mFrameInfo.mPolyCount += (mesh.getIndexCount() / 3) * instances;
+
+		mesh.bind();
+		if (mesh.getIndexCount() > 0) {
+			// EBO
+			if (instances == 1) {
+				glDrawElements(PrimitiveModeTable[static_cast<GLenum>(primitive)], mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr);
+			} else {
+#ifndef USING_GLES
+				glDrawElementsInstanced(PrimitiveModeTable[static_cast<GLenum>(primitive)], mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr, instances);
+#endif
+			}
+		} else {
+			// EBO
+			if (instances == 1) {
+				//glPatchParameteri(GL_PATCH_VERTICES, 4);
+				//glDrawArrays(GL_PATCHES, 0, 4 * 20 * 20);
+				glDrawArrays(PrimitiveModeTable[static_cast<GLenum>(primitive)], 0, mesh.getVertexCount());
+			} else {
+#ifndef USING_GLES
+				glDrawArraysInstanced(PrimitiveModeTable[static_cast<GLenum>(primitive)], 0, mesh.getVertexCount(), instances);
+#endif
+			}
+		}
+		mesh.unbind();
+	}
+}
+
+void IKIGAI::RENDER::DriverGl::setTexture(size_t bind, std::shared_ptr<TextureInterface> data) {
+	mTextures[bind] = std::static_pointer_cast<TextureGl>(data);
+}
+
+void IKIGAI::RENDER::DriverGl::setUniformBuffer(size_t bind, std::shared_ptr<UniformBufferInterface> data) {
+	mUniformBuffers[bind] = std::static_pointer_cast<UniformBufferGl>(data);
+}
+
+void IKIGAI::RENDER::DriverGl::setStorageBuffer(size_t bind, std::shared_ptr<StorageBufferInterface> data) {
+	mStorageBuffers[bind] = std::static_pointer_cast<StorageBufferGl>(data);
+}
+
+void IKIGAI::RENDER::DriverGl::setTexture(const std::string& name, std::shared_ptr<TextureInterface> data) {
+	const auto& reflection = mShader->getReflection();
+	const auto bind = reflection.mUniforms[reflection.mNameToUniforms.at(name)].mBind;
+	mTextures[bind] = std::static_pointer_cast<TextureGl>(data);
+}
+
+void IKIGAI::RENDER::DriverGl::setUniformBuffer(const std::string& name, std::shared_ptr<UniformBufferInterface> data) {
+	const auto& reflection = mShader->getReflection();
+	const auto bind = reflection.mUniforms[reflection.mNameToUniforms.at(name)].mBind;
+	mUniformBuffers[bind] = std::static_pointer_cast<UniformBufferGl>(data);
+}
+
+void IKIGAI::RENDER::DriverGl::setStorageBuffer(const std::string& name, std::shared_ptr<StorageBufferInterface> data) {
+	const auto& reflection = mShader->getReflection();
+	const auto bind = reflection.mUniforms[reflection.mNameToUniforms.at(name)].mBind;
+	mStorageBuffers[bind] = std::static_pointer_cast<StorageBufferGl>(data);
+}
+
+void IKIGAI::RENDER::DriverGl::applyState() {
+	if (mShader) {
+		mShader->bind();
+	}
+	if (isDirty(Dirty::TRIANGULATION_ORDER)) {
+		clearDirty(Dirty::TRIANGULATION_ORDER);
+		glFrontFace(FrontFaceTable[static_cast<unsigned>(mTriangleOrientation)]);
+	}
+
+	if (isDirty(Dirty::VIEWPORT)) {
+		clearDirty(Dirty::VIEWPORT);
+
+		auto viewport = mViewport.value_or(Viewport{{0.0f, 0.0f}, {(float)mWidth, (float)mHeight}});
+
+		glViewport(
+			(GLint)viewport.mPosition.x,
+			(GLint)viewport.mPosition.y,
+			(GLint)viewport.mSize.x,
+			(GLint)viewport.mSize.y);
+		
+		glDepthRangef((GLfloat)viewport.mMinDepth, (GLfloat)viewport.mMaxDepth);
+	}
+
+	if (isDirty(Dirty::SCISSOR)) {
+		clearDirty(Dirty::SCISSOR);
+
+		if (mScissor) {
+			auto value = mScissor.value();
+
+			glEnable(GL_SCISSOR_TEST);
+			glScissor(
+				(GLint)glm::round(value.mPosition.x),
+				(GLint)glm::round(mHeight - value.mPosition.y - value.mSize.y), // TODO: need different calculations when render target
+				(GLint)glm::round(value.mSize.x),
+				(GLint)glm::round(value.mSize.y));
+		} else {
+			glDisable(GL_SCISSOR_TEST);
+		}
+	}
+}
+
+void IKIGAI::RENDER::DriverGl::submit() {
+
 }
 
 #ifndef OCULUS
-void DriverGl::GLDebugMessageCallback(uint32_t source, uint32_t type, uint32_t id, uint32_t severity, int32_t length, const char* message, const void* userParam) {
+void IKIGAI::RENDER::DriverGl::GLDebugMessageCallback(uint32_t source, uint32_t type, uint32_t id, uint32_t severity, int32_t length, const char* message, const void* userParam) {
 	if (id == 131169 || id == 131185 || id == 131218 || id == 131204) {
 		return;
 	}
@@ -249,362 +491,5 @@ void DriverGl::GLDebugMessageCallback(uint32_t source, uint32_t type, uint32_t i
 
 }
 #endif
-///
-
-void DriverGl::useDepthFunction(DepthFunction function) {
-	glDepthFunc(DepthFunctionTable[static_cast<size_t>(function)]);
-}
-
-void DriverGl::useCulling(bool value, bool counterClockWise, bool cullBack) {
-	// culling 
-	if (value) {
-		glEnable(GL_CULL_FACE);
-	}
-	else {
-		glDisable(GL_CULL_FACE);
-	}
-
-	// point order
-	if (counterClockWise) {
-		glFrontFace(GL_CCW);
-	}
-	else {
-		glFrontFace(GL_CW);
-	}
-
-	// back / front culling
-	if (cullBack) {
-		glCullFace(GL_BACK);
-	}
-	else {
-		glCullFace(GL_FRONT);
-	}
-}
-
-void DriverGl::drawIndices(PrimitiveMode primitive, size_t indexCount, size_t indexOffset) {
-	glDrawElements(
-		PrimitiveModeTable[static_cast<GLenum>(primitive)],
-		indexCount,
-		GL_UNSIGNED_INT,
-		(const void*)(indexOffset * sizeof(int))
-	);
-}
-
-void DriverGl::drawIndicesBaseVertex(PrimitiveMode primitive, size_t indexCount, size_t indexOffset, size_t baseVertex) {
-#ifndef USING_GLES
-	glDrawElementsBaseVertex(
-		PrimitiveModeTable[static_cast<GLenum>(primitive)],
-		indexCount,
-		GL_UNSIGNED_INT,
-		(void*)(indexOffset * sizeof(unsigned)),
-		baseVertex
-	);
-#endif
-
-}
-
-void DriverGl::drawIndicesBaseVertexInstanced(PrimitiveMode primitive, size_t indexCount, size_t indexOffset,
-	size_t baseVertex, size_t instanceCount, size_t baseInstance) {
-#ifndef USING_GLES
-	glDrawElementsInstancedBaseVertexBaseInstance(
-		PrimitiveModeTable[static_cast<GLenum>(primitive)],
-		indexCount,
-		GL_UNSIGNED_INT,
-		(void*)(indexOffset * sizeof(unsigned)),
-		instanceCount,
-		baseVertex,
-		baseInstance
-	);
-#endif
-
-}
-
-void DriverGl::setPatchSize(int sz) const {
-#ifndef USING_GLES
-	glPatchParameteri(GL_PATCH_VERTICES, sz);
-#endif
-
-}
-
-void DriverGl::useBlendFactors(BlendFactor src, BlendFactor dist) {
-	if (src == BlendFactor::NONE || dist == BlendFactor::NONE) {
-		glDisable(GL_BLEND);
-	}
-	else {
-		glEnable(GL_BLEND);
-		glBlendFunc(BlendTable[static_cast<size_t>(src)], BlendTable[static_cast<size_t>(dist)]);
-	}
-}
-
-void DriverGl::useReversedDepth(bool value) {
-#ifndef USING_GLES
-	if (value) {
-		glClearDepth(0.0f);
-		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-		useDepthFunction(DepthFunction::GREATER_EQUAL);
-	}
-	else {
-		glClearDepth(1.0f);
-		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
-		useDepthFunction(DepthFunction::LESS);
-	}
-#endif
-}
-
-void DriverGl::setClearColor(float red, float green, float blue, float alpha) {
-	glClearColor(red, green, blue, alpha);
-}
-
-void DriverGl::clear(bool colorBuffer, bool depthBuffer, bool stencilBuffer) {
-	glClear(
-		(colorBuffer ? GL_COLOR_BUFFER_BIT : 0) |
-		(depthBuffer ? GL_DEPTH_BUFFER_BIT : 0) |
-		(stencilBuffer ? GL_STENCIL_BUFFER_BIT : 0)
-	);
-}
-
-void DriverGl::setRasterizationLinesWidth(float width) {
-	glLineWidth(width);
-}
-
-void DriverGl::setRasterizationMode(RasterizationMode rasterizationMode) {
-#ifndef USING_GLES
-	glPolygonMode(GL_FRONT_AND_BACK, RasterizationModeTable[static_cast<GLenum>(rasterizationMode)]);
-#endif
-
-}
-
-void DriverGl::setCapability(RenderingCapability capability, bool value) {
-	(value ? glEnable : glDisable)(RenderingCapabilityTable[static_cast<GLenum>(capability)]);
-}
-
-bool DriverGl::getCapability(RenderingCapability capability) const {
-	return glIsEnabled(RenderingCapabilityTable[static_cast<GLenum>(capability)]);
-}
-
-void DriverGl::setStencilAlgorithm(ComparaisonAlgorithm algorithm, int32_t reference, uint32_t mask) {
-	glStencilFunc(static_cast<GLenum>(algorithm), reference, mask);
-}
-
-void DriverGl::setDepthAlgorithm(ComparaisonAlgorithm algorithm) {
-	glDepthFunc(ComparaisonAlgorithmTable[static_cast<GLenum>(algorithm)]);
-}
-
-void DriverGl::setStencilMask(uint32_t mask) {
-	glStencilMask(mask);
-}
-
-void DriverGl::setStencilOperations(Operation stencilFail, Operation depthFail, Operation bothPass) {
-	glStencilOp(OperationTable[static_cast<GLenum>(stencilFail)], 
-		OperationTable[static_cast<GLenum>(depthFail)], 
-		OperationTable[static_cast<GLenum>(bothPass)]);
-}
-
-void DriverGl::setCullFace(CullFace cullFace) {
-	glCullFace(CullFaceTable[static_cast<GLenum>(cullFace)]);
-}
-
-void DriverGl::setDepthWriting(bool enable) {
-	glDepthMask(enable);
-}
-
-void DriverGl::setColorWriting(bool enableRed, bool enableGreen, bool enableBlue, bool enableAlpha) {
-	glColorMask(enableRed, enableGreen, enableBlue, enableAlpha);
-}
-
-void DriverGl::setColorWriting(bool enable) {
-	glColorMask(enable, enable, enable, enable);
-}
-
-void DriverGl::setViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
-	glViewport(x, y, width, height);
-}
-
-void DriverGl::readPixels(uint32_t x, uint32_t y, uint32_t width, uint32_t height, PixelDataFormat format, PixelDataType type, void* data) {
-	glReadPixels(x, y, width, height, PixelDataFormatTable[static_cast<GLenum>(format)], PixelDataTypeTable[static_cast<GLenum>(type)], data);
-}
-
-bool DriverGl::getBool(GLenum parameter) {
-	GLboolean result;
-	glGetBooleanv(parameter, &result);
-	return static_cast<bool>(result);
-}
-
-bool DriverGl::getBool(GLenum parameter, uint32_t index) {
-	GLboolean result = 0;
-#ifndef USING_GLES
-	glGetBooleani_v(parameter, index, &result);
-#endif
-	return static_cast<bool>(result);
-}
-
-int DriverGl::getInt(GLenum parameter) {
-	GLint result;
-	glGetIntegerv(parameter, &result);
-	return static_cast<int>(result);
-}
-
-int DriverGl::getInt(GLenum parameter, uint32_t index) {
-	GLint result = 0;
-#ifndef USING_GLES
-	glGetIntegeri_v(parameter, index, &result);
-#endif
-	return static_cast<int>(result);
-}
-
-float DriverGl::getFloat(GLenum parameter) {
-	GLfloat result = 0;
-	glGetFloatv(parameter, &result);
-	return static_cast<float>(result);
-}
-
-float DriverGl::getFloat(GLenum parameter, uint32_t index) {
-	GLfloat result = 0;
-#ifndef USING_GLES
-	glGetFloati_v(parameter, index, &result);
-#endif
-	return static_cast<float>(result);
-}
-
-double DriverGl::getDouble(GLenum parameter) {
-	double result = 0;
-#ifndef USING_GLES
-	glGetDoublev(parameter, &result);
-#endif
-	return static_cast<double>(result);
-}
-
-double DriverGl::getDouble(GLenum parameter, uint32_t index) {
-	double result = 0;
-#ifndef USING_GLES
-	glGetDoublei_v(parameter, index, &result);
-#endif
-	return static_cast<double>(result);
-}
-
-int64_t DriverGl::getInt64(GLenum parameter) {
-	GLint64 result = 0;
-#ifndef USING_GLES
-	glGetInteger64v(parameter, &result);
-#endif
-
-	return static_cast<int64_t>(result);
-}
-
-int64_t DriverGl::getInt64(GLenum parameter, uint32_t index) {
-	GLint64 result = 0;
-#ifndef USING_GLES
-	glGetInteger64i_v(parameter, index, &result);
-#endif
-	return static_cast<int64_t>(result);
-}
-
-std::string DriverGl::getString(GLenum parameter) {
-	const GLubyte* result = glGetString(parameter);
-	return result ? reinterpret_cast<const char*>(result) : std::string();
-}
-
-std::string DriverGl::getString(GLenum parameter, uint32_t index) {
-#ifndef USING_GLES
-	const GLubyte* result = glGetStringi(parameter, index);
-	return result ? reinterpret_cast<const char*>(result) : std::string();
-#else
-	return std::string();
-#endif
-}
-
-void DriverGl::clearFrameInfo() {
-	mFrameInfo.mBatchCount = 0;
-	mFrameInfo.mInstanceCount = 0;
-	mFrameInfo.mPolyCount = 0;
-}
-
-void DriverGl::draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) {
-	if (instances > 0) {
-		mFrameInfo.mBatchCount++;
-		mFrameInfo.mInstanceCount += instances;
-		mFrameInfo.mPolyCount += (mesh.getIndexCount() / 3) * instances;
-
-		mesh.bind();
-		if (mesh.getIndexCount() > 0) {
-			// EBO
-			if (instances == 1) {
-				glDrawElements(PrimitiveModeTable[static_cast<GLenum>(primitive)], mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr);
-			}
-			else {
-#ifndef USING_GLES
-				glDrawElementsInstanced(PrimitiveModeTable[static_cast<GLenum>(primitive)], mesh.getIndexCount(), GL_UNSIGNED_INT, nullptr, instances);
-#endif
-			}
-		}
-		else {
-			// EBO
-			if (instances == 1) {
-				//glPatchParameteri(GL_PATCH_VERTICES, 4);
-				//glDrawArrays(GL_PATCHES, 0, 4 * 20 * 20);
-				glDrawArrays(PrimitiveModeTable[static_cast<GLenum>(primitive)], 0, mesh.getVertexCount());
-			}
-			else {
-#ifndef USING_GLES
-				glDrawArraysInstanced(PrimitiveModeTable[static_cast<GLenum>(primitive)], 0, mesh.getVertexCount(), instances);
-#endif
-			}
-		}
-		mesh.unbind();
-	}
-}
-
-uint8_t DriverGl::fetchGLState() {
-
-	uint8_t result = 0;
-
-	GLboolean cMask[4];
-	glGetBooleanv(GL_COLOR_WRITEMASK, cMask);
-
-	if (getBool(GL_DEPTH_WRITEMASK))						result |= 0b0000'0001;
-	if (cMask[0])											result |= 0b0000'0010;
-	if (getCapability(RenderingCapability::BLEND))			result |= 0b0000'0100;
-	if (getCapability(RenderingCapability::CULL_FACE))		result |= 0b0000'1000;
-	if (getCapability(RenderingCapability::DEPTH_TEST))	result |= 0b0001'0000;
-
-	switch (static_cast<CullFace>(getInt(GL_CULL_FACE))) {
-	case CullFace::BACK:			result |= 0b0010'0000; break;
-	case CullFace::FRONT:			result |= 0b0100'0000; break;
-	case CullFace::FRONT_AND_BACK:  result |= 0b0110'0000; break;
-	}
-
-	return result;
-}
-
-void DriverGl::applyStateMask(uint8_t mask) {
-	if (mask != mState) {
-		if ((mask & 0x01) != (mState & 0x01))	setDepthWriting(mask & 0x01);
-		if ((mask & 0x02) != (mState & 0x02))	setColorWriting(mask & 0x02);
-		if ((mask & 0x04) != (mState & 0x04))	setCapability(RenderingCapability::BLEND, mask & 0x04);
-		if ((mask & 0x08) != (mState & 0x08))	setCapability(RenderingCapability::CULL_FACE, mask & 0x8);
-		if ((mask & 0x10) != (mState & 0x10))	setCapability(RenderingCapability::DEPTH_TEST, mask & 0x10);
-
-		if ((mask & 0x08) && ((mask & 0x20) != (mState & 0x20) || (mask & 0x40) != (mState & 0x40))) {
-			int backBit = mask & 0x20;
-			int frontBit = mask & 0x40;
-			setCullFace(backBit && frontBit ? CullFace::FRONT_AND_BACK :
-				(backBit ? CullFace::BACK : CullFace::FRONT));
-		}
-		mState = mask;
-	}
-}
-
-void DriverGl::setState(uint8_t st) {
-	mState = st;
-}
-
-const DriverGl::FrameInfo& DriverGl::getFrameInfo() const {
-	return mFrameInfo;
-}
-
-void DriverGl::useDepthBufferMask(bool value) {
-	glDepthMask(value);
-}
-
 
 #endif

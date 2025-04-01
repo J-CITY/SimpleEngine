@@ -99,10 +99,10 @@ std::shared_ptr<IKIGAI::RENDER::ShaderGl> IKIGAI::RENDER::ShaderGl::CreateFromPa
 	res.tessControl = path.contains(ShaderType::TESSELLATION_CONTROL) ?  path.at(ShaderType::TESSELLATION_CONTROL) : "";
 	res.tessEval = path.contains(ShaderType::TESSELLATION_EVALUATION) ?  path.at(ShaderType::TESSELLATION_EVALUATION) : "";
 	res.compute = path.contains(ShaderType::COMPUTE) ?  path.at(ShaderType::COMPUTE) : "";
-	return CreateFromPath(res);
+	return Create(res);
 }
 
-std::shared_ptr<IKIGAI::RENDER::ShaderGl> IKIGAI::RENDER::ShaderGl::CreateFromPath(const ShaderResource& resource) {
+std::shared_ptr<IKIGAI::RENDER::ShaderGl> IKIGAI::RENDER::ShaderGl::Create(const ShaderResource& resource) {
 	if (resource.useBinary) {
 		bool useBinary = resource.useBinary;
 		useBinary &= CheckBinarySupport();
@@ -111,7 +111,7 @@ std::shared_ptr<IKIGAI::RENDER::ShaderGl> IKIGAI::RENDER::ShaderGl::CreateFromPa
 			//TODO: ask it in file system
 			std::ifstream inputStream(binPath, std::ios::binary);
 			std::istreambuf_iterator<char> startIt(inputStream), endIt;
-			std::vector<std::byte> buffer(startIt, endIt);
+			std::vector<char> buffer(startIt, endIt);
 			inputStream.close();
 			return std::make_shared<ShaderGl>(resource, buffer);
 		}
@@ -145,7 +145,7 @@ IKIGAI::RENDER::ShaderGl::ShaderGl(const ShaderResource& res, const std::map<Sha
 }
 
 //For binary shader
-IKIGAI::RENDER::ShaderGl::ShaderGl(const ShaderResource& res, const std::vector<std::byte>& source) {
+IKIGAI::RENDER::ShaderGl::ShaderGl(const ShaderResource& res, const std::vector<char>& source) {
 	//Set paths
 	mPath = res.path;
 	if (!res.vertex.empty()) this->vertexPath = ConstructRealPath(res.vertex);
@@ -158,7 +158,7 @@ IKIGAI::RENDER::ShaderGl::ShaderGl(const ShaderResource& res, const std::vector<
 	readReflection();
 }
 
-void IKIGAI::RENDER::ShaderGl::loadBinaryShader(const std::vector<std::byte>& buffer) {
+void IKIGAI::RENDER::ShaderGl::loadBinaryShader(const std::vector<char>& buffer) {
 #ifndef USING_GLES
 	mId = glCreateProgram();
 	GLint formats = 0;

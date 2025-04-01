@@ -14,27 +14,23 @@ namespace IKIGAI::RENDER
 
 	class TextureGl : public TextureInterface {
 
-          void create(const TextureResource &descriptor,
-                      const std::vector<void *> &data);
+		void create(const TextureResource &descriptor, const std::vector<void *> &data);
 
-        public:
+	public:
 		TextureGl() = default;
 		TextureGl(const TextureResource& descriptor, const std::vector<void*>& data);
 		~TextureGl() override;
 
-		void setData(const std::vector<void*>& data, size_t width, size_t height, PixelFormat format, size_t mipLevel);
 		void generateMips();
 
 		void* getImguiId() override;
 
 		unsigned id = 0;
-                int slot = 0;
+		int slot = 0;
 
-                static std::shared_ptr<TextureGl>
-                Create(const TextureResource &descriptor);
-                static std::shared_ptr<TextureGl>
-                Create(const std::string &path, bool generateMipmap);
-				static std::shared_ptr<TextureGl> Create(const std::string& path);
+		static std::shared_ptr<TextureGl> Create(const TextureResource &descriptor);
+		//static std::shared_ptr<TextureGl> Create(const std::string &path, bool generateMipmap);
+		static std::shared_ptr<TextureGl> Create(const std::string& path);
 
                 // static std::shared_ptr<TextureGl> CreateHDREmptyCubemap(int
                 // width, int height); static std::shared_ptr<TextureGl>
@@ -56,13 +52,12 @@ namespace IKIGAI::RENDER
                 // int texZ); static std::vector<unsigned char> GetPixels(const
                 // std::string& path);
 
-                void bind(int slot);
+		void bind(int slot);
 		void unbind();
-
 		void bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format);
-        };
+	};
 
-        //TODO: add global struct and delete it
+	//TODO: add global struct and delete it
 	struct AtlasRect {
 		AtlasRect() = default;
 		AtlasRect(float x, float y, float w, float h) : mX(x), mY(y), mW(w), mH(h) {};
