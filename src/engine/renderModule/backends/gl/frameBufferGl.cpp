@@ -56,9 +56,9 @@ void FrameBufferGl::create() {
 		i++;
 	}
 	if (attachments.size()) {
-#ifndef USING_GLES
+//#ifndef USING_GLES
 		glDrawBuffers(attachments.size(), attachments.data());
-#endif
+//#endif
 	}
 	if (!mDepth) {
 		const unsigned int SCR_WIDTH = mTextures[0]->getWidth();
@@ -86,10 +86,12 @@ void FrameBufferGl::create() {
 		else
 		{
 #ifndef USING_GLES
+			// support only in es 3.2
 			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, std::static_pointer_cast<TextureGl>(mDepth)->id, 0);
 #endif
 		}
 #ifndef USING_GLES
+		//I dont know why glDrawBuffer undeclared 
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
 #endif
@@ -123,11 +125,11 @@ const std::shared_ptr<TextureInterface>& FrameBufferGl::getDepth() const {
 }
 
 void FrameBufferGl::CopyDepth(const FrameBufferGl& from, const FrameBufferGl& to, unsigned w, unsigned h) {
-#ifndef USING_GLES
+//#ifndef USING_GLES
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, from.mId);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, to.mId);
 	glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-#endif
+//#endif
 }
 #endif
 

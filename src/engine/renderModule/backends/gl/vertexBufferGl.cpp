@@ -24,7 +24,9 @@ namespace IKIGAI::INTERNAL
 		GL_INT,
 		GL_UNSIGNED_INT,
 		GL_FLOAT,
+#ifndef USING_GLES
 		GL_DOUBLE,
+#endif
 	};
 }
 

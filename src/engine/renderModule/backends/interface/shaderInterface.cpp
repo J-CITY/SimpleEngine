@@ -9,9 +9,10 @@ std::string IKIGAI::RENDER::ShaderInterface::ConstructRealPath(const std::string
 	//	return path;
 	//}
 
+
 #ifdef OPENGL_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-		return IKIGAI::UTILS::ReplaceSubstring(path, "shaders/", "shaders/opengl/");
+		return path;// IKIGAI::UTILS::ReplaceSubstring(path, "shaders/", "shaders/gl/");
 	}
 #endif
 #ifdef VULKAN_BACKEND

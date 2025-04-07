@@ -30,7 +30,7 @@ namespace IKIGAI::RENDER
 
 		static std::shared_ptr<TextureGl> Create(const TextureResource &descriptor);
 		//static std::shared_ptr<TextureGl> Create(const std::string &path, bool generateMipmap);
-		static std::shared_ptr<TextureGl> Create(const std::string& path);
+		static std::shared_ptr<TextureGl> Create(const std::string& path, bool getMipMap=true);
 
                 // static std::shared_ptr<TextureGl> CreateHDREmptyCubemap(int
                 // width, int height); static std::shared_ptr<TextureGl>

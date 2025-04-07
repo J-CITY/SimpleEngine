@@ -29,11 +29,11 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 	auto getFormat = [](int nrComponents) {
 	GLenum format = GL_RGBA;
 		if (nrComponents == 1)
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			format = GL_RED;
-#else
-			format = GL_ALPHA;
-#endif
+//#else
+//			format = GL_ALPHA;
+//#endif
 		else if (nrComponents == 3)
 			format = GL_RGB;
 		else if (nrComponents == 4)
@@ -43,23 +43,23 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 	auto getInternalFormat = [](int nrComponents, bool isFloat) {
 		GLenum format = GL_RGBA;
 		if (nrComponents == 1)
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			format = isFloat ? GL_R16F : GL_RED;
-#else
-			format = GL_ALPHA;
-#endif
+//#else
+//			format = GL_ALPHA;
+//#endif
 		else if (nrComponents == 3)
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			format = isFloat ? GL_RGB16F : GL_RGB;
-#else
-			format = GL_RGB;
-#endif
+//#else
+//			format = GL_RGB;
+//#endif
 		else if (nrComponents == 4)
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			format = isFloat ? GL_RGBA16F : GL_RGBA;
-#else
-			format = GL_RGBA;
-#endif
+//#else
+//			format = GL_RGBA;
+//#endif
 		return format;
 	};
 
@@ -154,10 +154,10 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 	#endif
 		case TextureType::TEXTURE_CUBE:
 			return GL_TEXTURE_CUBE_MAP;
-	#ifndef USING_GLES
+	//#ifndef USING_GLES
 		case TextureType::TEXTURE_2D_ARRAY:
 			return GL_TEXTURE_2D_ARRAY;
-	#endif
+	//#endif
 		default:
 			return GL_TEXTURE_2D;
 		}
@@ -190,9 +190,9 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 		}
 		return;
 		case TextureType::TEXTURE_2D_ARRAY: {
-	#ifndef USING_GLES
+	//#ifndef USING_GLES
 			glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, internalFormat, width, height, depth, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), datas[0]);
-	#endif
+	//#endif
 		}
 		return;
 		}
@@ -311,10 +311,10 @@ TextureGl::Create(const TextureResource &descriptor) {
 			}
 			else {
 				auto *data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &channels, 0);
-				if (channels == 3) { // because dx12 dose not support RGB8
-					UTILS::STBiImageFree((unsigned char *)data);
-					data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &channels, 4);
-				}
+				//if (channels == 3) { // because dx12 dose not support RGB8
+				//	UTILS::STBiImageFree((unsigned char *)data);
+				//	data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &channels, 4);
+				//}
 				textureData.push_back(data);
 			}
 			_descriptor.width = width;
@@ -343,12 +343,12 @@ TextureGl::Create(const TextureResource &descriptor) {
 	return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path) {
+std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMipmap) {
 	//int width = 0, height = 0, nrComponents = 0;
 	//IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
 	//unsigned char* data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &nrComponents, 4);
 	TextureResource res;
-	res.useMipmap = true;
+	res.useMipmap = genMipmap;
 	res.pathTexture.push_back(path);
 	//auto tex = std::make_shared<TextureDx12>(res, std::vector<void*>{data});
 	return Create(res);
@@ -362,9 +362,9 @@ void TextureGl::bind(int _slot) {
   } else if (mType == TextureType::TEXTURE_CUBE) {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, id);
   } else if (mType == TextureType::TEXTURE_2D_ARRAY) {
-#ifndef USING_GLES
+//#ifndef USING_GLES
 		glBindTexture(GL_TEXTURE_2D_ARRAY, id);
-#endif
+//#endif
 	}
 	else if (mType == TextureType::TEXTURE_3D) {
 #ifndef USING_GLES
@@ -448,11 +448,11 @@ std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path,
 	{
 		GLenum format;
 		if (nrComponents == 1)
-#ifndef USING_GLES
+//#ifndef USING_GLES
 			format = GL_RED;
-#else
-			format = GL_ALPHA;
-#endif
+//#else
+//			format = GL_ALPHA;
+//#endif
 		else if (nrComponents == 3)
 			format = GL_RGB;
 		else if (nrComponents == 4)

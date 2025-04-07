@@ -58,6 +58,8 @@ std::string readFile(const std::string& path) {
 std::string readFileWithInclude(const std::string& path) {
 	auto dir = std::filesystem::path{ path }.parent_path();
 
+	std::cout << path << " " << std::filesystem::exists(path) << "\n";
+	
 	auto content = readFile(path);
 
 	size_t start = 0;
@@ -518,7 +520,8 @@ void IKIGAI::RENDER::ShaderGl::readReflection() {
 		mReflection.mUniforms.push_back(uniform);
 		mReflection.mNameToUniforms[uniform.mName] = mReflection.mUniforms.size() - 1;
 	}
-#endif
+
+
 	for (int i = 0; i < data.size(); ++i) {
 		if (usedIds.contains(i)) {
 			continue;
@@ -531,6 +534,7 @@ void IKIGAI::RENDER::ShaderGl::readReflection() {
 		mReflection.mUniforms.push_back(uniform);
 		mReflection.mNameToUniforms[uniform.mName] = mReflection.mUniforms.size() - 1;
 	}
+#endif
 }
 
 //TODO: use logger
@@ -633,38 +637,48 @@ void IKIGAI::RENDER::ShaderGl::setMat3(const std::string& name, const IKIGAI::MA
 #ifndef USING_GLES
 	glUniformMatrix3fv(getUniformLocation(name), 1, GL_TRUE, mat3.getData());
 #else
-	auto m = IKIGAI::MATH::Matrix4f::Transpose(mat3);
+	auto m = IKIGAI::MATH::Matrix3f::Transpose(mat3);
 	glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, m.getData());
 #endif
 }
 
 IKIGAI::MATH::Vector2f IKIGAI::RENDER::ShaderGl::getUniformVec2(const std::string& name) const {
 	GLfloat values[2];
+#ifndef USING_GLES
 	glGetnUniformfv(static_cast<unsigned>(mId), getUniformLocation(name), 2 * sizeof(float), values);
+#endif
 	return reinterpret_cast<IKIGAI::MATH::Vector2f&>(values);
 }
 
 IKIGAI::MATH::Vector3f IKIGAI::RENDER::ShaderGl::getUniformVec3(const std::string& name) const {
 	GLfloat values[3];
+#ifndef USING_GLES
 	glGetnUniformfv(static_cast<unsigned>(mId), getUniformLocation(name), 3 * sizeof(float), values);
+#endif
 	return reinterpret_cast<IKIGAI::MATH::Vector3f&>(values);
 }
 
 IKIGAI::MATH::Vector4f IKIGAI::RENDER::ShaderGl::getUniformVec4(const std::string& name) const {
 	GLfloat values[4];
+#ifndef USING_GLES
 	glGetnUniformfv(static_cast<unsigned>(mId), getUniformLocation(name), 4 * sizeof(float), values);
+#endif
 	return reinterpret_cast<IKIGAI::MATH::Vector4f&>(values);
 }
 
 IKIGAI::MATH::Matrix3f IKIGAI::RENDER::ShaderGl::getUniformMat3(const std::string& name) const {
 	GLfloat values[16];
+#ifndef USING_GLES
 	glGetnUniformfv(static_cast<unsigned>(mId), getUniformLocation(name), 9 * sizeof(float), values);
+#endif
 	return reinterpret_cast<IKIGAI::MATH::Matrix3f&>(values);
 }
 
 IKIGAI::MATH::Matrix4f IKIGAI::RENDER::ShaderGl::getUniformMat4(const std::string& name) const {
 	GLfloat values[16];
+#ifndef USING_GLES
 	glGetnUniformfv(static_cast<unsigned>(mId), getUniformLocation(name), 16 * sizeof(float), values);
+#endif
 	return reinterpret_cast<IKIGAI::MATH::Matrix4f&>(values);
 }
 

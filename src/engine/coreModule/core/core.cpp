@@ -28,6 +28,7 @@
 #include <coreModule/ecs/components/scriptComponent.h>
 #include "coreModule/ecs/components/batchComponent.h"
 #include "editorModule/editorRender.h"
+#include "renderModule/gameRendererGl.h"
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/driverGl.h>
 #include <renderModule/gameRendererGl.h>
@@ -119,15 +120,16 @@ Core:: Core(
 #ifdef VULKAN_BACKEND
 	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
 		driver = std::make_unique<RENDER::DriverVk>();
-		driver->init();
+		//driver->init();
 	//}
 #endif
 
 #ifdef DX12_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
+	//TODO: use file config
+	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
 		driver = std::make_unique<RENDER::DriverDx12>();
 		//driver->init();
-	}
+	//}
 #endif
 	if (!driver) {
 		throw;
@@ -194,36 +196,37 @@ Core:: Core(
 	RESOURCES::ServiceManager::Set<RESOURCES::AudioSourceLoader>(audioSourceLoader.get());
 	RESOURCES::ServiceManager::Set<TASK::TaskSystem>(taskManger.get());
 	RESOURCES::ServiceManager::Set<EVENT::EventBroadcaster>(eventBroadcaster.get());
-#ifdef OPENGL_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
+//#ifdef OPENGL_BACKEND
+//	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
 		renderer = std::make_unique<RENDER::GameRendererGl>(*this);
-	}
-#endif
-#ifdef VULKAN_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-		renderer = std::make_unique<RENDER::GameRendererVk>(*this);
-	//}
-#endif
-#ifdef DX12_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
-		renderer = std::make_unique<RENDER::GameRendererDx12>(hInstance, *this);
-		//driver->init();
-
-		static_cast<RENDER::GameRendererDx12*>(renderer.get())->Initialize();
-	}
-#endif
+//	}
+//#endif
+//#ifdef VULKAN_BACKEND
+//	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
+//		renderer = std::make_unique<RENDER::GameRendererVk>(*this);
+//	//}
+//#endif
+//#ifdef DX12_BACKEND
+//	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
+//		renderer = std::make_unique<RENDER::GameRendererDx12>(hInstance, *this);
+//		//driver->init();
+//
+//		static_cast<RENDER::GameRendererDx12*>(renderer.get())->Initialize();
+//	}
+//#endif
 	if (!renderer) {
 		throw;
 	}
 
+	window->initImGUI();
 	
 	//renderer->setCapability(RENDER::RenderingCapability::MULTISAMPLE, true);
 	RESOURCES::ServiceManager::Set<RENDER::GameRendererInterface>(static_cast<RENDER::GameRendererInterface*>(renderer.get()));
 	//driver->init();
 
-#ifdef VULKAN_BACKEND
-	reinterpret_cast<RENDER::GameRendererVk*>(renderer.get())->createVkResources();
-#endif
+//#ifdef VULKAN_BACKEND
+//	reinterpret_cast<RENDER::GameRendererVk*>(renderer.get())->createVkResources();
+//#endif
 	//debugRender = std::make_unique<DEBUG::DebugRender>();
 
 #ifdef USE_EDITOR

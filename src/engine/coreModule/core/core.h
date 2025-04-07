@@ -4,20 +4,17 @@
 #ifdef USE_EDITOR
 namespace IKIGAI
 {
-	namespace EVENT
-	{
-		class EventBroadcaster;
-	}
-}
-
-namespace IKIGAI
-{
 	namespace EDITOR
 	{
 		class EditorRender;
 	}
 }
 #endif
+namespace IKIGAI {
+	namespace EVENT {
+		class EventBroadcaster;
+	}
+}
 namespace IKIGAI
 {
 	namespace TASK

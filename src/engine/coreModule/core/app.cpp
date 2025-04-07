@@ -239,8 +239,16 @@ void App::preUpdate(std::chrono::duration<double> dt) {
 	core.editorRender->draw();
 	core.window->update();
 #endif
+
 #ifdef DX12_BACKEND
 	core.editorRender->draw();
+#endif
+
+#ifdef OPENGL_BACKEND
+#ifndef __EMSCRIPTEN__
+	core.editorRender->draw();
+#endif
+	//core.window->update();
 #endif
 }
 
@@ -292,6 +300,7 @@ void App::update(std::chrono::duration<double> dt) {
 			system.second->onLateUpdate(dt);
 		}
 #ifndef OCULUS
+		core.window->update();
 		core.renderer->renderScene();
 #endif
 		//core.renderer->setClearColor(1.0f, 0.0f, 0.0f);
@@ -305,14 +314,14 @@ void App::update(std::chrono::duration<double> dt) {
 #ifdef USE_EDITOR
 #ifndef OCULUS
 #ifndef VULKAN_BACKEND
-	core.editorRender->draw();
+	//core.editorRender->draw();
 #endif
 #endif
 #endif
 
 #ifndef OCULUS
 #ifndef VULKAN_BACKEND
-	core.window->update();
+	//core.window->update();
 #endif
 #else
 	core.window->update([this](XrCompositionLayerProjectionView &layerView,
