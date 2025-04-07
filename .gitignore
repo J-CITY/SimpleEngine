@@ -14,3 +14,8 @@ android/sdl
 oculus/gl2tri3dOXR/app/src/main/assets
 windows/out
 CMakeCache.txt
+/windows/buildGl
+/windows/buildVk
+/windows/buildDx
+/windows/outVk
+/windows/outGl
