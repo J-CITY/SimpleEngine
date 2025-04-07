@@ -6,7 +6,7 @@ project(${APP_NAME})
 
 set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../3rd")
 set(MAIN_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../src")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/outGl)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/outVk)
 
 # if SDL2
 set(LIB_SDL2 ${THIRD_PARTY_DIR}/SDL2_windows/lib/x64/SDL2.lib)
@@ -16,7 +16,7 @@ set(LIB_SDL2_MAIN ${THIRD_PARTY_DIR}/SDL2_windows/lib/x64/SDL2main.lib)
 #add_subdirectory(${THIRD_PARTY_DIR}/glfw ${THIRD_PARTY_DIR}/glfw/build)
 
 # if OPENGL
-set(LIB_GLEW ${THIRD_PARTY_DIR}/glew/lib/Release/x64/glew32s.lib)
+#set(LIB_GLEW ${THIRD_PARTY_DIR}/glew/lib/Release/x64/glew32s.lib)
 
 add_subdirectory(${THIRD_PARTY_DIR}/assimp ./3rd/assimp/build)
 add_subdirectory(${THIRD_PARTY_DIR}/freetype ./3rd/freetype/build)
@@ -25,10 +25,10 @@ add_subdirectory(${THIRD_PARTY_DIR}/freetype ./3rd/freetype/build)
 include_directories(${THIRD_PARTY_DIR}/SDL2_windows/include)
 
 # if OPENGL
-include_directories(${THIRD_PARTY_DIR}/glew/include)
+#include_directories(${THIRD_PARTY_DIR}/glew/include)
 
 # if VULKAN
-#include_directories(${THIRD_PARTY_DIR}/VulkanSDK/Include)
+include_directories(${THIRD_PARTY_DIR}/VulkanSDK/Include)
 
 
 include_directories(${THIRD_PARTY_DIR}/glm)
@@ -37,7 +37,7 @@ include_directories(${THIRD_PARTY_DIR}/magic_enum/include)
 include_directories(${THIRD_PARTY_DIR}/nameof/include)
 include_directories(${THIRD_PARTY_DIR}/json/single_include)
 include_directories(${THIRD_PARTY_DIR}/assimp/include)
-include_directories(./buildGl/3rd/assimp/build/include)
+include_directories(./buildDx/3rd/assimp/build/include)
 include_directories(${THIRD_PARTY_DIR}/soloud/include)
 include_directories(${THIRD_PARTY_DIR}/fmt/include)
 
@@ -63,20 +63,18 @@ file(GLOB_RECURSE IMGUI_FILES
      "../3rd/imgui/imgui/backends/imgui_impl_sdl2.cpp"
      
      #OPENGL
-     "../3rd/imgui/imgui/backends/imgui_impl_opengl3.h"
-     "../3rd/imgui/imgui/backends/imgui_impl_opengl3.cpp"
-     "../3rd/imgui/imgui/backends/imgui_impl_opengl3_loader.h"
+     #"../3rd/imgui/imgui/imgui_impl_opengl3.h"
+     #"../3rd/imgui/imgui/imgui_impl_opengl3.cpp"
+     #"../3rd/imgui/imgui/imgui_impl_opengl3_loader.h"
 
      #VULKAN
-     #"../3rd/imgui/imgui/imgui_impl_vulkan.h"
-     #"../3rd/imgui/imgui/imgui_impl_vulkan.cpp"
+     "../3rd/imgui/imgui/imgui_impl_vulkan.h"
+     "../3rd/imgui/imgui/imgui_impl_vulkan.cpp"
 
      # DX12
      #"../3rd/imgui/imgui/imgui_impl_dx12.h"
      #"../3rd/imgui/imgui/imgui_impl_dx12.cpp"
-     #"../3rd/imgui/imgui/imgui_impl_win32.h"
-     #"../3rd/imgui/imgui/imgui_impl_win32.cpp"
-
+     
      "../3rd/imgui/imgui/imgui_internal.h"
      "../3rd/imgui/imgui/imgui_tables.cpp"
      "../3rd/imgui/imgui/imgui_widgets.cpp"
@@ -148,7 +146,6 @@ include_directories("../3rd/sol/include")
 target_include_directories(lua PUBLIC "../3rd/lua")
 include_directories("../3rd/lua")
 include_directories("../3rd/freetype/include")
-include_directories("../3rd/vfspp/include")
 include_directories("../3rd/spine")
 target_include_directories(spine  PUBLIC "../3rd/spine")
 
@@ -198,16 +195,16 @@ add_compile_definitions(USE_EDITOR)
 add_compile_definitions(USE_CHEATS)
 
 # if (backend == opengl)
-add_compile_definitions(OPENGL_BACKEND)
-add_compile_definitions(OPENGL_SIMPLE_RENDER)
+#add_compile_definitions(OPENGL_BACKEND)
+#add_compile_definitions(OPENGL_SIMPLE_RENDER)
 #add_compile_definitions(OPENGL_HARD_RENDER)
 
 # if (backend == vulkan)
-#add_compile_definitions(VULKAN_BACKEND)
+add_compile_definitions(VULKAN_BACKEND)
 
 # if (backend == directx12)
 #add_compile_definitions(DX12_BACKEND)
-#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
+##set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
 #add_compile_definitions(UNICODE)
 
 target_compile_options(${APP_NAME} PRIVATE /bigobj)
@@ -217,11 +214,11 @@ target_link_libraries(
     ${APP_NAME}
 
     #if OPENGL
-    opengl32
-    ${LIB_GLEW}
+    #opengl32
+    #${LIB_GLEW}
 
     #if VULKAN
-    #${THIRD_PARTY_DIR}/VulkanSDK/Lib/vulkan-1.lib
+    ${THIRD_PARTY_DIR}/VulkanSDK/Lib/vulkan-1.lib
 
     # if SDL2
     ${LIB_SDL2}
@@ -229,10 +226,13 @@ target_link_libraries(
 
     #${THIRD_PARTY_DIR}/glfw/build/src/Debug/glfw3ddll.lib
 
-    ${THIRD_PARTY_DIR}/../windows/buildGl/3rd/assimp/build/lib/Debug/assimp-vc143-mtd.lib
-    ${THIRD_PARTY_DIR}/../windows/buildGl/3rd/freetype/build/Debug/freetyped.lib
+    ${THIRD_PARTY_DIR}/../windows/buildDx/3rd/assimp/build/lib/Debug/assimp-vc143-mtd.lib
+    ${THIRD_PARTY_DIR}/../windows/buildDx/3rd/freetype/build/Debug/freetyped.lib
     imgui
     spine
     lua
     ${THIRD_PARTY_DIR}/soloud/lib/soloud_static_x64_d.lib
+
+    #if directx12
+    #d3d12.lib d3dcompiler.lib dxcompiler.lib dxgi
 )
