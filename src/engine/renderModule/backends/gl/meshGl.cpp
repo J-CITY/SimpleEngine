@@ -10,6 +10,30 @@ using namespace IKIGAI::RENDER;
 #include <android/log.h>
 #endif
 
+MeshGl::MeshGl(const VertexDescriptor& descriptor, void* vertices, size_t vertexSize, size_t vertexCount, std::vector<unsigned int> indices, size_t offset, unsigned materialIndex):
+	mDescriptor(descriptor),
+	mVertexSize(vertexSize),
+	mVertexCount(vertexCount),
+	mIndicesCount(indices.size()),
+	mOffset(offset),
+	mMaterialIndex(materialIndex) {
+
+
+	mVertexArray = std::make_unique<VertexArray>();
+	mVertexBuffer = std::make_unique<VertexBufferGl>(vertices, vertexCount, vertexSize, VertexBufferGl::UsageType::STATIC_DRAW);
+	mIndexBuffer = std::make_unique<IndexBufferGl>(indices);
+
+	//TODO:
+	mVertexArray->bindAttribute(0, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
+	mVertexArray->bindAttribute(1, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
+	mVertexArray->bindAttribute(2, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
+	mVertexArray->bindAttribute(3, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
+	mVertexArray->bindAttribute(4, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
+	mVertexArray->bindAttribute(5, *mVertexBuffer, VertexArray::AttributeType::INT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	mVertexArray->bindAttribute(6, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
+
+}
+
 MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsigned materialIndex) :
 	mVertexCount(static_cast<unsigned>(vertices.size())),
 	mIndicesCount(static_cast<unsigned>(indices.size())),

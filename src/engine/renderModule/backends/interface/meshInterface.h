@@ -9,6 +9,16 @@ namespace IKIGAI
 {
 	namespace RENDER
 	{
+
+		struct VertexDescriptor {
+			struct Member {
+				unsigned mType = 0;
+				unsigned mCount = 0;
+				unsigned mOffset = 0;
+			};
+			std::vector<Member> mMembers;
+		};
+
 		class MeshInterface {
 		public:
 			virtual ~MeshInterface() = default;

@@ -23,6 +23,7 @@ namespace IKIGAI::RENDER
 	public:
 		template <class T>
 		VertexBufferGl(const std::vector<T>& vertices, UsageType type = UsageType::STATIC_DRAW): VertexBufferGl(static_cast<const void*>(vertices.data()), vertices.size(), sizeof(T), type) {}
+		VertexBufferGl(const void* data, size_t sz, size_t stride, UsageType type);
 		~VertexBufferGl() override;
 		void bind() override;
 		void unbind() override;
@@ -37,7 +38,6 @@ namespace IKIGAI::RENDER
 		Id mId = 0;
 		UsageType mType = UsageType::STATIC_DRAW;
 
-		VertexBufferGl(const void* data, size_t sz, size_t stride, UsageType type);
 	};
 
 
