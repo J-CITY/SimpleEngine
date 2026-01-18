@@ -15,6 +15,10 @@ namespace IKIGAI {
 			static ResourcePtr<RENDER::MaterialInterface> Create(const std::string& path);
 		protected:
 			virtual ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path) override;
+			virtual ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type) override {
+				return createResource(path, type, std::any());
+			}
+			virtual ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 		};
 	}
 }

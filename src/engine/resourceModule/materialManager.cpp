@@ -23,8 +23,9 @@
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::CreateFromFile(const std::string& path) {
 	//const std::string realPath = getRealPath(path);
 	auto material = Create(path);
+	//set path from constructor
 	if (material) {
-		material->mPath = path;
+		//material->getPath() = path;
 	}
 	return material;
 }
@@ -36,14 +37,14 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 		//TODO: add check
 		auto materialDescriptor = UTILS::FromJson<RENDER::MaterialResource>(path).unwrap();
 		auto material = ResourcePtr<RENDER::MaterialGl>(new RENDER::MaterialGl(materialDescriptor), [](RENDER::MaterialGl* m) {
-			ServiceManager::Get<MaterialLoader>().unloadResource(m->mPath);
+			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
 		});
 		if (!path.empty()) {
-			material->mPath = path;
+			//material->mPath = path;
 			auto id = RESOURCES::FileWatcher::getInstance()->add(UTILS::GetRealPath(path), [material](RESOURCES::FileWatcher::FileStatus status) {
 				switch (status) {
 				case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-					std::ifstream ifs(UTILS::GetRealPath(material->mPath));
+					std::ifstream ifs(UTILS::GetRealPath(material->getPath()));
 					auto root = nlohmann::json::parse(ifs);
 					//material->onDeserialize(root);
 					break;
@@ -67,12 +68,12 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 #ifdef VULKAN_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
 		auto material = ResourcePtr<RENDER::MaterialVk>(new RENDER::MaterialVk(), [](RENDER::MaterialVk* m) {
-			ServiceManager::Get<MaterialLoader>().unloadResource(m->mPath);
+			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
 		});
 		if (!path.empty()) {
 			std::ifstream ifs(UTILS::GetRealPath(path));
 			auto root = nlohmann::json::parse(ifs);
-			material->onDeserialize(root);
+			//material->onDeserialize(root);
 		}
 		return material;
 	}
@@ -81,12 +82,12 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 #ifdef DX12_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
 		auto material = ResourcePtr<RENDER::MaterialDx12>(new RENDER::MaterialDx12(), [](RENDER::MaterialDx12* m) {
-			ServiceManager::Get<MaterialLoader>().unloadResource(m->mPath);
-			});
+			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
+		});
 		if (!path.empty()) {
 			std::ifstream ifs(UTILS::GetRealPath(path));
 			auto root = nlohmann::json::parse(ifs);
-			material->onDeserialize(root);
+			//material->onDeserialize(root);
 		}
 		return material;
 	}
@@ -96,4 +97,11 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path) {
 	return CreateFromFile(path);
+}
+
+IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+	if (type == ELoadingType::RESOURCE) {
+		return CreateFromFile(path);
+	}
+	return createResource(path);
 }

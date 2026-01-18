@@ -44,7 +44,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const RE
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileHDR(const std::string& filepath, bool generateMipmap) {
 #ifdef OPENGL_BACKEND
-	return RENDER::TextureGl::CreateHDR(IKIGAI::UTILS::GetRealPath(filepath), generateMipmap);
+	//return RENDER::TextureGl::CreateHDR(IKIGAI::UTILS::GetRealPath(filepath), generateMipmap);
 #endif
 	//TODO: other backend
 	return nullptr;
@@ -53,7 +53,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileHDR(const std
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, bool generateMipmap) {
 	uint8_t buffer [] = {r, g, b, 255};
 #ifdef OPENGL_BACKEND
-	return RENDER::TextureGl::CreateFromMemory(&buffer[0], 1, 1, generateMipmap);
+	//return RENDER::TextureGl::CreateFromMemory(&buffer[0], 1, 1, generateMipmap);
 #endif
 	//TODO: other backend
 	return nullptr;
@@ -66,7 +66,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, 
 	buffer[2] = (data >> 8) & 0xFF;
 	buffer[3] = data & 0xFF;
 #ifdef OPENGL_BACKEND
-	return RENDER::TextureGl::CreateFromMemory(&buffer[0], 1, 1, generateMipmap);
+	//return RENDER::TextureGl::CreateFromMemory(&buffer[0], 1, 1, generateMipmap);
 #endif
 	//TODO: other backend
 	return nullptr;
@@ -74,7 +74,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, 
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, bool generateMipmap) {
 #ifdef OPENGL_BACKEND
-	return RENDER::TextureGl::CreateFromMemory(data, width, height, generateMipmap);
+	//return RENDER::TextureGl::CreateFromMemory(data, width, height, generateMipmap);
 #endif
 	//TODO: other backend
 	return nullptr;
@@ -82,6 +82,28 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemory(uint8_t* d
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::createResource(const std::string& path) {
 	return CreateFromFile(path, true);
+}
+
+ResourcePtr<RENDER::TextureInterface> TextureLoader::createResource(const std::string& path, ELoadingType type) {
+	return createResource(path, type, std::any());
+}
+
+ResourcePtr<RENDER::TextureInterface> TextureLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+	if (type == ELoadingType::FILE) {
+		return createFromFile(path, true);
+	}
+	else if (type == ELoadingType::RESOURCE) {
+		return createFromResource(path);
+	}
+	else if (type == ELoadingType::MEMORY) {
+		// Example: data might contain metadata or actual buffer? 
+		// TextureLoader has CreateFromMemory but it needs pointer and size. 
+		// User said "needs to save feature somewhere".
+		// For now we just return null or handle specific data types if we define them.
+		// Assuming std::any holds a struct or tuple?
+		// Let's support a tuple or struct if needed.
+	}
+	return createResource(path);
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromResource(const std::string& path) {

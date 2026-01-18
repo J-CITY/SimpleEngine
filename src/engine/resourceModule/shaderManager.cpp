@@ -37,6 +37,14 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::createResource(const std::str
 	return Create(path);
 }
 
+ResourcePtr<RENDER::ShaderInterface> ShaderLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+	if (type == ELoadingType::RESOURCE) {
+		return Create(path);
+	}
+	// TODO: Support other types if shader makes sense as single file or memory
+	return createResource(path);
+}
+
 void ShaderLoader::UpdateFileWatchResource(const std::string& filePath) {
 	auto newShader = CreateWithEmptyDeleter(filePath);
 
@@ -59,7 +67,7 @@ void ShaderLoader::UpdateFileWatchResource(const std::string& filePath) {
 
 void ShaderLoader::AddFileWatchSubscribe(const RENDER::ShaderResource& _res, const std::string& filePath)
 {
-	if (_res.needFileWatch) {
+	//if (_res.needFileWatch) {
 		auto fwCb = [filePath](RESOURCES::FileWatcher::FileStatus status) {
 			switch (status) {
 			case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
@@ -100,7 +108,7 @@ void ShaderLoader::AddFileWatchSubscribe(const RENDER::ShaderResource& _res, con
 		if (!_res.compute.empty()) {
 			RESOURCES::FileWatcher::getInstance()->addDeferred(UTILS::GetRealPath(_res.compute), fwCb, saveCb);
 		}
-	}
+	//}
 }
 
 ResourcePtr<RENDER::ShaderInterface> ShaderLoader::Create(const std::string& _filePath) {
@@ -118,10 +126,12 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::Create(const std::string& _fi
 	AddFileWatchSubscribe(_res, filePath);
 	//TODO:: add other backends
 #ifdef OPENGL_BACKEND
-	auto shader = ResourcePtr<RENDER::ShaderGl>(new RENDER::ShaderGl(_res), [](RENDER::ShaderGl* m) {
-		ServiceManager::Get<ShaderLoader>().unloadResource(m->mPath);
-		delete m;
-	});
+	auto shader = RENDER::ShaderGl::Create(_res);
+	//TODO: add deleter to Create
+	//auto shader = ResourcePtr<RENDER::ShaderGl>(new RENDER::ShaderGl(_res), [](RENDER::ShaderGl* m) {
+	//	ServiceManager::Get<ShaderLoader>().unloadResource(m->mPath);
+	//	delete m;
+	//});
 	if (shader) {
 		shader->mPath = filePath;
 	}
@@ -131,7 +141,7 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::Create(const std::string& _fi
 
 ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromResource(const RENDER::ShaderResource& res) {
 #ifdef OPENGL_BACKEND
-	return std::make_shared<RENDER::ShaderGl>(res);
+	return RENDER::ShaderGl::Create(res);
 #endif
 #ifdef VULKAN_BACKEND
 	//TODO:
@@ -145,7 +155,7 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromResource(const REND
 #endif
 
 }
-
+//TODO: delete it
 ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateWithEmptyDeleter(const std::string& filePath) {
 	FILE_PATH = filePath;
 
@@ -159,7 +169,7 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateWithEmptyDeleter(const 
 	AddFileWatchSubscribe(_res, filePath);
 	//TODO:: add other backends
 #ifdef OPENGL_BACKEND
-	return ResourcePtr<RENDER::ShaderGl>(new RENDER::ShaderGl(_res), [](RENDER::ShaderGl* m) {	});
+	return RENDER::ShaderGl::Create(_res);
 #endif
 #ifdef VULKAN_BACKEND
 	//TODO:

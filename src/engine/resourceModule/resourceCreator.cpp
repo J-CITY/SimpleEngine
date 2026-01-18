@@ -18,7 +18,7 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURC
 }
 
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorOpengl::createFromResource(const RENDER::TextureResource& res) {
-	return RENDER::TextureGl::CreateFromResource(res);
+	return RENDER::TextureGl::Create(res);
 }
 
 #endif

@@ -40,6 +40,8 @@ namespace IKIGAI {
 			static ResourcePtr<RENDER::TextureInterface> CreateFromMemory(uint8_t* data, uint32_t width, uint32_t height, bool generateMipmap);
 
 			virtual ResourcePtr<RENDER::TextureInterface> createResource(const std::string& path) override;
+			virtual ResourcePtr<RENDER::TextureInterface> createResource(const std::string& path, ELoadingType type) override;
+			virtual ResourcePtr<RENDER::TextureInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 
 			static std::unique_ptr<TextureResourceCreatorInterface> mCreator;
 		};

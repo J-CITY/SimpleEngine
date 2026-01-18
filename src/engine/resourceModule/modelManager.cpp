@@ -198,6 +198,17 @@ ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::createResource(const st
 	return model;
 }
 
+ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+	if (type == ELoadingType::FILE) {
+		return CreateFromFile(path);
+	}
+	else if (type == ELoadingType::RESOURCE) {
+		return CreateFromResource(path);
+	}
+	// TODO: MEMORY/DESCRIPTOR if needed
+	return createResource(path);
+}
+
 
 //#include <rttr/registration>
 //

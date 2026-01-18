@@ -16,6 +16,13 @@ ResourcePtr<AUDIO::SoundResource> AudioSourceLoader::createResource(const std::s
 	return CreateFromFile(path);
 }
 
+ResourcePtr<AUDIO::SoundResource> AudioSourceLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+	if (type == ELoadingType::RESOURCE) {
+		return CreateFromFile(path);
+	}
+	return createResource(path);
+}
+
 ResourcePtr<AUDIO::SoundResource> AudioSourceLoader::CreateFromFile(const std::string& path) {
 	std::string realPath = UTILS::GetRealPath(path);
 

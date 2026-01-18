@@ -36,6 +36,10 @@ namespace IKIGAI {
 			
 
 			virtual ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path) override;
+			virtual ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type) override {
+				return createResource(path, type, std::any());
+			}
+			virtual ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 		};
 	
 	}

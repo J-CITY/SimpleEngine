@@ -28,6 +28,10 @@ namespace IKIGAI {
 			static ResourcePtr<RENDER::ShaderInterface> CreateWithEmptyDeleter(const std::string& filePath);
 
 			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path) override;
+			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path, ELoadingType type) override {
+				return createResource(path, type, std::any());
+			}
+			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 			
 			//for error print
 			static std::string FILE_PATH;
