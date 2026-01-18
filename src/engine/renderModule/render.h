@@ -1,4 +1,308 @@
 #pragma once
+#include <memory>
+
+#include "backends/interface/driverInterface.h"
+
+namespace IKIGAI::RENDER {
+	class DriverInterface;
+
+	class TextureBase {
+	public:
+		virtual ~TextureBase() = default;
+	};
+
+	class Texture: public TextureBase {
+	protected:
+		class Internal;
+		std::unique_ptr<Internal> mInternal;
+	public:
+		enum class Type {
+			TEXTURE_2D = 0,
+			TEXTURE_3D,
+			TEXTURE_CUBE,
+			TEXTURE_2D_ARRAY,
+			DEPTH
+		};
+
+		virtual ~Texture() override = default;
+
+		Type getType() const;
+		PixelFormat getFormat() const;
+		const std::string& getPath() const;
+		size_t getWidth() const;
+		size_t getHeight() const;
+		size_t getDepth() const;
+		size_t getChannels() const;
+
+		void* getImguiId();
+	};
+
+	class DriverInterface;
+	class Renderer;
+
+	enum class OpCode : uint8_t {
+		LAMBDA,
+		DRAW, 
+		DRAW_INDEXED,
+		SET_VIEWPORT, 
+		SET_SCISSOR,
+		SET_SHADER, 
+		SET_VERTEX_BUFFER, 
+		SET_INDEX_BUFFER,
+		SET_TEXTURE, 
+		SET_UNIFORM_BUFFER, 
+		SET_STORAGE_BUFFER,
+		SET_TEXTURE_NAMED,
+		SET_UNIFORM_BUFFER_NAMED,
+		SET_STORAGE_BUFFER_NAMED,
+		SET_MSAA, 
+		CLEAR,
+		SET_PRIMITIVE_MODE, 
+		SET_RASTERIZATION,
+		SET_BLEND, 
+		SET_DEPTH, 
+		SET_STENCIL, 
+		SET_CULL,
+		SET_CLEAR_COLOR_VEC,
+		SET_CLEAR_COLOR_FLOAT,
+		SET_TRIANGLE_ORIENTATION,
+		RESET_VIEWPORT,
+		RESET_SCISSOR,
+		RESET_BLEND,
+		RESET_DEPTH,
+		RESET_STENCIL,
+		BEGIN,
+		END,
+		SUBMIT,
+		CLEANUP,
+		EXIT
+	};
+
+	struct CommandHeader {
+		OpCode op;
+		size_t size;
+	};
+
+	struct CmdDraw : CommandHeader {
+		uint32_t count; uint32_t offset; uint32_t instance;
+	};
+
+	struct CmdDrawIndexed : CommandHeader {
+		uint32_t count; uint32_t offset; uint32_t instance;
+	};
+
+	struct CmdLambda : CommandHeader {
+		std::function<void()> func;
+		// Manual constructor/destructor handling in CommandBuffer
+	};
+
+	// POD wrappers for simple arguments
+	template<typename T>
+	struct CmdWrapper : CommandHeader {
+		T data;
+	};
+	
+	template<typename T>
+	struct CmdWrapper2 : CommandHeader {
+		T data1;
+		size_t binding;
+	};
+
+	struct CmdSetTextureNamed : CommandHeader {
+		char name[64]; // Fixed size for simplicity in POD, or handle dynamic string
+		std::shared_ptr<TextureInterface> texture;
+	};
+	// For simplicity in this iteration, we might use specific structs for complex types
+	struct CmdSetTexture : CommandHeader {
+		size_t bind;
+		std::shared_ptr<TextureInterface> texture;
+	};
+	// ... similarly for others ...
+
+	// To avoid defining 20 structs here, we can use generic templates or define them as needed.
+	// For the sake of the task, I will define the necessary ones or a generic approach for PODs.
+	
+	struct CmdSetViewport : CommandHeader { Viewport viewport; };
+	struct CmdSetScissor : CommandHeader { Scissor scissor; };
+	struct CmdSetShader : CommandHeader { std::shared_ptr<ShaderInterface> shader; };
+	struct CmdSetVertexBuffer : CommandHeader { std::shared_ptr<VertexBufferInterface> buffer; };
+	struct CmdSetIndexBuffer : CommandHeader { std::shared_ptr<IndexBufferInterface> buffer; };
+	struct CmdSetBlending : CommandHeader { Blending blending; };
+	struct CmdSetDepth : CommandHeader { Depth depth; };
+	struct CmdSetStencil : CommandHeader { Stencil stencil; };
+	struct CmdSetCull : CommandHeader { CullFace cull; };
+	struct CmdSetTriangleOrientation : CommandHeader { TriangleOrientation orientation; };
+	struct CmdSetClearColorVec : CommandHeader { MATH::Vector4f color; };
+	struct CmdSetClearColorFloat : CommandHeader { float r, g, b, a; };
+	struct CmdClear : CommandHeader { bool color; bool depth; bool stencil; };
+	struct CmdSetPrimitiveMode : CommandHeader { PrimitiveMode mode; };
+	struct CmdSetRasterization : CommandHeader { RasterizationMode mode; };
+	struct CmdSetMSAA : CommandHeader { bool value; };
+	
+	struct CmdSetUniformBuffer : CommandHeader { size_t bind; std::shared_ptr<UniformBufferInterface> buffer; };
+	struct CmdSetStorageBuffer : CommandHeader { size_t bind; std::shared_ptr<StorageBufferInterface> buffer; };
+
+	// String versions need care. We can store std::string but need destructor call (CmdLambda mechanism or similar).
+	// Let's use specific structs that own the std::string, and CommandBuffer destruction loop will handle them if we mark them.
+	// Actually, easier to use CmdLambda for complex things or just make these have destructors and rely on CommandBuffer's clear.
+	// We will implement a smart iterate-and-destroy in CommandBuffer::clear().
+	struct CmdStringResource : CommandHeader {
+		std::string name;
+		std::shared_ptr<TextureInterface> texture; // or uniform/storage
+	};
+	struct CmdStringUniformResource : CommandHeader {
+		std::string name;
+		std::shared_ptr<UniformBufferInterface> buffer;
+	};
+	struct CmdStringStorageResource : CommandHeader {
+		std::string name;
+		std::shared_ptr<StorageBufferInterface> buffer;
+	};
+
+	class RenderExecutorInterface
+	{
+	public:
+		virtual ~RenderExecutorInterface() = default;
+		virtual void* allocate(size_t size) = 0;
+		virtual void submit(CommandHeader* header, DriverInterface* driver) = 0;
+		virtual void flush(DriverInterface* driver) = 0;
+
+		template<typename T, typename... Args>
+		void submit(DriverInterface* driver, OpCode op, Args&&... args) {
+			size_t size = sizeof(T);
+			size_t alignedSize = (size + 7) & ~7;
+			T* ptr = reinterpret_cast<T*>(allocate(alignedSize));
+			new (ptr) T{ {op, alignedSize}, std::forward<Args>(args)... };
+			submit(ptr, driver);
+		}
+	};
+
+	class ImmediateExecutor : public RenderExecutorInterface {
+		std::vector<uint8_t> mScratch;
+	public:
+		ImmediateExecutor() { mScratch.reserve(1024); }
+		void* allocate(size_t size) override {
+			if (mScratch.size() < size) mScratch.resize(size);
+			return mScratch.data();
+		}
+		void submit(CommandHeader* header, DriverInterface* driver) override;
+		void flush(DriverInterface* driver) override {}
+	};
+
+	class BufferedExecutor : public RenderExecutorInterface {
+		std::vector<uint8_t> mBuffer;
+	public:
+		BufferedExecutor() { mBuffer.reserve(1024 * 1024); }
+		void* allocate(size_t size) override {
+			size_t offset = mBuffer.size();
+			mBuffer.resize(offset + size);
+			return mBuffer.data() + offset;
+		}
+		void submit(CommandHeader* header, DriverInterface* driver) override {
+			// No-op, data is already in buffer
+		}
+		void flush(DriverInterface* driver) override;
+	};
+
+	class Renderer {
+		std::unique_ptr<RenderExecutorInterface> mExecutor;
+		DriverInterface* mDriver = nullptr;
+	public:
+		Renderer(DriverInterface* driver, std::unique_ptr<RenderExecutorInterface> executor):
+			mDriver(driver), mExecutor(std::move(executor)) {};
+		
+		DriverInterface* getDriver() { return mDriver; }
+
+		template<typename T, typename... Args>
+		void push(OpCode op, Args&&... args) {
+			mExecutor->submit<T>(mDriver, op, std::forward<Args>(args)...);
+		}
+
+		// Hybrid approach:
+		void execute(std::function<void()> func) {
+			push<CmdLambda>(OpCode::LAMBDA, func);
+		}
+
+		void begin() { push<CommandHeader>(OpCode::BEGIN); }
+		void end() { push<CommandHeader>(OpCode::END); }
+		void submit() { push<CommandHeader>(OpCode::SUBMIT); }
+		void cleanup() { push<CommandHeader>(OpCode::CLEANUP); }
+
+		void setViewport(const Viewport& viewport) { push<CmdSetViewport>(OpCode::SET_VIEWPORT, viewport); }
+		void resetViewport() { push<CommandHeader>(OpCode::RESET_VIEWPORT); }
+		void setScissor(const Scissor& scissor) { push<CmdSetScissor>(OpCode::SET_SCISSOR, scissor); }
+		void resetScissor() { push<CommandHeader>(OpCode::RESET_SCISSOR); }
+		void setPrimitiveMode(PrimitiveMode mode) { push<CmdSetPrimitiveMode>(OpCode::SET_PRIMITIVE_MODE, mode); }
+		void setRasterization(RasterizationMode mode) { push<CmdSetRasterization>(OpCode::SET_RASTERIZATION, mode); }
+		void setShader(std::shared_ptr<ShaderInterface> shader) { push<CmdSetShader>(OpCode::SET_SHADER, shader); }
+		void setVertexBuffer(std::shared_ptr<VertexBufferInterface> buffer) { push<CmdSetVertexBuffer>(OpCode::SET_VERTEX_BUFFER, buffer); }
+		void setIndexBuffer(std::shared_ptr<IndexBufferInterface> buffer) { push<CmdSetIndexBuffer>(OpCode::SET_INDEX_BUFFER, buffer); }
+		void setBlending(const Blending& value) { push<CmdSetBlending>(OpCode::SET_BLEND, value); }
+		void resetBlending() { push<CommandHeader>(OpCode::RESET_BLEND); }
+		void setDepth(const Depth& depth) { push<CmdSetDepth>(OpCode::SET_DEPTH, depth); }
+		void resetDepth() { push<CommandHeader>(OpCode::RESET_DEPTH); }
+		void setStencil(const Stencil& stencil) { push<CmdSetStencil>(OpCode::SET_STENCIL, stencil); }
+		void resetStencil() { push<CommandHeader>(OpCode::RESET_STENCIL); }
+		void setCull(CullFace cull) { push<CmdSetCull>(OpCode::SET_CULL, cull); }
+		void setTriangleOrientation(TriangleOrientation val) { push<CmdSetTriangleOrientation>(OpCode::SET_TRIANGLE_ORIENTATION, val); }
+		void clear(bool c, bool d, bool s) { push<CmdClear>(OpCode::CLEAR, c, d, s); }
+		void setClearColor(const MATH::Vector4f& color) { push<CmdSetClearColorVec>(OpCode::SET_CLEAR_COLOR_VEC, color); }
+		void setClearColor(float r, float g, float b, float a) { push<CmdSetClearColorFloat>(OpCode::SET_CLEAR_COLOR_FLOAT, r, g, b, a); }
+		void setMSAA(bool val) { push<CmdSetMSAA>(OpCode::SET_MSAA, val); }
+		
+		void draw(uint32_t c, uint32_t o, uint32_t i) { push<CmdDraw>(OpCode::DRAW, c, o, i); }
+		void drawIndexed(uint32_t c, uint32_t o, uint32_t i) { push<CmdDrawIndexed>(OpCode::DRAW_INDEXED, c, o, i); }
+		
+		void setTexture(size_t bind, std::shared_ptr<TextureInterface> tex) { push<CmdSetTexture>(OpCode::SET_TEXTURE, bind, tex); }
+		void setUniformBuffer(size_t bind, std::shared_ptr<UniformBufferInterface> buf) { push<CmdSetUniformBuffer>(OpCode::SET_UNIFORM_BUFFER, bind, buf); }
+		void setStorageBuffer(size_t bind, std::shared_ptr<StorageBufferInterface> buf) { push<CmdSetStorageBuffer>(OpCode::SET_STORAGE_BUFFER, bind, buf); }
+		
+		void setTexture(const std::string& name, std::shared_ptr<TextureInterface> tex) { push<CmdStringResource>(OpCode::SET_TEXTURE_NAMED, name, tex); }
+		void setUniformBuffer(const std::string& name, std::shared_ptr<UniformBufferInterface> buf) { push<CmdStringUniformResource>(OpCode::SET_UNIFORM_BUFFER_NAMED, name, buf); }
+		void setStorageBuffer(const std::string& name, std::shared_ptr<StorageBufferInterface> buf) { push<CmdStringStorageResource>(OpCode::SET_STORAGE_BUFFER_NAMED, name, buf); }
+
+		// Flush commands to executor (Buffer mode)
+		void flush() {
+			if (mExecutor && mDriver) {
+				mExecutor->flush(mDriver);
+			}
+		}
+	};
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /*#include <string>

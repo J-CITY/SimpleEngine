@@ -1,4 +1,263 @@
 #include "render.h"
+
+#include "backends/interface/textureInterface.h"
+
+namespace IKIGAI::RENDER {
+
+	class Texture::Internal {
+	public:
+		std::shared_ptr<TextureInterface> mTexture;
+	};
+
+
+	Texture::Type Texture::getType() const {
+		return static_cast<Type>(mInternal->mTexture->getType());
+	}
+
+	PixelFormat Texture::getFormat() const {
+		return mInternal->mTexture->getFormat();
+	}
+
+	const std::string& Texture::getPath() const {
+		return mInternal->mTexture->getPath();
+	}
+
+	size_t Texture::getWidth() const {
+		return mInternal->mTexture->getWidth();
+	}
+
+	size_t Texture::getHeight() const {
+		return mInternal->mTexture->getHeight();
+	}
+
+	size_t Texture::getDepth() const {
+		return mInternal->mTexture->getDepth();
+	}
+
+	size_t Texture::getChannels() const {
+		return mInternal->mTexture->getChannels();
+	}
+
+	struct PacketDispatcher {
+		static void Dispatch(const CommandHeader* header, DriverInterface* driver) {
+			switch (header->op) {
+			case OpCode::LAMBDA: {
+				auto* cmd = reinterpret_cast<const CmdLambda*>(header);
+				cmd->func();
+				break;
+			}
+			case OpCode::BEGIN: driver->begin(); break;
+			case OpCode::END: driver->end(); break;
+			case OpCode::SUBMIT: driver->submit(); break;
+			case OpCode::CLEANUP: driver->cleanup(); break;
+
+			case OpCode::DRAW: {
+				auto* cmd = reinterpret_cast<const CmdDraw*>(header);
+				driver->draw(cmd->count, cmd->offset, cmd->instance);
+				break;
+			}
+			case OpCode::DRAW_INDEXED: {
+				auto* cmd = reinterpret_cast<const CmdDrawIndexed*>(header);
+				driver->drawIndexed(cmd->count, cmd->offset, cmd->instance);
+				break;
+			}
+			case OpCode::SET_VIEWPORT: {
+				auto* cmd = reinterpret_cast<const CmdSetViewport*>(header);
+				driver->setViewport(cmd->viewport);
+				break;
+			}
+			case OpCode::SET_SCISSOR: {
+				auto* cmd = reinterpret_cast<const CmdSetScissor*>(header);
+				driver->setScissor(cmd->scissor);
+				break;
+			}
+			case OpCode::SET_PRIMITIVE_MODE: {
+				auto* cmd = reinterpret_cast<const CmdSetPrimitiveMode*>(header);
+				driver->setPrimitiveMode(cmd->mode);
+				break;
+			}
+			case OpCode::SET_RASTERIZATION: {
+				auto* cmd = reinterpret_cast<const CmdSetRasterization*>(header);
+				driver->setRasterization(cmd->mode);
+				break;
+			}
+			case OpCode::SET_SHADER: {
+				auto* cmd = reinterpret_cast<const CmdSetShader*>(header);
+				driver->setShader(cmd->shader);
+				break;
+			}
+			case OpCode::SET_VERTEX_BUFFER: {
+				auto* cmd = reinterpret_cast<const CmdSetVertexBuffer*>(header);
+				driver->setVertexBuffer(cmd->buffer);
+				break;
+			}
+			case OpCode::SET_INDEX_BUFFER: {
+				auto* cmd = reinterpret_cast<const CmdSetIndexBuffer*>(header);
+				driver->setIndexBuffer(cmd->buffer);
+				break;
+			}
+			case OpCode::SET_BLEND: {
+				auto* cmd = reinterpret_cast<const CmdSetBlending*>(header);
+				driver->setBlending(cmd->blending);
+				break;
+			}
+			case OpCode::SET_DEPTH: {
+				auto* cmd = reinterpret_cast<const CmdSetDepth*>(header);
+				driver->setDepth(cmd->depth);
+				break;
+			}
+			case OpCode::SET_STENCIL: {
+				auto* cmd = reinterpret_cast<const CmdSetStencil*>(header);
+				driver->setStencil(cmd->stencil);
+				break;
+			}
+			case OpCode::SET_CULL: {
+				auto* cmd = reinterpret_cast<const CmdSetCull*>(header);
+				driver->setCull(cmd->cull);
+				break;
+			}
+			case OpCode::SET_TRIANGLE_ORIENTATION: {
+				auto* cmd = reinterpret_cast<const CmdSetTriangleOrientation*>(header);
+				driver->setTriangleOrientation(cmd->orientation);
+				break;
+			}
+			case OpCode::CLEAR: {
+				auto* cmd = reinterpret_cast<const CmdClear*>(header);
+				driver->clear(cmd->color, cmd->depth, cmd->stencil);
+				break;
+			}
+			case OpCode::SET_CLEAR_COLOR_VEC: {
+				auto* cmd = reinterpret_cast<const CmdSetClearColorVec*>(header);
+				driver->setClearColor(cmd->color);
+				break;
+			}
+			case OpCode::SET_CLEAR_COLOR_FLOAT: {
+				auto* cmd = reinterpret_cast<const CmdSetClearColorFloat*>(header);
+				driver->setClearColor(cmd->r, cmd->g, cmd->b, cmd->a);
+				break;
+			}
+			case OpCode::SET_MSAA: {
+				auto* cmd = reinterpret_cast<const CmdSetMSAA*>(header);
+				driver->setMSAA(cmd->value);
+				break;
+			}
+			case OpCode::SET_TEXTURE: {
+				auto* cmd = reinterpret_cast<const CmdSetTexture*>(header);
+				driver->setTexture(cmd->bind, cmd->texture);
+				break;
+			}
+			case OpCode::SET_UNIFORM_BUFFER: {
+				auto* cmd = reinterpret_cast<const CmdSetUniformBuffer*>(header);
+				driver->setUniformBuffer(cmd->bind, cmd->buffer);
+				break;
+			}
+			case OpCode::SET_STORAGE_BUFFER: {
+				auto* cmd = reinterpret_cast<const CmdSetStorageBuffer*>(header);
+				driver->setStorageBuffer(cmd->bind, cmd->buffer);
+				break;
+			}
+			case OpCode::SET_TEXTURE_NAMED: {
+				auto* cmd = reinterpret_cast<const CmdStringResource*>(header);
+				driver->setTexture(cmd->name, cmd->texture);
+				break;
+			}
+			case OpCode::SET_UNIFORM_BUFFER_NAMED: {
+				auto* cmd = reinterpret_cast<const CmdStringUniformResource*>(header);
+				driver->setUniformBuffer(cmd->name, cmd->buffer);
+				break;
+			}
+			case OpCode::SET_STORAGE_BUFFER_NAMED: {
+				auto* cmd = reinterpret_cast<const CmdStringStorageResource*>(header);
+				driver->setStorageBuffer(cmd->name, cmd->buffer);
+				break;
+			}
+			case OpCode::RESET_VIEWPORT: driver->resetViewport(); break;
+			case OpCode::RESET_SCISSOR: driver->resetScissor(); break;
+			case OpCode::RESET_BLEND: driver->resetBlending(); break;
+			case OpCode::RESET_DEPTH: driver->resetDepth(); break;
+			case OpCode::RESET_STENCIL: driver->resetStencil(); break;
+
+			default: break;
+			}
+		}
+
+		static void Destruct(CommandHeader* header) {
+			switch (header->op) {
+			case OpCode::LAMBDA: {
+				reinterpret_cast<CmdLambda*>(header)->func.~function();
+				break;
+			}
+			case OpCode::SET_SHADER: {
+				reinterpret_cast<CmdSetShader*>(header)->shader.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_VERTEX_BUFFER: {
+				reinterpret_cast<CmdSetVertexBuffer*>(header)->buffer.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_INDEX_BUFFER: {
+				reinterpret_cast<CmdSetIndexBuffer*>(header)->buffer.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_TEXTURE: {
+				reinterpret_cast<CmdSetTexture*>(header)->texture.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_UNIFORM_BUFFER: {
+				reinterpret_cast<CmdSetUniformBuffer*>(header)->buffer.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_STORAGE_BUFFER: {
+				reinterpret_cast<CmdSetStorageBuffer*>(header)->buffer.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_TEXTURE_NAMED: {
+				auto* cmd = reinterpret_cast<CmdStringResource*>(header);
+				cmd->name.~string();
+				cmd->texture.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_UNIFORM_BUFFER_NAMED: {
+				auto* cmd = reinterpret_cast<CmdStringUniformResource*>(header);
+				cmd->name.~string();
+				cmd->buffer.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_STORAGE_BUFFER_NAMED: {
+				auto* cmd = reinterpret_cast<CmdStringStorageResource*>(header);
+				cmd->name.~string();
+				cmd->buffer.~shared_ptr();
+				break;
+			}
+			default: break;
+			}
+		}
+	};
+
+	void ImmediateExecutor::submit(CommandHeader* header, DriverInterface* driver) {
+		PacketDispatcher::Dispatch(header, driver);
+		PacketDispatcher::Destruct(header);
+		// Scratch buffer is reused next allocate, no need to clear explicitly, or we can clear
+		mScratch.clear();
+	}
+
+	void BufferedExecutor::flush(DriverInterface* driver) {
+		size_t offset = 0;
+		while (offset < mBuffer.size()) {
+			auto* header = reinterpret_cast<CommandHeader*>(mBuffer.data() + offset);
+			PacketDispatcher::Dispatch(header, driver);
+			PacketDispatcher::Destruct(header);
+			offset += header->size;
+		}
+		mBuffer.clear();
+	}
+}
+
+
+
+
+
+
 /*#include "frustum.h"
 #include "../resourceManager/resource/mesh.h"
 #include "material.h"
