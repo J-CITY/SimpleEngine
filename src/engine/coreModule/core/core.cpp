@@ -14,6 +14,7 @@
 #include <audioModule/audioManager.h>
 #include <debugModule/debugRender.h>
 #include <physicsModule/PhysicWorld.h>
+#include <resourceModule/fileSystem/fileSystem.h>
 #include <taskModule/taskSystem.h>
 #include <utilsModule/pathGetter.h>
 #include "windowModule/inputManager/inputManager.h"
@@ -73,10 +74,17 @@ Core:: Core(
 #endif
 {
 	//TODO: init Config::ROOT | UTILS::ReplaceSubstrings(std::filesystem::current_path().string(), "\\", "/") + "/";
-	
+	std::cout << "Create Core\n";
 	mLogger = std::make_unique<UTILS::LOGG::Logger>();
 	UTILS::LOGG::Manager::AddOutput(std::make_shared<UTILS::LOGG::OutputConsole>());
 	RESOURCES::ServiceManager::Set<UTILS::LOGG::Logger>(mLogger.get());
+
+	fileSystem = std::make_unique<RESOURCES::FileSystem>();
+	RESOURCES::ServiceManager::Set<RESOURCES::FileSystem>(fileSystem.get());
+	//fileSystem->addNativeFileSystem(".", "/");
+	fileSystem->addNativeFileSystem(Config::ENGINE_ASSETS_PATH, "/");
+	fileSystem->addNativeFileSystem(Config::USER_ASSETS_PATH, "/");
+
 
 	RESOURCES::ModelLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::TextureLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
@@ -91,6 +99,8 @@ Core:: Core(
 			, app
 #endif
 			);
+
+	std::cout << "Create Window\n";
 	//auto windowSettings = IKIGAI::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs/window.json");
 	//if (windowSettings.isErr()) {
 	//	LOG_ERROR(windowSettings.unwrapErr().msg);
@@ -134,6 +144,8 @@ Core:: Core(
 	if (!driver) {
 		throw;
 	}
+
+	std::cout << "Create driver\n";
 	scriptInterpreter = std::make_unique<SCRIPTING::ScriptInterpreter>(Config::ROOT + Config::USER_ASSETS_PATH + "scripts\\");
 	audioManager = std::make_unique<AUDIO::AudioManager>();
 	audioSourceLoader = std::make_unique<RESOURCES::AudioSourceLoader>();
@@ -218,6 +230,7 @@ Core:: Core(
 		throw;
 	}
 
+	std::cout << "Create render\n";
 	window->initImGUI();
 	
 	//renderer->setCapability(RENDER::RenderingCapability::MULTISAMPLE, true);
@@ -234,6 +247,7 @@ Core:: Core(
 #endif
 
 	sceneManager->getCurrentScene().init();
+	std::cout << "Init Core";
 }
 
 Core::~Core() = default;

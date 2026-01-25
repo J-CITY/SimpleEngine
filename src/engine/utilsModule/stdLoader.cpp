@@ -12,8 +12,16 @@ float* IKIGAI::UTILS::STBiLoadf(char const* filename, int* x, int* y, int* chann
 	return stbi_loadf(filename, x, y, channels_in_file, desired_channels);
 }
 
+float* IKIGAI::UTILS::STBiLoadfFromMemory(const unsigned char* buffer, int len, int* x, int* y, int* channels_in_file, int desired_channels) {
+	return stbi_loadf_from_memory(buffer, len, x, y, channels_in_file, desired_channels);
+}
+
 unsigned char* IKIGAI::UTILS::STBiLoad(char const* filename, int* x, int* y, int* channels_in_file, int desired_channels) {
 	return stbi_load(filename, x, y, channels_in_file, desired_channels);
+}
+
+unsigned char* IKIGAI::UTILS::STBiLoadFromMemory(const unsigned char* buffer, int len, int* x, int* y, int* channels_in_file, int desired_channels) {
+	return stbi_load_from_memory(buffer, len, x, y, channels_in_file, desired_channels);
 }
 
 void IKIGAI::UTILS::STBiImageFree(float* data) {

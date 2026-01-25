@@ -27,8 +27,59 @@
 #endif
 
 
+#include <resourceModule/fileSystem/fileSystem.h>
+#include <filesystem>
+
 using namespace IKIGAI;
 using namespace IKIGAI::RESOURCES;
+
+
+std::string readFileWithInclude(const std::string& path) {
+	auto dir = std::filesystem::path{ path }.parent_path();
+	
+	if (!ServiceManager::Get<FileSystem>().isFileExist(path)) {
+		return "";
+	}
+
+	auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
+
+	size_t start = 0;
+	while (auto pos = content.find("#include", start)) {
+		start = pos + 1;
+		if (pos == std::string::npos) {
+			break;
+		}
+		if (pos > 0 && content[pos - 1] == '/') {
+			continue;
+		}
+		auto comma1 = content.find("\"", pos);
+		if (comma1 == std::string::npos) {
+			break; // or throw
+		}
+		auto comma2 = content.find("\"", comma1 + 1);
+		if (comma2 == std::string::npos) {
+			break; // or throw
+		}
+
+		auto includePath = std::string(content.begin() + comma1 + 1, content.begin() + comma2);
+		// Assume include path is relative to current file or root? 
+		// Typically relative to file. VFS handles paths.
+		// If includePath is relative, we need to combine with dir.
+		// VFS usually expects full virtual path?
+		// Let's try combining.
+		std::string fullIncludePath = (dir / includePath).string();
+		// If VFS expects forward slashes, ensure it.
+		// std::filesystem::path uses OS separator. 
+		// VFS usually normalizes.
+		
+		auto newContent = readFileWithInclude(fullIncludePath); 
+		// If file doesn't exist, newContent is empty.
+		
+		content.erase(pos, comma2 - pos + 1);
+		content.insert(pos, newContent);
+	}
+	return content;
+}
 
 
 std::string IKIGAI::RESOURCES::ShaderLoader::FILE_PATH = "";
@@ -123,6 +174,14 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::Create(const std::string& _fi
 	}
 	auto _res = res.unwrap();
 	_res.path = filePath;
+
+	if (!_res.vertex.empty()) _res.sources[RENDER::ShaderType::VERTEX] = readFileWithInclude(_res.vertex);
+	if (!_res.fragment.empty()) _res.sources[RENDER::ShaderType::FRAGMENT] = readFileWithInclude(_res.fragment);
+	if (!_res.geometry.empty()) _res.sources[RENDER::ShaderType::GEOMETRY] = readFileWithInclude(_res.geometry);
+	if (!_res.tessControl.empty()) _res.sources[RENDER::ShaderType::TESSELLATION_CONTROL] = readFileWithInclude(_res.tessControl);
+	if (!_res.tessEval.empty()) _res.sources[RENDER::ShaderType::TESSELLATION_EVALUATION] = readFileWithInclude(_res.tessEval);
+	if (!_res.compute.empty()) _res.sources[RENDER::ShaderType::COMPUTE] = readFileWithInclude(_res.compute);
+
 	AddFileWatchSubscribe(_res, filePath);
 	//TODO:: add other backends
 #ifdef OPENGL_BACKEND
@@ -165,7 +224,16 @@ ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateWithEmptyDeleter(const 
 		//problem
 		return nullptr;
 	}
-	const auto _res = res.unwrap();
+
+	auto _res = res.unwrap();
+	
+	if (!_res.vertex.empty()) _res.sources[RENDER::ShaderType::VERTEX] = readFileWithInclude(_res.vertex);
+	if (!_res.fragment.empty()) _res.sources[RENDER::ShaderType::FRAGMENT] = readFileWithInclude(_res.fragment);
+	if (!_res.geometry.empty()) _res.sources[RENDER::ShaderType::GEOMETRY] = readFileWithInclude(_res.geometry);
+	if (!_res.tessControl.empty()) _res.sources[RENDER::ShaderType::TESSELLATION_CONTROL] = readFileWithInclude(_res.tessControl);
+	if (!_res.tessEval.empty()) _res.sources[RENDER::ShaderType::TESSELLATION_EVALUATION] = readFileWithInclude(_res.tessEval);
+	if (!_res.compute.empty()) _res.sources[RENDER::ShaderType::COMPUTE] = readFileWithInclude(_res.compute);
+
 	AddFileWatchSubscribe(_res, filePath);
 	//TODO:: add other backends
 #ifdef OPENGL_BACKEND

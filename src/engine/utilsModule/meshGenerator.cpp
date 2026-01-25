@@ -705,10 +705,12 @@ chunk::chunk(int x, int y, int z) : ax(x), ay(y), az(z) {
 
 			// If the slot is empty, create a new VBO
 			if (!chunk_slot[lru]) {
+#ifdef OPENGL_BACKEND
 				mModel = std::make_shared<RENDER::ModelGl>("");
 				std::vector<Vertex> v;
 				std::vector<unsigned> i;
 				mModel->getMeshes().push_back(std::make_shared<RENDER::MeshGl>(v, i, 0));
+#endif
 				//glGenBuffers(1, &vbo);
 				// Otherwise, steal it from the previous slot owner
 			} else {
@@ -719,10 +721,12 @@ chunk::chunk(int x, int y, int z) : ax(x), ay(y), az(z) {
 			slot = lru;
 			chunk_slot[slot] = this;
 		}
-
+#ifdef OPENGL_BACKEND
 		// Upload vertices
-		std::static_pointer_cast<RENDER::MeshGl>(mModel->getMeshes()[0])->mVertexBuffer->bufferData(i * sizeof(Vertex), vertex.data(), GL_STATIC_DRAW);
-		std::static_pointer_cast<RENDER::MeshGl>(mModel->getMeshes()[0])->mVertexCount = std::static_pointer_cast<RENDER::MeshGl>(mModel->getMeshes()[0])->mVertexBuffer->getVertexCount();
+		//TODO: fix it
+		//std::static_pointer_cast<RENDER::MeshGl>(mModel->getMeshes()[0])->mVertexBuffer->bufferData(i * sizeof(Vertex), vertex.data(), GL_STATIC_DRAW);
+		//std::static_pointer_cast<RENDER::MeshGl>(mModel->getMeshes()[0])->mVertexCount = std::static_pointer_cast<RENDER::MeshGl>(mModel->getMeshes()[0])->mVertexBuffer->getVertexCount();
+#endif
 		//glBindBuffer(GL_ARRAY_BUFFER, vbo);
 		//glBufferData(GL_ARRAY_BUFFER, i * sizeof * vertex, vertex, GL_STATIC_DRAW);
 	}

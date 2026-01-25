@@ -4,6 +4,8 @@
 #include <future>
 #include <any>
 
+#include "utilsModule/stringUtils.h"
+
 namespace IKIGAI {
 	namespace RESOURCES {
 		template<typename T>
@@ -106,34 +108,6 @@ namespace IKIGAI {
 			}
 
 			virtual ResourcePtr<T> createResource(const std::string& p_path, ELoadingType type, std::any data) {
-				return createResource(p_path);
-			}
-
-			std::future<ResourcePtr<T>> loadResourceAsync(const std::string& path, ELoadingType type) {
-				//TODO: use task system or corutines
-				return std::async(std::launch::async, [this, path, type]() {
-					return this->loadResource(path, type);
-				});
-			}
-
-			//template<typename T>
-			void unloadResource(const std::string& path) override {
-				std::lock_guard<std::recursive_mutex> lock(mMutex);
-				resources.erase(path);
-			}
-
-			//template<typename T>
-			std::unordered_map<std::string, std::weak_ptr<T>>& getResources() {
-				// Warning: returning reference to map is not thread-safe if caller iterates it without lock
-				// Ideally we should provide thread-safe iteration or copy
-				return resources;
-			}
-
-			static void SetAssetPaths(const std::string& projectAssetsPath, const std::string& engineAssetsPath);
-
-			virtual ResourcePtr<T> createResource(const std::string& p_path) = 0;
-			
-			virtual ResourcePtr<T> createResource(const std::string& p_path, ELoadingType type) {
 				return createResource(p_path);
 			}
 		protected:

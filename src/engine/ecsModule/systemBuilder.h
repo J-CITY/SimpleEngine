@@ -102,32 +102,32 @@ namespace IKIGAI::ECS2 {
 
 		// Fluent API for setting phase callbacks
 		SystemBuilder& onAwake(typename MultiPhaseSystem<Components...>::InitFunc func) {
-			mSystem->setOnAwake(func);
+			mSystem->setOnAwake(std::move(func));
 			return *this;
 		}
 
 		SystemBuilder& onStart(typename MultiPhaseSystem<Components...>::InitFunc func) {
-			mSystem->setOnStart(func);
+			mSystem->setOnStart(std::move(func));
 			return *this;
 		}
 
 		SystemBuilder& onUpdate(typename MultiPhaseSystem<Components...>::UpdateFunc func) {
-			mSystem->setOnUpdate(func);
+			mSystem->setOnUpdate(std::move(func));
 			return *this;
 		}
 
 		SystemBuilder& onFixedUpdate(typename MultiPhaseSystem<Components...>::UpdateFunc func) {
-			mSystem->setOnFixedUpdate(func);
+			mSystem->setOnFixedUpdate(std::move(func));
 			return *this;
 		}
 
 		SystemBuilder& onLateUpdate(typename MultiPhaseSystem<Components...>::UpdateFunc func) {
-			mSystem->setOnLateUpdate(func);
+			mSystem->setOnLateUpdate(std::move(func));
 			return *this;
 		}
 
 		SystemBuilder& onDestroy(typename MultiPhaseSystem<Components...>::InitFunc func) {
-			mSystem->setOnDestroy(func);
+			mSystem->setOnDestroy(std::move(func));
 			return *this;
 		}
 

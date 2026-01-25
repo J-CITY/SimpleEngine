@@ -17,6 +17,10 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURC
 	return RENDER::TextureGl::Create(IKIGAI::UTILS::GetRealPath(filepath), generateMipmap);
 }
 
+IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorOpengl::createFromMemory(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap) {
+	return RENDER::TextureGl::CreateFromMemory(name, data, generateMipmap);
+}
+
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorOpengl::createFromResource(const RENDER::TextureResource& res) {
 	return RENDER::TextureGl::Create(res);
 }
@@ -32,6 +36,10 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURC
 	return RENDER::TextureVk::Create(IKIGAI::UTILS::GetRealPath(filepath));
 }
 
+IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorVulkan::createFromMemory(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap) {
+	return nullptr;
+}
+
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorVulkan::createFromResource(const RENDER::TextureResource& res) {
 	//TODO:
 	return RENDER::TextureVk ::Create("");
@@ -45,6 +53,10 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURC
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorDx12::createFromFile(const std::string& filepath, bool generateMipmap) {
 	//TODO
 	return RENDER::TextureDx12::Create(IKIGAI::UTILS::GetRealPath(filepath));
+}
+
+IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorDx12::createFromMemory(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap) {
+	return nullptr;
 }
 
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::TextureInterface> IKIGAI::RESOURCES::ResourceCreatorDx12::createFromResource(const RENDER::TextureResource& res) {

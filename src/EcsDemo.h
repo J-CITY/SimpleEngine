@@ -1,0 +1,180 @@
+#pragma once
+#include <iostream>
+#include <string>
+#include "engine/ecsModule/world.h"
+#include "engine/ecsModule/componentManager.h"
+#include "engine/ecsModule/systemManager.h"
+#include "engine/ecsModule/systemBuilder.h"
+#include <coreModule/ecs/components/component.h>
+
+namespace Example {
+
+	// 1. Components Definition
+	// ------------------------
+
+	// Archetype Component (Default storage)
+	// Good for components that most entities have and are accessed frequently together.
+	struct Position : public IKIGAI::ECS2::Component {
+		float x = 0.0f, y = 0.0f;
+		Position() = default;
+		Position(float _x, float _y) : Component(), x(_x), y(_y)
+		{
+		}
+	};
+
+	struct Velocity : public IKIGAI::ECS2::Component {
+		float dx = 0.0f, dy = 0.0f;
+		Velocity() = default;
+		Velocity(float _dx, float _dy) : Component(), dx(_dx), dy(_dy)
+		{
+		}
+	};
+
+	// Sparse Component
+	// Good for components that few entities have (saves memory compared to archetype gaps)
+	// or are added/removed frequently.
+	struct Health : public IKIGAI::ECS2::Component {
+		int hp = 100;
+		Health(int i) : Component(), hp(i)
+		{
+		};
+	};
+
+	// Singleton Component
+	// Only one instance per ComponentManager. Good for global config or state.
+	struct GlobalConfig : public IKIGAI::ECS2::Component {
+		float gravity = 9.81f;
+		std::string sAppName = "ECS Demo";
+	};
+
+	// Tag Component for Relations
+	// Used as a type for the relation itself (e.g., "Parent", "Owner")
+	struct Parent : public IKIGAI::ECS2::Component {};
+	struct Follows : public IKIGAI::ECS2::Component {};
+
+
+	// 2. Class-based System
+	// ---------------------
+	// Standard way to define logic.
+	class MovementSystem : public IKIGAI::ECS2::System {
+	public:
+		// Constructor can set name and Dependencies
+		MovementSystem() {
+			mName = "MovementSystem";
+		}
+
+		void onUpdate(IKIGAI::ECS2::World& world, IKIGAI::ECS2::CommandBuffer&, double dt) override {
+			// Iterate over all entities with Position and Velocity
+			world.getComponentManager()->forEach<Position, Velocity>(
+				[&](IKIGAI::ECS2::Entity e, Position& pos, Velocity& vel) {
+					pos.x += vel.dx * static_cast<float>(dt);
+					pos.y += vel.dy * static_cast<float>(dt);
+					// std::cout << "Entity " << e.getUniqueId() << " moved to " << pos.x << ", " << pos.y << "\n";
+				}
+			);
+		}
+	};
+
+	class EcsDemo {
+	public:
+		static void run() {
+			std::cout << "=== Starting ECS Demo ===\n";
+			
+			// A. Initialization
+			IKIGAI::ECS2::World world;
+			auto compMgr = world.getComponentManager();
+			auto sysMgr = world.getSystemManager();
+
+			// B. Register Components
+			// By default components are Archetype. Explicitly register Sparse ones.
+			compMgr->registerComponent<Health>(IKIGAI::ECS2::StorageType::Sparse);
+			// Others like Position/Velocity will be auto-registered as Archetype on first use or logical default.
+			
+			// C. Singleton Component
+			compMgr->addSingletonComponent<GlobalConfig>();
+			auto config = compMgr->getSingletonComponent<GlobalConfig>();
+			if (config) {
+				std::cout << "Global Config Loaded from " << config->sAppName << "\n";
+			}
+
+			// D. Entity Creation
+			using namespace IKIGAI::ECS2;
+			Entity e1 = world.createEntity();
+			compMgr->addComponent(e1, Position{0, 0});
+			compMgr->addComponent(e1, Velocity{1.0f, 0.5f});
+
+			Entity e2 = world.createEntity();
+			compMgr->addComponent(e2, Position{10, 10});
+			compMgr->addComponent(e2, Velocity{-1.0f, -0.5f});
+			compMgr->addComponent(e2, Health{50}); // Sparse component
+
+			// E. Relations
+			// e2 follows e1
+			compMgr->getRelationManager().addRelation(e2, compMgr->getComponentType<Follows>(), e1);
+
+			// Check Relations
+			if (compMgr->getRelationManager().hasRelation(e2, compMgr->getComponentType<Follows>(), e1)) {
+				std::cout << "Entity " << (int)e2.getUniqueId() << " follows " << (int)e1.getUniqueId() << "\n";
+			}
+
+			// F. Systems
+
+			// 1. Add Class-based System
+			sysMgr->addSystem(std::make_shared<MovementSystem>());
+
+			// 1.5 Sparse Iteration Example
+			// Efficiently iterates only entities that have Health (sparse), then checks/gets Position.
+
+			std::cout << "--- Sparse Iteration Test ---\n";
+			compMgr->forEachSparse<Health>(
+				[&](Entity e, Health& hp) {
+					std::cout << "Entity " << (int)e.getUniqueId() << " (Sparse Health) has HP: " << hp.hp << "\n";
+				}
+			);
+
+			// 2. Add SystemBuilder System (Inline logic)
+			// Defines a system that operates on Position and Health
+//TODO: need check for what component call forEach
+			//world.system<Position, Health>("HealthRegenSystem")
+			//     .onUpdate([&](Entity e, Position& pos, Health& hp, double dt) {
+			//	     if (hp.hp < 100) {
+			//		     hp.hp += 1;
+			//		     // std::cout << "Entity " << e.getUniqueId() << " healed. HP: " << hp.hp << "\n";
+			//	     }
+			//     });
+
+			// 3. System to process Relations
+			// Note: Current simple forEach doesn't directly iterate relations.
+			// We can iterate entities and check relations manually or use special queries if supported.
+			// Here is a manual example:
+			world.system<Position, Velocity>("FollowerSystem")
+				.onUpdate([&](Entity e, Position& pos, Velocity& vel, double dt) {
+					auto& relMgr = world.getComponentManager()->getRelationManager();
+					// Get targets for 'Follows' relation
+					auto targets = relMgr.getTargets(e, world.getComponentManager()->getComponentType<Follows>());
+					for (auto target : targets) {
+						auto targetPos = world.getComponentManager()->getComponent<Position>(target);
+						if (targetPos) {
+							// Simple follow logic: move towards target
+							float dx = targetPos->x - pos.x;
+							float dy = targetPos->y - pos.y;
+							// Normalize and set velocity (simplified)
+							vel.dx = dx * 0.1f;
+							vel.dy = dy * 0.1f;
+						}
+					}
+				});
+
+
+			// G. Simulation Loop
+			double dt = 0.016; // 60 FPS
+			for (int i = 0; i < 5; ++i) {
+				std::cout << "--- Frame " << i << " ---\n";
+				sysMgr->runUpdate(dt);
+				sysMgr->runLateUpdate(dt);
+			}
+
+			std::cout << "=== ECS Demo Finished ===\n";
+		}
+	};
+}

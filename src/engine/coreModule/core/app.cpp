@@ -250,6 +250,7 @@ void App::preUpdate(std::chrono::duration<double> dt) {
 #endif
 	//core.window->update();
 #endif
+
 }
 
 void App::update(std::chrono::duration<double> dt) {

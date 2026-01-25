@@ -7,16 +7,18 @@ namespace IKIGAI::ECS {
 }
 
 namespace IKIGAI::UTILS {
+	class ControlBlockHandler;
 
 	class ControlBlock {
 	public:
 		std::atomic_int mRC = 0;
-		ECS::Component* mPtr = nullptr;
+		ControlBlockHandler* mPtr = nullptr;
 	};
 
 	class ControlBlockHandler {
 		UTILS::ControlBlock* mCb = nullptr;
 	public:
+		ControlBlockHandler();
 		ControlBlockHandler(ECS::Component* ptr);
 		//TODO: delete copy constructor 
 		ControlBlockHandler(const ControlBlockHandler& obj);

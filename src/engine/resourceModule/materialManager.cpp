@@ -4,6 +4,7 @@
 //#include "../render/material.h"
 #include <nlohmann/json.hpp>
 #include <renderModule/backends/interface/materialInterface.h>
+#include <resourceModule/fileSystem/fileSystem.h>
 
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/materialGl.h>
@@ -35,7 +36,8 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 #ifdef OPENGL_BACKEND
 	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
 		//TODO: add check
-		auto materialDescriptor = UTILS::FromJson<RENDER::MaterialResource>(path).unwrap();
+		auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
+		auto materialDescriptor = UTILS::FromJsonStr<RENDER::MaterialResource>(content).unwrap();
 		auto material = ResourcePtr<RENDER::MaterialGl>(new RENDER::MaterialGl(materialDescriptor), [](RENDER::MaterialGl* m) {
 			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
 		});
@@ -44,8 +46,8 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 			auto id = RESOURCES::FileWatcher::getInstance()->add(UTILS::GetRealPath(path), [material](RESOURCES::FileWatcher::FileStatus status) {
 				switch (status) {
 				case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-					std::ifstream ifs(UTILS::GetRealPath(material->getPath()));
-					auto root = nlohmann::json::parse(ifs);
+					auto content = ServiceManager::Get<FileSystem>().getFile(material->getPath())->readStr();
+					auto root = nlohmann::json::parse(content);
 					//material->onDeserialize(root);
 					break;
 				}

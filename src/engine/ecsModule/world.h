@@ -1,15 +1,16 @@
 #pragma once
 #include <memory>
-#include "systemManager.h"
-
 
 #include "entityManager.h"
 #include "utilsModule/idGenerator.h"
+#include <string>
 
 namespace IKIGAI::ECS2
 {
 	class SystemManager;
 	class ComponentManager;
+	template<typename... Components>
+	class SystemBuilder;
 
 	class World : public IdGenerator<World> {
 	public:
@@ -20,9 +21,7 @@ namespace IKIGAI::ECS2
 		[[nodiscard]] SystemManager* getSystemManager() const noexcept;
 
 		template<typename... T>
-		auto system(std::string name = "") {
-			return SystemBuilder<T...>(*getSystemManager(), name);
-		}
+		SystemBuilder<T...> system(std::string name);
 
 		Entity createEntity() const;
 
@@ -33,3 +32,11 @@ namespace IKIGAI::ECS2
 }
 
 #include "systemBuilder.h"
+#include "systemManager.h"
+
+namespace IKIGAI::ECS2 {
+	template<typename... T>
+	SystemBuilder<T...> World::system(std::string name) {
+		return SystemBuilder<T...>(*getSystemManager(), name);
+	}
+}

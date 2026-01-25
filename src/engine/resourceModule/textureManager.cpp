@@ -1,5 +1,6 @@
 #include "textureManager.h"
 #include "ServiceManager.h"
+#include <resourceModule/fileSystem/fileSystem.h>
 #include <taskModule/taskSystem.h>
 
 #include "resourceCreator.h"
@@ -111,7 +112,10 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromResource(const st
 		return resource;
 	}
 
-	auto res = UTILS::FromJson<RENDER::TextureResource>(path);
+	//auto res = UTILS::FromJson<RENDER::TextureResource>(path);
+	auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
+	auto res = UTILS::FromJsonStr<RENDER::TextureResource>(content);
+
 	if (res.isErr()) {
 		auto err = res.unwrapErr();
 		auto text = err.text;
@@ -135,7 +139,10 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromFile(const std::s
 		return resource;
 	}
 	else {
-		auto newResource = CreateFromFile(path, generateMipmap);
+		//auto newResource = CreateFromFile(path, generateMipmap);
+		auto data = ServiceManager::Get<FileSystem>().getFile(path)->read();
+		auto newResource = mCreator->createFromMemory(path, data, generateMipmap);
+
 		if (newResource) {
 			return registerResource(path, newResource);
 		}

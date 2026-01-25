@@ -49,6 +49,10 @@ namespace IKIGAI::ECS2 {
 
 	class SystemManager {
 	public:
+		struct Batch {
+			std::vector<std::shared_ptr<System>> systems;
+		};
+
 		SystemManager(World& world) : mWorld(world) {}
 
 		template<typename T, typename... Args>
@@ -63,6 +67,8 @@ namespace IKIGAI::ECS2 {
 			mIsDirty = true;
 		}
 
+		[[nodiscard]] ComponentManager* getComponentManager() const noexcept;
+
 		// Phase execution methods
 		void runAwake();
 		void runStart();
@@ -74,12 +80,9 @@ namespace IKIGAI::ECS2 {
 		// Legacy immediate mode (deprecated)
 		void run();
 		
-		World& getWorld() { return mWorld; }
+		World& getWorld() const;
 
 	private:
-		struct Batch {
-			std::vector<std::shared_ptr<System>> systems;
-		};
 
 		World& mWorld;
 		std::vector<std::shared_ptr<System>> mSystems;

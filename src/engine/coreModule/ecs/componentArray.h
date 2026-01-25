@@ -2,187 +2,198 @@
 
 #include <cassert>
 #include <functional>
+#include <list>
 #include <unordered_map>
 #include <utility>
-#include <list>
 
 #include "componentArrayInterface.h"
-#include <utilsModule/chunkList.h>
 #include <taskModule/taskSystem.h>
+#include <utilsModule/chunkList.h>
 #include <utilsModule/weakPtr.h>
 
 #include "resourceModule/serviceManager.h"
 
 namespace IKIGAI::ECS {
-	template<typename T>
-	class ComponentArray : public ComponentArrayInterface {
-		inline static constexpr int CHUNK_SIZE = 100;
-	public:
-		void insertData(Entity entity, T& component) {
-			assert(!entityToIndexInArray.contains(entity) && "Component added to same entity more than once.");
+template <typename T> class ComponentArray : public ComponentArrayInterface {
+  inline static constexpr int CHUNK_SIZE = 100;
 
-			auto newIndex = size;
-			entityToIndexInArray[entity] = newIndex;
-			indexInArrayToEntity.insert(std::make_pair(newIndex, entity));
-			const char* typeName = typeid(T).name();
-			if (componentArray.size() > newIndex) {
-				componentArray[newIndex] = std::move(component);
-			}
-			else {
-				componentArray.push_back(component);
-			}
-			// Update cb ptr
-			componentArray[newIndex].getControlBlock()->mPtr = &componentArray[newIndex];
-			size++;
-		}
+public:
+  void insertData(Entity entity, T &component) {
+    assert(!entityToIndexInArray.contains(entity) &&
+           "Component added to same entity more than once.");
 
-		void insertData(Entity entity, T&& component) {
-			assert(!entityToIndexInArray.contains(entity) && "Component added to same entity more than once.");
+    auto newIndex = size;
+    entityToIndexInArray[entity] = newIndex;
+    indexInArrayToEntity.insert(std::make_pair(newIndex, entity));
+    const char *typeName = typeid(T).name();
+    if (componentArray.size() > newIndex) {
+      componentArray[newIndex] = std::move(component);
+    } else {
+      componentArray.push_back(component);
+    }
+    // Update cb ptr
+    componentArray[newIndex].getControlBlock()->mPtr =
+        &componentArray[newIndex];
+    size++;
+  }
 
-			auto newIndex = size;
-			entityToIndexInArray[entity] = newIndex;
-			indexInArrayToEntity.insert(std::make_pair(newIndex, entity));
-			if (componentArray.size() > newIndex) {
-				componentArray.moveTo(newIndex, std::move(component));
-				//componentArray[newIndex] = std::move(component);
-			} else {
-				componentArray.push_back(component);
-			}
-			// Update cb ptr
-			componentArray[newIndex].getControlBlock()->mPtr = &componentArray[newIndex];
-			size++;
-		}
+  void insertData(Entity entity, T &&component) {
+    assert(!entityToIndexInArray.contains(entity) &&
+           "Component added to same entity more than once.");
 
-		T removeData(Entity entity) {
-			assert(entityToIndexInArray.contains(entity) && "Removing non-existent component.");
+    auto newIndex = size;
+    entityToIndexInArray[entity] = newIndex;
+    indexInArrayToEntity.insert(std::make_pair(newIndex, entity));
+    if (componentArray.size() > newIndex) {
+      componentArray.moveTo(newIndex, std::move(component));
+      // componentArray[newIndex] = std::move(component);
+    } else {
+      componentArray.push_back(component);
+    }
+    // Update cb ptr
+    componentArray[newIndex].getControlBlock()->mPtr =
+        &componentArray[newIndex];
+    size++;
+  }
 
-			// Copy element at end into deleted element's place to maintain density
-			size_t indexOfRemovedEntity = entityToIndexInArray[entity];
-			size_t indexOfLastElement = size - 1;
-			auto component = std::move(componentArray[indexOfRemovedEntity]);
-			auto moveElem = std::move(componentArray[indexOfLastElement]);
-			componentArray[indexOfRemovedEntity] = std::move(moveElem);
-			// Update cb ptr
-			componentArray[indexOfRemovedEntity].getControlBlock()->mPtr = &componentArray[indexOfRemovedEntity];
+  T removeData(Entity entity) {
+    assert(entityToIndexInArray.contains(entity) &&
+           "Removing non-existent component.");
 
-			// Update map to point to moved spot
-			const Entity entityOfLastElement = indexInArrayToEntity.at(indexOfLastElement);
-			entityToIndexInArray[entityOfLastElement] = indexOfRemovedEntity;
-			indexInArrayToEntity.at(indexOfRemovedEntity) = entityOfLastElement;
-			entityToIndexInArray.erase(entity);
-			indexInArrayToEntity.erase(indexOfLastElement);
-			size--;
-			
-			componentArray.pop_back();
+    // Copy element at end into deleted element's place to maintain density
+    size_t indexOfRemovedEntity = entityToIndexInArray[entity];
+    size_t indexOfLastElement = size - 1;
+    auto component = std::move(componentArray[indexOfRemovedEntity]);
+    auto moveElem = std::move(componentArray[indexOfLastElement]);
+    componentArray[indexOfRemovedEntity] = std::move(moveElem);
+    // Update cb ptr
+    componentArray[indexOfRemovedEntity].getControlBlock()->mPtr =
+        &componentArray[indexOfRemovedEntity];
 
-			return component;
-		}
+    // Update map to point to moved spot
+    const Entity entityOfLastElement =
+        indexInArrayToEntity.at(indexOfLastElement);
+    entityToIndexInArray[entityOfLastElement] = indexOfRemovedEntity;
+    indexInArrayToEntity.at(indexOfRemovedEntity) = entityOfLastElement;
+    entityToIndexInArray.erase(entity);
+    indexInArrayToEntity.erase(indexOfLastElement);
+    size--;
 
-		T& getData(Entity entity) {
-			assert(entityToIndexInArray.contains(entity) && "Retrieving non-existent component.");
+    componentArray.pop_back();
 
-			return componentArray[entityToIndexInArray[entity]];
-		}
+    return component;
+  }
 
-		//void insertDataAny(Entity entity, UTILS::unique_any&& component) override {
-		//	if (!component.has_value()) {
-		//		throw;
-		//		return;
-		//	}
-		//	auto data = UTILS::any_cast<T>(component);
-		//	insertData(entity, data);
-		//}
+  T &getData(Entity entity) {
+    assert(entityToIndexInArray.contains(entity) &&
+           "Retrieving non-existent component.");
 
-		//UTILS::unique_any&& removeDataAny(Entity entity) override {
-		//	return removeData(entity);
-		//}
+    return componentArray[entityToIndexInArray[entity]];
+  }
 
-		//std::any getDataAny(Entity entity) override {
-		//	return getData(entity);
-		//}
+  // void insertDataAny(Entity entity, UTILS::unique_any&& component) override {
+  //	if (!component.has_value()) {
+  //		throw;
+  //		return;
+  //	}
+  //	auto data = UTILS::any_cast<T>(component);
+  //	insertData(entity, data);
+  // }
 
-		UTILS::WeakPtr<T> getDataPtr(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
-			assert(entityToIndexInArray.contains(entity) && "Retrieving non-existent component.");
+  // UTILS::unique_any&& removeDataAny(Entity entity) override {
+  //	return removeData(entity);
+  // }
 
-			return componentArray[entityToIndexInArray[entity]].template getWeak<T>();
-		}
+  // std::any getDataAny(Entity entity) override {
+  //	return getData(entity);
+  // }
 
-		UTILS::WeakPtr<ECS::Component> getDataBasePtr(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
-			assert(entityToIndexInArray.contains(entity) && "Retrieving non-existent component.");
+  UTILS::WeakPtr<T> getDataPtr(Entity entity) {
+    static_assert(std::is_base_of_v<Component, T>,
+                  "Must inherit from class Component");
+    assert(entityToIndexInArray.contains(entity) &&
+           "Retrieving non-existent component.");
 
-			return UTILS::WeakPtr<ECS::Component>(componentArray[entityToIndexInArray[entity]]);
-		}
+    return componentArray[entityToIndexInArray[entity]].template getWeak<T>();
+  }
 
-		void entityDestroyed(Entity entity) override {
-			if (entityToIndexInArray.contains(entity)) {
-				removeData(entity);
-			}
-		}
+  UTILS::WeakPtr<ECS::Component> getDataBasePtr(Entity entity) {
+    static_assert(std::is_base_of_v<Component, T>,
+                  "Must inherit from class Component");
+    assert(entityToIndexInArray.contains(entity) &&
+           "Retrieving non-existent component.");
 
-		std::shared_ptr<ComponentArrayInterface> createEmptyFromThis() override {
-			return std::make_shared<ComponentArray<T>>();
-		}
+    return UTILS::WeakPtr<ECS::Component>(
+        componentArray[entityToIndexInArray[entity]]);
+  }
 
-		[[nodiscard]] bool count(Entity entity) const {
-			return entityToIndexInArray.contains(entity);
-		}
+  void entityDestroyed(Entity entity) override {
+    if (entityToIndexInArray.contains(entity)) {
+      removeData(entity);
+    }
+  }
 
-		[[nodiscard]] int getSize() const override {
-			return size;
-		}
+  std::shared_ptr<ComponentArrayInterface> createEmptyFromThis() override {
+    return std::make_shared<ComponentArray<T>>();
+  }
 
-		T& at(size_t i) {
-			if (i >= getSize()) {
-				throw;
-			}
-			return componentArray[i];
-		}
+  [[nodiscard]] bool count(Entity entity) const {
+    return entityToIndexInArray.contains(entity);
+  }
 
-		bool empty() {
-			return size == 0;
-		}
+  [[nodiscard]] int getSize() const override { return size; }
 
-		auto begin() { return componentArray.begin(); }
-		auto begin() const { return componentArray.begin(); }
-		auto end() { return componentArray.end(); }
-		auto end() const { return componentArray.end(); }
+  T &at(size_t i) {
+    if (i >= getSize()) {
+      throw;
+    }
+    return componentArray[i];
+  }
 
-	private:
-		UTILS::ChunkList<T, CHUNK_SIZE> componentArray;
-		std::unordered_map<Entity, size_t> entityToIndexInArray;
-		std::unordered_map<size_t, Entity> indexInArrayToEntity;
-		int size = 0;
-	};
+  bool empty() { return size == 0; }
 
-	template<class T>
-	void For(std::shared_ptr<ComponentArray<T>> data, std::function<void(T&)> func, int threadsCount = 4) {
+  auto begin() { return componentArray.begin(); }
+  auto begin() const { return componentArray.begin(); }
+  auto end() { return componentArray.end(); }
+  auto end() const { return componentArray.end(); }
+
+private:
+  UTILS::ChunkList<T, std::vector, CHUNK_SIZE> componentArray;
+  std::unordered_map<Entity, size_t> entityToIndexInArray;
+  std::unordered_map<size_t, Entity> indexInArrayToEntity;
+  int size = 0;
+};
+
+template <class T>
+void For(std::shared_ptr<ComponentArray<T>> data, std::function<void(T &)> func,
+         int threadsCount = 4) {
 #ifndef __EMSCRIPTEN__
-		static std::atomic_llong taskId = 0;
+  static std::atomic_llong taskId = 0;
 
-		const int sz = data->size;
-		const int chunkSz = sz / 4;
-		int start = 0;
-		std::list<TASK::TaskHandle<void>> waitTasks;
-		for (int threadId = 0; threadId < threadsCount; threadId++) {
-			int end = (threadId == threadsCount - 1 ? sz : start + chunkSz);
-			auto task = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("___task___" + std::to_string(taskId), -1, nullptr, [data, start, end, func]() {
-				for (int i = start; i < end; i++) {
-					func((*data)[i]);
-				}
-				});
-			waitTasks.push_back(task);
-			taskId += 1;
-			start += chunkSz;
-		}
-		for (auto& t : waitTasks) {
-			t.mTask->wait();
-		}
+  const int sz = data->size;
+  const int chunkSz = sz / 4;
+  int start = 0;
+  std::list<TASK::TaskHandle<void>> waitTasks;
+  for (int threadId = 0; threadId < threadsCount; threadId++) {
+    int end = (threadId == threadsCount - 1 ? sz : start + chunkSz);
+    auto task = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit(
+        "___task___" + std::to_string(taskId), -1, nullptr,
+        [data, start, end, func]() {
+          for (int i = start; i < end; i++) {
+            func((*data)[i]);
+          }
+        });
+    waitTasks.push_back(task);
+    taskId += 1;
+    start += chunkSz;
+  }
+  for (auto &t : waitTasks) {
+    t.mTask->wait();
+  }
 #else
-		for (int i = 0; i < data->size(); i++) {
-			func((*data)[i]);
-		}
+  for (int i = 0; i < data->size(); i++) {
+    func((*data)[i]);
+  }
 #endif
-	}
 }
+} // namespace IKIGAI::ECS

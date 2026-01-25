@@ -57,6 +57,7 @@ namespace IKIGAI::RESOURCES {
 		std::unique_ptr<FileSystemInternal> mInternal;
 	public:
 		FileSystem();
+		~FileSystem();
 
 		void addNativeFileSystem(const std::string& path, const std::string& pathInFs);
 		void addZipFileSystem(const std::string& path, const std::string& pathInFs);

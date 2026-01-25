@@ -7,6 +7,31 @@
 #include <serdepp/attribute/default.hpp>
 #include <serdepp/serializer.hpp>
 
+//TODO: move it to new file
+#include <nlohmann/json.hpp>
+namespace serde {
+	template<typename E, int SIZE>
+	struct serde_adaptor<nlohmann::json, std::array<E, SIZE>, type::seq_t> {
+		static void from(nlohmann::json& s, std::string_view key, std::array<E, SIZE>& arr) {
+			auto& table = key.empty() ? s : s.at(std::string{key});
+			int i = 0;
+			for (auto& value : table) {
+				arr[i] = std::move(deserialize<E>(value));
+				++i;
+			}
+		}
+
+		static void into(nlohmann::json& s, std::string_view key, const std::array<E, SIZE>& data) {
+			nlohmann::json& arr = key.empty() ? s : s[std::string{key}];
+			int i = 0;
+			for (auto& value : data) {
+				arr[i] = std::move(serialize<nlohmann::json>(value));
+				++i;
+			}
+		}
+	};
+}
+
 namespace IKIGAI::MATH {
 	constexpr float PI = 3.14159265359f;
 	constexpr float EPSILON = 0.00001f;
@@ -1698,6 +1723,14 @@ namespace IKIGAI::MATH {
 			return Vector3(matrix.data[column + 6], matrix.data[column + 3], matrix.data[column]);
 		}
 
+		template<class Context>
+		constexpr static auto serde(Context& context, Matrix3& value) {
+			using Self = Matrix3;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::data, "Data");
+		}
+
 	};
 	template<class T>
 	Matrix3<T> operator*(const float f, const Matrix3<T>& V) {
@@ -2303,6 +2336,14 @@ namespace IKIGAI::MATH {
 			Frustum.data[15] = 0.0f;
 
 			return Frustum;
+		}
+
+		template<class Context>
+		constexpr static auto serde(Context& context, Matrix4& value) {
+			using Self = Matrix4;
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&Self::data, "Data");
 		}
 	};
 

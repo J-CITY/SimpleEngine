@@ -78,6 +78,8 @@ IKIGAI::RESOURCES::FileSystem::FileSystem(): mInternal(std::make_unique<FileSyst
 
 }
 
+IKIGAI::RESOURCES::FileSystem::~FileSystem() = default;
+
 void IKIGAI::RESOURCES::FileSystem::addNativeFileSystem(const std::string& path, const std::string& pathInFs) {
 	vfspp::IFileSystemPtr fs(new vfspp::NativeFileSystem(path));
 	fs->Initialize();

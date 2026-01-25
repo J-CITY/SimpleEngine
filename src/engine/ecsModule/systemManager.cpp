@@ -3,6 +3,7 @@
 #include "commandBuffer.h"
 #include <resourceModule/serviceManager.h>
 #include <taskModule/taskSystem.h>
+#include <future>
 
 namespace IKIGAI::ECS2 {
 
@@ -50,7 +51,7 @@ namespace IKIGAI::ECS2 {
 
 	// Template helper for running phases with batching and multithreading
 	template<typename PhaseFunc>
-	void runPhaseImpl(std::vector<Batch>& batches, World& world, PhaseFunc&& phaseFunc) {
+	void runPhaseImpl(std::vector<SystemManager::Batch>& batches, World& world, PhaseFunc&& phaseFunc) {
 		if (IKIGAI::RESOURCES::ServiceManager::Check<IKIGAI::TASK::TaskSystem>()) {
 			auto& ts = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::TASK::TaskSystem>();
 			
@@ -86,6 +87,11 @@ namespace IKIGAI::ECS2 {
 		}
 	}
 
+	ComponentManager* SystemManager::getComponentManager() const noexcept
+	{
+		return mWorld.getComponentManager();
+	}
+
 	void SystemManager::runAwake() {
 		if (mIsDirty) rebuildBatches();
 		
@@ -110,7 +116,7 @@ namespace IKIGAI::ECS2 {
 
 	// Template helper for update phases (with dt and CommandBuffer)
 	template<typename PhaseFunc>
-	void runUpdatePhaseImpl(std::vector<Batch>& batches, World& world, double dt, PhaseFunc&& phaseFunc) {
+	void runUpdatePhaseImpl(std::vector<SystemManager::Batch>& batches, World& world, double dt, PhaseFunc&& phaseFunc) {
 		if (IKIGAI::RESOURCES::ServiceManager::Check<IKIGAI::TASK::TaskSystem>()) {
 			auto& ts = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::TASK::TaskSystem>();
 			
@@ -239,5 +245,9 @@ namespace IKIGAI::ECS2 {
 			}
 			cb.execute();
 		}
+	}
+
+	World& SystemManager::getWorld() const {
+		return mWorld;
 	}
 }

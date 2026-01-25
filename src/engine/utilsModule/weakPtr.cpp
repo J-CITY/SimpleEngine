@@ -2,10 +2,17 @@
 
 using namespace IKIGAI::UTILS;
 
+ControlBlockHandler::ControlBlockHandler()
+{
+	mCb = new UTILS::ControlBlock();
+	mCb->mRC += 1;
+	mCb->mPtr = this;
+}
+
 ControlBlockHandler::ControlBlockHandler(ECS::Component* ptr) {
 	mCb = new UTILS::ControlBlock();
 	mCb->mRC += 1;
-	mCb->mPtr = ptr;
+	mCb->mPtr = (ControlBlockHandler*)ptr;
 }
 
 ControlBlockHandler::ControlBlockHandler(const ControlBlockHandler& obj) {

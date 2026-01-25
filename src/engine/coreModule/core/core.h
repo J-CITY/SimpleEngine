@@ -1,5 +1,4 @@
 #pragma once
-
 #include <memory>
 #ifdef USE_EDITOR
 namespace IKIGAI
@@ -40,6 +39,7 @@ namespace IKIGAI
 		class MaterialLoader;
 		class ShaderLoader;
 		class AudioSourceLoader;
+		class FileSystem;
 	}
 }
 
@@ -146,6 +146,7 @@ namespace IKIGAI {
 			std::unique_ptr<RESOURCES::TextureLoader>  textureManager;
 			std::unique_ptr<RESOURCES::ShaderLoader>   shaderManager;
 			std::unique_ptr<RESOURCES::MaterialLoader> materialManager;
+			std::unique_ptr<RESOURCES::FileSystem>     fileSystem;
 		};
 	}
 }

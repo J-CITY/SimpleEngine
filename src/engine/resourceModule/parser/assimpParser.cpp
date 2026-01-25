@@ -25,11 +25,44 @@ std::vector< std::vector<uint32_t>>* globalIndicesPerMesh;
 std::vector<Vertex> globalVertices;
 std::vector<uint32_t> globalIndices;
 
-bool AssimpParser::LoadModel(const std::string& fileName, 
+bool AssimpParser::LoadModel(const std::string& fileName,
+	RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags) {
+
+	Assimp::Importer* import = new Assimp::Importer();
+	auto scene = import->ReadFile(fileName, static_cast<int>(parserFlags));
+
+	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+		return false;
+	}
+	processMaterials(scene, model->getMaterialsNames());
+
+	aiMatrix4x4 identity;
+
+	globalVertices.clear();
+	globalIndices.clear();
+	//if (scene->HasAnimations()) {
+	processNode(&identity, scene->mRootNode, scene, model);
+	//}
+	if (model->getUseBatching()) {
+#ifdef OPENGL_BACKEND
+		dynamic_cast<RENDER::ModelGl*>(model.get())->createBuffers(globalVertices, globalIndices);
+#endif
+	}
+
+
+	//std::shared_ptr<Assimp::Importer> imp = std::shared_ptr<Assimp::Importer>(import);
+	//for (auto m : meshes) {
+	//	m->imp = imp;
+	//}
+	delete import;
+	return true;
+}
+
+bool AssimpParser::LoadModel(const std::string& fileName, const std::vector<uint8_t>& data,
 	RESOURCES::ResourcePtr<RENDER::ModelInterface> model,  ModelParserFlags parserFlags) {
 	
 	Assimp::Importer* import = new Assimp::Importer();
-	auto scene = import->ReadFile(fileName, static_cast<int>(parserFlags));
+	auto scene = import->ReadFileFromMemory(data.data(), data.size(), static_cast<int>(parserFlags), fileName.c_str());
 	
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 		return false;
@@ -58,7 +91,7 @@ bool AssimpParser::LoadModel(const std::string& fileName,
 	return true;
 }
 
-bool AssimpParser::LoadVertexes(const std::string& fileName, 
+bool AssimpParser::LoadVertexes(const std::string& fileName,
 	RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags,
 	std::vector<std::vector<Vertex>>& _globalVerticesPerMesh,
 	std::vector< std::vector<uint32_t>>& _globalIndicesPerMesh) {
@@ -67,6 +100,43 @@ bool AssimpParser::LoadVertexes(const std::string& fileName,
 	globalIndicesPerMesh = &_globalIndicesPerMesh;
 	Assimp::Importer* import = new Assimp::Importer();
 	auto scene = import->ReadFile(fileName, static_cast<int>(parserFlags));
+
+	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+		delete import;
+		needSaveVerts = false;
+		return false;
+	}
+	//processMaterials(scene, model->getMaterialsNames());
+
+	aiMatrix4x4 identity;
+
+	globalVertices.clear();
+	globalIndices.clear();
+	//if (scene->HasAnimations()) {
+	processNode(&identity, scene->mRootNode, scene, model);
+	//}
+
+
+	//std::shared_ptr<Assimp::Importer> imp = std::shared_ptr<Assimp::Importer>(import);
+	//for (auto m : meshes) {
+	//	m->imp = imp;
+	//}
+	delete import;
+	needSaveVerts = false;
+	globalVerticesPerMesh = nullptr;
+	globalIndicesPerMesh = nullptr;
+	return true;
+}
+
+bool AssimpParser::LoadVertexes(const std::string& fileName, const std::vector<uint8_t>& data, 
+	RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags,
+	std::vector<std::vector<Vertex>>& _globalVerticesPerMesh,
+	std::vector< std::vector<uint32_t>>& _globalIndicesPerMesh) {
+	needSaveVerts = true;
+	globalVerticesPerMesh = &_globalVerticesPerMesh;
+	globalIndicesPerMesh = &_globalIndicesPerMesh;
+	Assimp::Importer* import = new Assimp::Importer();
+	auto scene = import->ReadFileFromMemory(data.data(), data.size(), static_cast<int>(parserFlags), fileName.c_str());
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 		delete import;

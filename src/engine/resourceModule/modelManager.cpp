@@ -1,5 +1,6 @@
 #include "modelManager.h"
 #include "ServiceManager.h"
+#include <resourceModule/fileSystem/fileSystem.h>
 #include <renderModule/backends/interface/modelInterface.h>
 
 #include "utilsModule/pathGetter.h"
@@ -42,7 +43,10 @@ ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromFile(const st
 }
 
 ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromResource(const std::string& path) {
-	auto res = UTILS::FromJson<RENDER::ModelResource>(path);
+	//auto res = UTILS::FromJson<RENDER::ModelResource>(path);
+	auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
+	auto res = UTILS::FromJsonStr<RENDER::ModelResource>(content);
+	
 	if (res.isErr()) {
 		//problem
 		return nullptr;
@@ -94,7 +98,10 @@ ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::Create(const std::strin
 	}
 #endif
 
-	if (_ASSIMP.LoadModel(filepath, result, parserFlags)) {
+	auto data = ServiceManager::Get<FileSystem>().getFile(filepath)->read();
+	if (data.empty()) return nullptr;
+
+	if (_ASSIMP.LoadModel(filepath, data, result, parserFlags)) {
 		result->computeBoundingSphere();
 		return result;
 	}
@@ -115,8 +122,10 @@ ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateVerts(const std::
 			});
 	}
 #endif
+	auto data = ServiceManager::Get<FileSystem>().getFile(filepath)->read();
+	if (data.empty()) return nullptr;
 
-	if (_ASSIMP.LoadVertexes(filepath, result, parserFlags, _globalVerticesPerMesh, _globalIndicesPerMesh)) {
+	if (_ASSIMP.LoadVertexes(filepath, data, result, parserFlags, _globalVerticesPerMesh, _globalIndicesPerMesh)) {
 		result->computeBoundingSphere();
 		return result;
 	}
