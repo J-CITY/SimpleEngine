@@ -7,6 +7,7 @@
 #include "utilsModule/jsonLoader.h"
 #include "utilsModule/pathGetter.h"
 #include "utilsModule/stdLoader.h"
+#include "utilsModule/assertion.h"
 
 //#include "coreModule/ecs/components/transform.h"
 
@@ -204,9 +205,8 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 	if (!descriptor.pathTexture.empty()) {
 		UTILS::STBiSetFlipVerticallyOnLoad(true);
 		int width = descriptor.width, height = descriptor.height, nrComponents = descriptor.channels;
-		createTexture(descriptor.texType, getInternalFormat(nrComponents, descriptor.isFloat),
-		getFormat(nrComponents), width, height, descriptor.depth,
-			descriptor.isFloat, data);
+		createTexture(descriptor.texType, getInternalFormat(nrComponents, descriptor.isFloat), 
+			getFormat(nrComponents), width, height, descriptor.depth, descriptor.isFloat, data);
 		mWidth = width;
 		mHeight = height;
 		mDepth = descriptor.depth;
@@ -297,7 +297,7 @@ TextureGl::~TextureGl() {
 //}
 
 std::shared_ptr<TextureGl>
-TextureGl::Create(const TextureResource &descriptor) {
+TextureGl::Create(const TextureResource &descriptor, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	auto &_descriptor = const_cast<TextureResource &>(descriptor);
 	// Load data
 	std::vector<void *> textureData;
@@ -306,11 +306,11 @@ TextureGl::Create(const TextureResource &descriptor) {
 		for (const auto &path : _descriptor.pathTexture) {
 			int width = 0, height = 0, channels = 0;
 			if (_descriptor.isFloat) {
-				auto *data = IKIGAI::UTILS::STBiLoadf(UTILS::GetRealPath(path).c_str(), &width, &height, &channels, 0);
+				auto *data = IKIGAI::UTILS::STBiLoadf(path.c_str(), &width, &height, &channels, 0);
 				textureData.push_back(data);
 			}
 			else {
-				auto *data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &channels, 0);
+				auto *data = IKIGAI::UTILS::STBiLoad(path.c_str(), &width, &height, &channels, 0);
 				//if (channels == 3) { // because dx12 dose not support RGB8
 				//	UTILS::STBiImageFree((unsigned char *)data);
 				//	data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &channels, 4);
@@ -327,7 +327,7 @@ TextureGl::Create(const TextureResource &descriptor) {
 	}
 
 	// Create texture
-	auto tex = std::make_shared<TextureGl>(descriptor, textureData);
+	auto tex = AllocateTexture<TextureGl>(allocator, deleter, descriptor, textureData);
 
 	// Free texture data
 	if (!_descriptor.pathTexture.empty()) {
@@ -343,7 +343,43 @@ TextureGl::Create(const TextureResource &descriptor) {
 	return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMipmap) {
+std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto &_descriptor = const_cast<TextureResource &>(descriptor);
+	
+	std::vector<void *> textureData;
+	bool needFree = false;
+
+	if (_descriptor.colorData.empty() && !fileData.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+		for (const auto& fData : fileData) {
+			int w = 0, h = 0, c = 0;
+			void* data = _descriptor.isFloat
+				? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0)
+				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+			if (data) {
+				textureData.push_back(data);
+				_descriptor.width = w; 
+				_descriptor.height = h; 
+				_descriptor.channels = c;
+			}
+		}
+		needFree = true;
+	} else if (!_descriptor.colorData.empty()) {
+		textureData.push_back(const_cast<uint8_t*>(_descriptor.colorData.data()));
+	}
+
+	auto tex = AllocateTexture<TextureGl>(allocator, deleter, descriptor, textureData);
+
+	if (needFree) {
+		for (auto* ptr : textureData) {
+			if (_descriptor.isFloat) IKIGAI::UTILS::STBiImageFree((float*)ptr);
+			else IKIGAI::UTILS::STBiImageFree((unsigned char*)ptr);
+		}
+	}
+	return tex;
+}
+
+std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	//int width = 0, height = 0, nrComponents = 0;
 	//IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
 	//unsigned char* data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &nrComponents, 4);
@@ -351,7 +387,69 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMi
 	res.useMipmap = genMipmap;
 	res.pathTexture.push_back(path);
 	//auto tex = std::make_shared<TextureDx12>(res, std::vector<void*>{data});
-	return Create(res);
+	return Create(res, allocator, deleter);
+}
+
+std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	int width = 0, height = 0, nrComponents = 0;
+	IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+	
+	// Try float first if needed or check isFloat? 
+	// For now assume standard image if not specified.
+	// But CreateFromFile previously used Create(res) which handles STBiLoadf if isFloat is true.
+	// We can use stbi_is_hdr_from_memory to check.
+	
+	// Simple approach: try load, if fails check hdr?
+	// Or stbi_load calls handle default.
+	
+	unsigned char* pixelData = IKIGAI::UTILS::STBiLoadFromMemory(data.data(), data.size(), &width, &height, &nrComponents, 0);
+	if (pixelData) {
+		TextureResource res;
+		res.useMipmap = generateMipmap;
+		res.path = name;
+		res.width = width;
+		res.height = height;
+		res.channels = nrComponents;
+		res.pathTexture.emplace_back(name);
+
+		std::vector<void*> datas;
+		datas.push_back(pixelData);
+		
+		// Fill implicit types based on channels
+		if (nrComponents == 1) res.pixelType = PixelFormat::R_INT;
+		else if (nrComponents == 3) res.pixelType = PixelFormat::RGB_INT;
+		else if (nrComponents == 4) res.pixelType = PixelFormat::RGBA_INT;
+		
+		auto tex = AllocateTexture<TextureGl>(allocator, deleter, res, datas);
+		IKIGAI::UTILS::STBiImageFree(pixelData);
+		return tex;
+	} else {
+		// Try float/HDR?
+		int x,y,c;
+		float* floatData = IKIGAI::UTILS::STBiLoadfFromMemory(data.data(), data.size(), &x, &y, &c, 0);
+		if (floatData) {
+			TextureResource res;
+			res.useMipmap = generateMipmap;
+			res.path = name;
+			res.width = x;
+			res.height = y;
+			res.channels = c;
+			res.isFloat = true;
+
+			std::vector<void*> datas;
+			datas.push_back(floatData);
+			
+			if (c == 1) res.pixelType = PixelFormat::R_FLOAT;
+			else if (c == 3) res.pixelType = PixelFormat::RGB_FLOAT;
+			else if (c == 4) res.pixelType = PixelFormat::RGBA_FLOAT;
+
+			auto tex = AllocateTexture<TextureGl>(allocator, deleter, res, datas);
+			IKIGAI::UTILS::STBiImageFree(floatData);
+			return tex;
+		}
+	}
+	std::cout << "Texture failed to load from memory: " << name << std::endl;
+	return nullptr;
 }
 
 void TextureGl::bind(int _slot) {
@@ -410,17 +508,61 @@ void* TextureGl::getImguiId() {
 	return reinterpret_cast<void*>(id);
 }
 
+void TextureGl::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+	// Удаляем старый GPU-ресурс
+	glDeleteTextures(1, &id);
+	id = 0;
+
+	auto& _d = const_cast<TextureResource&>(descriptor);
+	std::vector<void*> loadedPtrs;
+	bool needFree = false;
+
+	if (descriptor.colorData.empty() && !fileData.empty()) {
+		// Загружаем из памяти (через STBiLoadFromMemory)
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+		for (const auto& fData : fileData) {
+			int w = 0, h = 0, c = 0;
+			void* data = descriptor.isFloat
+				? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0)
+				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+			loadedPtrs.push_back(data);
+			_d.width = w; _d.height = h; _d.channels = c;
+		}
+		needFree = true;
+	} else if (!descriptor.colorData.empty()) {
+		// colorData уже заполнена в TextureLoader
+		loadedPtrs.push_back(const_cast<uint8_t*>(descriptor.colorData.data()));
+	}
+
+	create(descriptor, loadedPtrs);
+
+	if (needFree) {
+		for (auto* ptr : loadedPtrs) {
+			if (descriptor.isFloat) IKIGAI::UTILS::STBiImageFree((float*)ptr);
+			else IKIGAI::UTILS::STBiImageFree((unsigned char*)ptr);
+		}
+	}
+}
+
 
 //---------------------------------------
 
-AtlasRect TextureAtlas::getPiece(const std::string& name) const {
+TextureAtlasGl::TextureAtlasGl(const TextureResource& descriptor, const std::vector<void*>& data) {
+	create(descriptor, data);
+}
+
+void TextureAtlasGl::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+	TextureGl::recreate(descriptor, fileData);
+}
+
+AtlasRect TextureAtlasGl::getPiece(const std::string& name) const {
 	if (mAtlas.mRects.contains(name)) {
 		return mAtlas.mRects.at(name);
 	}
 	return AtlasRect();
 }
 
-AtlasRect TextureAtlas::getPieceUV(const std::string& name) const {
+AtlasRect TextureAtlasGl::getPieceUV(const std::string& name) const {
 	if (mAtlas.mRects.contains(name)) {
 		auto res = mAtlas.mRects.at(name);
 		res.mX /= mWidth;
@@ -432,81 +574,93 @@ AtlasRect TextureAtlas::getPieceUV(const std::string& name) const {
 	return AtlasRect();
 }
 
-//TODO: refactor it
-std::shared_ptr<TextureAtlas> TextureAtlas::CreateAtlas(const std::string& path, bool generateMipmap) {
-	auto tex = std::make_shared<TextureAtlas>();
+std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	TextureResource res;
+	res.useMipmap = generateMipmap;
+	res.pathTexture.push_back(path);
+	return CreateAtlasFromResource(res, allocator, deleter);
+}
 
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
+std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const TextureResource& descriptor, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto& _d = const_cast<TextureResource&>(descriptor);
 
-	int width = 0, height = 0, nrComponents = 0;
+	// Загружаем текстурные данные
+	std::vector<void*> textureData;
+	if (!_d.pathTexture.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(false);
+		const auto& path = _d.pathTexture[0];
+		int w = 0, h = 0, c = 0;
+		auto* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &w, &h, &c, 0);
+		ASSERT_IF(data, "TextureAtlasGl: failed to load image");
+		if (!data) return nullptr;
+		textureData.push_back(data);
+		_d.width = w; _d.height = h; _d.channels = c;
+	} else if (!_d.colorData.empty()) {
+		textureData.push_back(_d.colorData.data());
+	}
 
-	//IKIGAI::UTILS::stbiSetFlipVerticallyOnLoad(true);
-	//stbi_set_flip_vertically_on_load(true);
-	unsigned char* data = UTILS::STBiLoad(path.c_str(), &width, &height, &nrComponents, 0);
-	if (data)
-	{
-		GLenum format;
-		if (nrComponents == 1)
-//#ifndef USING_GLES
-			format = GL_RED;
-//#else
-//			format = GL_ALPHA;
-//#endif
-		else if (nrComponents == 3)
-			format = GL_RGB;
-		else if (nrComponents == 4)
-			format = GL_RGBA;
+	auto tex = AllocateTexture<TextureAtlasGl>(allocator, deleter);
+	tex->create(descriptor, textureData);
 
-		glBindTexture(GL_TEXTURE_2D, textureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-		if (generateMipmap) {
-			glGenerateMipmap(GL_TEXTURE_2D);
+	if (!_d.pathTexture.empty() && !textureData.empty()) {
+		IKIGAI::UTILS::STBiImageFree((unsigned char*)textureData[0]);
+	}
+
+	// Загружаем .atlas JSON
+	if (!_d.pathTexture.empty()) {
+		std::filesystem::path configPath{ _d.pathTexture[0] };
+		configPath.replace_extension(".atlas");
+		auto atlasRes = UTILS::FromJson<AtlasData>(configPath.string());
+		ASSERT_IF(atlasRes.isOk(), "TextureAtlasGl: failed to load atlas data");
+		if (atlasRes.isOk()) {
+			tex->mAtlas = atlasRes.unwrap();
 		}
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		IKIGAI::UTILS::STBiImageFree(data);
-	}
-	else
-	{
-		std::cout << "Texture failed to load at path: " << path << std::endl;
-		IKIGAI::UTILS::STBiImageFree(data);
-	}
-
-	tex->id = textureID;
-	tex->mPath = path;
-	tex->mWidth = width;
-	tex->mHeight = height;
-	tex->mChannels = nrComponents;
-
-	std::filesystem::path configPath{ path };
-	configPath.replace_extension(".atlas");
-
-	//const std::string jsonData = UTILS::readFileIntoString(UTILS::getRealPath(configPath.string()));
-	//auto json = nlohmann::json::parse(jsonData, nullptr, true, true);
-	//
-	//AtlasData adata;
-	//adata.mPath = json["Path"];
-	//for (auto& e : json["Files"]) {
-	//	std::string key = e["key"];
-	//	AtlasRect val(e["value"]["x"], e["value"]["y"], e["value"]["w"], e["value"]["h"]);
-	//	adata.mRects.insert({ key, val });
-	//}
-	//tex->mAtlas = adata;
-
-	//TODO: why is not work
-	auto res = UTILS::FromJson<AtlasData>(configPath.string());
-	if (res.isOk()) {
-		tex->mAtlas = res.unwrap();
-	}
-	else {
-		throw;
 	}
 	return tex;
 }
+
+std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto& _d = const_cast<TextureResource&>(descriptor);
+
+	std::vector<void*> textureData;
+	bool needFree = false;
+
+	if (_d.colorData.empty() && !fileData.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(false);
+		int w = 0, h = 0, c = 0;
+		const auto& fData = fileData[0];
+		auto* data = _d.isFloat
+			? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0)
+			: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+		ASSERT_IF(data, "TextureAtlasGl: failed to load image from memory");
+		if (!data) return nullptr;
+		textureData.push_back(data);
+		_d.width = w; _d.height = h; _d.channels = c;
+		needFree = true;
+	} else if (!_d.colorData.empty()) {
+		textureData.push_back(_d.colorData.data());
+	}
+
+	auto tex = AllocateTexture<TextureAtlasGl>(allocator, deleter);
+	tex->create(descriptor, textureData);
+
+	if (needFree && !textureData.empty()) {
+		if (_d.isFloat) IKIGAI::UTILS::STBiImageFree((float*)textureData[0]);
+		else IKIGAI::UTILS::STBiImageFree((unsigned char*)textureData[0]);
+	}
+
+	if (!_d.pathTexture.empty()) {
+		std::filesystem::path configPath{ _d.pathTexture[0] };
+		configPath.replace_extension(".atlas");
+		auto atlasRes = UTILS::FromJson<AtlasData>(configPath.string());
+		ASSERT_IF(atlasRes.isOk(), "TextureAtlasGl: failed to load atlas data");
+		if (atlasRes.isOk()) {
+			tex->mAtlas = atlasRes.unwrap();
+		}
+	}
+	return tex;
+}
+
 
 
 #endif

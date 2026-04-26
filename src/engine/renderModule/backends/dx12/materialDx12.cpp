@@ -1,129 +1,189 @@
 #include "materialDx12.h"
 
-#include "FrameResource.h"
+
 #ifdef DX12_BACKEND
-//#include "frameBufferDx12.h"
-//#include "shaderVk.h"
+
+#include "d3dUtil.h"
+#include "driverDx12.h"
+#include <utilsModule/jsonLoader.h>
+#include "uniformBufferDx12.h"
+#include "storageBufferDx12.h"
+
+//TODO: add dirty flag for update buffers
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-void MaterialDx12::setShader(std::shared_ptr<ShaderDx12> shader) {
-	mShader = shader;
+MaterialDx12::MaterialDx12() {
+}
 
+MaterialDx12::MaterialDx12(const MaterialResource& res) {
+	mBlendable = res.Blendable;
+	mBackfaceCulling = res.BackfaceCulling;
+	mFrontfaceCulling = res.FrontfaceCulling;
+	mDepthTest = res.DepthTest;
+	mDepthWriting = res.DepthWriting;
+	mColorWriting = res.ColorWriting;
+	mGpuInstances = res.GpuInstances;
+	mIsDeferred = res.IsDeferred;
+	mDepthFunc = res.DepthFunc;
+
+	//TODO: do it not in constructor (add var in Material resource)
+	//TODO: load textures befor create material
+	auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
+	if (resData.isErr()) {
+
+	}
+	auto resShader = resData.unwrap();
+	std::map<ShaderType, std::string> path;
+	path[ShaderType::FRAGMENT] = resShader.fragment;
+	path[ShaderType::VERTEX] = resShader.vertex;
+	auto shader = ShaderDx12::CreateFromPath(path);
+	MaterialDx12::setShader(shader);
+
+	for (const auto& [k, v] : res.Uniforms) {
+		std::visit([&](auto& arg) {
+			using T = std::decay_t<decltype(arg)>;
+			if constexpr (std::is_same_v<T, std::string>) {
+				mUniforms[k] = TextureDx12::Create(arg);
+			}
+			else {
+				mUniforms[k] = arg;
+			}
+		}, v);
+	}
+}
+
+void MaterialDx12::setShader(std::shared_ptr<ShaderInterface> shader) {
+	mShader = std::static_pointer_cast<ShaderDx12>(shader);
 	generateUniformsData();
 }
 
-MaterialDx12::MaterialDx12()
-{
-	dataUBO = std::make_shared<UploadBuffer<DataUBODX12>>(1, true);
-	pushModel = std::make_shared<UploadBuffer<MATH::Matrix4f>>(1, true);
+MaterialResource MaterialDx12::getDescriptor() {
+	MaterialResource res;
+	res.path = mPath;
+	res.ShaderPath = mShader->mPath;
+	res.Blendable = mBlendable;
+	res.BackfaceCulling = mBackfaceCulling;
+	res.FrontfaceCulling = mFrontfaceCulling;
+	res.DepthTest = mDepthTest;
+	res.DepthWriting = mDepthWriting;
+	res.ColorWriting = mColorWriting;
+	res.GpuInstances = mGpuInstances;
+	res.IsDeferred = mIsDeferred;
+	res.DepthFunc = mDepthFunc;
+
+	for (const auto& [name, value] : mUniforms) {
+		std::visit([&](auto& arg) {
+			using T = std::decay_t<decltype(arg)>;
+			if constexpr (std::is_same_v<T, std::shared_ptr<TextureInterface>>) {
+				res.Uniforms[name] = arg->getPath();
+			}
+			else {
+				res.Uniforms[name] = arg;
+			}
+		}, value);
+	}
+
+	return res;
+}
+
+void MaterialDx12::setExternalBuffer(const std::string& name, std::shared_ptr<UniformBufferInterface> buffer) {
+	if (!buffer) {
+		mExternalBuffers.erase(name);
+		mUniformBuffers.erase(name);
+		return;
+	}
+	mUniformBuffers[name] = std::static_pointer_cast<UniformBufferDx12>(buffer);
+
+}
+
+void MaterialDx12::setExternalBuffer(const std::string& name, std::shared_ptr<StorageBufferInterface> buffer) {
+	if (!buffer) {
+		mExternalBuffers.erase(name);
+		mStorageBuffers.erase(name);
+		return;
+	}
+	mStorageBuffers[name] = std::static_pointer_cast<StorageBufferDx12>(buffer);
+
 }
 
 void MaterialDx12::generateUniformsData() {
-	//mUniforms.clear();
-	//mUniformData.clear();
-
-	//auto& shaderInfo = mShader->getUniformsInfo();
-	//
-	//for (auto& [name, data] : shaderInfo) {
-	//	if (data.type == UniformInform::TYPE::UNIFORM_SAMPLER2D) {
-	//		if (isEngineUBOMember(name) || isEngineUniform(name)) {
-	//			continue;
-	//		}
-	//		//!!Create uniform buffer of texture when bind if not exist or when change texture
-	//
-	//		//Uniform uniform;
-	//
-	//		//switch (data.members[0].type) {
-	//		//case RENDER::UNIFORM_TYPE::SAMPLER_2D: {
-	//		//	std::shared_ptr<TextureVk> t;
-	//		//	uniform.defaultValue = t;
-	//		//	break;
-	//		//}
-	//		//}
-	//		//uniform.name = name;
-	//		//uniform.type = data.members[0].type;
-	//		////uniform.location = mShader->getUniformLocation(name);
-	//		//mUniforms[name] = uniform;
-	//		//
-	//		////set data
-	//		//mUniformData[name] = uniform.defaultValue;
-	//	}
-	//	else if (data.type == UniformInform::TYPE::UNIFORM_BUFFER) {
-	//		if (isEngineUBOMember(name) || isEngineUniform(name)) {
-	//			continue;
-	//		}
-	//		//set data
-	//		auto vec = std::vector<unsigned char>(data.size);
-	//		mUniformData[name] = vec;
-	//
-	//		UniformBufferVk<std::vector<unsigned char>> uniform(mShader, name,  vec);
-	//		//uniform.bindToShader(mShader, name);
-	//		mUniforms[name] = uniform;
-	//
-	//	}
-	//}
+	mUniforms.clear();
+	mUniformBuffers.clear();
+	mStorageBuffers.clear();
+	mExternalBuffers.clear();
+	const auto& shaderInfo = mShader->getReflection();
+	for (const auto& uniform : shaderInfo.mUniforms) {
+		if (isEngineUniform(uniform.mName)) {//this pass from render
+			continue;
+		}
+		switch (uniform.mType) {
+		case ShaderReflection::UniformType::SAMPLER_2D:
+		case ShaderReflection::UniformType::SAMPLER_CUBE:
+		case ShaderReflection::UniformType::SAMPLER_3D:
+		case ShaderReflection::UniformType::SAMPLER_2D_ARRAY: {
+			std::shared_ptr<TextureDx12> t;
+			mUniforms[uniform.mName] = t;
+		} break;
+		case ShaderReflection::UniformType::UNIFORM_BUFFER: {
+			mUniformBuffers[uniform.mName] = std::make_shared<UniformBufferDx12>(nullptr, uniform.mSize);
+			//TODO: array is not support yet
+			for (const auto& member : uniform.mMembers) {
+				switch (member.mType) {
+				case ShaderReflection::UniformType::MAT4: mUniforms[uniform.mName + member.mName] = MATH::Matrix4f(); break;
+				case ShaderReflection::UniformType::MAT3: mUniforms[uniform.mName + member.mName] = MATH::Matrix3f(); break;
+				case ShaderReflection::UniformType::VEC4: mUniforms[uniform.mName + member.mName] = MATH::Vector4f(); break;
+				case ShaderReflection::UniformType::VEC3: mUniforms[uniform.mName + member.mName] = MATH::Vector3f(); break;
+				case ShaderReflection::UniformType::VEC2: mUniforms[uniform.mName + member.mName] = MATH::Vector2f(); break;
+				case ShaderReflection::UniformType::INT: mUniforms[uniform.mName + member.mName] = 0; break;
+				case ShaderReflection::UniformType::FLOAT: mUniforms[uniform.mName + member.mName] = 0.0f; break;
+				case ShaderReflection::UniformType::BOOL: mUniforms[uniform.mName + member.mName] = false; break;
+				}
+			}
+		} break;
+		case ShaderReflection::UniformType::STORAGE_BUFFER: {
+			//TODO: save count elements of ssbo and use mSize * mCount
+			mStorageBuffers[uniform.mName] = std::make_shared<StorageBufferDx12>(nullptr, uniform.mSize, 1);
+		} break;
+		}
+	}
 }
 
 void MaterialDx12::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
-	//int textureSlot = 0;
-	//for (auto& [name, uniform] : mUniforms) {
-	//	std::visit([&textureSlot, defaultTexture, useTextures, name, this](auto& arg) {
-	//		using T = std::decay_t<decltype(arg)>;
-	//		if constexpr (std::is_same_v<T, UniformBufferVk<std::vector<unsigned char>>>) {
-	//			//arg.setBytes(std::get<std::vector<unsigned char>>(mUniformData.at(name)));
-	//			mShader->setUniform(arg);
-	//		}
-	//		else if constexpr (std::is_same_v<T, UniformTexturesVk>) {
-	//			mShader->setUniform(arg);
-	//		}
-	//		else {
-	//			static_assert("Wrong uniform type");
-	//		}
-	//	}, uniform);
-	//}
-}
-#include "../../gameRendererDx12.h"
-#include <resourceModule/serviceManager.h>
-
-void MaterialDx12::fillUniformsWithShader(std::shared_ptr<ShaderDx12> shader, std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
-	//int textureSlot = 0;
-	//for (auto& [name, uniform] : mUniforms) {
-	//	std::visit([&textureSlot, defaultTexture, useTextures, name, this, shader](auto& arg) {
-	//		using T = std::decay_t<decltype(arg)>;
-	//		if constexpr (std::is_same_v<T, UniformBufferVk<std::vector<unsigned char>>>) {
-	//			//arg.setBytes(std::get<std::vector<unsigned char>>(mUniformData.at(name)));
-	//			auto vec = std::get<std::vector<unsigned char>>(mUniformData[name]);
-	//
-	//			arg.setBytes(std::get<std::vector<unsigned char>>(mUniformData[name]));
-	//			shader->setUniform(arg);
-	//		}
-	//		else if constexpr (std::is_same_v<T, UniformTexturesVk>) {
-	//			shader->setUniform(arg);
-	//		}
-	//		else {
-	//			static_assert("Wrong uniform type");
-	//		}
-	//	}, uniform);
-	//}
-
-	dataUBO->CopyData(0, _dataUBO);
-
-	auto& gameRenderer = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
-	auto& data = shader->uniformNameToSlotId;
-	gameRenderer.mDriver->mCommandList->SetGraphicsRootConstantBufferView(data["dataUBO"], dataUBO->Resource()->GetGPUVirtualAddress());
-	
-	//ID3D12DescriptorHeap* descriptorHeaps[] = { u_AlbedoMap->UploadHeap.Get() };
-	//gameRenderer.mDriver->mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
-	gameRenderer.mDriver->mCommandList->SetGraphicsRootDescriptorTable(data["u_AlbedoMap"], u_AlbedoMap->mGpuSrv);
-	
-	//ID3D12DescriptorHeap* descriptorHeaps1[] = { u_NormalMap->UploadHeap.Get() };
-	//gameRenderer.mDriver->mCommandList->SetDescriptorHeaps(1, descriptorHeaps1);
-	gameRenderer.mDriver->mCommandList->SetGraphicsRootDescriptorTable(data["u_NormalMap"], u_NormalMap->mGpuSrv);
-
-
-	//gameRenderer.mDriver->mCommandList->SetGraphicsRootConstantBufferView(data["pushModel"], pushModel->Resource()->GetGPUVirtualAddress());
+	auto& shaderInfo = mShader->getReflection();
+	auto driver = d3dUtil::GetDriver();
+	for (const auto& uniform : shaderInfo.mUniforms) {
+		switch (uniform.mType) {
+		case ShaderReflection::UniformType::SAMPLER_2D:
+		case ShaderReflection::UniformType::SAMPLER_CUBE:
+		case ShaderReflection::UniformType::SAMPLER_3D:
+		case ShaderReflection::UniformType::SAMPLER_2D_ARRAY: {
+			driver->setTexture(uniform.mBind, std::get<std::shared_ptr<TextureInterface>>(mUniforms[uniform.mName]));
+		} break;
+		case ShaderReflection::UniformType::UNIFORM_BUFFER: {
+			//TODO: support array
+			if (!mExternalBuffers.contains(uniform.mName)) {
+				std::vector<std::byte> bufferData(uniform.mSize);
+				for (const auto& member : uniform.mMembers) {
+					if (mUniforms.contains(uniform.mName + member.mName)) {
+						std::visit([&](auto& arg) {
+							using T = std::decay_t<decltype(arg)>;
+							memcpy((void*)(bufferData.data() + member.mOffset), &arg, sizeof(T));
+						}, mUniforms[uniform.mName + member.mName]);
+					}
+				}
+				mUniformBuffers[uniform.mName]->setData(bufferData.data(), bufferData.size());
+			}
+			driver->setUniformBuffer(uniform.mBind, mUniformBuffers[uniform.mName]);
+		} break;
+		case ShaderReflection::UniformType::STORAGE_BUFFER: {
+			//TODO: material now support only set ssbo external
+			//TODO:
+			//driver->mStorageBuffers[uniform.mBind] = mUniformBuffers[uniform.mName];
+		} break;
+		}
+	}
 }
 
 void MaterialDx12::bind(std::shared_ptr<TextureInterface> defaultTexture, bool useTextures) {
@@ -133,223 +193,5 @@ void MaterialDx12::bind(std::shared_ptr<TextureInterface> defaultTexture, bool u
 
 void MaterialDx12::unbind() {
 	mShader->unbind();
-}
-
-//void MaterialDx12::set(const std::string& name, const std::string& memberName, UniformData data) {
-//	const auto& udinfo = mShader->getUniformsInfo();
-//	auto cnt = udinfo.count(name);
-//	const auto& uniformInfo = udinfo.at(name);
-//	auto mn = memberName;
-//	for (const auto& member : uniformInfo.members) {
-//		if (member.name == mn) {
-//			auto startPtr = std::get<std::vector<unsigned char>>(mUniformData.at(name)).data() + member.offset;
-//			memcpy(startPtr, reinterpret_cast<unsigned char*>(std::addressof(data)), member.size);
-//			break;
-//		}
-//	}
-//}
-
-//bool MaterialDx12::trySetSimpleMember(const std::string& k, const nlohmann::json& v, std::optional<std::string> subname) {
-//	auto _set = [this]<typename T>(const std::string & k, const std::optional<std::string>&subname, const T & v) {
-//		if (subname) {
-//			set(k, /*k + "." + */subname.value(), v);
-//			return;
-//		}
-//		set(k, v);
-//	};
-//
-//	if (v.type() == nlohmann::json::value_t::boolean) {
-//		_set(k, subname, v.get<bool>());
-//		return true;
-//	}
-//	else if (v.type() == nlohmann::json::value_t::number_float) {
-//		_set(k, subname, v.get<float>());
-//		return true;
-//	}
-//	else if (v.type() == nlohmann::json::value_t::number_integer || v.type() == nlohmann::json::value_t::number_unsigned) {
-//		_set(k, subname, v.get<int>());
-//		return true;
-//	}
-//	else if (v.type() == nlohmann::json::value_t::array && v.size() == 2) {
-//		MATHGL::Vector2 dummy;
-//		RESOURCES::DeserializeVec2(v, dummy);
-//		_set(k, subname, dummy);
-//		return true;
-//	}
-//	else if (v.type() == nlohmann::json::value_t::array && v.size() == 3) {
-//		MATHGL::Vector3 dummy;
-//		RESOURCES::DeserializeVec3(v, dummy);
-//		_set(k, subname, dummy);
-//		return true;
-//	}
-//	else if (v.type() == nlohmann::json::value_t::array && v.size() == 4) {
-//		MATHGL::Vector4 dummy;
-//		RESOURCES::DeserializeVec4(v, dummy);
-//		_set(k, subname, dummy);
-//		return true;
-//	}
-//	else if (v.type() == nlohmann::json::value_t::string) {
-//		//TODO: get shader from resource system
-//		_set(k, subname, TextureVk::create(IKIGAI::UTILS::getRealPath(v.get<std::string>())));
-//		//uniformsData[k] = RESOURCES::TextureLoader::CreateFromFile(v.get<std::string>());
-//		return true;
-//	}
-//	return false;
-//}
-
-uint8_t MaterialDx12::generateStateMask() const {
-	uint8_t result = 0;
-	if (mDepthWriting)							result |= 0b0000'0001;
-	if (mColorWriting)							result |= 0b0000'0010;
-	if (mBlendable)								result |= 0b0000'0100;
-	if (mBackfaceCulling || mFrontfaceCulling)	result |= 0b0000'1000;
-	if (mDepthTest)								result |= 0b0001'0000;
-	if (mBackfaceCulling)						result |= 0b0010'0000;
-	if (mFrontfaceCulling)						result |= 0b0100'0000;
-	return result;
-}
-
-#include "../../gameRendererVk.h"
-
-//void MaterialDx12::prepareTextureUniforms(std::shared_ptr<TextureVk> emptyTexture) {
-//	const auto& info = mShader->getUniformsInfo();
-//	std::unordered_map<int, std::vector<std::pair<int, std::shared_ptr<TextureVk>>>> setToTextures;
-//
-//	for (const auto& [name, data] : info) {
-//		if (data.type == UniformInform::TYPE::UNIFORM_SAMPLER2D) {
-//			if (!setToTextures.contains(data.set)) {
-//				setToTextures[data.set] = std::vector<std::pair<int, std::shared_ptr<TextureVk>>>();
-//			}
-//			setToTextures[data.set].push_back({ data.binding, 
-//				mUniformData.contains(data.name) ? std::get<std::shared_ptr<TextureVk>>(mUniformData[data.name]) : emptyTexture });
-//		}
-//	}
-//
-//	for (auto& [setId, data] : setToTextures) {
-//		std::sort(data.begin(), data.end(), [](const auto& a, const auto& b) {
-//			return a.first < b.first;
-//		});
-//		std::vector<std::shared_ptr<TextureInterface>> textures;
-//		for (auto t : data) {
-//			textures.push_back(t.second);
-//		}
-//		mUniforms["textureUniform" + std::to_string(setId)] = UniformTexturesVk(mShader, setId, textures);
-//	}
-//}
-
-
-inline void SerializeVec4(nlohmann::json& j, const MATH::Vector4f& vec) {
-	j = {vec.x, vec.y, vec.z, vec.w};
-}
-inline void DeserializeVec4(const nlohmann::json& j, MATH::Vector4f& vec) {
-	vec.x = j[0];
-	vec.y = j[1];
-	vec.z = j[2];
-	vec.w = j[3];
-}
-inline MATH::Vector4f DeserializeVec4(const nlohmann::json& j) {
-	MATH::Vector4f vec;
-	vec.x = j[0];
-	vec.y = j[1];
-	vec.z = j[2];
-	vec.w = j[3];
-	return vec;
-}
-
-inline void SerializeVec3(nlohmann::json& j, const MATH::Vector3f& vec) {
-	j = {vec.x, vec.y, vec.z};
-}
-inline void DeserializeVec3(const nlohmann::json& j, MATH::Vector3f& vec) {
-	vec.x = j[0];
-	vec.y = j[1];
-	vec.z = j[2];
-}
-inline MATH::Vector3f DeserializeVec3(const nlohmann::json& j) {
-	MATH::Vector3f vec;
-	vec.x = j[0];
-	vec.y = j[1];
-	vec.z = j[2];
-	return vec;
-}
-
-inline void SerializeVec2(nlohmann::json& j, const MATH::Vector2f& vec) {
-	j = {vec.x, vec.y};
-}
-inline void DeserializeVec2(const nlohmann::json& j, MATH::Vector2f& vec) {
-	vec.x = j[0];
-	vec.y = j[1];
-}
-inline MATH::Vector2f DeserializeVec2(const nlohmann::json& j) {
-	MATH::Vector2f vec;
-	vec.x = j[0];
-	vec.y = j[1];
-	return vec;
-}
-
-void MaterialDx12::onDeserialize(nlohmann::json& j) {
-
-	//auto gameRenderer = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
-	//
-	//auto vertexPath = j["shaderVertex"].get<std::string>();
-	//auto fragmentPath = j["shaderFragment"].get<std::string>();
-	////TODO: get shader from resource system
-	//
-	//if (vertexPath.empty() && fragmentPath.empty()) {
-	//	setShader(gameRenderer.mShaders["deferredRender"]);
-	//}
-	//else {
-	//	setShader(std::make_shared<ShaderVk>(gameRenderer.mFramebuffers["deferredFb"]->m_RenderPass, vertexPath, fragmentPath));
-	//}
-	mBlendable = j.value("blendable", false);
-	mBackfaceCulling = j.value("backfaceCulling", true);
-	mFrontfaceCulling = j.value("frontfaceCulling", false);
-	mDepthTest = j.value("depthTest", true);
-	mDepthWriting = j.value("depthWriting", true);
-	mColorWriting = j.value("colorWriting", true);
-	mGpuInstances = j.value("gpuInstances", 1);
-	mIsDeferred = j.value("isDeferred", false);
-
-	if (j.count("uniforms")) {
-		for (auto& [k, v] : j["uniforms"].items()) {
-			if (k == "u_AlbedoMap")
-			{
-				u_AlbedoMap = TextureDx12::Create(IKIGAI::UTILS::GetRealPath(v.get<std::string>()));
-			}
-			if (k == "u_NormalMap")
-			{
-				u_NormalMap = TextureDx12::Create(IKIGAI::UTILS::GetRealPath(v.get<std::string>()));
-			}
-			if (k == "u_TextureTiling")
-			{
-				_dataUBO.u_TextureTiling = DeserializeVec2(v);
-			}
-			if (k == "u_TextureOffset")
-			{
-				_dataUBO.u_TextureTiling = DeserializeVec2(v);
-			}
-			if (k == "u_Albedo")
-			{
-				_dataUBO.u_Albedo = DeserializeVec4(v);
-			}
-			if (k == "u_Specular")
-			{
-				_dataUBO.u_Specular = DeserializeVec3(v);
-			}
-			if (k == "u_Shininess")
-			{
-				_dataUBO.u_Shininess = v.get<float>();
-			}
-			if (k == "u_HeightScale")
-			{
-				_dataUBO.u_HeightScale = v.get<float>();
-			}
-			if (k == "u_EnableNormalMapping")
-			{
-				_dataUBO.u_EnableNormalMapping = v.get<int>();
-			}
-		}
-	}
-
-	//prepareTextureUniforms(gameRenderer.mEmptyTexture);
 }
 #endif

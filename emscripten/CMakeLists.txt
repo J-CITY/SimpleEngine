@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7)
 
 project(cross_test)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fexceptions -O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -D WITH_MINIAUDIO -s FULL_ES3 -s USE_WEBGL2=1 -s GL_SUPPORT_AUTOMATIC_ENABLE_EXTENSIONS=1 -s OFFSCREEN_FRAMEBUFFER=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS -s USE_FREETYPE=1")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fexceptions -O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -D WITH_MINIAUDIO -s FULL_ES3=1 -s USE_WEBGL2=1 -s WASM=1 -s MIN_WEBGL_VERSION=2 -s GL_SUPPORT_AUTOMATIC_ENABLE_EXTENSIONS=1 -s OFFSCREEN_FRAMEBUFFER=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS -s USE_FREETYPE=1")
 
 set(THIRD_PARTY_DIR "../3rd")
 set(MAIN_SOURCE_DIR "../src")
@@ -16,10 +16,13 @@ include_directories(${THIRD_PARTY_DIR}/serdepp/include)
 include_directories(${THIRD_PARTY_DIR}/magic_enum/include)
 include_directories(${THIRD_PARTY_DIR}/nameof/include)
 include_directories(${THIRD_PARTY_DIR}/json/single_include)
+include_directories(${THIRD_PARTY_DIR}/vfspp/include)
+include_directories(${THIRD_PARTY_DIR}/vfspp/vendor/miniz-cpp)
 
 include_directories(${THIRD_PARTY_DIR}/assimp/include)
+include_directories(./include) #assimp config
 include_directories(${THIRD_PARTY_DIR}/soloud/include)
-include_directories(${THIRD_PARTY_DIR}/sol/single/include)
+include_directories(${THIRD_PARTY_DIR}/sol/include)
 include_directories(${THIRD_PARTY_DIR}/lua)
 include_directories(${THIRD_PARTY_DIR}/freetype/include)
 include_directories(${THIRD_PARTY_DIR}/spine)
@@ -207,5 +210,5 @@ set_target_properties(
     cross_test
     PROPERTIES
     LINK_FLAGS
-    "-O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -s USE_SDL_IMAGE=2 -D WITH_MINIAUDIO -s SDL2_IMAGE_FORMATS=\"['png']\" -s FULL_ES3 -s USE_WEBGL2=1 -s GL_SUPPORT_AUTOMATIC_ENABLE_EXTENSIONS=1 -s OFFSCREEN_FRAMEBUFFER=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS  -s USE_FREETYPE=1 --preload-file ../../assets@/assets"
+    "-O2 -s EXPORTED_FUNCTIONS=\"['_malloc','_main']\" -s EXPORTED_RUNTIME_METHODS=\"['ccall', 'cwrap']\"  -s USE_SDL=2 -s USE_SDL_IMAGE=2 -D WITH_MINIAUDIO -s SDL2_IMAGE_FORMATS=\"['png']\" -s FULL_ES3=1 -s USE_WEBGL2=1 -s WASM=1 -s MIN_WEBGL_VERSION=2 -s GL_SUPPORT_AUTOMATIC_ENABLE_EXTENSIONS=1 -s OFFSCREEN_FRAMEBUFFER=1 -s STACK_SIZE=8MB -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=64MB -s ASSERTIONS  -s USE_FREETYPE=1 --preload-file ../../assetses@/assets"
 )

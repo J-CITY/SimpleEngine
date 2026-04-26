@@ -1,5 +1,3 @@
-
-
 Install SDL
 
 - Win
@@ -55,3 +53,23 @@ cmake --build build
 
 Run local server
 python -m http.server 8000
+
+//TODO: set canvas size
+
+//Create link
+New-Item -ItemType SymbolicLink -Path ".\windows\buildVulkan\assets" -Target ".\assets"
+
+-------------------------------
+imgui patch
+
+ADD global define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
+
+imgui_impl_vulkan.cpp
+
+vkCmdPipelineBarrier(fd->CommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+to
+vkCmdPipelineBarrier(fd->CommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+ImGuiImplVulkanFuncs_vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(loader_func("vkCmdBeginRendering", user_data));
+ImGuiImplVulkanFuncs_vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(loader_func("vkCmdEndRendering", user_data));
+--------------------------

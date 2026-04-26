@@ -7,6 +7,8 @@
 #include <serdepp/adaptor/nlohmann_json.hpp>
 #include "pathGetter.h"
 #include "result.h"
+#include "resourceModule/serviceManager.h"
+#include "resourceModule/fileSystem/fileSystem.h"
 
 namespace IKIGAI::UTILS {
 
@@ -70,11 +72,12 @@ namespace IKIGAI::UTILS {
 
 	template<class T>
 	Result<T, JsonError> FromJson(const std::string& path) {
-		auto res = ReadFileIntoString(UTILS::GetRealPath(path));
-		if (res.isErr()) {
-			return Err(res.unwrapErr());
+		auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+		auto file = fs.getFile(path);
+		if (!file) {
+			return Err(JsonError(JsonError::Kind::FILE_NOT_EXIST, "Can not open file: " + path));
 		}
-		return FromJsonStr<T>(res.unwrap());
+		return FromJsonStr<T>(file->readStr());
 	}
 
 	template<class T>

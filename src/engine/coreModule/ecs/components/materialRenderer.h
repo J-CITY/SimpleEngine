@@ -62,6 +62,18 @@ namespace IKIGAI::ECS {
 		std::shared_ptr<EVENT::EventListener> setMaterialEventId;
 
 	public:
+		static void InitReflection() {
+			static bool isInit = false;
+			if (isInit) return;
+			isInit = true;
+
+			auto& manager = UTILS::ReflectionManager::Instance();
+			manager.registerType<MaterialRenderer>();
+			manager.registerField<MaterialRenderer>("materials", &MaterialRenderer::materials);
+			manager.registerField<MaterialRenderer>("materialNames", &MaterialRenderer::materialNames);
+		}
+
+
 		static auto GetMembers() {
 			return std::tuple{
 			};

@@ -12,12 +12,13 @@ using namespace IKIGAI::RENDER;
 
 MeshGl::MeshGl(const VertexDescriptor& descriptor, void* vertices, size_t vertexSize, size_t vertexCount, std::vector<unsigned int> indices, size_t offset, unsigned materialIndex):
 	mDescriptor(descriptor),
-	mVertexSize(vertexSize),
-	mVertexCount(vertexCount),
-	mIndicesCount(indices.size()),
-	mOffset(offset),
-	mMaterialIndex(materialIndex) {
+	mVertexSize(vertexSize) {
 
+
+	mVertexCount = (vertexCount);
+	mIndicesCount= (indices.size());
+	mOffset = (offset);
+	mMaterialIndex = (materialIndex);
 
 	mVertexArray = std::make_unique<VertexArray>();
 	mVertexBuffer = std::make_unique<VertexBufferGl>(vertices, vertexCount, vertexSize, VertexBufferGl::UsageType::STATIC_DRAW);
@@ -34,10 +35,12 @@ MeshGl::MeshGl(const VertexDescriptor& descriptor, void* vertices, size_t vertex
 
 }
 
-MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsigned materialIndex) :
-	mVertexCount(static_cast<unsigned>(vertices.size())),
-	mIndicesCount(static_cast<unsigned>(indices.size())),
-	mMaterialIndex(materialIndex) {
+MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsigned materialIndex) {
+
+	mVertexCount = (static_cast<unsigned>(vertices.size()));
+	mIndicesCount = (indices.size());
+	mOffset = (0);
+	mMaterialIndex = (materialIndex);
 
 	for (auto& e : indices) {
 		//std::string s = std::to_string(e.position.x) + " " + std::to_string(e.position.y) + " " + std::to_string(e.position.z);
@@ -56,11 +59,11 @@ MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsi
 	computeBoundingSphere(vertices);
 }
 
-MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, size_t offset, unsigned materialIndex) :
-	mVertexCount(static_cast<unsigned>(vertices.size())),
-	mIndicesCount(static_cast<unsigned>(indices.size())),
-	mMaterialIndex(materialIndex),
-	mOffset(offset) {
+MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, size_t offset, unsigned materialIndex) {
+	mVertexCount = (static_cast<unsigned>(vertices.size()));
+	mIndicesCount = (indices.size());
+	mOffset = (0);
+	mMaterialIndex = (materialIndex);
 	computeBoundingSphere(vertices);
 }
 

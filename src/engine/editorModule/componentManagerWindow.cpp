@@ -52,7 +52,7 @@ const std::string& drawSearchBox(const std::vector<std::string>& autocomplete) {
 			for (int i = 0; i < autocomplete.size(); i++) {
 				if (strstr(autocomplete[i].c_str(), input.c_str()) == NULL)
 					continue;
-				if (ImGui::Selectable(autocomplete[i].c_str()) || (ImGui::IsItemFocused() && ImGui::IsKeyPressedMap(ImGuiKey_Enter))) {
+				if (ImGui::Selectable(autocomplete[i].c_str()) || (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter))) {
 					input = autocomplete[i];
 					isOpen = false;
 				}
@@ -155,7 +155,7 @@ void widgetColor3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 }
 
 template<class CLASS, class PTR>
-void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) { }
+void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
 template<class CLASS>
 void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, float>& prop) {
 	const std::string& propName = prop.getName();
@@ -345,7 +345,7 @@ template<class CLASS, class PTR, typename std::enable_if<std::is_enum<PTR>::valu
 void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	//TODO: support my enums
 	const std::string propName = prop.getName();
-	
+
 	auto val = prop.get(*comp);
 	constexpr auto enumNames = magic_enum::enum_names<PTR>();
 	constexpr auto enumValues = magic_enum::enum_values<PTR>();
@@ -359,7 +359,7 @@ void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 			i++;
 		}
 		return i;
-	}();
+		}();
 	const auto comboLabel = enumNames[itemCurrentIndex];
 	if (ImGui::BeginCombo(propName.c_str(), comboLabel.data())) {
 		for (int n = 0; n < enumNames.size(); n++) {
@@ -445,7 +445,7 @@ void getPropsImpl(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp) {
 					break;
 				}
 				}
-			};
+				};
 			(drawElem(tpl), ...);
 		}, props);
 	}
@@ -521,7 +521,164 @@ void ComponentManagerWindow::draw() {
 				removeComponentFromObject(selectObject, component->getTypeidName());
 				break;
 			}
-			getProps(component);
+
+			if (component->getName() == "MaterialRenderer") {
+				ECS::MaterialRenderer::InitReflection();
+
+				auto& manager = UTILS::ReflectionManager::Instance();
+				auto* typeInfo = manager.getType<ECS::MaterialRenderer>();
+				auto& field = typeInfo->mFields.at("materials");
+				auto materials = field.get<ECS::MaterialRenderer::MaterialList>(component.get());
+
+				for (auto& material : materials) {
+					if (!material) {
+						break;
+					}
+					auto shader = material->getShader();
+					if (!shader) {
+						continue;
+					}
+					const auto& refl = shader->getReflection();
+
+					for (auto& data : refl.mUniforms) {
+						auto& name = data.mName;
+						if (material->isEngineUniform(name)) {
+							continue;
+						}
+						if (data.mType == RENDER::ShaderReflection::UniformType::SAMPLER_2D) {
+							auto val = std::get<std::shared_ptr<RENDER::TextureInterface>>(material->get(name));
+							ImGui::PushID(("##" + name).c_str());
+
+							//auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+							if (ImGui::Selectable(("##" + name).c_str(), false, 0, ImVec2(100, 100))) {
+
+							}
+							auto pos = ImGui::GetCursorPos();
+							ImGui::SetCursorPos(ImVec2(pos.x, pos.y - 100));
+
+							//if (ImGui::BeginDragDropTarget()) {
+							//	ImGuiDragDropFlags target_flags = 0;
+							//	//target_flags |=
+							//	ImGuiDragDropFlags_AcceptBeforeDelivery;    // Don't wait until the delivery
+							//	(release mouse button on a target) to do something
+							//		//target_flags |=
+							//		ImGuiDragDropFlags_AcceptNoDrawDefaultRect; // Don't display the yellow
+							//	rectangle if (const ImGuiPayload* payload =
+							//		ImGui::AcceptDragDropPayload("DND_IMAGE_DATA", target_flags)) {
+							//		auto path =
+							//			EditorRender::GlobalState.mDndStringPayload; material->set(name,
+							//			std::static_pointer_cast<RENDER::TextureGl>(RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path,
+							//			true))); EditorRender::GlobalState.mDndStringPayload.clear();
+							//	}
+							//	ImGui::EndDragDropTarget();
+							//}
+							if (val) {
+								ImGui::Image(reinterpret_cast<ImTextureID>(val->getImguiId()), ImVec2(100, 100), ImVec2(0, 1), ImVec2(1, 0));
+							}
+							else {
+								//ImGui::Image(EditorRender::GlobalState.mTextureCache["default_texture"]->getImguiId(), ImVec2(100, 100), ImVec2(0, 1), ImVec2(1, 0));
+							}
+							//ImGui::SameLine();
+							//if (ImGui::Button(ICON_FA_FILE)) {
+							//	EditorRender::GlobalState.mPopupStates["file_chooser"]
+							//		= true; EditorRender::GlobalState.mFileFormatsCb = [] { return
+							//		".png,.jpeg,.jpg";
+							//		};
+							//	EditorRender::GlobalState.mFileChooserCb =
+							//		[material, name](std::string path) mutable { material->set(name,
+							//		std::static_pointer_cast<RENDER::TextureGl>(RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path,
+							//		true)));
+							//		};
+							//}
+							ImGui::PopID();
+							////ImGui::GetWindowDrawList()->AddImage(
+							////	(void*)val->getId(),
+							////	ImVec2(ImGui::GetCursorScreenPos()),
+							////	ImVec2(ImGui::GetCursorScreenPos().x + size.x /
+							//2,
+							//	//		ImGui::GetCursorScreenPos().y + size.y /
+							//	2), ImVec2(0, 1), ImVec2(1, 0)); break;
+
+						} else if (data.mType == RENDER::ShaderReflection::UniformType::UNIFORM_BUFFER) {
+							for (const auto& mamber : data.mMembers) {
+								auto _name = mamber.mName;
+								switch (mamber.mType) {
+								case RENDER::ShaderReflection::UniformType::MAT4: break;
+								case RENDER::ShaderReflection::UniformType::MAT3: break;
+								case RENDER::ShaderReflection::UniformType::VEC4: {
+									if (!IMGUI::CombineVecEdit::Data.count(_name)) {
+										IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name, 4)});
+									}
+									auto val = std::get<MATH::Vector4f>(material->get(name + _name));
+									if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
+										material->set(name + _name, val);
+									}
+									break;
+								}
+								case RENDER::ShaderReflection::UniformType::VEC3: {
+									if (!IMGUI::CombineVecEdit::Data.count(_name)) {
+										IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name, 3)});
+									}
+									auto val = std::get<MATH::Vector3f>(material->get(name + _name));
+									if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
+										material->set(name + _name, val);
+									}
+									break;
+								}
+								case RENDER::ShaderReflection::UniformType::VEC2: {
+									if (!IMGUI::CombineVecEdit::Data.count(_name)) {
+										IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name,
+											2)});
+									}
+									auto val =
+										std::get<MATH::Vector2f>(material->get(name + _name)); if
+										(IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
+										material->set(name + _name, val);
+									}
+									break;
+								}
+								case RENDER::ShaderReflection::UniformType::INT: {
+									if (!IMGUI::ScalarEdit::Data.count(_name)) {
+										IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::INT)});
+									}
+									auto val = std::get<int>(material->get(name + _name));
+									if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
+										material->set(name + _name, val);
+									}
+									break;
+								}
+								case RENDER::ShaderReflection::UniformType::FLOAT: {
+									if (!IMGUI::ScalarEdit::Data.count(_name)) {
+										IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::FLOAT)});
+									}
+									auto val = std::get<float>(material->get(name + _name));
+									if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
+										material->set(name + _name, val);
+									}
+									break;
+								}
+								case RENDER::ShaderReflection::UniformType::BOOL: {
+									if (!IMGUI::ScalarEdit::Data.count(_name)) {
+										IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::BOOL)});
+									}
+									auto val = std::get<bool>(material->get(name + _name));
+									if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
+										material->set(name + _name, val);
+									}
+									break;
+								}
+								case RENDER::ShaderReflection::UniformType::SAMPLER_2D: break;
+								case RENDER::ShaderReflection::UniformType::SAMPLER_3D: break;
+								case RENDER::ShaderReflection::UniformType::SAMPLER_CUBE: break;
+								default: break;
+								}
+							}
+						}
+					}
+				}
+			} else {
+				getProps(component);
+			}
 		}
 	}
 	ImGui::End();

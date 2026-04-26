@@ -8,7 +8,7 @@ using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
 
-MeshVk::MeshVk(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned materialIndex) :
+MeshVk::MeshVk(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsigned materialIndex) :
 	mVertexCount(static_cast<unsigned>(vertices.size())),
 	mIndicesCount(static_cast<unsigned>(indices.size())),
 	mMaterialIndex(materialIndex) {
@@ -16,7 +16,7 @@ MeshVk::MeshVk(std::span<Vertex> vertices, std::span<unsigned> indices, unsigned
 	computeBoundingSphere(vertices);
 }
 
-MeshVk::MeshVk(std::span<Vertex> vertices, std::span<unsigned> indices, size_t offset, unsigned materialIndex) :
+MeshVk::MeshVk(std::vector<Vertex> vertices, std::vector<unsigned> indices, size_t offset, unsigned materialIndex) :
 	mVertexCount(static_cast<unsigned>(vertices.size())),
 	mIndicesCount(static_cast<unsigned>(indices.size())),
 	mMaterialIndex(materialIndex),
@@ -26,10 +26,6 @@ MeshVk::MeshVk(std::span<Vertex> vertices, std::span<unsigned> indices, size_t o
 
 MeshVk::~MeshVk() = default;
 
-void MeshVk::bind(const ShaderInterface& shader) const {
-	mVertexBuffer->bind(shader);
-	mIndexBuffer->bind(shader);
-}
 
 void MeshVk::unbind() const {
 	//mVertexBuffer->unbind();
@@ -44,16 +40,13 @@ size_t MeshVk::getIndexCount() const {
 	return mIndicesCount;
 }
 
-uint32_t MeshVk::getMaterialIndex() const {
-	return mMaterialIndex;
-}
 
-void MeshVk::createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices) {
-	mVertexBuffer = std::make_unique<VertexBufferVk<Vertex>>(p_vertices);
+void MeshVk::createBuffers(std::vector<Vertex> p_vertices, std::vector<uint32_t> p_indices) {
+	mVertexBuffer = std::make_unique<VertexBufferVk>(p_vertices);
 	mIndexBuffer = std::make_unique<IndexBufferVk>(p_indices);
 }
 
-void MeshVk::computeBoundingSphere(std::span<Vertex> vertices) {
+void MeshVk::computeBoundingSphere(std::vector<Vertex> vertices) {
 	mBoundingSphere.position = MATH::Vector3f::Zero;
 	mBoundingSphere.radius = 0.0f;
 

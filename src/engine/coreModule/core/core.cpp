@@ -30,6 +30,7 @@
 #include "coreModule/ecs/components/batchComponent.h"
 #include "editorModule/editorRender.h"
 #include "renderModule/gameRendererGl.h"
+#include "renderModule/render.h"
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/driverGl.h>
 #include <renderModule/gameRendererGl.h>
@@ -145,6 +146,8 @@ Core:: Core(
 		throw;
 	}
 
+	render = std::make_unique<RENDER::Renderer>(driver.get(), std::make_unique<RENDER::ImmediateExecutor>());
+
 	std::cout << "Create driver\n";
 	scriptInterpreter = std::make_unique<SCRIPTING::ScriptInterpreter>(Config::ROOT + Config::USER_ASSETS_PATH + "scripts\\");
 	audioManager = std::make_unique<AUDIO::AudioManager>();
@@ -208,6 +211,7 @@ Core:: Core(
 	RESOURCES::ServiceManager::Set<RESOURCES::AudioSourceLoader>(audioSourceLoader.get());
 	RESOURCES::ServiceManager::Set<TASK::TaskSystem>(taskManger.get());
 	RESOURCES::ServiceManager::Set<EVENT::EventBroadcaster>(eventBroadcaster.get());
+	RESOURCES::ServiceManager::Set<RENDER::Renderer>(render.get());
 //#ifdef OPENGL_BACKEND
 //	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
 		renderer = std::make_unique<RENDER::GameRendererGl>(*this);

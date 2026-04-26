@@ -529,7 +529,7 @@ namespace ImSequencer
            }
 
            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
-               if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(ImGuiKey_Delete))) {
+               if (ImGui::IsKeyReleased(ImGuiKey_Delete)) {
                    if (lastEntry >= 0 && lastInterval >= 0) {
                        sequence->RemoveInterval(lastEntry, lastInterval);
                        lastEntry = -1;

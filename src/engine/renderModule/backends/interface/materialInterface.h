@@ -27,7 +27,7 @@ namespace IKIGAI::RENDER {
 		bool mIsCastShadow = true;
 		bool mIsBakedShadow = false;
 
-		DepthFunction mDepthFunc = DepthFunction::LESS_EQUAL;
+		DepthFunction mDepthFunc = DepthFunction::LESS;
 	public:
 		using UniformData = std::variant<float, int, bool,
 			MATH::Vector2f, MATH::Vector3f, MATH::Vector4f, MATH::Matrix3f, MATH::Matrix4f,
@@ -48,7 +48,9 @@ namespace IKIGAI::RENDER {
 		//void setIsDeferred(bool v, std::shared_ptr<ShaderInterface> shader) = 0;
 
 		virtual MaterialResource getDescriptor() = 0;
-		
+
+		virtual void set(const std::string& name, const UniformData& data) = 0;
+		virtual UniformData& get(const std::string& name) = 0;
 
 		unsigned getGPUInstances() const {
 			return mGpuInstances;
@@ -90,12 +92,52 @@ namespace IKIGAI::RENDER {
 			return mColorWriting;
 		}
 
+		void setBlendable(bool v) {
+			mBlendable = v;
+		}
+
+		void setBackfaceCulling(bool v) {
+			mBackfaceCulling = v;
+		}
+
+		void setFrontfaceCulling(bool v) {
+			mFrontfaceCulling = v;
+		}
+
+		void setDepthTest(bool v) {
+			mDepthTest = v;
+		}
+
+		void setDepthWriting(bool v) {
+			mDepthWriting = v;
+		}
+
+		void setColorWriting(bool v) {
+			mColorWriting = v;
+		}
+
+		void setGpuInstances(unsigned v) {
+			mGpuInstances = v;
+		}
+
+		void setIsDeferred(bool v) {
+			mIsDeferred = v;
+		}
+
+		void setIsCastShadow(bool v) {
+			mIsCastShadow = v;
+		}
+
+		void setIsBakedShadow(bool v) {
+			mIsBakedShadow = v;
+		}
+
 		DepthFunction getDepthFunc() const {
 			return mDepthFunc;
 		}
 
 		bool isEngineUniform(const std::string& uniformName) const {
-			return uniformName.rfind("engine_", 0) == 0 || uniformName.rfind("Engine", 0) == 0;
+			return uniformName.find("engine_", 0) == 0 || uniformName.find("Engine", 0) == 0;
 		}
 
 		const std::string& getPath() const {

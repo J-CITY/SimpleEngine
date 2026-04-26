@@ -1,12 +1,20 @@
 #include "fileWatcher.h"
 
+#include "serviceManager.h"
+#include "fileSystem/fileSystem.h"
+
 using namespace IKIGAI::RESOURCES;
 
 IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::_add(const std::string& path, std::function<void(FileStatus)> cb) {
-	if (!std::filesystem::exists(path)) {
+	if (!ServiceManager::Get<FileSystem>().isFileExist(path)) {
 		throw;
 	}
-	m_filesLastModifications[path] = std::filesystem::last_write_time(path);
+	auto pathOpt = ServiceManager::Get<FileSystem>().getAbsolutePath(path);
+	if (!pathOpt) {
+		throw;
+	}
+	m_filesLastModifications[path].mLastModifyTime = std::filesystem::last_write_time(*pathOpt);
+	m_filesLastModifications[path].mFileSize = std::filesystem::file_size(*pathOpt);
 	if (!m_filesCallbacks.contains(path)) {
 		m_filesCallbacks[path] = EVENT::Event<FileStatus>();
 	}
@@ -21,7 +29,7 @@ IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::add(const std::file
 
 void FileWatcher::addDeferred(const std::filesystem::path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb) {
 	const std::lock_guard lock(m_mutexDeferred);
-	if (!std::filesystem::exists(path)) {
+	if (!ServiceManager::Get<FileSystem>().isFileExist(path.string())) {
 		throw;
 	}
 	const auto _path = path.string();
@@ -48,13 +56,16 @@ void FileWatcher::remove(const std::filesystem::path& path, EVENT::Event<FileSta
 
 void FileWatcher::removeDeferred(const std::filesystem::path& path, EVENT::Event<FileStatus>::id id) {
 	const std::lock_guard lock(m_mutexDeferred);
-	if (!std::filesystem::exists(path)) {
+	auto pathOpt = ServiceManager::Get<FileSystem>().getAbsolutePath(path.string());
+	if (!pathOpt) {
+		throw;
+	}
+	if (!std::filesystem::exists(*pathOpt)) {
 		throw;
 	}
 	const auto _path = path.string();
 
 	deferredEvents.push({ QueueEvent::Action::REMOVE, _path, nullptr, nullptr, id });
-	return;
 }
 
 void FileWatcher::start() {
@@ -96,14 +107,20 @@ void FileWatcher::update() {
 	}
 	const std::lock_guard lockm(m_mutex);
 	for (auto& file : m_filesLastModifications) {
-		if (!std::filesystem::exists(file.first)) {
-			m_events.push_back({ file.first, FileStatus::DEL });
+		if (!ServiceManager::Get<FileSystem>().isFileExist(file.first)) {
+			m_events.emplace_back(file.first, FileStatus::DEL);
 		}
 		else {
-			auto lastModification = std::filesystem::last_write_time(file.first);
-			if (lastModification != file.second) {
-				m_filesLastModifications[file.first] = lastModification;
-				m_events.push_back({ file.first, FileStatus::MODIFIED });
+			auto pathOpt = ServiceManager::Get<FileSystem>().getAbsolutePath(file.first);
+			if (!pathOpt) {
+				throw;
+			}
+			auto lastModification = std::filesystem::last_write_time(*pathOpt);
+			auto fileSize = std::filesystem::file_size(*pathOpt);
+
+			if (lastModification != file.second.mLastModifyTime || fileSize != file.second.mFileSize) {
+				m_filesLastModifications[file.first] = {lastModification, fileSize};
+				m_events.emplace_back(file.first, FileStatus::MODIFIED);
 			}
 		}
 	}

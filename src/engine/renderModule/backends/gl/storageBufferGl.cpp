@@ -26,6 +26,18 @@ void IKIGAI::RENDER::StorageBufferGl::setData(const void* data, size_t sz, size_
 #endif
 }
 
+void IKIGAI::RENDER::StorageBufferGl::setSubData(const void* data, size_t sz, size_t offset) {
+#ifndef USING_GLES
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, mId);
+	glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, sz, data);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+#endif
+}
+
+IKIGAI::RENDER::StorageBufferGl::Id IKIGAI::RENDER::StorageBufferGl::getId() const {
+	return mId;
+}
+
 //void ShaderStorageBufferGl::bind(unsigned val) {
 //#ifndef USING_GLES
 //	mBindId = val;

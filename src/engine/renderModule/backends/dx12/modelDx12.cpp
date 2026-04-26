@@ -13,13 +13,7 @@ ModelDx12::ModelDx12(const std::string& path) {
 
 ModelDx12::~ModelDx12() = default;
 
-const std::vector<std::shared_ptr<MeshInterface>>& ModelDx12::getMeshes() const {
-	return mMeshes;
-}
 
-const std::vector<std::string>& ModelDx12::getMaterialNames() const {
-	return mMaterialNames;
-}
 
 //void ModelDx12::createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices) {
 //	mVertexBuffer = std::make_unique<VertexBufferVk<Vertex>>(p_vertices);

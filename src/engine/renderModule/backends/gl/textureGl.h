@@ -7,14 +7,17 @@
 #include <string>
 
 #include "../interface/textureInterface.h"
+#include "../interface/atlasInterface.h"
+#include "../interface/driverInterface.h"
+#include <utilsModule/memoryAlloc.h>
 #include <serdepp/serde.hpp>
-namespace IKIGAI::RENDER
-{
+
+namespace IKIGAI::RENDER {
 	struct TextureResource;
 
 	class TextureGl : public TextureInterface {
-
-		void create(const TextureResource &descriptor, const std::vector<void *> &data);
+	protected:
+		void create(const TextureResource& descriptor, const std::vector<void*>& data);
 
 	public:
 		TextureGl() = default;
@@ -24,107 +27,36 @@ namespace IKIGAI::RENDER
 		void generateMips();
 
 		void* getImguiId() override;
+		void recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) override;
 
 		unsigned id = 0;
 		int slot = 0;
 
-		static std::shared_ptr<TextureGl> Create(const TextureResource &descriptor);
-		//static std::shared_ptr<TextureGl> Create(const std::string &path, bool generateMipmap);
-		static std::shared_ptr<TextureGl> Create(const std::string& path, bool getMipMap=true);
-
-                // static std::shared_ptr<TextureGl> CreateHDREmptyCubemap(int
-                // width, int height); static std::shared_ptr<TextureGl>
-                // CreateHDR(const std::string& path, bool generateMipmap);
-                // static void CopyTexture(const TextureGl& from, const
-                // TextureGl& to); static std::shared_ptr<TextureGl>
-                // CreateFromMemory(uint8_t* data, uint32_t width, uint32_t
-                // height, bool generateMipmap); static
-                // std::shared_ptr<TextureGl> CreateForAttach(int texWidth, int
-                // texHeight, int type); static std::shared_ptr<TextureGl>
-                // CreateDepthForAttach(unsigned int texWidth, unsigned int
-                // texHeight); static std::shared_ptr<TextureGl>
-                // CreateCubemap(std::array<std::string, 6> path); static
-                // std::shared_ptr<TextureGl> CreateDepthForAttachCubemap(int
-                // texWidth, int texHeight, int type); static
-                // std::shared_ptr<TextureGl> CreateDepthForAttach2DArray(int
-                // texWidth, int texHeight, int arrSize); static
-                // std::shared_ptr<TextureGl> CreateEmpty3d(int texX, int texY,
-                // int texZ); static std::vector<unsigned char> GetPixels(const
-                // std::string& path);
+		static std::shared_ptr<TextureGl> Create(const TextureResource& descriptor, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureGl> Create(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureGl> Create(const std::string& path, bool getMipMap = true, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureGl> CreateFromMemory(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 
 		void bind(int slot);
 		void unbind();
 		void bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format);
 	};
 
-	//TODO: add global struct and delete it
-	struct AtlasRect {
-		AtlasRect() = default;
-		AtlasRect(float x, float y, float w, float h) : mX(x), mY(y), mW(w), mH(h) {};
-		float getX()
-		{
-			return mX;
-		}
-		void setX(float x)
-		{
-			mX = x;
-		}
-		float mX = 0.0f;
-		float mY = 0.0f;
-		float mW = 0.0f;
-		float mH = 0.0f;
-
-		template<class Context>
-		constexpr static auto serde(Context& context, AtlasRect& value) {
-			using Self = AtlasRect;
-			using namespace serde::attribute;
-			serde::serde_struct(context, value)
-				.field(&Self::mX, "X")
-				.field(&Self::mY, "Y")
-				.field(&Self::mW, "W")
-				.field(&Self::mH, "H");
-		}
-	};
-
-	struct AtlasData {
-		AtlasData() = default;
-		std::map<std::string, AtlasRect> mRects;
-		std::string mPath;
-
-		template<class Context>
-		constexpr static auto serde(Context& context, AtlasData& value) {
-			using Self = AtlasData;
-			using namespace serde::attribute;
-			serde::serde_struct(context, value)
-				.field(&Self::mRects, "Files")
-				.field(&Self::mPath, "Path");
-		}
-
-		void setRects(std::map<std::string, AtlasRect> rects)
-		{
-			mRects = rects;
-		}
-
-		std::map<std::string, AtlasRect> getRects()
-		{
-			return mRects;
-		}
-	};
-
-
-	class TextureAtlas: public TextureGl {
-	public:
-		
+	class TextureAtlasGl : public TextureGl {
 	private:
 		AtlasData mAtlas;
 	public:
-		TextureAtlas(): TextureGl() {}
+		TextureAtlasGl() : TextureGl() {}
+		TextureAtlasGl(const TextureResource& descriptor, const std::vector<void*>& data);
+
+		void recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) override;
 
 		[[nodiscard]] AtlasRect getPiece(const std::string& name) const;
 		[[nodiscard]] AtlasRect getPieceUV(const std::string& name) const;
 
-		static std::shared_ptr<TextureAtlas> CreateAtlas(const std::string& path, bool generateMipmap);
-		//static std::shared_ptr<TextureAtlas> CreateAtlasFromResource(const RENDER::TextureResource& res);
+		static std::shared_ptr<TextureAtlasGl> CreateAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureAtlasGl> CreateAtlasFromResource(const TextureResource& res, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureAtlasGl> CreateAtlasFromResource(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 	};
 }
 #endif

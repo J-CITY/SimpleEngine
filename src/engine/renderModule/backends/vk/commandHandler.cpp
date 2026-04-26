@@ -7,7 +7,7 @@
 #include "DriverVk.h"
 #include "../../gameRendererVk.h"
 #include <resourceModule/serviceManager.h>
-
+/*
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
@@ -52,6 +52,6 @@ void CommandHandler::DestroyCommandPool() {
 void CommandHandler::FreeCommandBuffers() {
 	auto render = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).getDriver();
 	vkFreeCommandBuffers(render->m_MainDevice.LogicalDevice, m_GraphicsComandPool, static_cast<uint32_t>(m_CommandBuffers.size()), m_CommandBuffers.data());
-}
+}*/
 
 #endif

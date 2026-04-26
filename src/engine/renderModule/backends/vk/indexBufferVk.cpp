@@ -1,61 +1,67 @@
 #include "indexBufferVk.h"
 
-#ifdef VULKAN_BACKEND
-#include <resourceModule/serviceManager.h>
+
 #include "driverVk.h"
-#include "shaderVk.h"
-using namespace IKIGAI;
-using namespace IKIGAI::RENDER;
-IndexBufferVk::IndexBufferVk(std::span<uint32_t>& indices) {
-	auto render = UtilityVk::GetDriver();
-	m_indexCount = indices.size();
-	VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+#include "helpers.h"
 
-	VkBuffer staging_buffer;
-	VkDeviceMemory stagingBufferMemory;
+#ifdef VULKAN_BACKEND
 
-	BufferSettings buffer_settings;
-	buffer_settings.size = bufferSize;
-	buffer_settings.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	buffer_settings.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+IKIGAI::RENDER::IndexBufferVk::IndexBufferVk(void* data, size_t size, size_t stride) : IndexBufferInterface(size, stride) {
+	std::tie(mBuffer, mDeviceMemory) = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+	if (data) {
+		IndexBufferVk::setData(data, size, stride);
+	}
+}
 
-	UtilityVk::CreateBuffer(buffer_settings, &staging_buffer, &stagingBufferMemory);
+IKIGAI::RENDER::IndexBufferVk::~IndexBufferVk() {
+	UtilityVk::GetDriver()->destroyDeferred(std::move(mBuffer));
+	UtilityVk::GetDriver()->destroyDeferred(std::move(mDeviceMemory));
+}
 
-	// Mapping della memoria per l'index buffer
-	void* data;
-	vkMapMemory(render->m_MainDevice.LogicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);  // 2. Creao le associazioni (mapping) tra la memoria del vertex buffer ed il pointer
-	memcpy(data, indices.data(), static_cast<size_t>(bufferSize));							// 3. Copio il vettore dei vertici in un punto in memoria
-	vkUnmapMemory(render->m_MainDevice.LogicalDevice, stagingBufferMemory);							// 4. Disassocio il vertice dalla memoria
+void IKIGAI::RENDER::IndexBufferVk::setData(const void* data, size_t sz, size_t stride) {
+	UtilityVk::GetDriver()->deactivateRenderPass();
 
-	buffer_settings.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	buffer_settings.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	if (sz * stride > mSizeByte) {
+		mSize = sz;
+		mStride = stride;
+		mSizeByte = mSize * mStride;
+		UtilityVk::GetDriver()->destroyDeferred(std::move(mBuffer));
+		UtilityVk::GetDriver()->destroyDeferred(std::move(mDeviceMemory));
+		std::tie(mBuffer, mDeviceMemory) = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+	}
 
-	// Creazione del buffer per Index Data sulla GPU
-	UtilityVk::CreateBuffer(buffer_settings, &m_indexBuffer, &m_indexBufferMemory);
+	if (UtilityVk::GetDriver()->mCurrentMemoryStage != vk::PipelineStageFlagBits2::eTransfer) {
+		UtilityVk::SetMemoryBarrier(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, UtilityVk::GetDriver()->mCurrentMemoryStage, vk::PipelineStageFlagBits2::eTransfer);
+		UtilityVk::GetDriver()->mCurrentMemoryStage = vk::PipelineStageFlagBits2::eTransfer;
+	}
 
-	// Copia dello staging buffer sulla GPU
-	UtilityVk::CopyBufferCmd(staging_buffer, m_indexBuffer, bufferSize);
+	if (mSizeByte < 65536) {
+		//std::cout << "vkCmdUpdateBuffer\n";
+		UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer.updateBuffer<uint8_t>(*mBuffer, 0, {(uint32_t)mSizeByte, (uint8_t*)data});
+		return;
+	}
 
-	// Distruzione dello staging Buffer
-	vkDestroyBuffer(render->m_MainDevice.LogicalDevice, staging_buffer, nullptr);
-	vkFreeMemory(render->m_MainDevice.LogicalDevice, stagingBufferMemory, nullptr);
+	auto [staging_buffer, staging_buffer_memory] = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eTransferSrc);
 
-	//bool useInRt = true;
-	//VkBufferDeviceAddressInfoKHR address_info;
-	//DW_ZERO_MEMORY(address_info);
-	//
-	//address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR;
-	//address_info.buffer = m_indexBuffer;
-	//
-	////if ((usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) == VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
-	//if (useInRt)
-	//	m_device_address = vkGetBufferDeviceAddress(render->m_MainDevice.LogicalDevice, &address_info);
+	auto ptr = staging_buffer_memory.mapMemory(0, mSizeByte);
+	memcpy(ptr, data, mSizeByte);
+	staging_buffer_memory.unmapMemory();
+
+	vk::BufferCopy region;
+	region.setSize(mSizeByte);
+
+	UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer.copyBuffer(*staging_buffer, *mBuffer, {region});
+
+	UtilityVk::GetDriver()->destroyDeferred(std::move(staging_buffer));
+	UtilityVk::GetDriver()->destroyDeferred(std::move(staging_buffer_memory));
+}
+
+void IKIGAI::RENDER::IndexBufferVk::bind() {
 
 }
 
-void IndexBufferVk::bind(const ShaderInterface& shader)
-{
-	auto render = UtilityVk::GetDriver();
-	vkCmdBindIndexBuffer(static_cast<const ShaderVk&>(shader).m_CommandHandler.m_CommandBuffers[render->imageIndex], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+void IKIGAI::RENDER::IndexBufferVk::unbind() {
+
 }
+
 #endif

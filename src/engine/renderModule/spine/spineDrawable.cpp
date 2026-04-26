@@ -247,7 +247,7 @@ void SkeletonDrawable::draw() {
         Vector<float> *uvs = nullptr;
         Vector<unsigned short> *indices = nullptr;
         int indicesCount = 0;
-        Color *attachmentColor;
+        spine::Color *attachmentColor;
 
         if (attachment->getRTTI().isExactly(RegionAttachment::rtti)) {
             auto *regionAttachment = (RegionAttachment *) attachment;
@@ -300,7 +300,7 @@ void SkeletonDrawable::draw() {
         vertex.b = b;
         vertex.a = a;
 
-        Color light;
+        spine::Color light;
         light.r = r;
         light.g = g;
         light.b = b;

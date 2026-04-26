@@ -1,8 +1,12 @@
 #pragma once
 #include "renderEnums.h"
+#include <string>
+
 namespace IKIGAI::RENDER {
+	struct TextureResource; // forward declaration (defined in resourceStruct.h)
+
 	enum class TextureType {
-		TEXTURE_2D,
+		TEXTURE_2D = 0,
 		TEXTURE_3D,
 		TEXTURE_CUBE,
 		TEXTURE_2D_ARRAY,
@@ -41,5 +45,8 @@ namespace IKIGAI::RENDER {
 
 		virtual ~TextureInterface() = default;
 		virtual void* getImguiId() = 0;
+		// Пересоздать GPU-ресурс из нового/обновлённого дескриптора (для hot-reload)
+		// fileData - это сырые байты файлов (PNG/JPG), загруженные менеджером (один или несколько)
+		virtual void recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) = 0;
 	};
 }

@@ -25,18 +25,15 @@ namespace IKIGAI {
 			static void Recompile(RENDER::ShaderInterface& shader);
 
 		protected:
-			static ResourcePtr<RENDER::ShaderInterface> CreateWithEmptyDeleter(const std::string& filePath);
-
 			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path) override;
-			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path, ELoadingType type) override {
-				return createResource(path, type, std::any());
-			}
+			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path, ELoadingType type) override;
 			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 			
 			//for error print
-			static std::string FILE_PATH;
-			static void UpdateFileWatchResource(const std::string& filePath);
-			static void AddFileWatchSubscribe(const RENDER::ShaderResource& _res, const std::string& filePath);
+			inline static std::string FILE_PATH;
+
+			static void UpdateFileWatchResource(const std::string& filePath, const RENDER::ShaderResource& res, std::weak_ptr<RENDER::ShaderInterface> weakShader);
+			static void AddFileWatchSubscribe(const RENDER::ShaderResource& _res, const std::string& filePath, std::weak_ptr<RENDER::ShaderInterface> weakShader);
 			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::id>> fwSubscribersIds;
 		};
 

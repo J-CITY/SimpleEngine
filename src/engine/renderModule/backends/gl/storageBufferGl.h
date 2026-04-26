@@ -11,9 +11,13 @@ namespace IKIGAI::RENDER {
 		StorageBufferGl(const std::vector<T>& vertices) : StorageBufferGl((void*)vertices.data(), vertices.size(), sizeof(T)) {}
 		~StorageBufferGl() override;
 		void setData(const void* data, size_t sz, size_t stride) override;
+		void setSubData(const void* data, size_t sz, size_t offset) override;
 
 		void bind() override {};
 		void unbind() override {};
+
+		Id getId() const;
+
 	private:
 		Id mId = 0;
 		Id mBindId = 0;

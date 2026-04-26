@@ -1,11 +1,9 @@
 #include "materialManager.h"
 #include <fstream>
 #include "ServiceManager.h"
-//#include "../render/material.h"
 #include <nlohmann/json.hpp>
 #include <renderModule/backends/interface/materialInterface.h>
 #include <resourceModule/fileSystem/fileSystem.h>
-
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/materialGl.h>
 #endif
@@ -15,15 +13,19 @@
 #ifdef DX12_BACKEND
 #include <renderModule/backends/dx12/materialDx12.h>
 #endif
-
 #include <renderModule/backends/interface/driverInterface.h>
-
 #include "fileWatcher.h"
 #include "utilsModule/jsonLoader.h"
+
+// TODO: add load from resource file and file
+// TODO: add load from ready resource config
+// TODO: create material from render and remove defines
+// TODO: add static Reload
+
 //TODO: delete it
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::CreateFromFile(const std::string& path) {
-	//const std::string realPath = getRealPath(path);
-	auto material = Create(path);
+	const std::string realPath = "/" + path;
+	auto material = Create("/"+ path);
 	//set path from constructor
 	if (material) {
 		//material->getPath() = path;
@@ -38,31 +40,25 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 		//TODO: add check
 		auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
 		auto materialDescriptor = UTILS::FromJsonStr<RENDER::MaterialResource>(content).unwrap();
+		materialDescriptor.path = path;
 		auto material = ResourcePtr<RENDER::MaterialGl>(new RENDER::MaterialGl(materialDescriptor), [](RENDER::MaterialGl* m) {
 			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
 		});
 		if (!path.empty()) {
 			//material->mPath = path;
-			auto id = RESOURCES::FileWatcher::getInstance()->add(UTILS::GetRealPath(path), [material](RESOURCES::FileWatcher::FileStatus status) {
+			auto id = RESOURCES::FileWatcher::getInstance()->add(path, [material, path](RESOURCES::FileWatcher::FileStatus status) {
 				switch (status) {
 				case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
 					auto content = ServiceManager::Get<FileSystem>().getFile(material->getPath())->readStr();
-					auto root = nlohmann::json::parse(content);
-					//material->onDeserialize(root);
+					auto materialDescriptor = UTILS::FromJsonStr<RENDER::MaterialResource>(content).unwrap();
+					materialDescriptor.path = path;
+					material->create(materialDescriptor);
 					break;
 				}
 				case RESOURCES::FileWatcher::FileStatus::DEL: break;
 				case RESOURCES::FileWatcher::FileStatus::CREATE: break;
 				}
 			});
-			//if (material->watchingFilesId.contains(UTILS::GetRealPath(path))) {
-			//	RESOURCES::FileWatcher::getInstance()->remove(UTILS::GetRealPath(path), material->watchingFilesId.at(UTILS::getRealPath(path)));
-			//}
-			//material->watchingFilesId.insert({ UTILS::GetRealPath(path), id });
-
-			//std::ifstream ifs(UTILS::GetRealPath(path));
-			//auto root = nlohmann::json::parse(ifs);
-			//material->onDeserialize(root);
 		}
 		return material;
 	}
@@ -73,7 +69,7 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
 		});
 		if (!path.empty()) {
-			std::ifstream ifs(UTILS::GetRealPath(path));
+			std::ifstream ifs(path);
 			auto root = nlohmann::json::parse(ifs);
 			//material->onDeserialize(root);
 		}
@@ -87,7 +83,7 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
 		});
 		if (!path.empty()) {
-			std::ifstream ifs(UTILS::GetRealPath(path));
+			std::ifstream ifs(path);
 			auto root = nlohmann::json::parse(ifs);
 			//material->onDeserialize(root);
 		}
@@ -99,6 +95,10 @@ IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOUR
 
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path) {
 	return CreateFromFile(path);
+}
+
+IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path, ELoadingType type) {
+	return createResource(path, type, std::any());
 }
 
 IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path, ELoadingType type, std::any data) {

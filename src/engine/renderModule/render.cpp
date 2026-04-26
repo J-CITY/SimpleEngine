@@ -61,6 +61,11 @@ namespace IKIGAI::RENDER {
 				driver->drawIndexed(cmd->count, cmd->offset, cmd->instance);
 				break;
 			}
+			case OpCode::DRAW_MESH: {
+				auto* cmd = reinterpret_cast<const CmdDrawMesh*>(header);
+				driver->draw(*cmd->mesh, cmd->primitive, cmd->instances);
+				break;
+			}
 			case OpCode::SET_VIEWPORT: {
 				auto* cmd = reinterpret_cast<const CmdSetViewport*>(header);
 				driver->setViewport(cmd->viewport);
@@ -176,6 +181,12 @@ namespace IKIGAI::RENDER {
 			case OpCode::RESET_BLEND: driver->resetBlending(); break;
 			case OpCode::RESET_DEPTH: driver->resetDepth(); break;
 			case OpCode::RESET_STENCIL: driver->resetStencil(); break;
+			case OpCode::SET_FRAMEBUFFER: {
+				auto* cmd = reinterpret_cast<const CmdSetFrameBuffer*>(header);
+				driver->setFrameBuffer(cmd->frameBuffer);
+				break;
+			}
+			case OpCode::RESET_FRAMEBUFFER: driver->resetFrameBuffer(); break;
 
 			default: break;
 			}
@@ -193,6 +204,10 @@ namespace IKIGAI::RENDER {
 			}
 			case OpCode::SET_VERTEX_BUFFER: {
 				reinterpret_cast<CmdSetVertexBuffer*>(header)->buffer.~shared_ptr();
+				break;
+			}
+			case OpCode::DRAW_MESH: {
+				reinterpret_cast<CmdDrawMesh*>(header)->mesh.~shared_ptr();
 				break;
 			}
 			case OpCode::SET_INDEX_BUFFER: {
@@ -213,20 +228,24 @@ namespace IKIGAI::RENDER {
 			}
 			case OpCode::SET_TEXTURE_NAMED: {
 				auto* cmd = reinterpret_cast<CmdStringResource*>(header);
-				cmd->name.~string();
+				//cmd->name.~string();
 				cmd->texture.~shared_ptr();
 				break;
 			}
 			case OpCode::SET_UNIFORM_BUFFER_NAMED: {
 				auto* cmd = reinterpret_cast<CmdStringUniformResource*>(header);
-				cmd->name.~string();
+				//cmd->name.~string();
 				cmd->buffer.~shared_ptr();
 				break;
 			}
 			case OpCode::SET_STORAGE_BUFFER_NAMED: {
 				auto* cmd = reinterpret_cast<CmdStringStorageResource*>(header);
-				cmd->name.~string();
+				//cmd->name.~string();
 				cmd->buffer.~shared_ptr();
+				break;
+			}
+			case OpCode::SET_FRAMEBUFFER: {
+				reinterpret_cast<CmdSetFrameBuffer*>(header)->frameBuffer.~shared_ptr();
 				break;
 			}
 			default: break;

@@ -77,11 +77,11 @@ std::string File::GetExtension(const std::filesystem::path& path) {
 
 FileBrowserWindow::FileBrowserWindow(const std::string& path): mPath(path), mSelectedFolderPath(path), mRoot(path) {
 #ifdef OPENGL_BACKEND
-	mTextureCache["__image__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/image-white.png"), true);
-	mTextureCache["__dir__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/folder-white.png"), true);
-	mTextureCache["__file__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/file-white.png"), true);
-	mTextureCache["__font__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/font-white.png"), true);
-	mTextureCache["__object__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/cube-white.png"), true);
+	mTextureCache["__image__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/image-white.png"));
+	mTextureCache["__dir__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/folder-white.png"));
+	mTextureCache["__file__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/file-white.png"));
+	mTextureCache["__font__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/font-white.png"));
+	mTextureCache["__object__"] = RENDER::TextureGl::Create(UTILS::GetRealPath("textures/debug/editor/cube-white.png"));
 #endif
 #ifdef VULKAN_BACKEND
 	mTextureCache["__image__"] = RENDER::TextureVk::Create(UTILS::GetRealPath("textures/debug/editor/image-white.png"));
@@ -253,7 +253,7 @@ void FileBrowserWindow::drawFolder(std::string_view path)
 			if (!mTextureCache.contains(imPath)) {
 #ifdef OPENGL_BACKEND
 				//TODO: check backend
-				mTextureCache[imPath] = RENDER::TextureGl::Create(imPath, true);
+				mTextureCache[imPath] = RENDER::TextureGl::Create(imPath);
 #endif
 #ifdef VULKAN_BACKEND
 				mTextureCache[imPath] = RENDER::TextureVk::Create(imPath);
@@ -309,7 +309,7 @@ void FileBrowserWindow::drawFolder(std::string_view path)
 		}
 		auto pos = ImGui::GetCursorPos();
 		ImGui::SetCursorPos(ImVec2(pos.x, pos.y - mElementSize));
-		ImGui::Image(mTextureCache.at(imPath)->getImguiId(), {static_cast<float>(mElementSize), static_cast<float>(mElementSize)}, ImVec2(0, 1), ImVec2(1, 0));
+		ImGui::Image((ImTextureID)mTextureCache.at(imPath)->getImguiId(), {static_cast<float>(mElementSize), static_cast<float>(mElementSize)}, ImVec2(0, 1), ImVec2(1, 0));
 //#ifdef VULKAN_BACKEND
 //				ImGui::Image((ImTextureID)textureCache.at(imPath)->descriptor_set, {static_cast<float>(elementSize), static_cast<float>(elementSize)});
 //#endif

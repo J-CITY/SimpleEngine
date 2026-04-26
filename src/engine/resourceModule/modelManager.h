@@ -3,6 +3,7 @@
 
 #include "resourceManager.h"
 #include "parser/assimpParser.h"
+#include "utilsModule/event.h"
 
 namespace IKIGAI
 {
@@ -29,17 +30,19 @@ namespace IKIGAI {
 			                                                        std::vector<std::vector<uint32_t>>&
 			                                                        _globalIndicesPerMesh);
 			static ModelParserFlags getDefaultFlag();
-		protected:
+		private:
 			static AssimpParser _ASSIMP;
 
 			//TODO: load from file
 			
 
-			virtual ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path) override;
-			virtual ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type) override {
+			ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path) override;
+			ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type) override {
 				return createResource(path, type, std::any());
 			}
-			virtual ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
+			ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
+
+			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::id>> fwSubscribersIds;
 		};
 	
 	}

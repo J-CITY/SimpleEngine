@@ -4,11 +4,20 @@
 
 IKIGAI::RENDER::UniformBufferGl::UniformBufferGl(const void* data, size_t sz) : UniformBufferInterface(sz) {
 	glGenBuffers(1, &mId);
+
+	bind();
+	glBufferData(GL_UNIFORM_BUFFER, sz, nullptr, GL_STATIC_DRAW);
+	unbind();
+
 //#ifndef USING_GLES
 	if (data) {
 		UniformBufferGl::setData(data, sz);
 	}
 //#endif
+}
+
+IKIGAI::RENDER::UniformBufferGl::UniformBufferGl(size_t sz): UniformBufferGl(nullptr, sz)
+{
 }
 
 IKIGAI::RENDER::UniformBufferGl::~UniformBufferGl() {

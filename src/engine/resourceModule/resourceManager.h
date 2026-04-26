@@ -14,7 +14,6 @@ namespace IKIGAI {
 		enum class ELoadingType {
 			RESOURCE,   // JSON descriptor based
 			FILE,       // Raw file based
-			DESCRIPTOR, // Descriptor struct based
 			MEMORY      // Memory/Generated
 		};
 
@@ -128,17 +127,7 @@ namespace IKIGAI {
 				resources[path] = res;
 				return res;
 			}
-			
-			//static std::string getRealPath(const std::string& p_path) {
-			//	std::string result;
-			//	if (std::filesystem::exists(ENGINE_ASSETS_PATH + p_path)) {
-			//		result = Config::ROOT + ENGINE_ASSETS_PATH + p_path;
-			//	}
-			//	else {
-			//		result = Config::ROOT + PROJECT_ASSETS_PATH + p_path;
-			//	}
-			//	return result;
-			//}
+
 		public: // Made public for direct lock access if needed
 			mutable std::recursive_mutex mMutex;
 		private:

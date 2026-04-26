@@ -1,28 +1,20 @@
 #pragma once
 
 #ifdef VULKAN_BACKEND
+#include "renderModule/backends/interface/frameBufferInterface.h"
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan.h>
 namespace IKIGAI::RENDER {
-	class TextureVk;
-	class ShaderInterface;
-	class TextureInterface;
+	class FrameBufferVk : public FrameBufferInterface {
+	private:
+		std::vector<std::shared_ptr<TextureInterface>> mTextures;
+		std::shared_ptr<TextureInterface> mDepth;
 
-	class FrameBufferVk {
 	public:
-		int attachmentsSize = 1;
-		VkRenderPass m_RenderPass = {};
-		std::vector<VkFramebuffer> swapChainFramebuffers;
-
-		//std::vector<std::shared_ptr<TextureVk>> textures;
-		//std::shared_ptr<TextureVk> depthTexture;
-
-		void create(const std::vector<std::shared_ptr<TextureVk>>& textures, std::shared_ptr<TextureVk> depthTexture);
-		void create(std::shared_ptr<TextureVk> depthTexture);
-
-		void bind(const ShaderInterface& shader);
-		void unbind(const ShaderInterface& shader);
+		FrameBufferVk(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth = nullptr);
+		const std::vector<std::shared_ptr<TextureInterface>>& getTextures() const override;
+		const std::shared_ptr<TextureInterface>& getDepth() const override;
 	};
 }
 #endif

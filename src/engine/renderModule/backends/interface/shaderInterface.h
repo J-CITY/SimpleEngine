@@ -8,6 +8,7 @@
 
 
 namespace IKIGAI::RENDER {
+	struct ShaderResource;
 	class PushConstantInterface;
 	class UniformBufferInterface;
 	class UniformVkInterface;
@@ -18,36 +19,38 @@ namespace IKIGAI::RENDER {
 	class ShaderInterface {
 	public:
 		using Id = size_t;
+
 	protected:
 		ShaderReflection mReflection;
 		Id mId = 0;
-	public:
-		
-		std::string mPath;
-		std::optional<std::string> fragmentPath;
-		std::optional<std::string> vertexPath;
-		std::optional<std::string> geometryPath;
-		std::optional<std::string> tessEvalPath;
-		std::optional<std::string> tessControlPath;
-		std::optional<std::string> computePath;
 
-		const ShaderReflection& getReflection() const {
+	public:
+
+		// Path to resource
+		std::string mPath;
+		std::map<ShaderType, std::string> mShaderPaths;
+
+		inline const ShaderReflection& getReflection() const {
 			return mReflection;
 		}
+
+		const std::string& getPath() { return mPath; }
+		Id getId() const { return mId; }
 
 		virtual ~ShaderInterface() = default;
 
 		virtual void bind() = 0;
 		virtual void unbind() = 0;
-		//virtual void setUniform(const UniformBufferInterface& uniform) = 0;
-		//virtual void setPushConstant(const PushConstantInterface& uniform) = 0;
 
-		//virtual const std::unordered_map<std::string, IKIGAI::RENDER::UniformInform>& getUniformsInfo() const = 0;
+		virtual void recompile(const ShaderResource& res) = 0;
 
 		static std::string ConstructRealPath(const std::string& path);
-
-		const std::string& getPath() { return mPath; }
-		Id getId() const { return mId; }
+		static void GetReflection(ShaderReflection& reflection, const std::vector<uint32_t>& shaderCode, ShaderType type);
 	};
+
+
+	std::vector<uint32_t> CompileGlslToSpirv(IKIGAI::RENDER::ShaderType stage, const std::string& code, const std::vector<std::string>& defines);
+	std::string CompileSpirvToHlsl(const std::vector<uint32_t>& spirv, uint32_t version);
+	std::string CompileSpirvToGlsl(const std::vector<uint32_t>& spirv, bool es, uint32_t version, bool enable_420pack_extension, bool force_flattened_io_blocks);
 }
 

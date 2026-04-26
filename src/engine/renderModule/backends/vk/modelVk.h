@@ -25,8 +25,8 @@ namespace IKIGAI::RENDER {
 
 
 	public:
-		void createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices);
-		std::unique_ptr<VertexBufferVk<Vertex>> mVertexBuffer;
+		void createBuffers(std::vector<Vertex> p_vertices, std::vector<uint32_t> p_indices);
+		std::unique_ptr<VertexBufferVk> mVertexBuffer;
 		std::unique_ptr<IndexBufferVk> mIndexBuffer;
 	};
 }

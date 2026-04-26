@@ -379,25 +379,25 @@ std::span<std::shared_ptr<IKIGAI::ECS::Object>> Scene::getObjects() {
 //TODO: void Scene::setMainCamera(Entity id) {}
 
 
-std::optional<IKIGAI::UTILS::Ref<IKIGAI::ECS::CameraComponent>> Scene::findMainCamera() {
+IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
 	for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::CameraComponent>()) {
 		if (camera.obj->getIsActive()) {
 			if (camera.obj->getName().rfind("__", 0) == 0) { //TODO: refactor VR component and remove it
 				continue;
 			}
-			return camera;
+			return camera.getWeak<ECS::CameraComponent>();;
 		}
 	}
 	for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::VrCameraComponent>()) {
 		if (camera.obj->getIsActive()) {
-			return camera;
+			return camera.getWeak<ECS::CameraComponent>();
 		}
 	}
-	return std::nullopt;
+	return nullptr;
 }
 
 
-std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() {
+std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
 	std::vector<RENDER::LightOGL> result;
 	
 	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {

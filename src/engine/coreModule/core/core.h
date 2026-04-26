@@ -1,4 +1,7 @@
 #pragma once
+#ifdef USE_SDL
+#include <SDL.h>
+#endif
 #include <memory>
 #ifdef USE_EDITOR
 namespace IKIGAI
@@ -71,6 +74,7 @@ namespace IKIGAI
 {
 	namespace RENDER
 	{
+		class Renderer;
 		class GameRendererInterface;
 		class DriverInterface;
 	}
@@ -131,6 +135,7 @@ namespace IKIGAI {
 			std::unique_ptr<INPUT_SYSTEM::InputManager>   inputManager;
 			std::unique_ptr<RENDER::DriverInterface>         driver;
 			std::unique_ptr<SCRIPTING::ScriptInterpreter> scriptInterpreter;
+			std::unique_ptr<RENDER::Renderer> render;
 			std::unique_ptr<RENDER::GameRendererInterface> renderer;
 			std::unique_ptr<SCENE_SYSTEM::SceneManager>   sceneManager;
 			std::unique_ptr<AUDIO::AudioManager>          audioManager;

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifdef VULKAN_BACKEND
 
@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_raii.hpp>
 
 #include "commandHandler.h"
 #include "../interface/shaderInterface.h"
@@ -34,84 +34,28 @@ namespace IKIGAI::RENDER {
 
 	class ShaderVk : public ShaderInterface {
 	public:
-		VkPipelineBindPoint piplineType = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-		std::unordered_map<std::string, int> nameToSet;
-		std::unordered_map<std::string, int> nameToBinding;
+		vk::raii::DescriptorSetLayout mDescriptorSetLayout = nullptr;
+		vk::raii::PipelineLayout mPipelineLayout = nullptr;
+		vk::raii::ShaderModule mVertexShaderModule = nullptr;
+		vk::raii::ShaderModule mFragmentShaderModule = nullptr;
+		std::vector<vk::DescriptorSetLayoutBinding> mRequiredDescriptorBindings;
 
+		ShaderVk(std::map<ShaderType, std::string> shaderCode);
 
-		inline static VkBool32 depthWriteEnable = VK_FALSE;
-		inline static VkCullModeFlags cullMode = VK_CULL_MODE_FRONT_BIT;
-		inline static VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		inline static std::optional<VkPushConstantRange> push_constant;
-
-		std::vector<int> setSizes;
-		CommandHandler m_CommandHandler;
-
-		std::vector<VkDescriptorPool> pools;
-		std::vector<VkDescriptorSetLayout> descriptorSetLayout;
-		std::unordered_map<size_t, std::vector<VkDescriptorSet>> descriptorSets;
-		VkPipelineLayout pipelineLayout;
-		VkPipeline graphicsPipeline;
-
-		ShaderVk(VkRenderPass renderPass,
-			std::string vertex,
-			std::string fragment,
-			std::optional<std::string> geometry = std::nullopt,
-			std::optional<std::string> tessControl = std::nullopt,
-			std::optional<std::string> tesEval = std::nullopt);
-		ShaderVk();
-
-		void createCompurePipeline(std::string compudeShaderPath);
-		const std::unordered_map<std::string, IKIGAI::RENDER::UniformInform>& getUniformsInfo() const;
-
-		void setUniform(const UniformBufferInterface& uniform) override;
-		void setUniform(const UniformVkInterface& uniform);
-
-		size_t attachmentsCount = 1;
-		void getReflection(std::string vertex, std::string fragment, bool needVertDescr = false);
-		void create(VkRenderPass renderPass, std::string vertex, std::string fragment,
-			std::optional<std::string> geometry = std::nullopt, std::optional<std::string> tessControl = std::nullopt,
-			std::optional<std::string> tessEval = std::nullopt);
-		VkShaderModule createShaderModule(const std::vector<char>& code);
-		void createDescriptorSetLayout();
-		void createDescriptorPool();
-		void createDescriptorPool(std::vector<std::shared_ptr<TextureVk>> textures);
-		void setDescriptorSet(int setId, std::vector<VkDescriptorSet> descriptorSet);
-		void createDescriptorSet(int setId, const std::vector<VkBuffer>& uniformBuffers);
-		void createDescriptorSet(int setId, std::vector<std::shared_ptr<TextureVk>> ubo);
-		//void createDescriptorSets();
-
-		void bindDescriptorSets();
-		void setDescriptorSet(int setId, VkDescriptorSet descriptorSet);
-
-		void setPushConstant(const PushConstantInterface& data) override;
-		template<class T>
-		void setPushConstant(T& data) {
-			vkCmdPushConstants(m_CommandHandler.m_CommandBuffers[getImageIndex()], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(T), &data);
-		}
-
-		std::optional<VkVertexInputBindingDescription> bindingDescription;
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
-
-		void createVertexDescriptor(VertexDescriptor descriptor);
-
-		//std::vector<UniformInform> uniforms;
-
-		std::vector<VkSemaphore> sync;
-
-		void bind() override;
-		void unbind() override;
-
-		//remove it
-		int getImageIndex();
-
-		virtual int getId()
+		void _getReflection(std::string path, ShaderType type);
+		std::tuple<vk::raii::PipelineLayout, vk::raii::DescriptorSetLayout, std::vector<vk::DescriptorSetLayoutBinding>> createPipelineLayout();
+		static std::shared_ptr<ShaderVk> CreateFromPath(std::map<ShaderType, std::string> path);
+		void bind() override{};
+		void unbind() override{};
+		int getId() override { return 0; };
+		void setUniform(const UniformBufferInterface& uniform) override{};
+		void setPushConstant(const PushConstantInterface& uniform) override{};
+		void recompile(const ShaderResource& res) override {}
+		const std::unordered_map<std::string, IKIGAI::RENDER::UniformInform>& getUniformsInfo() const override
 		{
-			return 0;
-		}
-
-		std::unordered_map<std::string, IKIGAI::RENDER::UniformInform> mUniforms;
+			return std::unordered_map<std::string, IKIGAI::RENDER::UniformInform>();
+		};
 	};
 }
 #endif

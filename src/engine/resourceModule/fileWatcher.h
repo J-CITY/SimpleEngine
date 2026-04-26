@@ -14,8 +14,11 @@ namespace IKIGAI::RESOURCES {
 		constexpr static int DELAY_UPDATE = 5000;
 		enum class FileStatus { CREATE, MODIFIED, DEL };
 	private:
-
-		std::unordered_map<std::string, std::filesystem::file_time_type> m_filesLastModifications;
+		struct FileModificationInfo {
+			std::filesystem::file_time_type mLastModifyTime;
+			std::uintmax_t mFileSize{};
+		};
+		std::unordered_map<std::string, FileModificationInfo> m_filesLastModifications;
 		std::unordered_map<std::string, EVENT::Event<FileStatus>> m_filesCallbacks;
 		std::vector<std::pair<std::string, FileStatus>> m_events;
 

@@ -1,205 +1,177 @@
 #include "textureVk.h"
 
-#include <iostream>
-
-#include "utilsModule/stdLoader.h"
 
 #ifdef VULKAN_BACKEND
+#include <iostream>
+#include <filesystem>
+
+#include "backends/imgui_impl_vulkan.h"
+#include "utilsModule/stdLoader.h"
+#include "utilsModule/jsonLoader.h"
 #include "driverVk.h"
 
 #include <resourceModule/textureManager.h>
 #include "../../gameRendererVk.h"
 #include <resourceModule/serviceManager.h>
+#include <renderModule/backends/interface/atlasInterface.h>
 
-using namespace IKIGAI;
-using namespace IKIGAI::RENDER;
-std::shared_ptr<IKIGAI::RENDER::TextureVk> TextureVk::CreateDepthForAttach(unsigned int texWidth, unsigned int texHeight) {
-	auto texture = std::make_shared<TextureVk>();
-	UtilityVk::CreateDepthBufferImage(*texture, { texWidth, texHeight });
-	texture->mWidth = texWidth;
-	texture->mHeight = texHeight;
-	return texture;
+static const std::unordered_map<IKIGAI::RENDER::PixelFormat, vk::Format> FormatMap = {
+	{IKIGAI::RENDER::PixelFormat::R_FLOAT, vk::Format::eR32Sfloat},
+	{IKIGAI::RENDER::PixelFormat::RG_FLOAT, vk::Format::eR32G32Sfloat},
+	{IKIGAI::RENDER::PixelFormat::RGB_FLOAT, vk::Format::eR32G32B32Sfloat},
+	{IKIGAI::RENDER::PixelFormat::RGBA_FLOAT, vk::Format::eR32G32B32A32Sfloat},
+	{IKIGAI::RENDER::PixelFormat::R_INT, vk::Format::eR8Unorm},
+	{IKIGAI::RENDER::PixelFormat::RG_INT, vk::Format::eR8G8Unorm},
+	{IKIGAI::RENDER::PixelFormat::RGB_INT, vk::Format::eR8G8B8Unorm},
+	{IKIGAI::RENDER::PixelFormat::RGBA_INT, vk::Format::eR8G8B8A8Unorm},
+	{IKIGAI::RENDER::PixelFormat::DEPTH_24_UNORM_STENCIL_8_UINT, vk::Format::eD24UnormS8Uint},
+	{IKIGAI::RENDER::PixelFormat::DEPTH32_FLOAT, vk::Format::eD32Sfloat},
+	{IKIGAI::RENDER::PixelFormat::DEPTH32_FLOAT_S8X24_UINT, vk::Format::eX8D24UnormPack32},
+	{IKIGAI::RENDER::PixelFormat::DEPTH_32_FLOAT_STENCIL_8_UINT, vk::Format::eD32SfloatS8Uint},
+};
+
+static const std::unordered_map<vk::Format, IKIGAI::RENDER::PixelFormat> FormatMap2 = {
+	{vk::Format::eR32Sfloat, IKIGAI::RENDER::PixelFormat::R_FLOAT},
+	{vk::Format::eR32G32Sfloat, IKIGAI::RENDER::PixelFormat::RG_FLOAT},
+	{vk::Format::eR32G32B32Sfloat, IKIGAI::RENDER::PixelFormat::RGB_FLOAT},
+	{vk::Format::eR32G32B32A32Sfloat, IKIGAI::RENDER::PixelFormat::RGBA_FLOAT},
+	{vk::Format::eR8Unorm, IKIGAI::RENDER::PixelFormat::R_INT},
+	{vk::Format::eR8G8Unorm, IKIGAI::RENDER::PixelFormat::RG_INT},
+	{vk::Format::eR8G8B8Unorm, IKIGAI::RENDER::PixelFormat::RGB_INT},
+	{vk::Format::eR8G8B8A8Unorm, IKIGAI::RENDER::PixelFormat::RGBA_INT},
+	{vk::Format::eD24UnormS8Uint, IKIGAI::RENDER::PixelFormat::DEPTH_24_UNORM_STENCIL_8_UINT},
+	{vk::Format::eD32Sfloat, IKIGAI::RENDER::PixelFormat::DEPTH32_FLOAT},
+	{vk::Format::eX8D24UnormPack32, IKIGAI::RENDER::PixelFormat::DEPTH32_FLOAT_S8X24_UINT},
+	{vk::Format::eB8G8R8A8Unorm, IKIGAI::RENDER::PixelFormat::BGRA_INT},
+	{vk::Format::eD32SfloatS8Uint, IKIGAI::RENDER::PixelFormat::DEPTH_32_FLOAT_STENCIL_8_UINT},
+};
+
+IKIGAI::RENDER::TextureVk::TextureVk(const TextureResource& descriptor, const std::vector<void*>& data) {
+	init(descriptor, data);
 }
 
-void TextureVk::TransitionImageLayout(const VkImage& image, const VkImageLayout& old_layout, const VkImageLayout& new_layout) {
-	VkCommandBuffer command_buffer = UtilityVk::BeginCommandBuffer();
-
-	VkImageMemoryBarrier image_memory_barrier = {};
-	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	image_memory_barrier.oldLayout = old_layout;					// Layout da cui spostarsi
-	image_memory_barrier.newLayout = new_layout;					// Layout in cui spostarsi
-	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;		// Queue family da cui spostarsi
-	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;		// Queue family in cui spostarsi
-	image_memory_barrier.image = image;						// Immagine su cui wrappare la barriera
-	image_memory_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
-	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-	image_memory_barrier.subresourceRange.layerCount = 1;
-
-	bool const old_layout_undefined = old_layout == VK_IMAGE_LAYOUT_UNDEFINED;
-	bool const new_layout_transfer_dst_optimal = new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-
-	bool const old_layout_transfer_dst_optimal = old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	bool const new_layout_shader_read_only = new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	VkPipelineStageFlags src_stage = 0;	// Stage dal quale � possibile iniziare la transizione
-	VkPipelineStageFlags dst_stage = 0;	// Stage nel quale la transizione deve essere gi� terminata
-
-	if (old_layout_undefined && new_layout_transfer_dst_optimal) {
-		image_memory_barrier.srcAccessMask = 0;								// Qualsiasi stage iniziale
-		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;	// copyBufferImage � una operazione di write
-
-		src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;	// qualsiasi momento dopo l'inizio della pipeline
-		dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;		// Primache provi a fare una write nel transfer stage!
+void IKIGAI::RENDER::TextureVk::init(const TextureResource& descriptor, const std::vector<void*>& data) {
+	auto usage =
+		vk::ImageUsageFlagBits::eSampled |
+		vk::ImageUsageFlagBits::eTransferDst |
+		vk::ImageUsageFlagBits::eTransferSrc |
+		vk::ImageUsageFlagBits::eColorAttachment |
+		vk::ImageUsageFlagBits::eStorage;
+	if (descriptor.texType == TextureType::DEPTH) {
+		usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
 	}
-	else if (old_layout_transfer_dst_optimal && new_layout_shader_read_only) {
-		image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	mType = descriptor.texType;
 
-		src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;			// al termine delle operazioni di scrittura del transfer stage
-		dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;	// prima che provi a a leggere il fragment shader
+	std::map<TextureType, vk::ImageViewType> ToTextureType = {
+		{TextureType::TEXTURE_2D, vk::ImageViewType::e2D},
+		{TextureType::TEXTURE_2D_ARRAY, vk::ImageViewType::e2DArray},
+		{TextureType::TEXTURE_3D, vk::ImageViewType::e3D},
+		{TextureType::TEXTURE_CUBE, vk::ImageViewType::eCube},
+		{TextureType::DEPTH, vk::ImageViewType::e2D},
+	};
+
+	const auto aspectFlag = descriptor.texType == TextureType::DEPTH ? (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil) : vk::ImageAspectFlagBits::eColor;
+
+	std::tie(mImage, mDeviceMemory, mImageView) = UtilityVk::CreateImage(
+		descriptor.width, descriptor.height, FormatMap.at(descriptor.pixelType), usage,
+		aspectFlag, descriptor.depth, ToTextureType.at(descriptor.texType), descriptor.mipMapCount);
+
+	mImagePtr = *mImage;
+
+	//depth
+	if (descriptor.texType == TextureType::DEPTH) {
+		UtilityVk::OneTimeSubmit([&](auto& cmdbuf) {
+			UtilityVk::SetImageMemoryBarrier(cmdbuf, *mImage, FormatMap.at(descriptor.pixelType), vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eDepthStencilAttachmentOptimal);
+			mCurrentState = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+		});
 	}
 
-	const VkDependencyFlags dep_flags = 0;
+	///////////////////
 
-	const uint32_t memory_barrier_count = 0;
-	const uint32_t buffer_memory_barrier_count = 0;
-	const uint32_t image_memory_barrier_count = 1;
+	std::map<MinMagFilter, VkFilter> ToMigMagFilter = {
+		{MinMagFilter::LINEAR, VK_FILTER_LINEAR},
+		{MinMagFilter::NEAREST, VK_FILTER_NEAREST},
+	};
 
-	vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, dep_flags,
-		memory_barrier_count, nullptr,						// no global memory barrier
-		buffer_memory_barrier_count, nullptr,				// no buffer memory barrier
-		image_memory_barrier_count, &image_memory_barrier
-	);
-
-	UtilityVk::EndAndSubmitCommandBuffer(command_buffer);
-}
-
-std::shared_ptr<TextureVk> TextureVk::CreateCubemap(std::array<std::string, 6> path) {
-	auto render = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).getDriver();
-
-	unsigned char* textureData[6];
-
-	int width{ 0 };
-	int height{ 0 };
-	int numberOfChannels{ 0 };
-
-	textureData[0] = UTILS::STBiLoad(path[0].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[1] = UTILS::STBiLoad(path[1].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[2] = UTILS::STBiLoad(path[2].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[3] = UTILS::STBiLoad(path[3].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[4] = UTILS::STBiLoad(path[4].c_str(), &width, &height, &numberOfChannels, 4);
-	textureData[5] = UTILS::STBiLoad(path[5].c_str(), &width, &height, &numberOfChannels, 4);
-	
-
-	//Calculate the image size and the layer size.
-	const VkDeviceSize imageSize = width * height * 4 * 6;
-	const VkDeviceSize layerSize = imageSize / 6;
-
-	//Set up the staging buffer.
-	BufferSettings m_BufferSettings;
-	m_BufferSettings.size = imageSize;
-	m_BufferSettings.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	m_BufferSettings.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-	VkBuffer		m_StagingBuffer;
-	VkDeviceMemory	m_StagingBufferMemory;
-	UtilityVk::CreateBuffer(m_BufferSettings, &m_StagingBuffer, &m_StagingBufferMemory);
-
-	//Map the memory.
-	void* data;
-	vkMapMemory(render->m_MainDevice.LogicalDevice,
-		m_StagingBufferMemory, 0, imageSize, 0, &data);
-
-	//Copy the data into the staging buffer.
-	for (int i = 0; i < 6; ++i) {
-		memcpy((unsigned char*)data+(layerSize * i), textureData[i], static_cast<size_t>(layerSize));
-	}
-
-	vkUnmapMemory(render->m_MainDevice.LogicalDevice, m_StagingBufferMemory);
-
-	UTILS::STBiImageFree(textureData[0]);
-	UTILS::STBiImageFree(textureData[1]);
-	UTILS::STBiImageFree(textureData[2]);
-	UTILS::STBiImageFree(textureData[3]);
-	UTILS::STBiImageFree(textureData[4]);
-	UTILS::STBiImageFree(textureData[5]);
-
-	auto texture = std::make_shared<TextureVk>();
-	texture->mPath = path[0];
-	texture->mWidth = width;
-	texture->mHeight = height;
-
-	//CRESTE TEXTURE IMAGE
-	VkDeviceMemory m_TextureImageMemory;
-
-	ImageInfo image_info = {};
-	image_info.width = texture->mWidth;
-	image_info.height = texture->mHeight;
-	image_info.format = VK_FORMAT_R8G8B8A8_UNORM;
-	image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	image_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-	VkImage texture_image = UtilityVk::CreateImage(image_info, &m_TextureImageMemory);
-
-	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	UtilityVk::CopyImageBuffer(m_StagingBuffer, texture_image, texture->mWidth, texture->mHeight);
-	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	texture->Image.push_back(texture_image);
-	texture->Memory = m_TextureImageMemory;
-
-	vkDestroyBuffer(render->m_MainDevice.LogicalDevice, m_StagingBuffer, nullptr);
-	vkFreeMemory(render->m_MainDevice.LogicalDevice, m_StagingBufferMemory, nullptr);
+	std::map<WrapFilter, VkSamplerAddressMode> ToWrapFilter = {
+		{WrapFilter::CLAMP_TO_BORDER, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER},
+		{WrapFilter::CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE},
+		{WrapFilter::MIRRORED_REPEAT, VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT},
+		{WrapFilter::MIRROR_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE},
+		{WrapFilter::REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT},
+	};
 
 
-	const VkImageView image_view = UtilityVk::CreateImageView(texture->Image[0], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-
-	texture->ImageView.push_back(image_view);
-
-	//SAMPLER
 	VkSamplerCreateInfo samplerCreateInfo = {};
 	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.mipLodBias = 0.0f;
-	samplerCreateInfo.minLod = 0.0f;
-	samplerCreateInfo.maxLod = 0.0f;
-	samplerCreateInfo.anisotropyEnable = VK_TRUE;
-	samplerCreateInfo.maxAnisotropy = 16;
+	samplerCreateInfo.magFilter = ToMigMagFilter.at(descriptor.magFilter);
+	samplerCreateInfo.minFilter = ToMigMagFilter.at(descriptor.minFilter);;
+	samplerCreateInfo.addressModeU = ToWrapFilter.at(descriptor.wrapS);
+	samplerCreateInfo.addressModeV = ToWrapFilter.at(descriptor.wrapT);
+	samplerCreateInfo.addressModeW = ToWrapFilter.at(descriptor.wrapR);
+	//samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	//samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; //TODO: add to descriptor
+	//samplerCreateInfo.mipLodBias = 0.0f;
+	samplerCreateInfo.minLod = -1000.0f;
+	samplerCreateInfo.maxLod = 1000.0f;
+	//samplerCreateInfo.anisotropyEnable = VK_TRUE;
+	samplerCreateInfo.maxAnisotropy = 1.0f;
 
-	VkSampler s;
-	VkResult result = vkCreateSampler(render->m_MainDevice.LogicalDevice, &samplerCreateInfo, nullptr, &s);
-	texture->Sampler.push_back(s);
+	auto sampler_create_info = vk::SamplerCreateInfo()
+		.setMagFilter(vk::Filter::eNearest)
+		.setMinFilter(vk::Filter::eNearest);
+		//.setMipmapMode(vk::SamplerMipmapMode::eLinear)
+		//.setAddressModeU(vk::SamplerAddressMode::eRepeat)
+		//.setAddressModeV(vk::SamplerAddressMode::eRepeat)
+		//.setAddressModeW(vk::SamplerAddressMode::eRepeat)
+		//.setMinLod(-1000)
+		//.setMaxLod(1000)
+		//.setAnisotropyEnable(true)
+		//.setMaxAnisotropy(16.0f);
+	mSampler = UtilityVk::GetDriver()->mDevice.createSampler(sampler_create_info);
+	//mSampler = UtilityVk::GetDriver()->mDevice.createSampler(samplerCreateInfo);
 
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create a Texture Sampler!");
+	mDepth = descriptor.depth;
+	mFormat = descriptor.pixelType;
+
+	if (!data.empty()) {
+		setData(descriptor.width, descriptor.height, descriptor.pixelType, data, 0, 0, 0);
+	}
+
+	if (descriptor.useMipmap) {
+		generateMips();
 	}
 
 
-	VkDescriptorPoolSize samplerPoolSize = {};
-	samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerPoolSize.descriptorCount = MAX_OBJECTS;
 
-	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = {};
-	samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	samplerPoolCreateInfo.maxSets = MAX_OBJECTS;
-	samplerPoolCreateInfo.poolSizeCount = 1;
-	samplerPoolCreateInfo.pPoolSizes = &samplerPoolSize;
-
-	result = vkCreateDescriptorPool(render->m_MainDevice.LogicalDevice, &samplerPoolCreateInfo, nullptr, &texture->m_TexDescriptorPool);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create a Descriptor Pool!");
-	}
-
+	//VkDescriptorSet descriptor_set;
+	//
+	//VkDescriptorSetAllocateInfo set_alloc_info = {};
+	//set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	//set_alloc_info.descriptorPool = UtilityVk::GetDriver()->im;
+	//set_alloc_info.descriptorSetCount = 1;
+	//set_alloc_info.pSetLayouts = &mTextureLayout;
+	//auto result = vkAllocateDescriptorSets(*UtilityVk::GetDriver()->mDevice, &set_alloc_info, &descriptor_set);
+	//if (result != VK_SUCCESS) {
+	//	throw std::runtime_error("Failed to allocate Texture Descriptor Set!");
+	//}
+	//VkDescriptorPoolSize samplerPoolSize = {};
+	//samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	//samplerPoolSize.descriptorCount = 20;
+	//
+	//VkDescriptorPoolCreateInfo samplerPoolCreateInfo = {};
+	//samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	//samplerPoolCreateInfo.maxSets = 20;
+	//samplerPoolCreateInfo.poolSizeCount = 1;
+	//samplerPoolCreateInfo.pPoolSizes = &samplerPoolSize;
+	//
+	//auto result = vkCreateDescriptorPool(*UtilityVk::GetDriver()->mDevice, &samplerPoolCreateInfo, nullptr, &mDescriptorSet);
+	//if (result != VK_SUCCESS) {
+	//	throw std::runtime_error("Failed to create a Descriptor Pool!");
+	//}
+	/*
 	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
 	samplerLayoutBinding.binding = 0;
 	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -212,27 +184,25 @@ std::shared_ptr<TextureVk> TextureVk::CreateCubemap(std::array<std::string, 6> p
 	textureLayoutCreateInfo.bindingCount = 1;
 	textureLayoutCreateInfo.pBindings = &samplerLayoutBinding;
 
-	result = vkCreateDescriptorSetLayout(render->m_MainDevice.LogicalDevice, &textureLayoutCreateInfo, nullptr, &texture->m_TextureLayout);
+	result = vkCreateDescriptorSetLayout(UtilityVk::GetDriver()->mDevice, &textureLayoutCreateInfo, nullptr, &mTextureLayout);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to create the Texture Descriptor Set Layout!");
 	}
-	//descriptor set
-	VkDescriptorSet descriptor_set;
 
 	VkDescriptorSetAllocateInfo set_alloc_info = {};
 	set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	set_alloc_info.descriptorPool = texture->m_TexDescriptorPool;
+	set_alloc_info.descriptorPool = mTexDescriptorPool;
 	set_alloc_info.descriptorSetCount = 1;
-	set_alloc_info.pSetLayouts = &texture->m_TextureLayout;
+	set_alloc_info.pSetLayouts = &mTextureLayout;
 
-	result = vkAllocateDescriptorSets(render->m_MainDevice.LogicalDevice, &set_alloc_info, &descriptor_set);
+	result = vkAllocateDescriptorSets(*UtilityVk::GetDriver()->mDevice, &set_alloc_info, &descriptor_set);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("Failed to allocate Texture Descriptor Set!");
 	}
 
 	VkDescriptorImageInfo imageInfo = {};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = texture->ImageView.back();
+	imageInfo.imageView = *mImageView;
 	imageInfo.sampler = texture->Sampler.back();
 
 	VkWriteDescriptorSet descriptorWrite = {};
@@ -244,382 +214,408 @@ std::shared_ptr<TextureVk> TextureVk::CreateCubemap(std::array<std::string, 6> p
 	descriptorWrite.descriptorCount = 1;
 	descriptorWrite.pImageInfo = &imageInfo;
 
-	vkUpdateDescriptorSets(render->m_MainDevice.LogicalDevice, 1, &descriptorWrite, 0, nullptr);
-	texture->descriptor_set = descriptor_set;
-
-	texture->mType = TextureType::TEXTURE_CUBE;
-	return texture;
+	vkUpdateDescriptorSets(*UtilityVk::GetDriver()->mDevice, 1, &descriptorWrite, 0, nullptr);
+	texture->descriptor_set = descriptor_set;*/
 }
 
-std::shared_ptr<TextureVk> TextureVk::Create3D(int width, int height, int arrSize) {
-	auto render = reinterpret_cast<RENDER::GameRendererVk&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).getDriver();
+IKIGAI::RENDER::TextureVk::TextureVk(uint32_t width, uint32_t height, vk::Format format, vk::Image image) {
+	mWidth = (width);
+	mHeight = (height);
+	mFormat = FormatMap2.at(format);
+	mImagePtr = (image);
+	mImageView = UtilityVk::CreateImageView(image, format, vk::ImageAspectFlagBits::eColor, 1, vk::ImageViewType::e2D);
+}
 
-	auto texture = std::make_shared<TextureVk>();
-	texture->mPath = "";
-	texture->mWidth = width;
-	texture->mHeight = height;
-	texture->mDepth = arrSize;
-	texture->mType = TextureType::TEXTURE_3D;
-	
-	// A 3D texture is described as width x height x depth
-	auto mipLevels = 1;
-	auto format = VK_FORMAT_R8G8B8A8_UNORM;
+IKIGAI::RENDER::TextureVk::~TextureVk() {
+	UtilityVk::GetDriver()->destroyDeferred(std::move(mImage));
+	UtilityVk::GetDriver()->destroyDeferred(std::move(mDeviceMemory));
+}
 
-	// Format support check
-	// 3D texture support in Vulkan is mandatory (in contrast to OpenGL) so no need to check if it's supported
-	VkFormatProperties formatProperties;
-	vkGetPhysicalDeviceFormatProperties(render->m_MainDevice.PhysicalDevice, format, &formatProperties);
-	// Check if format supports transfer
-	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT)) {
-		std::cout << "Error: Device does not support flag TRANSFER_DST for selected texture format!" << std::endl;
-		//return;
+void IKIGAI::RENDER::TextureVk::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+	// Освобождаем старые VK-ресурсы (отложенно)
+	UtilityVk::GetDriver()->destroyDeferred(std::move(mImage));
+	UtilityVk::GetDriver()->destroyDeferred(std::move(mDeviceMemory));
+	mImageView = nullptr;
+	mSampler = nullptr;
+	mDescriptorSet = nullptr;
+
+	auto& _d = const_cast<TextureResource&>(descriptor);
+	std::vector<void*> textureData;
+	bool needFree = false;
+
+	if (_d.colorData.empty() && !fileData.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+		for (const auto& fData : fileData) {
+			int w = 0, h = 0, c = 0;
+			if (_d.isFloat) {
+				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0));
+			} else {
+				auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+				if (c == 3) {
+					IKIGAI::UTILS::STBiImageFree((unsigned char*)data);
+					data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 4);
+				}
+				textureData.push_back(data);
+			}
+			_d.width = w; _d.height = h; _d.channels = c;
+		}
+		needFree = true;
+	} else if (!_d.colorData.empty()) {
+		textureData.push_back(const_cast<uint8_t*>(_d.colorData.data()));
 	}
-	// Check if GPU supports requested 3D texture dimensions
-	//uint32_t maxImageDimension3D(vulkanDevice->properties.limits.maxImageDimension3D);
-	//if (width > maxImageDimension3D || height > maxImageDimension3D || depth > maxImageDimension3D) {
-	//	std::cout << "Error: Requested texture dimensions is greater than supported 3D texture dimension!" << std::endl;
-	//	return;
-	//}
 
-	auto& device = render->m_MainDevice.LogicalDevice;
+	if (_d.depth == 0) _d.depth = 1;
+	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
+	else _d.mipMapCount = 1;
 
-	// Create optimal tiled target image
-	VkImageCreateInfo imageCreateInfo;
-	imageCreateInfo.imageType = VK_IMAGE_TYPE_3D;
-	imageCreateInfo.format = format;
-	imageCreateInfo.mipLevels = mipLevels;
-	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.extent.width = texture->getWidth();
-	imageCreateInfo.extent.height = texture->getHeight();
-	imageCreateInfo.extent.depth = texture->getDepth();
-	// Set initial layout of the image to undefined
-	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	init(descriptor, textureData);
 
-	texture->Image.push_back({});
-	vkCreateImage(device, &imageCreateInfo, nullptr, &texture->Image[0]);
-
-
-	// Device local memory to back up image
-	VkMemoryAllocateInfo memAllocInfo;
-	VkMemoryRequirements memReqs = {};
-	vkGetImageMemoryRequirements(device, texture->Image[0], &memReqs);
-	memAllocInfo.allocationSize = memReqs.size;
-	//TODO:
-	//memAllocInfo.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	vkAllocateMemory(device, &memAllocInfo, nullptr, &texture->Memory);
-	vkBindImageMemory(device, texture->Image[0], texture->Memory, 0);
-
-	// Create sampler
-	VkSamplerCreateInfo sampler;
-	sampler.magFilter = VK_FILTER_LINEAR;
-	sampler.minFilter = VK_FILTER_LINEAR;
-	sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler.mipLodBias = 0.0f;
-	sampler.compareOp = VK_COMPARE_OP_NEVER;
-	sampler.minLod = 0.0f;
-	sampler.maxLod = 0.0f;
-	sampler.maxAnisotropy = 1.0;
-	sampler.anisotropyEnable = VK_FALSE;
-	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	texture->Sampler.push_back({});
-	vkCreateSampler(device, &sampler, nullptr, &texture->Sampler[0]);
-
-	// Create image view
-	VkImageViewCreateInfo view;
-	view.image = texture->Image[0];
-	view.viewType = VK_IMAGE_VIEW_TYPE_3D;
-	view.format = format;
-	view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	view.subresourceRange.baseMipLevel = 0;
-	view.subresourceRange.baseArrayLayer = 0;
-	view.subresourceRange.layerCount = 1;
-	view.subresourceRange.levelCount = 1;
-	texture->ImageView.push_back({});
-	vkCreateImageView(device, &view, nullptr, &texture->ImageView[0]);
-
-	// Fill image descriptor image info to be used descriptor set setup
-	//texture->descriptor_set.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	//texture.descriptor.imageView = texture.view;
-	//texture.descriptor.sampler = texture.sampler;
-
-	return texture;
+	if (needFree) {
+		for (auto* ptr : textureData) {
+			if (descriptor.isFloat) IKIGAI::UTILS::STBiImageFree((float*)ptr);
+			else IKIGAI::UTILS::STBiImageFree((unsigned char*)ptr);
+		}
+	}
 }
 
-void* TextureVk::getImguiId() {
-	return (void*)descriptor_set;
+void* IKIGAI::RENDER::TextureVk::getImguiId() {
+	if (!mDescriptorSet) {
+		VkSamplerCreateInfo samplerCreateInfo = {};
+		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
+		samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
+
+		static auto s = UtilityVk::GetDriver()->mDevice.createSampler(samplerCreateInfo);
+		mDescriptorSet = ImGui_ImplVulkan_AddTexture(*s, *mImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+	setState(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+	return (void*)mDescriptorSet;
 }
 
-std::shared_ptr<TextureVk> TextureVk::CreateForAttach(int texWidth, int texHeight) {
-	
-	auto texture = std::make_shared<TextureVk>();
-	for (size_t i = 0; i < UtilityVk::m_SwapChain->SwapChainImagesSize(); i++) {
-		const std::vector<VkFormat> formats = { VK_FORMAT_R32G32B32A32_SFLOAT };
-		const VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
-		const VkFormatFeatureFlags format_flags = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+#include <coreModule/glmWrapper.hpp>
+uint32_t GetMipCount(uint32_t width, uint32_t height) {
+	return static_cast<uint32_t>(glm::floor(glm::log2(static_cast<float>(glm::max(width, height))))) + 1;
+}
 
-		texture->Format = UtilityVk::ChooseSupportedFormat(formats, tiling, format_flags);
+std::shared_ptr<IKIGAI::RENDER::TextureVk> IKIGAI::RENDER::TextureVk::Create(const std::string& path, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	IKIGAI::RENDER::TextureResource res;
+	res.useMipmap = true;
+	res.pathTexture.push_back(path);
+	return Create(res, allocator, deleter);
+}
 
-		ImageInfo image_info = {};
-		image_info.width = texWidth;
-		image_info.height = texHeight;
-		image_info.format = texture->Format;
-		image_info.tiling = tiling;
-		image_info.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		image_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+std::shared_ptr<IKIGAI::RENDER::TextureVk> IKIGAI::RENDER::TextureVk::Create(const TextureResource& descriptor, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto& _descriptor = const_cast<TextureResource&>(descriptor);
+	//Load data
+	std::vector<void*> textureData;
+	if (!_descriptor.pathTexture.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+		for (const auto& path : _descriptor.pathTexture) {
+			int width = 0, height = 0, channels = 0;
+			if (_descriptor.isFloat) {
+				auto* data = IKIGAI::UTILS::STBiLoadf(path.c_str(), &width, &height, &channels, 0);
+				textureData.push_back(data);
+			} else {
+				auto* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &width, &height, &channels, 0);
+				if (channels == 3) {
+					UTILS::STBiImageFree((unsigned char*)data);
+					data = IKIGAI::UTILS::STBiLoad(path.c_str(), &width, &height, &channels, 4);
+					channels = 4;
+				}
+				textureData.push_back(data);
+			}
+			_descriptor.width = width;
+			_descriptor.height = height;
+			_descriptor.channels = channels;
+		}
+	} else if (!_descriptor.colorData.empty()) {
+		textureData.push_back((void*)_descriptor.colorData.data());
+	}
 
-		texture->Image.push_back(UtilityVk::CreateImage(image_info, &texture->Memory));
+	if (_descriptor.depth == 0) {
+		_descriptor.depth = 1;
+	}
 
-		texture->ImageView.push_back(UtilityVk::CreateImageView(texture->Image.back(), texture->Format, VK_IMAGE_ASPECT_COLOR_BIT));
+	if (_descriptor.useMipmap) {
+		_descriptor.mipMapCount = GetMipCount(_descriptor.width, _descriptor.height);
+	}
+	else {
+		_descriptor.mipMapCount = 1;
+	}
 
-		{
-			VkSamplerCreateInfo samplerCreateInfo = {};
-			samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-			samplerCreateInfo.magFilter = VK_FILTER_NEAREST;		// linear interpolation between the texels
-			samplerCreateInfo.minFilter = VK_FILTER_NEAREST;		// quando viene miniaturizzata come renderizzarla (lerp)
-			samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-			samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-			samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-			samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-			samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;			// � normalizzata
-			samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-			samplerCreateInfo.mipLodBias = 0.0f;
-			samplerCreateInfo.minLod = 0.0f;
-			samplerCreateInfo.maxLod = 1.0f;
-			samplerCreateInfo.anisotropyEnable = VK_TRUE;
-			samplerCreateInfo.maxAnisotropy = 16;
-			samplerCreateInfo.compareEnable = VK_FALSE;
-			samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-			texture->Sampler.push_back(UtilityVk::CreateSampler(samplerCreateInfo));
+	//Create texture
+	auto tex = AllocateTexture<TextureVk>(allocator, deleter, descriptor, textureData);
+
+	//Free texture data
+	if (!_descriptor.pathTexture.empty()) {
+		for (auto data : textureData) {
+			if (_descriptor.isFloat) {
+				UTILS::STBiImageFree((float*)data);
+			} else {
+				UTILS::STBiImageFree((unsigned char*)data);
+			}
 		}
 	}
 
-	///
-
-
-	VkDescriptorPoolSize samplerPoolSize = {};
-	samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerPoolSize.descriptorCount = MAX_OBJECTS;
-
-	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = {};
-	samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	samplerPoolCreateInfo.maxSets = MAX_OBJECTS;
-	samplerPoolCreateInfo.poolSizeCount = 1;
-	samplerPoolCreateInfo.pPoolSizes = &samplerPoolSize;
-
-	auto result = vkCreateDescriptorPool(UtilityVk::device->LogicalDevice, &samplerPoolCreateInfo, nullptr, &texture->m_TexDescriptorPool);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create a Descriptor Pool!");
-	}
-
-	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
-	samplerLayoutBinding.binding = 0;
-	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.descriptorCount = 1;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	samplerLayoutBinding.pImmutableSamplers = nullptr;
-
-	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = {};
-	textureLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	textureLayoutCreateInfo.bindingCount = 1;
-	textureLayoutCreateInfo.pBindings = &samplerLayoutBinding;
-
-	result = vkCreateDescriptorSetLayout(UtilityVk::device->LogicalDevice, &textureLayoutCreateInfo, nullptr, &texture->m_TextureLayout);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create the Texture Descriptor Set Layout!");
-	}
-	//descriptor set
-	VkDescriptorSet descriptor_set;
-
-	VkDescriptorSetAllocateInfo set_alloc_info = {};
-	set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	set_alloc_info.descriptorPool = texture->m_TexDescriptorPool;
-	set_alloc_info.descriptorSetCount = 1;
-	set_alloc_info.pSetLayouts = &texture->m_TextureLayout;
-
-	result = vkAllocateDescriptorSets(UtilityVk::device->LogicalDevice, &set_alloc_info, &descriptor_set);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to allocate Texture Descriptor Set!");
-	}
-
-	VkDescriptorImageInfo imageInfo = {};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = texture->ImageView.back();
-	imageInfo.sampler = texture->Sampler.back();
-
-	VkWriteDescriptorSet descriptorWrite = {};
-	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptor_set;
-	descriptorWrite.dstBinding = 0;
-	descriptorWrite.dstArrayElement = 0;
-	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorWrite.descriptorCount = 1;
-	descriptorWrite.pImageInfo = &imageInfo;
-
-	vkUpdateDescriptorSets(UtilityVk::device->LogicalDevice, 1, &descriptorWrite, 0, nullptr);
-	texture->descriptor_set = descriptor_set;
-	///
-	return texture;
+	return tex;
 }
 
-std::shared_ptr<TextureVk> TextureVk::Create(std::string path) {
-	
-	auto texture = std::make_shared<TextureVk>();
-	texture->mPath = path;
+std::shared_ptr<IKIGAI::RENDER::TextureVk> IKIGAI::RENDER::TextureVk::Create(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto& _d = const_cast<TextureResource&>(descriptor);
+	std::vector<void*> textureData;
+	bool needFree = false;
 
-	//int const texture_image_location = CreateTextureImage();
-
-	int nChannels;
-	int w;
-	int h;
-	unsigned char* image = UTILS::STBiLoad(texture->mPath.c_str(), &w, &h, &nChannels, 4);
-	texture->mWidth = w;
-	texture->mHeight = h;
-
-	if (!image) {
-		throw std::runtime_error("Failed to load a Texture file! (" + path + ")");
+	if (_d.colorData.empty() && !fileData.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+		for (const auto& fData : fileData) {
+			int w = 0, h = 0, c = 0;
+			if (_d.isFloat) {
+				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0));
+			} else {
+				auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+				if (c == 3) {
+					IKIGAI::UTILS::STBiImageFree((unsigned char*)data);
+					data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 4);
+					c = 4;
+				}
+				textureData.push_back(data);
+			}
+			_d.width = w; _d.height = h; _d.channels = c;
+		}
+		needFree = true;
+	} else if (!_d.colorData.empty()) {
+		textureData.push_back((void*)_d.colorData.data());
 	}
 
-	texture->imageSize = static_cast<uint64_t>((texture->mWidth)) * static_cast<uint64_t>((texture->mHeight)) * 4L;
+	if (_d.depth == 0) _d.depth = 1;
+	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
+	else _d.mipMapCount = 1;
 
-	BufferSettings m_BufferSettings;
-	m_BufferSettings.size = texture->imageSize;
-	m_BufferSettings.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	m_BufferSettings.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	auto tex = AllocateTexture<TextureVk>(allocator, deleter, descriptor, textureData);
 
-	VkBuffer		m_StagingBuffer;
-	VkDeviceMemory	m_StagingBufferMemory;
-	UtilityVk::CreateBuffer(m_BufferSettings, &m_StagingBuffer, &m_StagingBufferMemory);
-
-	// copy image data to staging buffer
-	void* data;
-	vkMapMemory(UtilityVk::device->LogicalDevice, m_StagingBufferMemory, 0, texture->imageSize, 0, &data);
-	memcpy(data, image, static_cast<size_t>(texture->imageSize));
-	vkUnmapMemory(UtilityVk::device->LogicalDevice, m_StagingBufferMemory);
-
-	UTILS::STBiImageFree(image);
-
-	//CRESTE TEXTURE IMAGE
-	VkDeviceMemory m_TextureImageMemory;
-
-	ImageInfo image_info = {};
-	image_info.width = texture->mWidth;
-	image_info.height = texture->mHeight;
-	image_info.format = VK_FORMAT_R8G8B8A8_UNORM;
-	image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	image_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	
-	VkImage texture_image = UtilityVk::CreateImage(image_info, &m_TextureImageMemory);
-
-	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	UtilityVk::CopyImageBuffer(m_StagingBuffer, texture_image, texture->getWidth(), texture->getHeight());
-	TransitionImageLayout(texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	texture->Image.push_back(texture_image);
-	texture->Memory = m_TextureImageMemory;
-
-	vkDestroyBuffer(UtilityVk::device->LogicalDevice, m_StagingBuffer, nullptr);
-	vkFreeMemory(UtilityVk::device->LogicalDevice, m_StagingBufferMemory, nullptr);
-
-
-	const VkImageView image_view = UtilityVk::CreateImageView(texture->Image[0], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-
-	texture->ImageView.push_back(image_view);
-
-	//SAMPLER
-	VkSamplerCreateInfo samplerCreateInfo = {};
-	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;		// linear interpolation between the texels
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;		// quando viene miniaturizzata come renderizzarla (lerp)
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.mipLodBias = 0.0f;
-	samplerCreateInfo.minLod = 0.0f;
-	samplerCreateInfo.maxLod = 0.0f;
-	samplerCreateInfo.anisotropyEnable = VK_TRUE;
-	samplerCreateInfo.maxAnisotropy = 16;
-
-	VkSampler s;
-	VkResult result = vkCreateSampler(UtilityVk::device->LogicalDevice, &samplerCreateInfo, nullptr, &s);
-	texture->Sampler.push_back(s);
-
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create a Texture Sampler!");
+	if (needFree) {
+		for (auto* ptr : textureData) {
+			if (descriptor.isFloat) IKIGAI::UTILS::STBiImageFree((float*)ptr);
+			else IKIGAI::UTILS::STBiImageFree((unsigned char*)ptr);
+		}
 	}
-
-
-	VkDescriptorPoolSize samplerPoolSize = {};
-	samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerPoolSize.descriptorCount = MAX_OBJECTS;
-
-	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = {};
-	samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	samplerPoolCreateInfo.maxSets = MAX_OBJECTS;
-	samplerPoolCreateInfo.poolSizeCount = 1;
-	samplerPoolCreateInfo.pPoolSizes = &samplerPoolSize;
-
-	result = vkCreateDescriptorPool(UtilityVk::device->LogicalDevice, &samplerPoolCreateInfo, nullptr, &texture->m_TexDescriptorPool);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create a Descriptor Pool!");
-	}
-
-	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
-	samplerLayoutBinding.binding = 0;
-	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.descriptorCount = 1;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	samplerLayoutBinding.pImmutableSamplers = nullptr;
-
-	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = {};
-	textureLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	textureLayoutCreateInfo.bindingCount = 1;
-	textureLayoutCreateInfo.pBindings = &samplerLayoutBinding;
-
-	result = vkCreateDescriptorSetLayout(UtilityVk::device->LogicalDevice, &textureLayoutCreateInfo, nullptr, &texture->m_TextureLayout);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create the Texture Descriptor Set Layout!");
-	}
-	//descriptor set
-	VkDescriptorSet descriptor_set;
-
-	VkDescriptorSetAllocateInfo set_alloc_info = {};
-	set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	set_alloc_info.descriptorPool = texture->m_TexDescriptorPool;
-	set_alloc_info.descriptorSetCount = 1;
-	set_alloc_info.pSetLayouts = &texture->m_TextureLayout;
-
-	result = vkAllocateDescriptorSets(UtilityVk::device->LogicalDevice, &set_alloc_info, &descriptor_set);
-	if (result != VK_SUCCESS) {
-		throw std::runtime_error("Failed to allocate Texture Descriptor Set!");
-	}
-
-	VkDescriptorImageInfo imageInfo = {};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = texture->ImageView.back();
-	imageInfo.sampler = texture->Sampler.back();
-
-	VkWriteDescriptorSet descriptorWrite = {};
-	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptor_set;
-	descriptorWrite.dstBinding = 0;
-	descriptorWrite.dstArrayElement = 0;
-	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorWrite.descriptorCount = 1;
-	descriptorWrite.pImageInfo = &imageInfo;
-
-	vkUpdateDescriptorSets(UtilityVk::device->LogicalDevice, 1, &descriptorWrite, 0, nullptr);
-	texture->descriptor_set = descriptor_set;
-	return texture;
+	return tex;
 }
+
+// --------------- TextureAtlasVk ---------------
+
+AtlasRect IKIGAI::RENDER::TextureAtlasVk::getPiece(const std::string& name) const {
+	if (mAtlas.mRects.contains(name)) return mAtlas.mRects.at(name);
+	return AtlasRect{};
+}
+
+AtlasRect IKIGAI::RENDER::TextureAtlasVk::getPieceUV(const std::string& name) const {
+	if (mAtlas.mRects.contains(name)) {
+		auto res = mAtlas.mRects.at(name);
+		res.mX /= mWidth; res.mY /= mHeight;
+		res.mW /= mWidth; res.mH /= mHeight;
+		return res;
+	}
+	return AtlasRect{};
+}
+
+void IKIGAI::RENDER::TextureAtlasVk::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+	TextureVk::recreate(descriptor, fileData);
+}
+
+std::shared_ptr<IKIGAI::RENDER::TextureAtlasVk> IKIGAI::RENDER::TextureAtlasVk::CreateAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	TextureResource res;
+	res.useMipmap = generateMipmap;
+	res.pathTexture.push_back(path);
+	return CreateAtlasFromResource(res, allocator, deleter);
+}
+
+std::shared_ptr<IKIGAI::RENDER::TextureAtlasVk> IKIGAI::RENDER::TextureAtlasVk::CreateAtlasFromResource(const TextureResource& descriptor, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto& _d = const_cast<TextureResource&>(descriptor);
+	std::vector<void*> textureData;
+	if (!_d.pathTexture.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+		const auto& path = _d.pathTexture[0];
+		int w = 0, h = 0, c = 0;
+		auto* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &w, &h, &c, 0);
+		if (c == 3) {
+			IKIGAI::UTILS::STBiImageFree((unsigned char*)data);
+			data = IKIGAI::UTILS::STBiLoad(path.c_str(), &w, &h, &c, 4); c = 4;
+		}
+		textureData.push_back(data);
+		_d.width = w; _d.height = h; _d.channels = c;
+	} else if (!_d.colorData.empty()) {
+		textureData.push_back((void*)_d.colorData.data());
+	}
+	if (_d.depth == 0) _d.depth = 1;
+	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
+	else _d.mipMapCount = 1;
+
+	auto tex = AllocateTexture<TextureAtlasVk>(allocator, deleter, descriptor, textureData);
+
+	if (!_d.pathTexture.empty() && !textureData.empty()) {
+		IKIGAI::UTILS::STBiImageFree((unsigned char*)textureData[0]);
+	}
+
+	// Загружаем .atlas JSON
+	if (!_d.pathTexture.empty()) {
+		std::filesystem::path configPath{ _d.pathTexture[0] };
+		configPath.replace_extension(".atlas");
+		auto atlasRes = IKIGAI::UTILS::FromJson<IKIGAI::RENDER::AtlasData>(configPath.string());
+		if (atlasRes.isOk()) tex->mAtlas = atlasRes.unwrap();
+	}
+	return tex;
+}
+
+std::shared_ptr<IKIGAI::RENDER::TextureAtlasVk> IKIGAI::RENDER::TextureAtlasVk::CreateAtlasFromResource(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto& _d = const_cast<TextureResource&>(descriptor);
+	std::vector<void*> textureData;
+	bool needFree = false;
+
+	if (_d.colorData.empty() && !fileData.empty()) {
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
+		const auto& fData = fileData[0];
+		int w = 0, h = 0, c = 0;
+		auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+		if (c == 3) {
+			IKIGAI::UTILS::STBiImageFree((unsigned char*)data);
+			data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 4); c = 4;
+		}
+		textureData.push_back(data);
+		_d.width = w; _d.height = h; _d.channels = c;
+		needFree = true;
+	} else if (!_d.colorData.empty()) {
+		textureData.push_back((void*)_d.colorData.data());
+	}
+	if (_d.depth == 0) _d.depth = 1;
+	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
+	else _d.mipMapCount = 1;
+
+	auto tex = AllocateTexture<TextureAtlasVk>(allocator, deleter, descriptor, textureData);
+
+	if (needFree && !textureData.empty()) {
+		IKIGAI::UTILS::STBiImageFree((unsigned char*)textureData[0]);
+	}
+
+	if (!_d.pathTexture.empty()) {
+		std::filesystem::path configPath{ _d.pathTexture[0] };
+		configPath.replace_extension(".atlas");
+		auto atlasRes = IKIGAI::UTILS::FromJson<IKIGAI::RENDER::AtlasData>(configPath.string());
+		if (atlasRes.isOk()) tex->mAtlas = atlasRes.unwrap();
+	}
+	return tex;
+}
+
+uint32_t GetFormatChannelsCount(IKIGAI::RENDER::PixelFormat format) {
+	static const std::unordered_map<IKIGAI::RENDER::PixelFormat, uint32_t> FormatChannelsMap = {
+		{IKIGAI::RENDER::PixelFormat::R_FLOAT, 1},
+		{IKIGAI::RENDER::PixelFormat::RG_FLOAT, 2},
+		{IKIGAI::RENDER::PixelFormat::RGB_FLOAT, 3},
+		{IKIGAI::RENDER::PixelFormat::RGBA_FLOAT, 4},
+		{IKIGAI::RENDER::PixelFormat::R_INT, 1},
+		{IKIGAI::RENDER::PixelFormat::RG_INT, 2},
+		{IKIGAI::RENDER::PixelFormat::RGB_INT, 3},
+		{IKIGAI::RENDER::PixelFormat::RGBA_INT, 4}
+	};
+	return FormatChannelsMap.at(format);
+}
+
+uint32_t GetFormatChannelSize(IKIGAI::RENDER::PixelFormat format) {
+	static const std::unordered_map<IKIGAI::RENDER::PixelFormat, uint32_t> FormatChannelSizeMap = {
+		{IKIGAI::RENDER::PixelFormat::R_FLOAT, 4},
+		{IKIGAI::RENDER::PixelFormat::RG_FLOAT, 4},
+		{IKIGAI::RENDER::PixelFormat::RGB_FLOAT, 4},
+		{IKIGAI::RENDER::PixelFormat::RGBA_FLOAT, 4},
+		{IKIGAI::RENDER::PixelFormat::R_INT, 1},
+		{IKIGAI::RENDER::PixelFormat::RG_INT, 1},
+		{IKIGAI::RENDER::PixelFormat::RGB_INT, 1},
+		{IKIGAI::RENDER::PixelFormat::RGBA_INT, 1}
+	};
+	return FormatChannelSizeMap.at(format);
+}
+
+void IKIGAI::RENDER::TextureVk::setData(uint32_t width, uint32_t height, PixelFormat format, const std::vector<void*>& data,
+	uint32_t mip_level, uint32_t offset_x, uint32_t offset_y) {
+	UtilityVk::GetDriver()->deactivateRenderPass();
+
+	auto channels = GetFormatChannelsCount(format);
+	auto channel_size = GetFormatChannelSize(format);
+	auto size = width * height * channels * channel_size;
+
+	auto [upload_buffer, upload_buffer_memory] = UtilityVk::CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc);
+
+	setState(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, vk::ImageLayout::eTransferDstOptimal);
+
+	int i = 0;
+	//std::vector<vk::BufferImageCopy> regions;
+	for (auto& memory : data) {
+		auto ptr = upload_buffer_memory.mapMemory(0, size);
+		memcpy(ptr, memory, size);
+		upload_buffer_memory.unmapMemory();
+
+		auto image_subresource_layers = vk::ImageSubresourceLayers()
+			.setAspectMask(vk::ImageAspectFlagBits::eColor)
+			.setMipLevel(mip_level)
+			.setLayerCount(1);// .setBaseArrayLayer(i);
+
+		auto region = vk::BufferImageCopy()
+			.setImageSubresource(image_subresource_layers)
+			.setImageExtent({width, height, 1});
+		//regions.push_back(region);
+
+		UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer.copyBufferToImage(*upload_buffer, mImagePtr,
+			vk::ImageLayout::eTransferDstOptimal, {region});
+
+		++i;
+	}
+
+	//UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer.copyBufferToImage(*upload_buffer, mImagePtr,
+	//	vk::ImageLayout::eTransferDstOptimal, regions);
+
+	UtilityVk::GetDriver()->destroyDeferred(std::move(upload_buffer));
+	UtilityVk::GetDriver()->destroyDeferred(std::move(upload_buffer_memory));
+}
+
+void IKIGAI::RENDER::TextureVk::generateMips() {
+	setState(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, vk::ImageLayout::eTransferSrcOptimal);
+	//for (uint32_t face = 1; face <= mDepth; face++) {
+		for (uint32_t i = 1; i < mMipCount; i++) {
+			UtilityVk::SetImageMemoryBarrier(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, mImagePtr, vk::ImageAspectFlagBits::eColor,
+				vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, i, 1);
+			//TODO: add support 3d
+			auto src_subresource = vk::ImageSubresourceLayers()
+				.setAspectMask(vk::ImageAspectFlagBits::eColor)
+				.setMipLevel(i - 1)
+				.setLayerCount(1);
+
+			auto dst_subresource = vk::ImageSubresourceLayers()
+				.setAspectMask(vk::ImageAspectFlagBits::eColor)
+				.setMipLevel(i)
+				.setLayerCount(1);
+
+			auto mip_region = vk::ImageBlit()
+				.setSrcSubresource(src_subresource)
+				.setDstSubresource(dst_subresource)
+				.setSrcOffsets({vk::Offset3D{0, 0, 0}, vk::Offset3D{int32_t(mWidth >> (i - 1)), int32_t(mHeight >> (i - 1)), 1}})
+				.setDstOffsets({vk::Offset3D{0, 0, 0}, vk::Offset3D{int32_t(mWidth >> i), int32_t(mHeight >> i), 1}});
+
+			UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer.blitImage(mImagePtr, vk::ImageLayout::eTransferSrcOptimal,
+				mImagePtr, vk::ImageLayout::eTransferDstOptimal, {mip_region}, vk::Filter::eLinear);
+
+			UtilityVk::SetImageMemoryBarrier(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, mImagePtr, vk::ImageAspectFlagBits::eColor,
+				vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, i, 1);
+			//mCurrentState = vk::ImageLayout::eTransferSrcOptimal;
+		}
+	//}
+}
+
+void IKIGAI::RENDER::TextureVk::setState(const vk::raii::CommandBuffer& cmdbuf, vk::ImageLayout state) {
+	if (mCurrentState == state)
+		return;
+
+	UtilityVk::SetImageMemoryBarrier(cmdbuf, mImagePtr, vk::ImageAspectFlagBits::eColor, mCurrentState, state);
+	mCurrentState = state;
+}
+
+
 #endif

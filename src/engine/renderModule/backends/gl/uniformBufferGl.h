@@ -12,6 +12,7 @@ namespace IKIGAI::RENDER {
 		Id mId = 0;
 	public:
 		UniformBufferGl(const void* data, size_t sz);
+		UniformBufferGl(size_t sz);
 		template <class T>
 		UniformBufferGl(const T& data) : UniformBufferGl(static_cast<const void*>(&data), sizeof(T)) {}
 		~UniformBufferGl() override;

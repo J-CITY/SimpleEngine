@@ -10,6 +10,8 @@
 #include "renderModule/backends/gl/textureGl.h"
 #include <coreModule/graphicsWrapper.hpp>
 
+#include "resourceModule/fileSystem/fileSystem.h"
+
 using namespace IKIGAI;
 using namespace IKIGAI::GUI;
 #ifdef OPENGL_BACKEND
@@ -115,8 +117,12 @@ std::shared_ptr<ECS::Object> GuiHelper::CreateLabel(const std::string& name, con
 		obj->addComponent<IKIGAI::ECS::RootGuiComponent>();
 	}
 	obj->getTransform()->getTransform().turnOnAnchorPivot();
-
-	auto font = std::make_shared<IKIGAI::GUI::Font>(IKIGAI::UTILS::GetRealPath("fonts/a_AlternaSw.TTF"), 42);
+	auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+	auto path = fs.getFilePath("fonts/a_AlternaSw.TTF");
+	if (!path) {
+		//problem
+	}
+	auto font = std::make_shared<IKIGAI::GUI::Font>(*path, 42);
 	obj->addComponent<IKIGAI::ECS::LabelComponent>(label, font);
 	return obj;
 }

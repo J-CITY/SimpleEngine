@@ -54,16 +54,16 @@ namespace IKIGAI {
 		public:
 			VertexDescriptor mDescriptor;
 			size_t mVertexSize = 0;
-			unsigned int mVertexCount = 0;
-			const unsigned int mIndicesCount = 0;
-			const unsigned int mMaterialIndex = 0;
+			//unsigned int mVertexCount = 0;
+			//const unsigned int mIndicesCount = 0;
+			//const unsigned int mMaterialIndex = 0;
 //#ifndef USING_GLES
 			std::unique_ptr<VertexArray> mVertexArray;
 //#endif
 			std::unique_ptr<VertexBufferGl> mVertexBuffer;
 			std::unique_ptr<IndexBufferGl> mIndexBuffer;
 
-			std::optional<size_t> mOffset = std::nullopt;
+			//std::optional<size_t> mOffset = std::nullopt;
 		};
 	}
 }

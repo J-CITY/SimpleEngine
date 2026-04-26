@@ -13,6 +13,10 @@ namespace IKIGAI::RENDER {
 		int FrameCount = 0;
 	};
 
+	struct EngineModel {
+		MATH::Matrix4f    Model;
+	};
+
 	class GameRendererInterface {
 	public:
 		MATH::Vector2i viewPoreSize = MATH::Vector2i(800, 600);

@@ -1,5 +1,6 @@
 #include "audioManager.h"
 
+#include "resourceModule/fileSystem/fileSystem.h"
 #include "utilsModule/pathGetter.h"
 
 IKIGAI::AUDIO::AudioManagerAL::AudioManagerAL() {
@@ -19,7 +20,12 @@ void IKIGAI::AUDIO::AudioManagerAL::addSource(SoundResource& source) {
 	if (source.data.type == SoundType::SOUND) {
 		if (!sounds.contains(source.data.pathSoundSource)) {
 			sounds[source.data.pathSoundSource] = SoLoud::Wav();
-			auto res = sounds[source.data.pathSoundSource].load(IKIGAI::UTILS::GetRealPath(source.data.pathSoundSource).c_str());
+			auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+			auto path = fs.getFilePath(source.data.pathSoundSource);
+			if (!path) {
+				//problem
+			}
+			auto res = sounds[source.data.pathSoundSource].load(path.value().c_str());
 			if (!res) {
 				//problem
 			}
@@ -35,7 +41,13 @@ void IKIGAI::AUDIO::AudioManagerAL::addSource(SoundResource& source) {
 	else {
 		if (!musics.contains(source.data.pathSoundSource)) {
 			musics[source.data.pathSoundSource] = SoLoud::WavStream();
-			auto res = musics[source.data.pathSoundSource].load(IKIGAI::UTILS::GetRealPath(source.data.pathSoundSource).c_str());
+
+			auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+			auto path = fs.getFilePath(source.data.pathSoundSource);
+			if (!path) {
+				//problem
+			}
+			auto res = musics[source.data.pathSoundSource].load(path.value().c_str());
 			if (!res) {
 				//problem
 			}

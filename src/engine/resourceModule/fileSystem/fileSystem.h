@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,8 @@ namespace IKIGAI::RESOURCES {
 		bool isReadOnly() const;
 		size_t getSize() const;
 		bool isOpened() const;
+		void open(FileMode mode) const;
+		void close() const;
 
 		std::vector<uint8_t> read();
 		std::string readStr();
@@ -62,14 +65,16 @@ namespace IKIGAI::RESOURCES {
 		void addNativeFileSystem(const std::string& path, const std::string& pathInFs);
 		void addZipFileSystem(const std::string& path, const std::string& pathInFs);
 		void addMemoryFileSystem(const std::string& pathInFs);
+		void addSdlFileSystem(const std::string& path, const std::string& pathInFs);
 
 		bool isValid(const std::string& path) const;
 		bool isFileExist(const std::string& path) const;
 		std::string getFileExtension(const std::string& path) const;
 		std::string getFileName(const std::string& path) const;
-		std::string getAbsolutePath(const std::string& path) const;
+		std::optional<std::string> getAbsolutePath(const std::string& path) const;
 		bool isDir(const std::string& path) const;
 
 		std::shared_ptr<File> getFile(const std::string& path, FileMode mode = FileMode::READ_WRITE);
+		std::optional<std::string> getFilePath(const std::string& path) const;
 	};
 }

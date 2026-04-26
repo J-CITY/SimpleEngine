@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <nlohmann/json.hpp>
 
 #include "renderEnums.h"
 
@@ -14,6 +15,29 @@ namespace IKIGAI::RENDER {
 		TESSELLATION_EVALUATION = 16,
 		COMPUTE = 32
 	};
+
+	inline void from_json(const nlohmann::json& j, ShaderType& s) {
+		const auto& str = j.get<std::string>();
+		if      (str == "Vertex"              || str == "VERTEX")               s = ShaderType::VERTEX;
+		else if (str == "Fragment"            || str == "FRAGMENT")             s = ShaderType::FRAGMENT;
+		else if (str == "Geometry"            || str == "GEOMETRY")             s = ShaderType::GEOMETRY;
+		else if (str == "TessellationControl" || str == "TESSELLATION_CONTROL") s = ShaderType::TESSELLATION_CONTROL;
+		else if (str == "TessellationEvaluation" || str == "TESSELLATION_EVALUATION") s = ShaderType::TESSELLATION_EVALUATION;
+		else if (str == "Compute"             || str == "COMPUTE")              s = ShaderType::COMPUTE;
+		else s = ShaderType::NONE;
+	}
+
+	inline void to_json(nlohmann::json& j, const ShaderType& s) {
+		switch (s) {
+			case ShaderType::VERTEX:                 j = "Vertex"; break;
+			case ShaderType::FRAGMENT:               j = "Fragment"; break;
+			case ShaderType::GEOMETRY:               j = "Geometry"; break;
+			case ShaderType::TESSELLATION_CONTROL:   j = "TessellationControl"; break;
+			case ShaderType::TESSELLATION_EVALUATION:j = "TessellationEvaluation"; break;
+			case ShaderType::COMPUTE:                j = "Compute"; break;
+			default:                                 j = "None"; break;
+		}
+	}
 
 	enum class UNIFORM_TYPE {
 		NONE, MAT4, MAT3, VEC4, VEC3, VEC2, INT, FLOAT, BOOL, SAMPLER_2D,
@@ -73,6 +97,7 @@ namespace IKIGAI::RENDER {
 			IMAGE_3D,
 			IMAGE_2D_ARRAY,
 			IMAGE_CUBE,
+			PUSH_CONSTANT,
 			//TODO: use bits and make TEXTURE mask
 		};
 		struct UniformMember {

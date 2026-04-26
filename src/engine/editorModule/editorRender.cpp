@@ -2,6 +2,7 @@
 
 #include "resourceEditorWindow.h"
 #include "timelineAnimationWindow.h"
+
 #include "utilsModule/log/loggerDefine.h"
 #ifdef USE_EDITOR
 #include "cameraControlWindow.h"
@@ -27,6 +28,7 @@
 
 #ifdef VULKAN_BACKEND
 #include "renderModule/gameRendererVk.h"
+#include "backends/imgui_impl_vulkan.h"
 #endif
 
 
@@ -75,10 +77,12 @@ EditorRender::EditorRender() {
 	icons_config.PixelSnapH = true;
 	icons_config.GlyphMinAdvanceX = iconFontSize;
 	io.Fonts->AddFontFromFileTTF(UTILS::GetRealPath(std::string("fonts/") + FONT_ICON_FILE_NAME_FAS).c_str(), iconFontSize, &icons_config, icons_ranges);
-#ifdef VULKAN_BACKEND
-	auto& render = reinterpret_cast<IKIGAI::RENDER::GameRendererVk&>(IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RENDER::GameRendererInterface>());
-	render.initForVk();
-#endif
+
+	//ImGui_ImplVulkan_CreateFontsTexture();
+	//#ifdef VULKAN_BACKEND
+//	auto& render = reinterpret_cast<IKIGAI::RENDER::GameRendererVk&>(IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RENDER::GameRendererInterface>());
+//	render.initForVk();
+//#endif
 
 //#ifdef DX12_BACKEND
 //	auto& render = reinterpret_cast<IKIGAI::RENDER::GameRendererDx12&>(IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RENDER::GameRendererInterface>());

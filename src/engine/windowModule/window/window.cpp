@@ -1,9 +1,19 @@
 #include "window.h"
 
-#include "utilsModule/log/loggerDefine.h"
+#ifdef VUKLAN_BACKEND
+#include <vulkan/vulkan_core.h>
+#include "backends/imgui_impl_vulkan.h"
+#endif
+#include "renderModule/backends/dx12/d3dUtil.h"
+#include "renderModule/backends/dx12/driverDx12.h"
+#include "renderModule/backends/vk/driverVk.h"
 
 #ifdef USE_SDL
+
+#include <set>
 #include <SDL.h>
+#include <SDL_syswm.h>
+#include "utilsModule/log/loggerDefine.h"
 
 #include "coreModule/platform.hpp"
 #include "windowModule/inputManager/inputManager.h"
@@ -14,27 +24,36 @@
 #if defined(USE_EDITOR) || defined(USE_CHEATS)
 #include "imgui.h"
 #include "backends/imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
+
+#ifdef OPENGL_BACKEND
+#include "backends/imgui_impl_opengl3.h"
+#endif
+
+#ifdef DX12_BACKEND
+#include "backends/imgui_impl_dx12.h"
+#endif
+
+
 #endif
 
 using namespace IKIGAI;
 using namespace IKIGAI::WINDOW;
 
-const std::map<SDL_GameControllerButton, INPUT::Gamepad::GAMEPAD_BUTTON> ToGamepadButton = {
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_A, INPUT::Gamepad::GAMEPAD_BUTTON::btn_a},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_B, INPUT::Gamepad::GAMEPAD_BUTTON::btn_b},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_X, INPUT::Gamepad::GAMEPAD_BUTTON::btn_x},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_Y, INPUT::Gamepad::GAMEPAD_BUTTON::btn_y},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_LEFTSTICK, INPUT::Gamepad::GAMEPAD_BUTTON::btn_leftStick},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_RIGHTSTICK, INPUT::Gamepad::GAMEPAD_BUTTON::btn_rightStick},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_BACK, INPUT::Gamepad::GAMEPAD_BUTTON::btn_back},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_START, INPUT::Gamepad::GAMEPAD_BUTTON::btn_start},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_LEFTSHOULDER, INPUT::Gamepad::GAMEPAD_BUTTON::btn_lb},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, INPUT::Gamepad::GAMEPAD_BUTTON::btn_rb},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_UP, INPUT::Gamepad::GAMEPAD_BUTTON::dpad_up},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_DOWN, INPUT::Gamepad::GAMEPAD_BUTTON::dpad_down},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_LEFT, INPUT::Gamepad::GAMEPAD_BUTTON::dpad_left},
-	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_RIGHT, INPUT::Gamepad::GAMEPAD_BUTTON::dpad_right},
+const std::map<SDL_GameControllerButton, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON> ToGamepadButton = {
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_A, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_a},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_B, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_b},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_X, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_x},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_Y, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_y},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_LEFTSTICK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_leftStick},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_RIGHTSTICK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_rightStick},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_BACK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_back},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_START, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_start},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_LEFTSHOULDER, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_lb},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_rb},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_UP, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_up},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_DOWN, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_down},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_LEFT, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_left},
+	{SDL_GameControllerButton::SDL_CONTROLLER_BUTTON_DPAD_RIGHT, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_right},
 };
 
 struct Window::Internal {
@@ -76,7 +95,26 @@ Window::Window(const WindowSettings& p_windowSettings) : mWindowSettings(p_windo
 }
 
 Window::~Window() {
+#ifdef OPENGL_BACKEND
 	SDL_GL_DeleteContext(mContext->mContext);
+#if defined(USE_EDITOR) || defined(USE_CHEATS)
+	ImGui_ImplOpenGL3_Shutdown();
+#endif
+#endif
+
+#if defined(USE_EDITOR) || defined(USE_CHEATS)
+#ifdef DX12_BACKEND
+	ImGui_ImplDX12_Shutdown();
+#endif
+#ifdef VULKAN_BACKEND
+	auto driverVk = RENDER::UtilityVk::GetDriver();
+	ImGui_ImplVulkan_Shutdown();
+	vkDestroyDescriptorPool(*driverVk->mDevice, driverVk->mImguiPool, nullptr);
+#endif
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
+#endif
+
 	SDL_DestroyWindow(mContext->mWindow);
 	SDL_Quit();
 }
@@ -88,7 +126,6 @@ MATH::Vector2i Window::getMousePos() const {
 }
 
 void Window::setSize(unsigned width, unsigned height) {
-
 	switch (GetCurrentPlatform()) {
 		case Platform::IOS:
 		case Platform::ANDROIDOS:
@@ -414,11 +451,9 @@ void Window::pollEvent() {
 
 void Window::draw() const {
 #if defined(USE_EDITOR) || defined(USE_CHEATS)
+#ifdef OPENGL_BACKEND
 	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-	// Update and Render additional Platform Windows
-	// (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
-	//  For this specific demo app we could also call SDL_GL_MakeCurrent(window, gl_context) directly)
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 		SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
 		SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
@@ -427,17 +462,30 @@ void Window::draw() const {
 		SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
 	}
 #endif
+#endif
+#ifdef OPENGL_BACKEND
 	SDL_GL_SwapWindow(mContext->mWindow);
+#endif
 }
 
+//Call before draw imgui widgets
 void Window::preUpdate() {
 #if defined(USE_EDITOR) || defined(USE_CHEATS)
+#ifdef OPENGL_BACKEND
 	ImGui_ImplOpenGL3_NewFrame();
+#endif
+#ifdef DX12_BACKEND
+	ImGui_ImplDX12_NewFrame();
+#endif
+#ifdef VULKAN_BACKEND
+	ImGui_ImplVulkan_NewFrame();
+#endif
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
 #endif
 }
 
+//After call all imgui widgets
 void Window::update() {
 #if defined(USE_EDITOR) || defined(USE_CHEATS)
 	ImGui::Render();
@@ -459,6 +507,29 @@ std::pair<int, int> Window::getDrawableSize() {
 	SDL_GL_GetDrawableSize(mContext->mWindow, &viewportWidth, &viewportHeight);
 	return { viewportWidth , viewportHeight };
 }
+
+#ifdef VULKAN_BACKEND
+#include <SDL_vulkan.h>
+#include <renderModule/backends/vk/helpers.h>
+void Window::createVulkanSurface() {
+	VkSurfaceKHR surface;
+	if (SDL_Vulkan_CreateSurface(mContext->mWindow, *RENDER::UtilityVk::GetDriver()->mInstance, &surface) == 0) {
+		printf("Failed to create Vulkan surface.\n");
+		throw;
+	}
+
+	RENDER::UtilityVk::GetDriver()->mSurface = vk::raii::SurfaceKHR(RENDER::UtilityVk::GetDriver()->mInstance, surface);
+}
+
+std::vector<const char*> Window::getSDLVulkanExtentions() {
+	std::vector<const char*> extensions;
+	uint32_t extensions_count = 0;
+	SDL_Vulkan_GetInstanceExtensions(mContext->mWindow, &extensions_count, nullptr);
+	extensions.resize(extensions_count);
+	SDL_Vulkan_GetInstanceExtensions(mContext->mWindow, &extensions_count, extensions.data());
+	return extensions;
+}
+#endif
 
 void Window::initImGUI() {
 #if defined(USE_EDITOR) || defined(USE_CHEATS)
@@ -496,9 +567,86 @@ void Window::initImGUI() {
 		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
 
+	// TODO: This need init after create render
 	// Setup Platform/Renderer backends
+#ifdef OPENGL_BACKEND
 	ImGui_ImplSDL2_InitForOpenGL(mContext->mWindow, mContext->mContext);
-	ImGui_ImplOpenGL3_Init(glsl_version);
+	ImGui_ImplOpenGL3_Init("#version 330");
+#endif
+
+#ifdef DX12_BACKEND
+	ImGui_ImplSDL2_InitForD3D(mContext->mWindow);
+	ImGui_ImplDX12_Init(RENDER::d3dUtil::GetDriver()->getDevice().Get(), 
+		RENDER::DriverDx12::DEFAULT_FB_SIZE,
+		DXGI_FORMAT_R8G8B8A8_UNORM, RENDER::d3dUtil::GetDriver()->getDescriptorHeap().Get(),
+		RENDER::d3dUtil::GetDriver()->getDescriptorHeapCPUHandle(),
+		RENDER::d3dUtil::GetDriver()->getDescriptorHeapGPUHandle());
+	RENDER::d3dUtil::GetDriver()->getDescriptorHeapCPUHandle().Offset(1, RENDER::d3dUtil::GetDriver()->getDescriptorIncSize());
+	RENDER::d3dUtil::GetDriver()->getDescriptorHeapGPUHandle().Offset(1, RENDER::d3dUtil::GetDriver()->getDescriptorIncSize());
+#endif
+
+#ifdef VULKAN_BACKEND
+	ImGui_ImplSDL2_InitForVulkan(mContext->mWindow);
+
+	auto driverVk = RENDER::UtilityVk::GetDriver();
+
+	VkDescriptorPoolSize pool_sizes[] = {
+		{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}
+	};
+	VkDescriptorPoolCreateInfo pool_info = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+		.maxSets = 1000,
+		.poolSizeCount = static_cast<uint32_t>(std::size(pool_sizes)),
+		.pPoolSizes = pool_sizes
+	};
+	
+	(vkCreateDescriptorPool(*driverVk->mDevice, &pool_info, nullptr, &driverVk->mImguiPool));
+
+	ImGui_ImplVulkan_InitInfo init_info = {};
+	init_info.Instance = *driverVk->mInstance;
+	init_info.PhysicalDevice = *driverVk->mPhysicalDevice;
+	init_info.Device = *driverVk->mDevice;
+	init_info.QueueFamily = driverVk->mQueueFamilyIndex;
+	init_info.Queue = *driverVk->mQueue;
+	init_info.DescriptorPool = driverVk->mImguiPool;
+	init_info.Subpass = 0;
+	init_info.MinImageCount = 3;
+	init_info.ImageCount = 3;
+	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	init_info.UseDynamicRendering = true;
+
+	static auto _swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+	init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+	init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+	init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &_swapchainImageFormat;
+	init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	init_info.PipelineRenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+
+	ImGui_ImplVulkan_LoadFunctions([](const char* functionName, void* vulkanInstance) {
+		if (strcmp("vkCmdBeginRenderingKHR", functionName) == 0) {
+			return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkanInstance)), "vkCmdBeginRendering");
+		}
+		if (strcmp("vkCmdEndRenderingKHR", functionName) == 0) {
+			return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkanInstance)), "vkCmdEndRendering");
+		}
+		return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkanInstance)), functionName);
+	}, &init_info.Instance);
+
+	ImGui_ImplVulkan_Init(&init_info);
+	ImGui_ImplVulkan_CreateFontsTexture();
+#endif
+
 #endif
 }
 
@@ -520,11 +668,12 @@ bool shouldDisplayFullScreen() {
 void Window::create() {
 	auto displaySize = getSize();
 
+#ifdef OPENGL_BACKEND
 #ifdef __EMSCRIPTEN__
-	// GL ES 2.0 + GLSL 100
+	// GL ES 3.0 + GLSL 300
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #elif defined(__APPLE__)
 	// GL 3.2 Core + GLSL 150
@@ -545,641 +694,47 @@ void Window::create() {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #endif
-
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
+#endif
 
-	SDL_Window* _window{ SDL_CreateWindow(
-		mWindowSettings.title.c_str(),
-		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		displaySize.x, displaySize.y,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI) };
+
+	SDL_WindowFlags flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN);
+#ifdef OPENGL_BACKEND
+	flags = (SDL_WindowFlags)(flags | SDL_WINDOW_OPENGL);
+#endif
+#ifdef VULKAN_BACKEND
+	flags = (SDL_WindowFlags)(flags | SDL_WINDOW_VULKAN);
+#endif
+	SDL_Window* _window{
+		SDL_CreateWindow(mWindowSettings.title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, displaySize.x, displaySize.y,flags)
+	};
+
+	if (_window == nullptr) {
+		//TODO:
+		//printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
+		//return -1;
+	}
+
+#ifdef DX12_BACKEND
+	SDL_SysWMinfo wmInfo;
+	SDL_VERSION(&wmInfo.version);
+	SDL_GetWindowWMInfo(_window, &wmInfo);
+	mHWND = (HWND)wmInfo.info.win.window;
+#endif
 
 	if (::shouldDisplayFullScreen() || mWindowSettings.isFullscreen) {
 		mWindowSettings.isFullscreen = true;
 		SDL_SetWindowFullscreen(_window, SDL_TRUE);
 	}
 	mContext->mWindow = _window;
+#ifdef OPENGL_BACKEND
 	mContext->mContext = SDL_GL_CreateContext(mContext->mWindow);
-
-	initImGUI();
-}
 #endif
-
-#ifdef USE_GLFW
-
-#include "renderModule/gameRendererGl.h"
-
-#if defined(USE_EDITOR) || defined(USE_CHEATS)
-#include "imgui.h"
-#include "imgui_impl_opengl3.h"
-#include "backends/imgui_impl_glfw.h"
-#endif
-
-static void glfwErrorCallback(int error, const char* description) {
-	LOG_ERROR << ("Glfw Error: " + std::to_string(error) + " " + description);
-}
-
-IKIGAI::WINDOW::Window::Window(const WindowSettings& mWindowSettings) : mWindowSettings(mWindowSettings) {
-	create();
-}
-bool IKIGAI::WINDOW::Window::isClosed() const {
-	return mIsClose;
-}
-
-void IKIGAI::WINDOW::Window::toggleFullscreen() {
-	setFullscreen(!mWindowSettings.isFullscreen);
-}
-
-int IKIGAI::WINDOW::Window::getRefreshRate() const {
-	return mWindowSettings.refreshRate;
-}
-
-bool IKIGAI::WINDOW::Window::getIsFullscreen() const {
-	return mWindowSettings.isFullscreen;
-}
-
-
-std::string IKIGAI::WINDOW::Window::getTitle() const {
-	return mWindowSettings.title;
-}
-
-IKIGAI::WINDOW::WindowSettings& IKIGAI::WINDOW::Window::getSetting() {
-	return mWindowSettings;
-}
-
-IKIGAI::WINDOW::Window::~Window() {
-	glfwTerminate();
-}
-
-#include "renderModule/backends/vk/frameBufferVk.h"
-#include <backends/imgui_impl_vulkan.h>
-#include <renderModule/gameRendererVk.h>
-static ImGui_ImplVulkanH_Window g_MainWindowData;
-static VkAllocationCallbacks* g_Allocator = nullptr;
-static int                      g_MinImageCount = 2;
-
-void IKIGAI::WINDOW::Window::initImGUI() {
-#if defined(USE_EDITOR) || defined(USE_CHEATS)
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-#if defined OPENGL_BACKEND || defined  VULKAN_BACKEND
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-#endif
-	//io.ConfigViewportsNoAutoMerge = true;
-	//io.ConfigViewportsNoTaskBarIcon = true;
-	// Setup Dear ImGui style
-	ImGui::StyleColorsDark();
-	//ImGui::StyleColorsClassic();
-
-	// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-	ImGuiStyle& style = ImGui::GetStyle();
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-		style.WindowRounding = 0.0f;
-		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-	}
-
-#ifdef VULKAN_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-		ImGui_ImplGlfw_InitForVulkan(window.get(), false);
-		//initForVk();
-	//}
-#endif
-	//ArchTheme();
-
-	// Setup Platform/Renderer backends
-#ifdef OPENGL_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-		ImGui_ImplGlfw_InitForOpenGL(window.get(), false);
-		const char* glsl_version = "#version 330";
-		ImGui_ImplOpenGL3_Init(glsl_version);
-	//}
-#endif
-
-#ifdef DX12_BACKEND
-	auto& gr = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
-	auto render = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).mDriver;
-
-
-	ImGui_ImplWin32_Init(gr.mhMainWnd);
-	ImGui_ImplDX12_Init(render->mDevice.Get(), 1,
-		DXGI_FORMAT_R8G8B8A8_UNORM, render->mTexturesDescHeap.Get(),
-		render->mTexturesDescHeap->GetCPUDescriptorHandleForHeapStart(),
-		render->mTexturesDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-#endif
-
-#if defined  OPENGL_BACKEND || defined  VULKAN_BACKEND
-	keyEvent.add([](GLFWwindow* window, int key, int scancode, int action, int mods) {
-		ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
-	});
-	mouseButtonEvent.add([](GLFWwindow* window, int button, int action, int mods) {
-		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
-	});
-#endif
-#endif
-}
-
-void IKIGAI::WINDOW::Window::preUpdate() {
-#ifdef OPENGL_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-	//}
-#endif
-#ifdef VULKAN_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-	//}
-#endif
-
-#ifdef DX12_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
-		ImGui_ImplDX12_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
-	//}
-#endif
-}
-
-void IKIGAI::WINDOW::Window::setSize(unsigned int w, unsigned int h) {
-	mWindowSettings.size = {w, h};
-	glfwSetWindowSize(window.get(), w, h);
-}
-
-void IKIGAI::WINDOW::Window::setPosition(int x, int y) {
-	position = {x, y};
-	glfwSetWindowPos(window.get(), x, y);
-}
-
-void IKIGAI::WINDOW::Window::hide() const {
-	glfwHideWindow(window.get());
-}
-
-void IKIGAI::WINDOW::Window::show() const {
-	glfwShowWindow(window.get());
-}
-
-void IKIGAI::WINDOW::Window::focus() const {
-	glfwFocusWindow(window.get());
-}
-
-bool IKIGAI::WINDOW::Window::hasFocus() const {
-	return glfwGetWindowAttrib(window.get(), GLFW_FOCUSED);
-}
-
-void IKIGAI::WINDOW::Window::setFullscreen(bool val) {
-	mWindowSettings.isFullscreen = val;
-	glfwSetWindowMonitor(
-		window.get(),
-		val ? glfwGetPrimaryMonitor() : nullptr,
-		position.x,
-		position.y,
-		mWindowSettings.size.x,
-		mWindowSettings.size.y,
-		mWindowSettings.refreshRate
-	);
-}
-
-void IKIGAI::WINDOW::Window::setCursorVisible(bool isVisible, bool isLock) const {
-	auto val = GLFW_CURSOR_NORMAL;
-	if (!isVisible && isLock) {
-		val = GLFW_CURSOR_DISABLED;
-	} else if (!isVisible) {
-		val = GLFW_CURSOR_HIDDEN;
-	}
-	glfwSetInputMode(window.get(), GLFW_CURSOR, val);
-}
-
-void IKIGAI::WINDOW::Window::setDepthBits(int val) {
-	mWindowSettings.depthBits = val;
-	glfwWindowHint(GLFW_DEPTH_BITS, val);
-}
-
-int IKIGAI::WINDOW::Window::getDepathBits() const {
-	return mWindowSettings.depthBits;
-}
-
-void IKIGAI::WINDOW::Window::setStencilBits(int val) {
-	mWindowSettings.stencilBits = val;
-	glfwWindowHint(GLFW_STENCIL_BITS, val);
-}
-
-int IKIGAI::WINDOW::Window::getStencilBits() const {
-	return mWindowSettings.stencilBits;
-}
-
-void IKIGAI::WINDOW::Window::setMajorVersion(int val) {
-	mWindowSettings.majorVersion = val;
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, val);
-}
-
-int IKIGAI::WINDOW::Window::getMajorVersion() const {
-	return mWindowSettings.majorVersion;
-}
-
-void IKIGAI::WINDOW::Window::setMinorVersion(int val) {
-	mWindowSettings.minorVersion = val;
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, val);
-}
-
-int IKIGAI::WINDOW::Window::getMinorVersion() const {
-	return mWindowSettings.minorVersion;
-}
-
-void IKIGAI::WINDOW::Window::setAntialiasingLevel(int val) {
-	mWindowSettings.antialiasingLevel = val;
-	glfwWindowHint(GLFW_SAMPLES, val);
-}
-
-int IKIGAI::WINDOW::Window::getAntialiasingLevel() const {
-	return mWindowSettings.antialiasingLevel;
-}
-
-void IKIGAI::WINDOW::Window::setRefreshRate(int val) {
-	mWindowSettings.refreshRate = val;
-	glfwWindowHint(GLFW_REFRESH_RATE, val);
-}
-
-void IKIGAI::WINDOW::Window::setTitle(const std::string& _title) {
-	mWindowSettings.title = _title;
-	glfwSetWindowTitle(window.get(), mWindowSettings.title.c_str());
-}
-
-void IKIGAI::WINDOW::Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (action == GLFW_PRESS) {
-		keyPressedEvent.run(key);
-	} else if (action == GLFW_RELEASE) {
-		keyReleasedEvent.run(key);
-	}
-}
-
-void IKIGAI::WINDOW::Window::mouseCallback(GLFWwindow* window, int button, int action, int mods) {
-	if (action == GLFW_PRESS) {
-		mouseButtonPressedEvent.run(button);
-	} else if (action == GLFW_RELEASE) {
-		mouseButtonReleasedEvent.run(button);
-	}
-}
-
-void IKIGAI::WINDOW::Window::DestroyGLFW::operator()(GLFWwindow* ptr) const {
-	glfwDestroyWindow(ptr);
-}
-
-void IKIGAI::WINDOW::Window::updateWindow() {
-	setFullscreen(mWindowSettings.isFullscreen);
-	setTitle(mWindowSettings.title);
-	setMajorVersion(mWindowSettings.majorVersion);
-	setMinorVersion(mWindowSettings.minorVersion);
-	setAntialiasingLevel(mWindowSettings.antialiasingLevel);
-	setDepthBits(mWindowSettings.depthBits);
-	setStencilBits(mWindowSettings.stencilBits);
-}
-#include <renderModule/backends/interface/driverInterface.h>
-void IKIGAI::WINDOW::Window::create() {
-	glfwInit();
-#ifdef OPENGL_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-		setMajorVersion(mWindowSettings.majorVersion);
-		setMinorVersion(mWindowSettings.minorVersion);
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	}
-#endif
-#ifdef VULKAN_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-		if (!glfwVulkanSupported()) {
-			std::cerr << "GLFW: Vulkan not supported\n" << std::endl;
-			throw;
-		}
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-	//}
-#endif
-	setAntialiasingLevel(mWindowSettings.antialiasingLevel);
-	setDepthBits(mWindowSettings.depthBits);
-	setStencilBits(mWindowSettings.stencilBits);
-
-	window = std::unique_ptr<GLFWwindow, DestroyGLFW>(glfwCreateWindow(
-		mWindowSettings.size.x, mWindowSettings.size.y,
-		mWindowSettings.title.c_str(), NULL, NULL));
-
-#ifdef VULKAN_BACKEND
-	//glfwGetFramebufferSize(window, &m_BufferWidth, &m_BufferHeight);
-#endif
-
-	glfwMakeContextCurrent(window.get());
-	glfwSwapInterval(1); //vsync
-	setRefreshRate(mWindowSettings.refreshRate);
-	setCursorVisible(mWindowSettings.isCursorVisible, mWindowSettings.isCursorLock);
-
-	if (!window) {
-		glfwTerminate();
-		throw std::runtime_error("Failed to create GLFW window");
-	} else {
-		int x, y;
-		glfwGetWindowPos(window.get(), &x, &y);
-		position.x = x;
-		position.y = y;
-	}
-
-	setFullscreen(mWindowSettings.isFullscreen);
-
-	//TODO mode to service
-	//INPUT::GamepadManager::Instance();
-	//
-	glfwSetErrorCallback(glfwErrorCallback);
-	glfwSetKeyCallback(window.get(), [](GLFWwindow* window, int key, int scancode, int action, int mods) {
-		RESOURCES::ServiceManager::Get<WINDOW::Window>().keyEvent.run(window, key, scancode, action, mods);
-		RESOURCES::ServiceManager::Get<WINDOW::Window>().keyCallback(window, key, scancode, action, mods);
-	});
-	glfwSetMouseButtonCallback(window.get(), [](GLFWwindow* window, int button, int action, int mods) {
-		RESOURCES::ServiceManager::Get<WINDOW::Window>().mouseButtonEvent.run(window, button, action, mods);
-		RESOURCES::ServiceManager::Get<WINDOW::Window>().mouseCallback(window, button, action, mods);
-	});
-	glfwSetWindowCloseCallback(window.get(), [](GLFWwindow* window) {
-		RESOURCES::ServiceManager::Get<WINDOW::Window>().mIsClose = true;
-	});
-
-	glfwSetFramebufferSizeCallback(window.get(), [](GLFWwindow* window, int width, int height) {
-		auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
-#ifdef OPENGL_BACKEND
-	auto _renderer = reinterpret_cast<RENDER::GameRendererGl*>(&renderer);
-	_renderer->resize();
-#endif
-#ifdef VULKAN_BACKEND
-	auto _renderer = reinterpret_cast<RENDER::GameRendererVk*>(&renderer);
-	_renderer->resize();
-#endif
-	//TODO:
-
-		});
-
-	initImGUI();
-}
-
-void IKIGAI::WINDOW::Window::pollEvent() {
-	glfwPollEvents();
-	//INPUT::GamepadManager::Instance().update([this](const INPUT::Gamepad::GamepadData& data) {
-	//	gamepadEvent.run(data);
-	//	});
-}
-
-void IKIGAI::WINDOW::Window::draw() const {
-#if defined(USE_EDITOR) || defined(USE_CHEATS)
-#ifdef OPENGL_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-	}
-#endif
-#ifdef VULKAN_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-		//ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-	}
-#endif
-#ifdef DX12_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
-
-	}
-#endif
-#if defined(OPENGL_BACKEND) || defined(VULKAN_BACKEND)
-	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-		GLFWwindow* backup_current_context = glfwGetCurrentContext();
-		ImGui::UpdatePlatformWindows();
-		ImGui::RenderPlatformWindowsDefault();
-		glfwMakeContextCurrent(backup_current_context);
-	}
-#endif
-#endif
-
-#ifdef OPENGL_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-		if (!glfwWindowShouldClose(window.get())) {
-			glfwSwapBuffers(window.get());
-		}
-	}
-#endif
-}
-
-void IKIGAI::WINDOW::Window::update() {
-#if defined(USE_EDITOR) || defined(USE_CHEATS)
-	ImGui::Render();
-#endif
-}
-
-GLFWwindow& IKIGAI::WINDOW::Window::getContext() const {
-	return *window;
-}
-
-GLFWwindow* IKIGAI::WINDOW::Window::getContextPtr() const {
-	return window.get();
-}
-
-IKIGAI::MATH::Vector2i IKIGAI::WINDOW::Window::getMousePos() const {
-	double x, y;
-	glfwGetCursorPos(window.get(), &x, &y);
-	return IKIGAI::MATH::Vector2i(static_cast<unsigned>(x), static_cast<unsigned>(y));
-}
-IKIGAI::MATH::Vector2u IKIGAI::WINDOW::Window::getSize() const {
-	auto width = 0;
-	auto height = 0;
-	glfwGetWindowSize(window.get(), &width, &height);
-	return IKIGAI::MATH::Vector2u(width, height);
-}
-
-IKIGAI::MATH::Vector2i IKIGAI::WINDOW::Window::getPosition() const {
-	int x, y;
-	glfwGetWindowPos(window.get(), &x, &y);
-	return IKIGAI::MATH::Vector2i(x, y);
-}
-#endif
-
-#ifdef USE_WINAPI
-
-Window::~Window() {
-	//glfwTerminate();
-}
-
-
-void Window::setSize(unsigned int w, unsigned int h) {
-	mWindowSettings.size = {w, h};
-	//glfwSetWindowSize(window.get(), w, h);
-}
-
-void Window::setPosition(int x, int y) {
-	position = {x, y};
-	//glfwSetWindowPos(window.get(), x, y);
-}
-
-void Window::hide() const {
-	//glfwHideWindow(window.get());
-}
-
-void Window::show() const {
-	//glfwShowWindow(window.get());
-}
-
-void Window::focus() const {
-	//glfwFocusWindow(window.get());
-}
-
-bool Window::hasFocus() const {
-	return true;//glfwGetWindowAttrib(window.get(), GLFW_FOCUSED);
-}
-
-void Window::setFullscreen(bool val) {
-	mWindowSettings.isFullscreen = val;
-	//glfwSetWindowMonitor(
-	//	window.get(),
-	//	val ? glfwGetPrimaryMonitor() : nullptr,
-	//	position.x,
-	//	position.y,
-	//	mWindowSettings.size.x,
-	//	mWindowSettings.size.y,
-	//	mWindowSettings.refreshRate
-	//);
-}
-
-void Window::setCursorVisible(bool isVisible, bool isLock) const {
-	//auto val = GLFW_CURSOR_NORMAL;
-	//if (!isVisible && isLock) {
-	//	val = GLFW_CURSOR_DISABLED;
-	//}
-	//else if (!isVisible) {
-	//	val = GLFW_CURSOR_HIDDEN;
-	//}
-	//glfwSetInputMode(window.get(), GLFW_CURSOR, val);
-}
-
-
-void Window::setDepthBits(int val) {
-	mWindowSettings.depthBits = val;
-	glfwWindowHint(GLFW_DEPTH_BITS, val);
-}
-
-int Window::getDepathBits() const {
-	return mWindowSettings.depthBits;
-}
-
-void Window::setStencilBits(int val) {
-	mWindowSettings.stencilBits = val;
-	glfwWindowHint(GLFW_STENCIL_BITS, val);
-}
-
-int Window::getStencilBits() const {
-	return mWindowSettings.stencilBits;
-}
-
-void Window::setMajorVersion(int val) {
-	mWindowSettings.majorVersion = val;
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, val);
-}
-
-int Window::getMajorVersion() const {
-	return mWindowSettings.majorVersion;
-}
-
-void Window::setMinorVersion(int val) {
-	mWindowSettings.minorVersion = val;
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, val);
-}
-
-int Window::getMinorVersion() const {
-	return mWindowSettings.minorVersion;
-}
-
-void Window::setAntialiasingLevel(int val) {
-	mWindowSettings.antialiasingLevel = val;
-	glfwWindowHint(GLFW_SAMPLES, val);
-}
-
-int Window::getAntialiasingLevel() const {
-	return mWindowSettings.antialiasingLevel;
-}
-
-void Window::setRefreshRate(int val) {
-	mWindowSettings.refreshRate = val;
-	//glfwWindowHint(GLFW_REFRESH_RATE, val);
-}
-
-
-void Window::setTitle(const std::string& _title) {
-	mWindowSettings.title = _title;
-	//glfwSetWindowTitle(window.get(), mWindowSettings.title.c_str());
-}
-
-//void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-//	if (action == GLFW_PRESS) {
-//		keyPressedEvent.run(key);
-//	}
-//	else if (action == GLFW_RELEASE) {
-//		keyReleasedEvent.run(key);
-//	}
-//}
-//
-//void Window::mouseCallback(GLFWwindow* window, int button, int action, int mods) {
-//	if (action == GLFW_PRESS) {
-//		mouseButtonPressedEvent.run(button);
-//	}
-//	else if (action == GLFW_RELEASE) {
-//		mouseButtonReleasedEvent.run(button);
-//	}
-//}
-
-//void Window::DestroyGLFW::operator()(GLFWwindow* ptr) const {
-//	//glfwDestroyWindow(ptr);
-//}
-
-
-void Window::updateWindow() {
-	setFullscreen(mWindowSettings.isFullscreen);
-	setTitle(mWindowSettings.title);
-	setMajorVersion(mWindowSettings.majorVersion);
-	setMinorVersion(mWindowSettings.minorVersion);
-	setAntialiasingLevel(mWindowSettings.antialiasingLevel);
-	setDepthBits(mWindowSettings.depthBits);
-	setStencilBits(mWindowSettings.stencilBits);
-}
-#include <renderModule/backends/interface/driverInterface.h>
-void Window::create() {
-
-}
-
-void Window::pollEvent() {
-	//glfwPollEvents();
-	INPUT::GamepadManager::Instance().update([this](const INPUT::Gamepad::GamepadData& data) {
-		gamepadEvent.run(data);
-		});
-}
-
-void Window::draw() const {
-
-}
-
-MATHGL::Vector2i Window::getMousePos() const {
-	double x = 0.0, y = 0.0;
-	//glfwGetCursorPos(window.get(), &x, &y);
-	return MATHGL::Vector2i(static_cast<unsigned>(x), static_cast<unsigned>(y));
-}
-MATHGL::Vector2u Window::getSize() const {
-	auto width = 0;
-	auto height = 0;
-	//glfwGetWindowSize(window.get(), &width, &height);
-	return MATHGL::Vector2u(800, 600);
-}
-
-MATHGL::Vector2i Window::getPosition() const {
-	int x = 0, y = 0;
-	//glfwGetWindowPos(window.get(), &x, &y);
-	return MATHGL::Vector2i(x, y);
+	//initImGUI();
 }
 #endif
 
@@ -1361,312 +916,6 @@ bool Window::renderLayer(XrTime dpy_time,
     layer.views     = layerViews.data();
 
     return true;
-}
-
-#endif
-
-
-#ifdef DX12_BACKEND
-
-#include "imgui_impl_dx12.h"
-
-#include "imgui_impl_win32.h"
-#include "renderModule/gameRendererDx12.h"
-
-using namespace IKIGAI;
-using namespace IKIGAI::WINDOW;
-
-Window::Window(const WindowSettings& windowSettings) : windowSettings(windowSettings) {
-	create();
-}
-bool Window::isClosed() const {
-	return isClose;
-}
-
-void Window::toggleFullscreen() {
-	setFullscreen(!windowSettings.isFullscreen);
-}
-
-int Window::getRefreshRate() const {
-	return windowSettings.refreshRate;
-}
-
-bool Window::getIsFullscreen() const {
-	return windowSettings.isFullscreen;
-}
-
-
-std::string Window::getTitle() const {
-	return windowSettings.title;
-}
-
-WindowSettings& Window::getSetting() {
-	return windowSettings;
-}
-
-
-Window::~Window() {
-	//glfwTerminate();
-}
-
-
-void Window::setSize(unsigned int w, unsigned int h) {
-	windowSettings.size = {w, h};
-	//glfwSetWindowSize(window.get(), w, h);
-}
-
-void Window::setPosition(int x, int y) {
-	position = {x, y};
-	//glfwSetWindowPos(window.get(), x, y);
-}
-
-void Window::hide() const {
-	//glfwHideWindow(window.get());
-}
-
-void Window::show() const {
-	//glfwShowWindow(window.get());
-}
-
-void Window::focus() const {
-	//glfwFocusWindow(window.get());
-}
-
-bool Window::hasFocus() const {
-	return true;//glfwGetWindowAttrib(window.get(), GLFW_FOCUSED);
-}
-
-void Window::setFullscreen(bool val) {
-	windowSettings.isFullscreen = val;
-	//glfwSetWindowMonitor(
-	//	window.get(),
-	//	val ? glfwGetPrimaryMonitor() : nullptr,
-	//	position.x,
-	//	position.y,
-	//	windowSettings.size.x,
-	//	windowSettings.size.y,
-	//	windowSettings.refreshRate
-	//);
-}
-
-void Window::setCursorVisible(bool isVisible, bool isLock) const {
-	//auto val = GLFW_CURSOR_NORMAL;
-	//if (!isVisible && isLock) {
-	//	val = GLFW_CURSOR_DISABLED;
-	//}
-	//else if (!isVisible) {
-	//	val = GLFW_CURSOR_HIDDEN;
-	//}
-	//glfwSetInputMode(window.get(), GLFW_CURSOR, val);
-}
-
-
-void Window::setDepthBits(int val) {
-	windowSettings.depthBits = val;
-}
-
-int Window::getDepathBits() const {
-	return windowSettings.depthBits;
-}
-
-void Window::setStencilBits(int val) {
-	windowSettings.stencilBits = val;
-}
-
-int Window::getStencilBits() const {
-	return windowSettings.stencilBits;
-}
-
-void Window::setMajorVersion(int val) {
-	windowSettings.majorVersion = val;
-}
-
-int Window::getMajorVersion() const {
-	return windowSettings.majorVersion;
-}
-
-void Window::setMinorVersion(int val) {
-	windowSettings.minorVersion = val;
-}
-
-int Window::getMinorVersion() const {
-	return windowSettings.minorVersion;
-}
-
-void Window::setAntialiasingLevel(int val) {
-	windowSettings.antialiasingLevel = val;
-}
-
-int Window::getAntialiasingLevel() const {
-	return windowSettings.antialiasingLevel;
-}
-
-void Window::setRefreshRate(int val) {
-	windowSettings.refreshRate = val;
-	//glfwWindowHint(GLFW_REFRESH_RATE, val);
-}
-
-
-void Window::setTitle(const std::string& _title) {
-	windowSettings.title = _title;
-	//glfwSetWindowTitle(window.get(), windowSettings.title.c_str());
-}
-
-//void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-//	if (action == GLFW_PRESS) {
-//		keyPressedEvent.run(key);
-//	}
-//	else if (action == GLFW_RELEASE) {
-//		keyReleasedEvent.run(key);
-//	}
-//}
-//
-//void Window::mouseCallback(GLFWwindow* window, int button, int action, int mods) {
-//	if (action == GLFW_PRESS) {
-//		mouseButtonPressedEvent.run(button);
-//	}
-//	else if (action == GLFW_RELEASE) {
-//		mouseButtonReleasedEvent.run(button);
-//	}
-//}
-
-//void Window::DestroyGLFW::operator()(GLFWwindow* ptr) const {
-//	//glfwDestroyWindow(ptr);
-//}
-
-
-void Window::updateWindow() {
-	setFullscreen(windowSettings.isFullscreen);
-	setTitle(windowSettings.title);
-	setMajorVersion(windowSettings.majorVersion);
-	setMinorVersion(windowSettings.minorVersion);
-	setAntialiasingLevel(windowSettings.antialiasingLevel);
-	setDepthBits(windowSettings.depthBits);
-	setStencilBits(windowSettings.stencilBits);
-}
-#include <renderModule/backends/interface/driverInterface.h>
-void Window::create() {
-	initImGUI();
-}
-
-void Window::pollEvent() {
-	//glfwPollEvents();
-	//INPUT::GamepadManager::Instance().update([this](const INPUT::Gamepad::GamepadData& data) {
-	//	gamepadEvent.run(data);
-	//	});
-}
-
-void Window::draw() const {
-#if defined(USE_EDITOR) || defined(USE_CHEATS)
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
-
-	}
-#endif
-}
-
-MATH::Vector2i Window::getMousePos() const {
-	double x = 0.0, y = 0.0;
-	//glfwGetCursorPos(window.get(), &x, &y);
-	return MATH::Vector2i(static_cast<unsigned>(x), static_cast<unsigned>(y));
-}
-MATH::Vector2u Window::getSize() const {
-	auto width = 0;
-	auto height = 0;
-	//glfwGetWindowSize(window.get(), &width, &height);
-	return MATH::Vector2u(800, 600);
-}
-
-MATH::Vector2i Window::getPosition() const {
-	int x = 0, y = 0;
-	//glfwGetWindowPos(window.get(), &x, &y);
-	return MATH::Vector2i(x, y);
-}
-
-
-
-void IKIGAI::WINDOW::Window::initImGUI() {
-#if defined(USE_EDITOR) || defined(USE_CHEATS)
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-#if defined OPENGL_BACKEND || defined  VULKAN_BACKEND
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-#endif
-	//io.ConfigViewportsNoAutoMerge = true;
-	//io.ConfigViewportsNoTaskBarIcon = true;
-	// Setup Dear ImGui style
-	ImGui::StyleColorsDark();
-	//ImGui::StyleColorsClassic();
-
-	// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-	ImGuiStyle& style = ImGui::GetStyle();
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-		style.WindowRounding = 0.0f;
-		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-	}
-
-#ifdef VULKAN_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-	ImGui_ImplGlfw_InitForVulkan(window.get(), false);
-	//initForVk();
-//}
-#endif
-	//ArchTheme();
-
-	// Setup Platform/Renderer backends
-#ifdef OPENGL_BACKEND
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-	ImGui_ImplGlfw_InitForOpenGL(window.get(), false);
-	const char* glsl_version = "#version 330";
-	ImGui_ImplOpenGL3_Init(glsl_version);
-	//}
-#endif
-
-
-#if defined  OPENGL_BACKEND || defined  VULKAN_BACKEND
-	keyEvent.add([](GLFWwindow* window, int key, int scancode, int action, int mods) {
-		ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
-		});
-	mouseButtonEvent.add([](GLFWwindow* window, int button, int action, int mods) {
-		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
-		});
-#endif
-#endif
-}
-
-void IKIGAI::WINDOW::Window::preUpdate() {
-	static bool isInit = false;
-	if (!isInit)
-	{
-		isInit = true;
-
-#ifdef DX12_BACKEND
-		auto& gr = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>());
-		auto render = reinterpret_cast<RENDER::GameRendererDx12&>(RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>()).mDriver;
-
-
-		ImGui_ImplWin32_Init(gr.mhMainWnd);
-		ImGui_ImplDX12_Init(render->mDevice.Get(), 1,
-			DXGI_FORMAT_R8G8B8A8_UNORM, render->mTexturesDescHeap.Get(),
-			render->mTexturesDescHeap->GetCPUDescriptorHandleForHeapStart(),
-			render->mTexturesDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-#endif
-	}
-	//if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
-	ImGui_ImplDX12_NewFrame();
-	ImGui_ImplWin32_NewFrame();
-	ImGui::NewFrame();
-	//}
-}
-
-void Window::update() {
-#if defined(USE_EDITOR) || defined(USE_CHEATS)
-	ImGui::Render();
-#endif
 }
 
 #endif

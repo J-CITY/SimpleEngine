@@ -4,10 +4,31 @@
 #include "vertexBufferDx12.h"
 #include "indexBufferDx12.h"
 
-using namespace IKIGAI::RENDER;
-MeshDx12::MeshDx12(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex) {
+IKIGAI::RENDER::MeshDx12::MeshDx12(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex) {
+	mVertexBuffer = std::make_shared<VertexBufferDx12>(vertices);
+	mIndexBuffer = std::make_shared<IndexBufferDx12>(indices);
+	mIndicesCount = mIndexBuffer->getSize();
+	mVertexCount = mVertexBuffer->getSize();
+	mMaterialIndex = materialIndex;
+}
 
-	vertexBuffer = std::make_shared<VertexBufferDx12<Vertex>>(vertices);
-	indexBuffer = std::make_shared<IndexBufferDx12>(indices);
+IKIGAI::RENDER::MeshDx12::MeshDx12(const std::vector<Vertex>& vertices, unsigned materialIndex) {
+	mVertexBuffer = std::make_shared<VertexBufferDx12>(vertices);
+	mVertexCount = mVertexBuffer->getSize();
+	mMaterialIndex = materialIndex;
+}
+
+void IKIGAI::RENDER::MeshDx12::bind() const {
+	mVertexBuffer->bind();
+	if (mIndexBuffer) {
+		mIndexBuffer->bind();
+	}
+}
+
+void IKIGAI::RENDER::MeshDx12::unbind() const {
+	mVertexBuffer->unbind();
+	if (mIndexBuffer) {
+		mIndexBuffer->unbind();
+	}
 }
 #endif

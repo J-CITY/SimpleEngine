@@ -154,7 +154,7 @@ void GuizmoWindow::draw() {
 				auto y = (screen_pos.y - startXY.y);
 
 				auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
-				auto camera = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene().findMainCamera().value();
+				auto camera = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene().findMainCamera();
 				auto scale = w / screenRes.x;
 
 				x *= scale;
@@ -251,7 +251,7 @@ void GuizmoWindow::drawGuizmo(int w, int h) {
 	static bool boundSizingSnap = false;
 
 	auto& sceneManager = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
-	auto cameraComponent = sceneManager.getCurrentScene().findMainCamera().value();
+	auto cameraComponent = sceneManager.getCurrentScene().findMainCamera();
 	auto cameraProjection = MATH::Matrix4f::Transpose(cameraComponent->getCamera().getProjectionMatrix());
 	auto cameraView = MATH::Matrix4f::Transpose(cameraComponent->getCamera().getViewMatrix());
 	auto matrix = MATH::Matrix4f::Transpose(selectObject->getTransform()->getWorldMatrix());

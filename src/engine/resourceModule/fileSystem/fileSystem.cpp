@@ -1,5 +1,6 @@
 #include "fileSystem.h"
 #include "vfspp/VFS.h"
+#include "sdlFileSystem.h"
 
 namespace IKIGAI::RESOURCES {
 	class FileSystemInternal {
@@ -50,6 +51,14 @@ bool IKIGAI::RESOURCES::File::isOpened() const {
 	return mInternal->mFile->IsOpened();
 }
 
+void IKIGAI::RESOURCES::File::open(FileMode mode) const {
+	mInternal->mFile->Open(static_cast<vfspp::IFile::FileMode>(mode));
+}
+
+void IKIGAI::RESOURCES::File::close() const {
+	mInternal->mFile->Close();
+}
+
 std::vector<uint8_t> IKIGAI::RESOURCES::File::read(size_t sz) {
 	std::vector<uint8_t> data;
 	mInternal->mFile->Read(data, sz);
@@ -98,14 +107,19 @@ void IKIGAI::RESOURCES::FileSystem::addMemoryFileSystem(const std::string& pathI
 	mInternal->mVFS->AddFileSystem(pathInFs, fs);
 }
 
+void IKIGAI::RESOURCES::FileSystem::addSdlFileSystem(const std::string& path, const std::string& pathInFs) {
+	vfspp::IFileSystemPtr fs(new SdlFileSystem(path));
+	fs->Initialize();
+	mInternal->mVFS->AddFileSystem(pathInFs, fs);
+}
+
 bool IKIGAI::RESOURCES::FileSystem::isValid(const std::string& path) const {
 	auto info = vfspp::FileInfo(path);
 	return info.IsValid();
 }
 
 bool IKIGAI::RESOURCES::FileSystem::isFileExist(const std::string& path) const {
-	auto info = vfspp::FileInfo(path);
-	return info.IsFileExist();
+	return mInternal->mVFS->IsFileExist(path);
 }
 
 std::string IKIGAI::RESOURCES::FileSystem::getFileExtension(const std::string& path) const {
@@ -118,9 +132,8 @@ std::string IKIGAI::RESOURCES::FileSystem::getFileName(const std::string& path) 
 	return info.Name();
 }
 
-std::string IKIGAI::RESOURCES::FileSystem::getAbsolutePath(const std::string& path) const {
-	auto info = vfspp::FileInfo(path);
-	return info.AbsolutePath();
+std::optional<std::string> IKIGAI::RESOURCES::FileSystem::getAbsolutePath(const std::string& path) const {
+	return mInternal->mVFS->GetAbsoluteFilePath(path);
 }
 
 bool IKIGAI::RESOURCES::FileSystem::isDir(const std::string& path) const {
@@ -131,4 +144,8 @@ bool IKIGAI::RESOURCES::FileSystem::isDir(const std::string& path) const {
 std::shared_ptr<IKIGAI::RESOURCES::File> IKIGAI::RESOURCES::FileSystem::getFile(const std::string& path, FileMode mode) {
 	vfspp::IFilePtr file = mInternal->mVFS->OpenFile(vfspp::FileInfo(path), static_cast<vfspp::IFile::FileMode>(mode));
 	return std::make_shared<File>(std::make_unique<FileInternal>(file));
+}
+
+std::optional<std::string> IKIGAI::RESOURCES::FileSystem::getFilePath(const std::string& path) const {
+	return mInternal->mVFS->GetFilePath(vfspp::FileInfo(path));
 }

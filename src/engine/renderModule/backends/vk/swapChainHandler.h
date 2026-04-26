@@ -8,7 +8,7 @@
 #include "helpers.h"
 
 namespace IKIGAI::RENDER {
-	struct SwapChainImage {
+	/*struct SwapChainImage {
 		VkImage image;
 		VkImageView imageView;
 	};
@@ -24,8 +24,7 @@ namespace IKIGAI::RENDER {
 	public:
 		SwapChain();
 		SwapChain(MainDevice* main_device, VkSurfaceKHR* surface, QueueFamilyIndices& queueFamilyIndices);
-
-		/* Generic */
+		
 		void CreateSwapChain();
 		void RecreateSwapChain();
 		//void CreateFrameBuffers(const VkImageView& depth_buffer, TextureVk& color_buffer);
@@ -33,8 +32,7 @@ namespace IKIGAI::RENDER {
 		void DestroyFrameBuffers();
 		void DestroySwapChainImageViews();
 		void DestroySwapChain();
-
-		/* Getters */
+		
 		VkSwapchainKHR* GetSwapChainData();
 		VkSwapchainKHR& GetSwapChain();
 		uint32_t GetExtentWidth() const;
@@ -42,12 +40,10 @@ namespace IKIGAI::RENDER {
 		VkExtent2D& GetExtent();
 		VkFormat& GetSwapChainImageFormat();
 		SwapChainDetails GetSwapChainDetails(VkPhysicalDevice& physicalDevice, VkSurfaceKHR& surface);
-
-		/* Setters */
+		
 		//void SetRenderPass(VkRenderPass* renderPass);
 		void SetRecreationStatus(bool const status);
-
-		/* Vectors operations */
+		
 		//std::vector<VkFramebuffer>& GetFrameBuffers();
 		size_t SwapChainImagesSize() const;
 		//size_t FrameBuffersSize() const;
@@ -59,7 +55,6 @@ namespace IKIGAI::RENDER {
 		//void ResizeFrameBuffers();
 
 	//private:
-		/* References of the renderer */
 		MainDevice* m_MainDevice;
 		VkSurfaceKHR* m_VulkanSurface;
 		//Window				*m_Window;
@@ -68,8 +63,7 @@ namespace IKIGAI::RENDER {
 
 		QueueFamilyIndices  m_QueueFamilyIndices;
 
-
-		/* Kernel Of the SwapChainHandler*/
+		
 		//private:
 		VkSwapchainKHR m_Swapchain;
 		std::vector<SwapChainImage> m_SwapChainImages;
@@ -84,6 +78,6 @@ namespace IKIGAI::RENDER {
 		VkSurfaceFormatKHR  ChooseBestSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats);
 		VkPresentModeKHR	ChooseBestPresentationMode(const std::vector<VkPresentModeKHR>& presentationModes);
 		VkExtent2D			ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
-	};
+	};*/
 }
 #endif

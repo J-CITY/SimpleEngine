@@ -29,7 +29,8 @@ namespace IKIGAI::RESOURCES {
 		}
 
 		// Read and Parse
-		auto res = UTILS::ReadFileIntoString(UTILS::GetRealPath(path));
+		//TODO: use vfs
+		auto res = UTILS::ReadFileIntoString(path);
 		if (res.isErr()) {
 			std::cerr << "ResourcePackManager: Failed to load pack: " << path << " Error: " << res.unwrapErr().text << std::endl;
 			return;
@@ -61,7 +62,6 @@ namespace IKIGAI::RESOURCES {
 				std::string methodStr = item.value("method", "resource");
 				ELoadingType method = ELoadingType::RESOURCE;
 				if (methodStr == "file") method = ELoadingType::FILE;
-				else if (methodStr == "descriptor") method = ELoadingType::DESCRIPTOR;
 				else if (methodStr == "memory") method = ELoadingType::MEMORY;
 
 				auto res = loader(itemPath, method, policy);

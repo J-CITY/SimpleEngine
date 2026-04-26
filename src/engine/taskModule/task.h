@@ -117,6 +117,11 @@ namespace IKIGAI {
 				return mFuture.get();
 			}
 
+			void wait()
+			{
+				mFuture.wait();
+			}
+
 		private:
 			std::future<T> mFuture;
 		};

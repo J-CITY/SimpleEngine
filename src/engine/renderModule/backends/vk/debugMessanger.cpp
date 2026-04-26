@@ -1,6 +1,6 @@
 #include "debugMessanger.h"
 #ifdef VULKAN_BACKEND
-#include <iostream>
+/*#include <iostream>
 #include <stdexcept>
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
@@ -119,5 +119,5 @@ void DebugMessanger::DestroyDebugUtilsMessengerEXT(
 
 	if (func != nullptr)
 		func(instance, m_debugMessenger, pAllocator);
-}
+}*/
 #endif

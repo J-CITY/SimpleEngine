@@ -25,7 +25,7 @@ void CameraControlWindow::draw() {
 		ImGui::End();
 		return;
 	}
-	auto camera = cameraOpt.value();
+	auto camera = cameraOpt;
 	if (ImGui::Button("UP", ImVec2(width, height))) {
 		auto pos = camera->obj->transform->getLocalPosition();
 		pos.y += 0.3f;

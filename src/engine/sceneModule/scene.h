@@ -131,8 +131,8 @@ namespace IKIGAI::SCENE_SYSTEM {
 			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
 
-		std::optional<UTILS::Ref<IKIGAI::ECS::CameraComponent>> findMainCamera();
-		std::vector<RENDER::LightOGL> findLightData();
+		IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> findMainCamera();
+		std::vector<RENDER::LightOGL> findLightData() const;
 		std::vector<RENDER::LightOGL> findLightDataInFrustum(const RENDER::Frustum& frustum);
 
 

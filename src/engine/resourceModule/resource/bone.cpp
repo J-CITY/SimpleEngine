@@ -228,7 +228,7 @@ std::map<std::string, std::shared_ptr<Animation>> Animation::LoadAnimations(cons
     std::map<std::string, std::shared_ptr<Animation>> res;
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(UTILS::GetRealPath(animationPath), aiProcess_Triangulate);
+    const aiScene* scene = importer.ReadFile(animationPath, aiProcess_Triangulate);
     assert(scene && scene->mRootNode);
 
     for (auto i = 0u; i < scene->mNumAnimations; i++) {
@@ -251,11 +251,11 @@ Animator::Animator(Animation* animation) {
 
     {//TODO:: remove it
         blender = new Blander();
-        blender->m_Animations["idle"] = new Animation(UTILS::GetRealPath("models/player/animations/Idle.dae"), m_CurrentAnimation->model);
-        blender->m_Animations["run_forward"] = new Animation(UTILS::GetRealPath("models/player/animations/RunForward.dae"), m_CurrentAnimation->model);
-        blender->m_Animations["run_backward"] = new Animation(UTILS::GetRealPath("models/player/animations/RunBackward.dae"), m_CurrentAnimation->model);
-        blender->m_Animations["run_left"] = new Animation(UTILS::GetRealPath("models/player/animations/RunLeft.dae"), m_CurrentAnimation->model);
-        blender->m_Animations["run_right"] = new Animation(UTILS::GetRealPath("models/player/animations/RunRight.dae"), m_CurrentAnimation->model);
+        blender->m_Animations["idle"] = new Animation("models/player/animations/Idle.dae", m_CurrentAnimation->model);
+        blender->m_Animations["run_forward"] = new Animation("models/player/animations/RunForward.dae", m_CurrentAnimation->model);
+        blender->m_Animations["run_backward"] = new Animation("models/player/animations/RunBackward.dae", m_CurrentAnimation->model);
+        blender->m_Animations["run_left"] = new Animation("models/player/animations/RunLeft.dae", m_CurrentAnimation->model);
+        blender->m_Animations["run_right"] = new Animation("models/player/animations/RunRight.dae", m_CurrentAnimation->model);
 
         std::vector<MATH::Vector2f> points;
 

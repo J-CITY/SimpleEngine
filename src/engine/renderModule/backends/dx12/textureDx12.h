@@ -4,44 +4,64 @@
 #include <string>
 #include <wrl/client.h>
 
+#include <optional>
+#include <vector>
+
+#include "d3dx12/d3dx12.h"
+#include "renderModule/backends/interface/renderEnums.h"
 #include <d3d12.h>
-#include "d3dx12.h"
 #include "../interface/textureInterface.h"
+#include "../interface/driverInterface.h"
+#include "utilsModule/memoryAlloc.h"
 
 namespace IKIGAI::RENDER {
-	class TextureDx12: public TextureInterface {
+	struct TextureResource;
+
+	class TextureDx12 : public TextureInterface {
 	public:
-		std::string Name;
+		TextureDx12();
+		TextureDx12(const TextureResource& descriptor, const std::vector<void*>& data);
+		TextureDx12(size_t width, size_t height, PixelFormat format, Microsoft::WRL::ComPtr<ID3D12Resource> texture);
+		~TextureDx12() override;
 
-		std::string Filename;
+		void setData(const std::vector<void*>& data, size_t width, size_t height, PixelFormat format, size_t mipLevel);
+		void generateMips();
 
-		Microsoft::WRL::ComPtr<ID3D12Resource> Resource = nullptr;
+		void* getImguiId() override;
+		void recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) override;
 
-		//For render target
-		UINT mSrvDescSize;
-		UINT mRtvDescSize;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE mCpuSrv;
-		CD3DX12_GPU_DESCRIPTOR_HANDLE mGpuSrv;
-		//CD3DX12_CPU_DESCRIPTOR_HANDLE mCpuRtv;
-		//Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mRtvHeap = nullptr;
+		const Microsoft::WRL::ComPtr<ID3D12Resource>& getResource() const;
+		CD3DX12_GPU_DESCRIPTOR_HANDLE getGpuDescriptorHandle() const;
+		void setState(ID3D12GraphicsCommandList* cmdlist, D3D12_RESOURCE_STATES state);
 
-		//Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> UploadHeap = nullptr;
+		static std::shared_ptr<TextureDx12> Create(const std::string& path, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureDx12> Create(const TextureResource& descriptor, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureDx12> Create(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 
-		static std::shared_ptr<TextureDx12> Create(std::string path);
-		static std::shared_ptr<TextureDx12> CreateForAttach(size_t width, size_t height);
+	private:
+		void generateMips(ID3D12GraphicsCommandList* cmdlist);
+		void create(const TextureResource& descriptor, const std::vector<void*>& data);
 
-		void buildDescriptorHeaps();
+		Microsoft::WRL::ComPtr<ID3D12Resource> mResource;
+		CD3DX12_GPU_DESCRIPTOR_HANDLE mGpuDescriptorHandle;
+		D3D12_RESOURCE_STATES mCurrentState = D3D12_RESOURCE_STATE_COMMON;
+	};
 
-		DXGI_FORMAT mColorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-		DXGI_FORMAT mNormalPosFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	class TextureAtlasDx12 : public TextureDx12 {
+		AtlasData mAtlas;
+	public:
+		TextureAtlasDx12() = default;
+		TextureAtlasDx12(const TextureResource& descriptor, const std::vector<void*>& data)
+			: TextureDx12(descriptor, data) {}
 
-		float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-		CD3DX12_CLEAR_VALUE optClear = { mNormalPosFormat, ClearColor };
+		void recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) override;
 
-		virtual void* getImguiId() override;
+		[[nodiscard]] AtlasRect getPiece(const std::string& name) const;
+		[[nodiscard]] AtlasRect getPieceUV(const std::string& name) const;
 
-		static void BuildDescriptors(std::shared_ptr<TextureDx12> texture);
-		static void BuildResource(std::shared_ptr<TextureDx12> texture);
+		static std::shared_ptr<TextureAtlasDx12> CreateAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureAtlasDx12> CreateAtlasFromResource(const TextureResource& res, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static std::shared_ptr<TextureAtlasDx12> CreateAtlasFromResource(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 	};
 }
 #endif

@@ -13,6 +13,7 @@
 #include "resourceModule/textureManager.h"
 #include "renderModule/backends/gl/shaderGl.h"
 #include "renderModule/backends/gl/vertexBufferGl.h"
+#include "resourceModule/fileSystem/fileSystem.h"
 #include "utilsModule/time/time.h"
 
 using namespace IKIGAI;
@@ -28,16 +29,16 @@ SpriteBatcher::SpriteBatcher()
     // Setup vertex buffer
 
 	mVertexArray = std::make_unique<RENDER::VertexArray>();
-	mVbo = std::make_shared<RENDER::VertexBufferGl<Vertex>>();
+	mVbo = std::make_shared<RENDER::VertexBufferGl>(std::vector<Vertex>{});
 	
 	uint64_t vertexSize = sizeof(Vertex);
-	mVertexArray->bindAttribute(0, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
-	mVertexArray->bindAttribute(1, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
-	mVertexArray->bindAttribute(2, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
-	mVertexArray->bindAttribute(3, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
-	mVertexArray->bindAttribute(4, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
-	mVertexArray->bindAttribute(5, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
-	mVertexArray->bindAttribute(6, *std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo), RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
+	mVertexArray->bindAttribute(0, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
+	mVertexArray->bindAttribute(1, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
+	mVertexArray->bindAttribute(2, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
+	mVertexArray->bindAttribute(3, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
+	mVertexArray->bindAttribute(4, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
+	mVertexArray->bindAttribute(5, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	mVertexArray->bindAttribute(6, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
 	//mVbo = std::make_shared<RENDER::VertexBufferGl<BatchVertex>>();
 	//std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bindAttribute(0, 3, GL_FLOAT, false, sizeof(BatchVertex), (void*)offsetof(BatchVertex, position));
 	//std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bindAttribute(1, 2, GL_FLOAT, false, sizeof(BatchVertex), (void*)offsetof(BatchVertex, texCoord));
@@ -94,7 +95,7 @@ void SpriteBatcher::Draw(const std::array<Vertex, 6>& verts, std::shared_ptr<REN
 	mVertexBuffer.push_back(verts[5]);
 }
 
-void _bindAttribute(unsigned int attribute, RENDER::VertexArray::Type type, int count, int stride, intptr_t offset) {
+void _bindAttribute(unsigned int attribute, RENDER::VertexArray::AttributeType type, int count, int stride, intptr_t offset) {
 	glEnableVertexAttribArray(attribute);
 	glVertexAttribPointer(attribute, count, static_cast<GLenum>(type), GL_FALSE, stride, reinterpret_cast<const GLvoid*>(offset));
 }
@@ -111,7 +112,8 @@ void SpriteBatcher::Flush() {
     // Set the current shader program.
 	mShader->bind();
 	std::static_pointer_cast<RENDER::TextureGl>(mTexture)->bind(0);
-	std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bufferData(mVertexBuffer.size() * sizeof(Vertex), mVertexBuffer.data(), GL_STATIC_DRAW);
+	//TODO:fix it
+	//std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo)->bufferData(mVertexBuffer.size() * sizeof(Vertex), mVertexBuffer.data(), GL_STATIC_DRAW);
 
 	//TODO: get screen size
 	//TODO: check is 3D
@@ -121,16 +123,16 @@ void SpriteBatcher::Flush() {
 #ifndef USING_GLES
 	mVertexArray->bind();
 #else
-	std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo)->bind();
+	std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo)->bind();
 
 	const auto vertexSize = sizeof(Vertex);
-	_bindAttribute(0, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
-	_bindAttribute(1, RENDER::VertexArray::Type::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
-	_bindAttribute(2, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
-	_bindAttribute(3, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
-	_bindAttribute(4, RENDER::VertexArray::Type::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
-	_bindAttribute(5, RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
-	_bindAttribute(6, RENDER::VertexArray::Type::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
+	_bindAttribute(0, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
+	_bindAttribute(1, RENDER::VertexArray::AttributeType::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
+	_bindAttribute(2, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
+	_bindAttribute(3, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
+	_bindAttribute(4, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
+	_bindAttribute(5, RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
+	_bindAttribute(6, RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
 #endif
     glDrawArrays(GL_TRIANGLES, 0, mVertexBuffer.size());
 #ifndef USING_GLES
@@ -139,7 +141,7 @@ void SpriteBatcher::Flush() {
 	for (int i = 0; i <= 6; ++i) {
 		_unbindAttribute(i);
 	}
-	std::static_pointer_cast<RENDER::VertexBufferGl<Vertex>>(mVbo)->unbind();
+	std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo)->unbind();
 #endif
 
 	mShader->unbind();
@@ -192,7 +194,7 @@ void SpriteComponent::setTexture(std::string path) {
 #ifdef OPENGL_BACKEND
 	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path, true);
 	obj->getTransform()->getTransform().setLocalSize(
-		{ static_cast<RENDER::TextureGl*>(mTexture.get())->getWidth(), static_cast<RENDER::TextureGl*>(mTexture.get())->getHeight() });
+		{ (float)static_cast<RENDER::TextureGl*>(mTexture.get())->getWidth(), (float)static_cast<RENDER::TextureGl*>(mTexture.get())->getHeight() });
 #endif
 }
 
@@ -214,7 +216,7 @@ void SpriteComponent::setAtlasPiece(std::string name)
 	if (name.empty()) {
 		return;
 	}
-	auto rect = static_cast<RENDER::TextureAtlas*>(mTexture.get())->getPiece(name);
+	auto rect = static_cast<RENDER::TextureAtlasGl*>(mTexture.get())->getPiece(name);
 	obj->getTransform()->getTransform().setLocalSize({ rect.mW, rect.mH });
 	mTexturePiece = name;
 }
@@ -508,7 +510,12 @@ LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& de
 	mIs3D = descriptor.Is3D;
 	mLabel = descriptor.Label;
 	//TODO: mGridSize = descriptor.Font;
-	mFont = std::make_shared<IKIGAI::GUI::Font>(IKIGAI::UTILS::GetRealPath("fonts/a_AlternaSw.TTF"), 42);
+	auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+	auto path = fs.getFilePath("fonts/a_AlternaSw.TTF");
+	if (!path) {
+		//problem
+	}
+	mFont = std::make_shared<IKIGAI::GUI::Font>(*path, 42);
 }
 
 LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):

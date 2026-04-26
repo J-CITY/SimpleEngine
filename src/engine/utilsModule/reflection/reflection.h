@@ -274,6 +274,14 @@ public:
 	Creator invoke;
 };
 
+class EnumInfo {
+public:
+	std::string name;
+	TypeId typeId;
+	std::unordered_map<std::string, int> nameToValue;
+	std::unordered_map<int, std::string> valueToName;
+};
+
 class TypeInfo {
 public:
 	TypeName mName;
@@ -352,6 +360,7 @@ Any invoke_member_const(R (C::*func)(Args...) const, void *instance,
 
 class ReflectionManager {
 	std::unordered_map<TypeId, TypeInfo> mTypes;
+	std::unordered_map<TypeId, EnumInfo> mEnums;
 	TypeInfo mGlobalScope;
 	std::unordered_map<std::string, Any> mInternalProperties;
 	std::unordered_map<std::string, FieldInfo> mGlobalProperties;
@@ -394,6 +403,32 @@ public:
 			return nullptr;
 		}
 		return &target->second;
+	}
+
+	template <typename E>
+	void registerEnum(const std::string& enumName, const std::vector<std::pair<std::string, int>>& values) {
+		TypeId id = GetTypeId<E>();
+		EnumInfo info;
+		info.name = enumName;
+		info.typeId = id;
+		for (const auto& pair : values) {
+			info.nameToValue[pair.first] = pair.second;
+			info.valueToName[pair.second] = pair.first;
+		}
+		mEnums[id] = std::move(info);
+	}
+
+	EnumInfo *getEnum(TypeId id) {
+		auto target = mEnums.find(id);
+		if (target == mEnums.end()) {
+			return nullptr;
+		}
+		return &target->second;
+	}
+
+	EnumInfo *getEnum(std::string_view enumName) {
+		auto id = string_hash(enumName);
+		return getEnum(id);
 	}
 
 	// --- Field Registration ---

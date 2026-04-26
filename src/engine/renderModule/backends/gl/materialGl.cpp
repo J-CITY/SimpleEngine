@@ -10,16 +10,23 @@
 #include "utilsModule/visitorHelper.h"
 #include "storageBufferGl.h"
 #include "uniformBufferGl.h"
+#include "renderModule/render.h"
+#include "resourceModule/fileSystem/fileSystem.h"
 
 IKIGAI::RENDER::MaterialGl::MaterialGl(const MaterialResource& res): MaterialInterface(res){
+	create(res);
+}
 
+void IKIGAI::RENDER::MaterialGl::create(const MaterialResource& res) {
 	//TODO: do it not in constructor (add var in Material resource) 
 	auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
 	if (resData.isErr()) {
-		
+
 	}
+	auto resDataVal = resData.unwrap();
+	resDataVal.path = res.ShaderPath;
 	auto shader = std::static_pointer_cast<RENDER::ShaderGl>(
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resData.unwrap()));
+		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resDataVal));
 	MaterialGl::setShader(shader);
 
 	auto& textureLoader = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>();
@@ -27,7 +34,12 @@ IKIGAI::RENDER::MaterialGl::MaterialGl(const MaterialResource& res): MaterialInt
 		std::visit([&](auto& arg) {
 			using T = std::decay_t<decltype(arg)>;
 			if constexpr (std::is_same_v<T, std::string>) {
-				mUniforms[k] = textureLoader.createFromResource(arg);
+				const auto ext = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFileExtension(arg);
+				if (ext == ".texture") {
+					mUniforms[k] = textureLoader.createFromResource(arg);
+				} else {
+					mUniforms[k] = textureLoader.createFromFile(arg, true);
+				}
 			} else {
 				mUniforms[k] = arg;
 			}
@@ -116,6 +128,9 @@ void IKIGAI::RENDER::MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> 
 
 	auto& shaderInfo = mShader->getReflection();
 	for (const auto& uniform : shaderInfo.mUniforms) {
+		if (uniform.mName.starts_with("engine")) {
+			continue;
+		}
 		switch (uniform.mType) {
 		case ShaderReflection::UniformType::SAMPLER_2D:
 		case ShaderReflection::UniformType::SAMPLER_CUBE:
@@ -124,14 +139,12 @@ void IKIGAI::RENDER::MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> 
 			if (useTextures) {
 				if (auto tex = std::get<std::shared_ptr<TextureInterface>>(mUniforms.at(uniform.mName))) {
 					std::static_pointer_cast<TextureGl>(tex)->bind(textureSlot);
-					mShader->setInt(uniform.mName, textureSlot);
-					textureSlot++;
 				}
 				else if (defaultTexture) {
 					reinterpret_cast<TextureGl*>(defaultTexture.get())->bind(textureSlot);
-					mShader->setInt(uniform.mName, textureSlot);
-					textureSlot++;
 				}
+				mShader->setInt(uniform.mName, textureSlot);
+				textureSlot++;
 			}
 		} break;
 		case ShaderReflection::UniformType::UNIFORM_BUFFER: {
@@ -147,6 +160,9 @@ void IKIGAI::RENDER::MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> 
 					}
 				}
 				mUniformBuffers[uniform.mName]->setData(bufferData.data(), bufferData.size());
+
+				auto& render = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RENDER::Renderer>();
+				render.setUniformBuffer(uniform.mBind, std::static_pointer_cast<UniformBufferInterface>(mUniformBuffers[uniform.mName]));
 			}
 				//TODO:
 			//driver->setUniformBuffer(uniform.mBind, mUniformBuffers[uniform.mName]);

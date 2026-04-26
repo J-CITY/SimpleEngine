@@ -1,27 +1,31 @@
 #pragma once
 #ifdef VULKAN_BACKEND
-#include <span>
-
-#include <cstdint>
 #include <vector>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_raii.hpp>
 #include "../interface/indexBufferInterface.h"
 namespace IKIGAI::RENDER {
 	class ShaderInterface;
 
 	class IndexBufferVk : public IndexBufferInterface {
+		vk::raii::Buffer mBuffer = nullptr;
+		vk::raii::DeviceMemory mDeviceMemory = nullptr;
 	public:
-		VkDeviceAddress       m_device_address = 0;
-		int				 m_indexCount;
-		VkBuffer		 m_indexBuffer;
-		VkDeviceMemory   m_indexBufferMemory;
-		IndexBufferVk() = default;
-		IndexBufferVk(std::span<uint32_t>& indices);
+		IndexBufferVk(void* data, size_t size, size_t stride);
+		~IndexBufferVk() override;
 
-		void bind(const ShaderInterface& shader);
-		virtual int getIndexCount() override
-		{
-			return m_indexCount;
+		template<class T>
+		IndexBufferVk(const std::vector<T>& vertices) : IndexBufferVk((void*)vertices.data(), vertices.size(), sizeof(T)) {
+
+		}
+
+		void setData(const void* data, size_t sz, size_t stride) override;
+
+		void bind() override;
+
+		void unbind() override;
+
+		vk::raii::Buffer& getBuffer() {
+			return mBuffer;
 		}
 	};
 }

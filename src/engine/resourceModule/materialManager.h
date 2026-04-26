@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 #include "resourceManager.h"
+#include "utilsModule/event.h"
+#include "utilsModule/idGenerator.h"
 
 namespace IKIGAI::RENDER {
 	class MaterialInterface;
@@ -11,14 +13,13 @@ namespace IKIGAI {
 		class MaterialLoader : public ResourceManager<RENDER::MaterialInterface> {
 		public:
 			static ResourcePtr<RENDER::MaterialInterface> CreateFromFile(const std::string& path);
-			//move to private
 			static ResourcePtr<RENDER::MaterialInterface> Create(const std::string& path);
 		protected:
-			virtual ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path) override;
-			virtual ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type) override {
-				return createResource(path, type, std::any());
-			}
-			virtual ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
+			ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path) override;
+			ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type) override;
+			ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
+
+			inline static std::unordered_map<std::string, std::vector<IdGenerator<EVENT::Event<>>::id>> fwSubscribersIds;
 		};
 	}
 }

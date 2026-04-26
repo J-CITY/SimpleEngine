@@ -8,6 +8,7 @@
 #include "renderModule/backends/gl/modelGl.h"
 #include "renderModule/backends/gl/textureGl.h"
 #include "resourceModule/modelManager.h"
+#include "resourceModule/fileSystem/fileSystem.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
@@ -552,14 +553,15 @@ GLuint TextureAtlas::CreateTextureForAtlas(std::vector<SlotBundle> slotBundles, 
 	// Define texture data
 	std::vector<GLubyte> atlasData(atlasWidth * atlasHeight * 4, 255);
 
-	for (uint32_t i = 0; i < slotBundles.size(); i++)
-	{
-		std::vector<unsigned char> texData = RENDER::TextureGl::GetPixels(UTILS::GetRealPath(slotBundles[i].GetTexture()->getPath()));
-		uint32_t channels = slotBundles[i].GetTexture()->getChannels();
-		Rect rect = slotBundles[i].GetRect();
-
-		AddTextureToAtlas(rect, channels, texData, atlasData);
-	}
+	//TODO: fix it
+	//for (uint32_t i = 0; i < slotBundles.size(); i++)
+	//{
+	//	std::vector<unsigned char> texData = RENDER::TextureGl::GetPixels(UTILS::GetRealPath(slotBundles[i].GetTexture()->getPath()));
+	//	uint32_t channels = slotBundles[i].GetTexture()->getChannels();
+	//	Rect rect = slotBundles[i].GetRect();
+	//
+	//	AddTextureToAtlas(rect, channels, texData, atlasData);
+	//}
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, atlasWidth, atlasHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, atlasData.data());
 
@@ -693,11 +695,11 @@ void BatchComponent::CreateAtlases(const MaterialRenderer& material)
 	for (const auto& m : ms) {
 		if (!m) break;
 		auto _m = std::static_pointer_cast<RENDER::MaterialGl>(m);
-		for (const auto& uniform : _m->mUniformData) {
-			if (std::holds_alternative<std::shared_ptr<RENDER::TextureGl>>(uniform.second)) {
-				dataForAtlas[uniform.first].push_back(std::get<std::shared_ptr<RENDER::TextureGl>>(uniform.second));
-			}
-		}
+		//for (const auto& uniform : _m->mUniform) {
+		//	if (std::holds_alternative<std::shared_ptr<RENDER::TextureGl>>(uniform.second)) {
+		//		dataForAtlas[uniform.first].push_back(std::get<std::shared_ptr<RENDER::TextureGl>>(uniform.second));
+		//	}
+		//}
 	}
 
 
@@ -720,7 +722,12 @@ void BatchComponent::createBuffers(ModelRenderer& model, MaterialRenderer& mater
 	uint32_t lastTotalVertices = 0;
 	std::vector<std::vector<Vertex>> _globalVerticesPerMesh;
 	std::vector< std::vector<uint32_t>> _globalIndicesPerMesh;
-	RESOURCES::ModelLoader::CreateVerts(UTILS::GetRealPath(model.getModel()->getPath()), RESOURCES::ModelLoader::getDefaultFlag(), _globalVerticesPerMesh, _globalIndicesPerMesh);
+	auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+	auto path = fs.getFilePath(model.getModel()->getPath());
+	if (!path) {
+		//problem
+	}
+	RESOURCES::ModelLoader::CreateVerts(*path, RESOURCES::ModelLoader::getDefaultFlag(), _globalVerticesPerMesh, _globalIndicesPerMesh);
 
 	std::vector<Vertex> mBatchedVertices;
 	std::vector<uint32_t> mBatchedIndices;
@@ -731,53 +738,53 @@ void BatchComponent::createBuffers(ModelRenderer& model, MaterialRenderer& mater
 		//TS_CORE_INFO("Texture ID for {0} is {1}",go->GetName(), texID);
 
 
-		for (int i = 0; i < _globalVerticesPerMesh.size(); ++i) {
-			auto m = material.getMaterials().size() > i ? material.getMaterials()[i] : material.getMaterials()[0];
-			auto _m = std::static_pointer_cast<RENDER::MaterialGl>(m);
-			auto tex = std::get<std::shared_ptr<RENDER::TextureGl>>(_m->mUniformData[mTextureAtlasCreator.begin()->first]);
-
-			AtlasSizeAndTextureRectPair atlasAndTextureRectPair = mTextureAtlasCreator.begin()->second->GetTextureAtlases().begin()->GetAtlasSizeAndTextureRectPair(tex->id);
-
-			Rect rect = atlasAndTextureRectPair.GetRect();//Rect between 0 - texWidth, 0, texHeight
-			float atlasWidth = atlasAndTextureRectPair.GetAtlasSize().x;
-			float atlasHeight = atlasAndTextureRectPair.GetAtlasSize().y;
-
-			float u1 = rect.x;
-			float v1 = rect.y;
-			float u2 = (rect.x + rect.w);
-			float v2 = (rect.y + rect.h);
-			//--------------------------------
-
-			auto& vertices = _globalVerticesPerMesh[i];
-			auto& indices = _globalIndicesPerMesh[i];
-
-			for (const auto& vertex : vertices) {
-				auto batchedVertex = vertex;
-
-				float u = (u1 + vertex.texCoord.x * rect.w) / atlasWidth;
-				float v = (v1 + vertex.texCoord.y * rect.h) / atlasHeight;
-
-				//TS_CORE_INFO("Texcoord original : {0}, {1}", vertex.texCoord.x, vertex.texCoord.y);
-				//TS_CORE_INFO("Texcoord : {0}, {1}", u, v);
-				
-				batchedVertex.texCoord = {u,v};
-
-				//TS_CORE_INFO("UV: {0}, {1}", vertex.uv.x, vertex.uv.y);
-				//batchedVertex.texID = currentMeshTexID;
-				mBatchedVertices.push_back(batchedVertex);
-			}
-
-			for (const uint32_t& index : indices)
-				mBatchedIndices.push_back(lastTotalVertices + index);
-
-			lastTotalVertices += vertices.size();
-
-			//TS_CORE_INFO("Texture ID for {0}'s mesh at {1} is {2}",go->GetName(), meshIndex ,go->GetTextureID());
-			//auto tex2D = Texture2D::GetTextureFromID(go->GetTextureID());
-
-			meshIndex++;
+		//for (int i = 0; i < _globalVerticesPerMesh.size(); ++i) {
+		//	auto m = material.getMaterials().size() > i ? material.getMaterials()[i] : material.getMaterials()[0];
+		//	auto _m = std::static_pointer_cast<RENDER::MaterialGl>(m);
+		//	auto tex = std::get<std::shared_ptr<RENDER::TextureGl>>(_m->mUniformData[mTextureAtlasCreator.begin()->first]);
+		//
+		//	AtlasSizeAndTextureRectPair atlasAndTextureRectPair = mTextureAtlasCreator.begin()->second->GetTextureAtlases().begin()->GetAtlasSizeAndTextureRectPair(tex->id);
+		//
+		//	Rect rect = atlasAndTextureRectPair.GetRect();//Rect between 0 - texWidth, 0, texHeight
+		//	float atlasWidth = atlasAndTextureRectPair.GetAtlasSize().x;
+		//	float atlasHeight = atlasAndTextureRectPair.GetAtlasSize().y;
+		//
+		//	float u1 = rect.x;
+		//	float v1 = rect.y;
+		//	float u2 = (rect.x + rect.w);
+		//	float v2 = (rect.y + rect.h);
+		//	//--------------------------------
+		//
+		//	auto& vertices = _globalVerticesPerMesh[i];
+		//	auto& indices = _globalIndicesPerMesh[i];
+		//
+		//	for (const auto& vertex : vertices) {
+		//		auto batchedVertex = vertex;
+		//
+		//		float u = (u1 + vertex.texCoord.x * rect.w) / atlasWidth;
+		//		float v = (v1 + vertex.texCoord.y * rect.h) / atlasHeight;
+		//
+		//		//TS_CORE_INFO("Texcoord original : {0}, {1}", vertex.texCoord.x, vertex.texCoord.y);
+		//		//TS_CORE_INFO("Texcoord : {0}, {1}", u, v);
+		//		
+		//		batchedVertex.texCoord = {u,v};
+		//
+		//		//TS_CORE_INFO("UV: {0}, {1}", vertex.uv.x, vertex.uv.y);
+		//		//batchedVertex.texID = currentMeshTexID;
+		//		mBatchedVertices.push_back(batchedVertex);
+		//	}
+		//
+		//	for (const uint32_t& index : indices)
+		//		mBatchedIndices.push_back(lastTotalVertices + index);
+		//
+		//	lastTotalVertices += vertices.size();
+		//
+		//	//TS_CORE_INFO("Texture ID for {0}'s mesh at {1} is {2}",go->GetName(), meshIndex ,go->GetTextureID());
+		//	//auto tex2D = Texture2D::GetTextureFromID(go->GetTextureID());
+		//
+		//	meshIndex++;
+		////}
 		//}
-	}
 
 	auto newMash = std::make_shared<RENDER::MeshGl>(mBatchedVertices, mBatchedIndices, 0);
 	auto newModel = std::make_shared<RENDER::ModelGl>("batchModel");
@@ -789,23 +796,24 @@ void BatchComponent::createBuffers(ModelRenderer& model, MaterialRenderer& mater
 
 	//TODO: make copy method
 	auto newMaterial = std::make_shared<RENDER::MaterialGl>();
-	newMaterial->mUniforms = _m->mUniforms;
-	newMaterial->mUniformData = _m->mUniformData;
-	newMaterial->mShader = _m->mShader;
-	newMaterial->mBlendable = _m->mBlendable;
-	newMaterial->mBackfaceCulling = _m->mBackfaceCulling;
-	newMaterial->mFrontfaceCulling = _m->mFrontfaceCulling;
-	newMaterial->mDepthTest = _m->mDepthTest;
-	newMaterial->mDepthWriting = _m->mDepthWriting;
-	newMaterial->mColorWriting = _m->mColorWriting;
-	newMaterial->mGpuInstances = _m->mGpuInstances;
-	newMaterial->mIsDeferred = _m->mIsDeferred;
-	newMaterial->mIsCastShadow = _m->mIsCastShadow;
-	newMaterial->mIsBakedShadow = _m->mIsBakedShadow;
+	//newMaterial->mUniforms = _m->mUniforms;
+	//newMaterial->mUniformData = _m->mUniformData;
+	//newMaterial->mShader = _m->mShader;
+	//TODO: fix it
+	//newMaterial->mBlendable = _m->mBlendable;
+	//newMaterial->mBackfaceCulling = _m->mBackfaceCulling;
+	//newMaterial->mFrontfaceCulling = _m->mFrontfaceCulling;
+	//newMaterial->mDepthTest = _m->mDepthTest;
+	//newMaterial->mDepthWriting = _m->mDepthWriting;
+	//newMaterial->mColorWriting = _m->mColorWriting;
+	//newMaterial->mGpuInstances = _m->mGpuInstances;
+	//newMaterial->mIsDeferred = _m->mIsDeferred;
+	//newMaterial->mIsCastShadow = _m->mIsCastShadow;
+	//newMaterial->mIsBakedShadow = _m->mIsBakedShadow;
 
-	for (auto& tex : mTextureAtlasCreator) {
-		newMaterial->mUniformData[tex.first] = tex.second->GetTextureAtlases()[0].mAtlasTexture;
-	}
+	//for (auto& tex : mTextureAtlasCreator) {
+	//	newMaterial->mUniformData[tex.first] = tex.second->GetTextureAtlases()[0].mAtlasTexture;
+	//}
 
 	material.fillWithMaterial(newMaterial);
 }

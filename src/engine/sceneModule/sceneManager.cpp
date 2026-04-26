@@ -108,6 +108,7 @@ void SceneManager::loadFromFile(const std::string& sceneFilePath) {
 	m_currentScene = std::make_unique<Scene>();
 	m_currentSceneSourcePath = sceneFilePath;
 
+	//TODO: load with vfs
 	std::ifstream f(UTILS::GetRealPath(sceneFilePath));
 	nlohmann::json data = nlohmann::json::parse(f);
 	f.close();
@@ -155,6 +156,7 @@ void SceneManager::saveToFile(const std::string& sceneFilePath) {
 	}
 	auto jsonStr = jsonStrRes.unwrap();
 	//write
+	//TODO: load with vfs
 	std::ofstream f(UTILS::GetRealPath(sceneFilePath));
 	f << jsonStr << std::endl;
 	f.close();

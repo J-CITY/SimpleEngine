@@ -107,7 +107,7 @@ std::vector<std::string> MaterialRenderer::getMaterialsPaths() const {
 		if (!e) {
 			break;
 		}
-		res.push_back(e->mPath);
+		res.push_back(e->getPath());
 	}
 	return res;
 }

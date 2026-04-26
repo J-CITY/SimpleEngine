@@ -28,26 +28,24 @@ namespace IKIGAI
 namespace IKIGAI::RENDER {
 	class MeshVk : public MeshInterface {
 	public:
-		MeshVk(std::span<Vertex> p_vertices, std::span<unsigned> indices, unsigned materialIndex);
-		MeshVk(std::span<Vertex> vertices, std::span<unsigned> indices, size_t offset, unsigned materialIndex);
+		MeshVk(std::vector<Vertex> p_vertices, std::vector<unsigned> indices, unsigned materialIndex);
+		MeshVk(std::vector<Vertex> vertices, std::vector<unsigned> indices, size_t offset, unsigned materialIndex);
 		virtual ~MeshVk();
-		virtual void bind(const ShaderInterface& shader) const;
+		virtual void bind() const{};
 		virtual void unbind() const;
 		virtual size_t getVertexCount() const;
 		virtual size_t getIndexCount() const;
-		uint32_t getMaterialIndex() const override;
 	private:
-		void createBuffers(std::span<Vertex> p_vertices, std::span<uint32_t> p_indices);
-		void computeBoundingSphere(std::span<Vertex> vertices);
+		void createBuffers(std::vector<Vertex> p_vertices, std::vector<uint32_t> p_indices);
+		void computeBoundingSphere(std::vector<Vertex> vertices);
 
 	public:
-		void bind() const override {};
 
 		const unsigned int mVertexCount = 0;
 		const unsigned int mIndicesCount = 0;
 		const unsigned int mMaterialIndex = 0;
 		
-		std::unique_ptr<VertexBufferVk<Vertex>> mVertexBuffer;
+		std::unique_ptr<VertexBufferVk> mVertexBuffer;
 		std::unique_ptr<IndexBufferVk> mIndexBuffer;
 
 		std::optional<size_t> mOffset = std::nullopt;

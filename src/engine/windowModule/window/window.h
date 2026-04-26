@@ -19,6 +19,10 @@
 #include "GLFW/glfw3.h"
 #endif
 
+#ifdef DX12_BACKEND
+#include <d3d12.h>
+#endif
+
 namespace IKIGAI::WINDOW {
 	struct WindowSettings {
 		bool isFullscreen = false;
@@ -33,23 +37,23 @@ namespace IKIGAI::WINDOW {
 		MATH::Vector2u size = MATH::Vector2u(800, 600);
 		int refreshRate = 60;
 
-		template<class Context>
-		constexpr static auto serde(Context& context, WindowSettings& value) {
-			using Self = WindowSettings;
-			using namespace serde::attribute;
-			serde::serde_struct(context, value)
-				.field(&Self::isFullscreen, "IsFullscreen")
-				.field(&Self::isCursorVisible, "IsCursorVisible")
-				.field(&Self::isCursorLock, "IsCursorLock")
-				.field(&Self::depthBits, "DepthBits")
-				.field(&Self::stencilBits, "StencilBits")
-				.field(&Self::antialiasingLevel, "AntialiasingLevel")
-				.field(&Self::majorVersion, "MajorVersion")
-				.field(&Self::minorVersion, "MinorVersion")
-				.field(&Self::title, "Title")
-				.field(&Self::refreshRate, "RefreshRate")
-				.field(&Self::size, "Size");
-		}
+		//template<class Context>
+		//constexpr static auto serde(Context& context, WindowSettings& value) {
+		//	using Self = WindowSettings;
+		//	using namespace serde::attribute;
+		//	serde::serde_struct(context, value)
+		//		.field(&Self::isFullscreen, "IsFullscreen")
+		//		.field(&Self::isCursorVisible, "IsCursorVisible")
+		//		.field(&Self::isCursorLock, "IsCursorLock")
+		//		.field(&Self::depthBits, "DepthBits")
+		//		.field(&Self::stencilBits, "StencilBits")
+		//		.field(&Self::antialiasingLevel, "AntialiasingLevel")
+		//		.field(&Self::majorVersion, "MajorVersion")
+		//		.field(&Self::minorVersion, "MinorVersion")
+		//		.field(&Self::title, "Title")
+		//		.field(&Self::refreshRate, "RefreshRate")
+		//		.field(&Self::size, "Size");
+		//}
 	};
 	
 #ifdef USE_SDL
@@ -109,9 +113,23 @@ namespace IKIGAI::WINDOW {
 		void setCursorVisible(bool isVisible, bool isLock) const;
 
 		std::pair<int, int> getDrawableSize();
-	private:
+
+#ifdef DX12_BACKEND
+		HWND mHWND;
+		HWND getContextDX12() {
+			return mHWND;
+		}
+#endif
+
+#ifdef VULKAN_BACKEND
+		void createVulkanSurface();
+		std::vector<const char*> getSDLVulkanExtentions();
+#endif
+
 
 		void initImGUI();
+	private:
+		
 		[[nodiscard]] WindowSettings& getSetting();
 		
 		void create();
@@ -122,152 +140,6 @@ namespace IKIGAI::WINDOW {
 	};
 
 #endif
-
-#ifdef USE_GLFW
-	class Window {
-	public:
-		EVENT::Event<int> keyPressedEvent;
-		EVENT::Event<int> keyReleasedEvent;
-		EVENT::Event<int> mouseButtonPressedEvent;
-		EVENT::Event<int> mouseButtonReleasedEvent;
-		EVENT::Event<INPUT::Gamepad::GamepadData> gamepadEvent;
-
-		EVENT::Event<int, INPUT::Gamepad::GAMEPAD_BUTTON> gamepadButtonPressedEvent;
-		EVENT::Event<int, INPUT::Gamepad::GAMEPAD_BUTTON> gamepadButtonReleasedEvent;
-		EVENT::Event<int, INPUT::Gamepad::GAMEPAD_AXIS, float> gamepadAxisEvent;
-		EVENT::Event<int, INPUT::Gamepad::GAMEPAD_TRIGGER, float> gamepadTriggerEvent;
-
-		explicit Window(const WindowSettings& p_windowSettings);
-		Window() = delete;
-		~Window();
-		void initImGUI();
-		void preUpdate();
-
-		MATH::Vector2i getMousePos() const;
-		void setSize(unsigned int width, unsigned int height);
-		MATH::Vector2u getSize() const;
-		void setPosition(int x, int y);
-		MATH::Vector2i getPosition() const;
-		void setTitle(const std::string& title);
-		[[nodiscard]] std::string getTitle() const;
-		void setDepthBits(int val);
-		[[nodiscard]] int getDepathBits() const;
-		void setStencilBits(int val);
-		[[nodiscard]] int getStencilBits() const;
-		void setMajorVersion(int val);
-		[[nodiscard]] int getMajorVersion() const;
-		void setMinorVersion(int val);
-		[[nodiscard]] int getMinorVersion() const;
-		void setAntialiasingLevel(int val);
-		[[nodiscard]] int getAntialiasingLevel() const;
-		void setRefreshRate(int val);
-		[[nodiscard]] int getRefreshRate() const;
-		void setFullscreen(bool val);
-		[[nodiscard]] bool getIsFullscreen() const;
-		void toggleFullscreen();
-
-		void hide() const;
-		void show() const;
-		void focus() const;
-		[[nodiscard]] bool hasFocus() const;
-		void pollEvent();
-		void draw() const;
-		void update();
-
-#if defined(VULKAN_BACKEND) || defined(OPENGL_BACKEND)
-		EVENT::Event<GLFWwindow*, int, int, int, int> keyEvent;
-		EVENT::Event<GLFWwindow*, int, int, int> mouseButtonEvent;
-		[[nodiscard]] GLFWwindow& getContext() const;
-		GLFWwindow* getContextPtr() const;
-#endif
-		[[nodiscard]] bool isClosed() const;
-
-		void setCursorVisible(bool isVisible, bool isLock) const;
-
-	private:
-
-
-		[[nodiscard]] WindowSettings& getSetting();;
-		void updateWindow();
-
-		void create();
-		WindowSettings mWindowSettings;
-#if defined(VULKAN_BACKEND) || defined(OPENGL_BACKEND)
-		struct DestroyGLFW {
-			void operator()(GLFWwindow* ptr) const;
-		};
-		void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-		void mouseCallback(GLFWwindow* window, int button, int action, int mods);
-
-		std::unique_ptr<GLFWwindow, DestroyGLFW> window;
-#endif
-		MATH::Vector2i position{};
-		bool mIsClose = false;
-	};
-#endif
-
-
-#ifdef DX12_BACKEND
-	class Window {
-	public:
-		EVENT::Event<int> keyPressedEvent;
-		EVENT::Event<int> keyReleasedEvent;
-		EVENT::Event<int> mouseButtonPressedEvent;
-		EVENT::Event<int> mouseButtonReleasedEvent;
-		EVENT::Event<INPUT::Gamepad::GamepadData> gamepadEvent;
-
-		explicit Window(const WindowSettings& p_windowSettings);
-		Window() = delete;
-		~Window();
-
-		MATH::Vector2i getMousePos() const;
-		void setSize(unsigned int width, unsigned int height);
-		MATH::Vector2u getSize() const;
-		void setPosition(int x, int y);
-		MATH::Vector2i getPosition() const;
-		void initImGUI();
-		void preUpdate();
-		void update();
-		void setTitle(const std::string& title);
-		[[nodiscard]] std::string getTitle() const;
-		void setDepthBits(int val);
-		[[nodiscard]] int getDepathBits() const;
-		void setStencilBits(int val);
-		[[nodiscard]] int getStencilBits() const;
-		void setMajorVersion(int val);
-		[[nodiscard]] int getMajorVersion() const;
-		void setMinorVersion(int val);
-		[[nodiscard]] int getMinorVersion() const;
-		void setAntialiasingLevel(int val);
-		[[nodiscard]] int getAntialiasingLevel() const;
-		void setRefreshRate(int val);
-		[[nodiscard]] int getRefreshRate() const;
-		void setFullscreen(bool val);
-		[[nodiscard]] bool getIsFullscreen() const;
-		void toggleFullscreen();
-
-		void hide() const;
-		void show() const;
-		void focus() const;
-		[[nodiscard]] bool hasFocus() const;
-		void pollEvent();
-		void draw() const;
-		[[nodiscard]] bool isClosed() const;
-
-		void setCursorVisible(bool isVisible, bool isLock) const;
-	private:
-
-
-		[[nodiscard]] WindowSettings& getSetting();;
-		void updateWindow();
-
-		void create();
-		WindowSettings windowSettings;
-		MATH::Vector2i position{};
-		bool isClose = false;
-	};
-#endif
-
 
 #ifdef OCULUS
 

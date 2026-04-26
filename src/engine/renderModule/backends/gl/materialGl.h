@@ -38,13 +38,13 @@ namespace IKIGAI {
 			void setExternalBuffer(const std::string& name, std::shared_ptr<UniformBufferInterface> buffer);
 			void setExternalBuffer(const std::string& name, std::shared_ptr<StorageBufferInterface> buffer);
 
-			void set(const std::string& name, const UniformData& data);
-			UniformData& get(const std::string& name);
+			void set(const std::string& name, const UniformData& data) override;
+			UniformData& get(const std::string& name) override;
 
 
 			MaterialResource getDescriptor() override;
 
-
+			void create(const MaterialResource& res);
 			auto& getUniforms() { return mUniforms; }
 		private:
 			void generateUniformsData();

@@ -1,18 +1,18 @@
 ﻿#include "gameRendererVk.h"
 
-#ifdef VULKAN_BACKEND
-
-#include "backends/imgui_impl_vulkan.h"
-//#include "backends/vk/rt/rt.h"
-#include "backends/vk/materialVk.h"
-#include "backends/vk/frameBufferVk.h"
-#include "backends/vk/storageBufferVk.h"
-#include "backends/vk/uniformBufferVk.h"
-#include "backends/vk/shaderVk.h"
-#include <coreModule/core/core.h>
-#include <sceneModule/sceneManager.h>
-#include <windowModule/window/window.h>
-
+//#ifdef VULKAN_BACKEND
+//
+//#include "backends/imgui_impl_vulkan.h"
+////#include "backends/vk/rt/rt.h"
+//#include "backends/vk/materialVk.h"
+//#include "backends/vk/frameBufferVk.h"
+//#include "backends/vk/storageBufferVk.h"
+//#include "backends/vk/uniformBufferVk.h"
+//#include "backends/vk/shaderVk.h"
+//#include <coreModule/core/core.h>
+//#include <sceneModule/sceneManager.h>
+//#include <windowModule/window/window.h>
+/*
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
@@ -337,3 +337,4 @@ void GameRendererVk::drawDrawableDeferred(const Drawable& p_toDraw) {
 }
 
 #endif
+*/

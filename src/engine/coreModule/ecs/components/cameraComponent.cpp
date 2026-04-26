@@ -116,11 +116,9 @@ VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj): CameraCompon
 	__NAME__ = "VrCamera";
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
 #ifdef OPENGL_BACKEND
-	leftTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406/*GL_FLOAT*/); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
-	//leftTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
-
-	rightTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
-	//rightTexture->setFilter(RESOURCES::TextureFiltering::NEAREST, RESOURCES::TextureFiltering::NEAREST);
+	//TODO: fix it
+	//leftTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406/*GL_FLOAT*/); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	//rightTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 #endif
 	
 	{

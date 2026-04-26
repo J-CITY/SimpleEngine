@@ -1,57 +1,27 @@
 #pragma once
 #ifdef DX12_BACKEND
-#include <d3dcommon.h>
+#include <memory>
+#include <d3d12.h>
+#include <vector>
 #include <wrl/client.h>
 #include "../interface/vertexBufferInterface.h"
 
-#include "../../gameRendererDx12.h"
-
 namespace IKIGAI::RENDER {
-	template<class T>
-	class VertexBufferDx12 : public VertexBufferInterface
-	{
+	class VertexBufferDx12 : public VertexBufferInterface, public std::enable_shared_from_this<VertexBufferDx12> {
+	private:
+		Microsoft::WRL::ComPtr<ID3D12Resource> mBuffer;
+		D3D12_RESOURCE_STATES mState;
+	
+		VertexBufferDx12(void *data, size_t sz, size_t stride);
 	public:
-		int mSize = 0;
-		VertexBufferDx12(const std::vector<T>& vertices) {
+		template <class T>
+		VertexBufferDx12(const std::vector<T> &vertices): VertexBufferDx12((void*)vertices.data(), vertices.size(), sizeof(T)) {}
+		~VertexBufferDx12() override;
+		void bind() override;
+		void unbind() override;
+		void setData(const void* data, size_t sz, size_t stride) override;
 
-			GameRendererDx12::mApp->begin();
-			auto sz = vertices.size() * sizeof(T);
-			ThrowIfFailed(D3DCreateBlob(sz, &VertexBufferCPU));
-			CopyMemory(VertexBufferCPU->GetBufferPointer(), vertices.data(), sz);
-
-			VertexByteStride = sizeof(T);
-			VertexBufferByteSize = vertices.size() * sizeof(T);
-			mSize = vertices.size();
-
-			
-			VertexBufferGPU = d3dUtil::CreateDefaultBuffer(GameRendererDx12::mApp->mDriver->mDevice.Get(),
-				GameRendererDx12::mApp->mDriver->mCommandList.Get(), vertices.data(), sz, VertexBufferUploader);
-			GameRendererDx12::mApp->end();
-		}
-
-		D3D12_VERTEX_BUFFER_VIEW VertexBufferView()const {
-			D3D12_VERTEX_BUFFER_VIEW vbv;
-			vbv.BufferLocation = VertexBufferGPU->GetGPUVirtualAddress();
-			vbv.StrideInBytes = VertexByteStride;
-			vbv.SizeInBytes = VertexBufferByteSize;
-			return vbv;
-		}
-
-		int VertexByteStride = 0;
-		int VertexBufferByteSize = 0;
-
-		Microsoft::WRL::ComPtr<ID3DBlob> VertexBufferCPU = nullptr;
-
-		Microsoft::WRL::ComPtr<ID3D12Resource> VertexBufferGPU = nullptr;
-
-		Microsoft::WRL::ComPtr<ID3D12Resource> VertexBufferUploader = nullptr;
-
-		virtual ~VertexBufferDx12() = default;
-		void bind(const ShaderInterface& shader) override {};
-		int getVertexCount() override
-		{
-			return mSize;
-		};
+		const Microsoft::WRL::ComPtr<ID3D12Resource>& getBuffer() const;
 	};
 }
 #endif
