@@ -19,3 +19,7 @@ CMakeCache.txt
 /windows/buildDx
 /windows/outVk
 /windows/outGl
+assets/
+assetses/
+emscripten/out
+src/engine/generated
