@@ -1,238 +1,233 @@
-cmake_minimum_required(VERSION 3.4.1)
+#TODO 
+# soloud сборка
+
+
+cmake_minimum_required(VERSION 3.20)
 
 set(APP_NAME "IkigaiEngine")
+project(${APP_NAME} LANGUAGES C CXX)
 
-project(${APP_NAME})
+# --- Configuration Options ---
+option(USE_SDL2     "Use SDL2 window backend" ON)
+option(USE_OPENGL   "Use OpenGL rendering backend" ON)
+option(USE_VULKAN   "Use Vulkan rendering backend" OFF)
+option(USE_DX12     "Use DX12 rendering backend" OFF)
+option(USE_MIMALLOC "Use mimalloc override" OFF)
 
+# --- Directory Setup ---
 set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../3rd")
 set(MAIN_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../src")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/outGl)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/out")
 
-# if SDL2
-set(LIB_SDL2 ${THIRD_PARTY_DIR}/SDL2_windows/lib/x64/SDL2.lib)
-set(LIB_SDL2_MAIN ${THIRD_PARTY_DIR}/SDL2_windows/lib/x64/SDL2main.lib)
+# --- Dependencies ---
 
-# if GLFW
-#add_subdirectory(${THIRD_PARTY_DIR}/glfw ${THIRD_PARTY_DIR}/glfw/build)
-
-# if OPENGL
-set(LIB_GLEW ${THIRD_PARTY_DIR}/glew/lib/Release/x64/glew32s.lib)
-
+# 1. Assimp
 add_subdirectory(${THIRD_PARTY_DIR}/assimp ./3rd/assimp/build)
+
+# 2. Freetype
 add_subdirectory(${THIRD_PARTY_DIR}/freetype ./3rd/freetype/build)
 
-#if SDL2
-include_directories(${THIRD_PARTY_DIR}/SDL2_windows/include)
+# 3. GLSLang
+option(ENABLE_HLSL OFF)
+option(SKIP_GLSLANG_INSTALL ON)
+option(ENABLE_CTEST OFF)
+option(ENABLE_GLSLANG_BINARIES OFF)
+option(ENABLE_SPVREMAPPER OFF)
+# option(ENABLE_OPT OFF) # Uncomment if needed
+add_subdirectory(${THIRD_PARTY_DIR}/glslang ./3rd/glslang/build)
 
-# if OPENGL
-include_directories(${THIRD_PARTY_DIR}/glew/include)
+# 4. SPIRV-Cross
+option(SPIRV_CROSS_SKIP_INSTALL ON)
+option(SPIRV_CROSS_CLI OFF)
+option(SPIRV_CROSS_ENABLE_TESTS OFF)
+option(SPIRV_CROSS_ENABLE_C_API OFF)
+option(SPIRV_CROSS_ENABLE_CPP OFF)
+option(SPIRV_CROSS_ENABLE_UTIL OFF)
+add_subdirectory(${THIRD_PARTY_DIR}/SPIRV-Cross ./3rd/SPIRV-Cross/build)
 
-# if VULKAN
-#include_directories(${THIRD_PARTY_DIR}/VulkanSDK/Include)
+# 5. SPIRV-Reflect
+file(GLOB SPIRV_REFLECT_SRC 
+    "${THIRD_PARTY_DIR}/SPIRV-Reflect/spirv_reflect.cpp" 
+    "${THIRD_PARTY_DIR}/SPIRV-Reflect/spirv_reflect.h"
+)
+add_library(spirv-reflect STATIC ${SPIRV_REFLECT_SRC})
+target_include_directories(spirv-reflect PUBLIC "${THIRD_PARTY_DIR}/SPIRV-Reflect")
+set_property(TARGET spirv-reflect PROPERTY FOLDER "3rd/SPIRV-Reflect")
 
-
-include_directories(${THIRD_PARTY_DIR}/glm)
-include_directories(${THIRD_PARTY_DIR}/serdepp/include)
-include_directories(${THIRD_PARTY_DIR}/magic_enum/include)
-include_directories(${THIRD_PARTY_DIR}/nameof/include)
-include_directories(${THIRD_PARTY_DIR}/json/single_include)
-include_directories(${THIRD_PARTY_DIR}/assimp/include)
-include_directories(./buildGl/3rd/assimp/build/include)
-include_directories(${THIRD_PARTY_DIR}/soloud/include)
-include_directories(${THIRD_PARTY_DIR}/fmt/include)
-
-#if GLFW
-#include_directories(${THIRD_PARTY_DIR}/glfw/include)
-
-# global engine include
-include_directories(${MAIN_SOURCE_DIR}/engine)
-
-# if USE_EDITOR or USE_CHEATS
-file(GLOB_RECURSE IMGUI_FILES
-     "../3rd/imgui/imgui/imconfig.h"
-     "../3rd/imgui/imgui/imgui.cpp"
-     "../3rd/imgui/imgui/imgui.h"
-     "../3rd/imgui/imgui/imgui_draw.cpp"
-
-     #if GLFW
-     #"../3rd/imgui/imgui/imgui_impl_glfw.cpp"
-     #"../3rd/imgui/imgui/imgui_impl_glfw.h"
-
-     #if SDL2
-     "../3rd/imgui/imgui/backends/imgui_impl_sdl2.h"
-     "../3rd/imgui/imgui/backends/imgui_impl_sdl2.cpp"
-     
-     #OPENGL
-     "../3rd/imgui/imgui/backends/imgui_impl_opengl3.h"
-     "../3rd/imgui/imgui/backends/imgui_impl_opengl3.cpp"
-     "../3rd/imgui/imgui/backends/imgui_impl_opengl3_loader.h"
-
-     #VULKAN
-     #"../3rd/imgui/imgui/imgui_impl_vulkan.h"
-     #"../3rd/imgui/imgui/imgui_impl_vulkan.cpp"
-
-     # DX12
-     #"../3rd/imgui/imgui/imgui_impl_dx12.h"
-     #"../3rd/imgui/imgui/imgui_impl_dx12.cpp"
-     #"../3rd/imgui/imgui/imgui_impl_win32.h"
-     #"../3rd/imgui/imgui/imgui_impl_win32.cpp"
-
-     "../3rd/imgui/imgui/imgui_internal.h"
-     "../3rd/imgui/imgui/imgui_tables.cpp"
-     "../3rd/imgui/imgui/imgui_widgets.cpp"
-     "../3rd/imgui/imgui/imstb_rectpack.h"
-     "../3rd/imgui/imgui/imstb_rectpack.h"
-     "../3rd/imgui/imgui/imstb_textedit.h"
-     "../3rd/imgui/imgui/imstb_truetype.h"
-     "../3rd/imgui/imgui/misc/cpp/imgui_stdlib.h"
-     "../3rd/imgui/imgui/misc/cpp/imgui_stdlib.cpp"
-
-     "../3rd/imgui/IconFont/IconsFontAwesome5.h"
-     "../3rd/imgui/imgui/GraphEditor.h"
-     "../3rd/imgui/imgui/GraphEditor.cpp"
-     "../3rd/imgui/imgui/ImCurveEdit.h"
-     "../3rd/imgui/imgui/ImCurveEdit.cpp"
-     "../3rd/imgui/imgui/ImGradient.h"
-     "../3rd/imgui/imgui/ImGradient.cpp"
-     "../3rd/imgui/imgui/ImZoomSlider.h"
+# 6. ImGUI
+set(IMGUI_DIR "${THIRD_PARTY_DIR}/imgui")
+file(GLOB IMGUI_SOURCES 
+    "${IMGUI_DIR}/imgui/*.cpp"
+    "${IMGUI_DIR}/imgui/*.h"
+    "${IMGUI_DIR}/imgui/misc/cpp/*.cpp"
+    "${IMGUI_DIR}/imgui/misc/cpp/*.h"
+    "${IMGUI_DIR}/IconFont/*.h"
+    # Widgets
+    "${IMGUI_DIR}/imgui/GraphEditor.cpp" "${IMGUI_DIR}/imgui/GraphEditor.h" 
+    "${IMGUI_DIR}/imgui/ImCurveEdit.cpp" "${IMGUI_DIR}/imgui/ImCurveEdit.h"
+    "${IMGUI_DIR}/imgui/ImGradient.cpp" "${IMGUI_DIR}/imgui/ImGradient.h"
+    "${IMGUI_DIR}/imgui/ImZoomSlider.h"
 )
 
-file(GLOB_RECURSE SPINE_FILES
-     "../3rd/spine/spine/*.h"
-     "../3rd/spine/spine/*.cpp"
-)
-
-file(GLOB_RECURSE LUA_FILES
-     "../3rd/lua/lapi.c"
-     "../3rd/lua/lcode.c"
-     "../3rd/lua/lctype.c"
-     "../3rd/lua/ldebug.c"
-     "../3rd/lua/ldo.c"
-     "../3rd/lua/ldump.c"
-     "../3rd/lua/lfunc.c"
-     "../3rd/lua/lgc.c"
-     "../3rd/lua/llex.c"
-     "../3rd/lua/lmem.c"
-     "../3rd/lua/lobject.c"
-     "../3rd/lua/lopcodes.c"
-     "../3rd/lua/lparser.c"
-     "../3rd/lua/lstate.c"
-     "../3rd/lua/lstring.c"
-     "../3rd/lua/ltable.c"
-     "../3rd/lua/ltm.c"
-     "../3rd/lua/lundump.c"
-     "../3rd/lua/lvm.c"
-     "../3rd/lua/lzio.c"
-     "../3rd/lua/lauxlib.c"
-     "../3rd/lua/lbaselib.c"
-     "../3rd/lua/lcorolib.c"
-     "../3rd/lua/ldblib.c"
-     "../3rd/lua/liolib.c"
-     "../3rd/lua/lmathlib.c"
-     "../3rd/lua/loadlib.c"
-     "../3rd/lua/loslib.c"
-     "../3rd/lua/lstrlib.c"
-     "../3rd/lua/ltablib.c"
-     "../3rd/lua/lutf8lib.c"
-     "../3rd/lua/linit.c"
-)
-
-# if USE_EDITOR or USE_CHEATS
-add_library(imgui STATIC ${IMGUI_FILES})
-
-add_library(spine STATIC ${SPINE_FILES})
-add_library(lua STATIC ${LUA_FILES})
-
-#include_directories("../3rd/sol/single/include")
-include_directories("../3rd/sol/include")
-target_include_directories(lua PUBLIC "../3rd/lua")
-include_directories("../3rd/lua")
-include_directories("../3rd/freetype/include")
-include_directories("../3rd/vfspp/include")
-include_directories("../3rd/spine")
-target_include_directories(spine  PUBLIC "../3rd/spine")
-
-# if USE_EDITOR or USE_CHEATS
-target_include_directories(imgui PUBLIC "../3rd/imgui/imgui")
-include_directories("../3rd/imgui/imgui")
-include_directories("../3rd/imgui/IconFont")
-
-file(GLOB_RECURSE CPP_HEADERS ${MAIN_SOURCE_DIR}/*.hpp)
-file(GLOB_RECURSE CPP_HEADERS2 ${MAIN_SOURCE_DIR}/*.h)
-file(GLOB_RECURSE CPP_SOURCES ${MAIN_SOURCE_DIR}/*.cpp)
-file(GLOB_RECURSE C_SOURCES ${MAIN_SOURCE_DIR}/*.c)
-file(GLOB_RECURSE CXX_SOURCES ${MAIN_SOURCE_DIR}/*.cxx)
-
-if(CMAKE_BUILD_TYPE MATCHES "Release")
-    set(EXECUTABLE_TYPE WIN32)
+if(USE_SDL2)
+    list(APPEND IMGUI_SOURCES 
+        "${IMGUI_DIR}/imgui/backends/imgui_impl_sdl2.cpp" 
+        "${IMGUI_DIR}/imgui/backends/imgui_impl_sdl2.h"
+    )
 endif()
 
-# for tree view in VS
-source_group(TREE ${MAIN_SOURCE_DIR} FILES ${CPP_HEADERS} ${CPP_HEADERS2} ${CPP_SOURCES})
+if(USE_OPENGL)
+    list(APPEND IMGUI_SOURCES 
+        "${IMGUI_DIR}/imgui/backends/imgui_impl_opengl3.cpp" 
+        "${IMGUI_DIR}/imgui/backends/imgui_impl_opengl3.h"
+        "${IMGUI_DIR}/imgui/backends/imgui_impl_opengl3_loader.h"
+    )
+endif()
 
-add_executable(
-    ${APP_NAME} ${EXECUTABLE_TYPE}
-    ${CPP_HEADERS}
-    ${CPP_HEADERS2}
-    ${CPP_SOURCES}
-    ${CXX_SOURCES}
-    ${C_SOURCES}
+if(USE_VULKAN)
+    list(APPEND IMGUI_SOURCES 
+        "${IMGUI_DIR}/imgui/backends/imgui_impl_vulkan.h"
+        "${IMGUI_DIR}/imgui/backends/imgui_impl_vulkan.cpp"
+    )
+endif()
+
+if(USE_DX12)
+    list(APPEND IMGUI_SOURCES 
+        "../3rd/imgui/imgui/imgui_impl_dx12.h"
+        "../3rd/imgui/imgui/imgui_impl_dx12.cpp"
+    )
+endif()
+
+add_library(imgui STATIC ${IMGUI_SOURCES})
+target_include_directories(imgui PUBLIC 
+    "${IMGUI_DIR}/imgui" 
+    "${IMGUI_DIR}/IconFont"
 )
 
-set_property(TARGET ${APP_NAME} PROPERTY CXX_STANDARD 20)
-set_property(TARGET ${APP_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+if(USE_SDL2)
+    target_include_directories(imgui PRIVATE "${THIRD_PARTY_DIR}/SDL2_windows/include")
+endif()
 
-# DEFINES
-add_compile_definitions(NOMINMAX)
+# 7. Spine
+file(GLOB_RECURSE SPINE_FILES "${THIRD_PARTY_DIR}/spine/spine/*.cpp" "${THIRD_PARTY_DIR}/spine/spine/*.h")
+add_library(spine STATIC ${SPINE_FILES})
+target_include_directories(spine PUBLIC "${THIRD_PARTY_DIR}/spine")
 
-# if SDL2
-add_compile_definitions(USE_SDL)
+# 8. Lua
+file(GLOB_RECURSE LUA_FILES "${THIRD_PARTY_DIR}/lua/*.c")
+list(FILTER LUA_FILES EXCLUDE REGEX "lua\\.c$")
+list(FILTER LUA_FILES EXCLUDE REGEX "luac\\.c$")
+add_library(lua STATIC ${LUA_FILES})
+target_include_directories(lua PUBLIC "${THIRD_PARTY_DIR}/lua")
 
-# if GLFW
-#add_compile_definitions(USE_GLFW)
+# --- Main Application ---
 
-# if EDITOR
-add_compile_definitions(USE_EDITOR)
+# Sources
+file(GLOB_RECURSE PROJECT_ABSOLUTE_HEADERS "${MAIN_SOURCE_DIR}/*.hpp" "${MAIN_SOURCE_DIR}/*.h")
+file(GLOB_RECURSE PROJECT_ABSOLUTE_SOURCES "${MAIN_SOURCE_DIR}/*.cpp" "${MAIN_SOURCE_DIR}/*.c" "${MAIN_SOURCE_DIR}/*.cxx")
 
-# if CHEATS
-add_compile_definitions(USE_CHEATS)
+# Source Groups for IDE
+source_group(TREE ${MAIN_SOURCE_DIR} FILES ${PROJECT_ABSOLUTE_HEADERS} ${PROJECT_ABSOLUTE_SOURCES})
 
-# if (backend == opengl)
-add_compile_definitions(OPENGL_BACKEND)
-add_compile_definitions(OPENGL_SIMPLE_RENDER)
-#add_compile_definitions(OPENGL_HARD_RENDER)
+if(WIN32)
+    set(EXECUTABLE_FLAG WIN32) 
+endif()
 
-# if (backend == vulkan)
-#add_compile_definitions(VULKAN_BACKEND)
+add_executable(${APP_NAME} ${EXECUTABLE_FLAG}
+    ${PROJECT_ABSOLUTE_HEADERS}
+    ${PROJECT_ABSOLUTE_SOURCES}
+)
 
-# if (backend == directx12)
-#add_compile_definitions(DX12_BACKEND)
-#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
-#add_compile_definitions(UNICODE)
+# --- Generate Reflection Headers ---
+add_custom_command(
+    TARGET ${APP_NAME} PRE_BUILD
+    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
+    COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
+)
 
-target_compile_options(${APP_NAME} PRIVATE /bigobj)
+# Properties
+set_target_properties(${APP_NAME} PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+target_compile_options(${APP_NAME} PRIVATE /bigobj /MP)
 
+# Definitions
+target_compile_definitions(${APP_NAME} PRIVATE NOMINMAX)
 
-target_link_libraries(
-    ${APP_NAME}
+if(USE_SDL2)
+    target_compile_definitions(${APP_NAME} PRIVATE USE_SDL)
+endif()
 
-    #if OPENGL
-    opengl32
-    ${LIB_GLEW}
+if(USE_OPENGL)
+    target_compile_definitions(${APP_NAME} PRIVATE OPENGL_BACKEND)
+endif()
 
-    #if VULKAN
-    #${THIRD_PARTY_DIR}/VulkanSDK/Lib/vulkan-1.lib
+if(USE_VULKAN)
+    target_compile_definitions(${APP_NAME} PRIVATE VULKAN_BACKEND)
+endif()
 
-    # if SDL2
-    ${LIB_SDL2}
-    ${LIB_SDL2_MAIN}
+if(USE_DX12)
+    target_compile_definitions(${APP_NAME} PRIVATE DX12_BACKEND)
+endif()
 
-    #${THIRD_PARTY_DIR}/glfw/build/src/Debug/glfw3ddll.lib
+# Additional definitions
+target_compile_definitions(${APP_NAME} PRIVATE USE_EDITOR USE_CHEATS)
 
-    ${THIRD_PARTY_DIR}/../windows/buildGl/3rd/assimp/build/lib/Debug/assimp-vc143-mtd.lib
-    ${THIRD_PARTY_DIR}/../windows/buildGl/3rd/freetype/build/Debug/freetyped.lib
+# --- Includes and Linking ---
+
+target_include_directories(${APP_NAME} PRIVATE
+    ${MAIN_SOURCE_DIR}/engine
+    ${THIRD_PARTY_DIR}/glm
+    ${THIRD_PARTY_DIR}/serdepp/include
+    ${THIRD_PARTY_DIR}/magic_enum/include
+    ${THIRD_PARTY_DIR}/nameof/include
+    ${THIRD_PARTY_DIR}/json/single_include
+    ${THIRD_PARTY_DIR}/soloud/include
+    ${THIRD_PARTY_DIR}/fmt/include
+    ${THIRD_PARTY_DIR}/vfspp/include
+    ${THIRD_PARTY_DIR}/vfspp/include/vendor/miniz-cpp
+    ${THIRD_PARTY_DIR}/sol/include
+)
+
+set(LIBS_TO_LINK
     imgui
     spine
     lua
-    ${THIRD_PARTY_DIR}/soloud/lib/soloud_static_x64_d.lib
+    assimp
+    freetype
+    SPIRV
+    glslang
+    spirv-cross-core
+    spirv-cross-glsl
+    spirv-cross-hlsl
+    spirv-cross-msl
+    spirv-cross-reflect
+    spirv-reflect
 )
+
+if(USE_OPENGL)
+    target_link_libraries(${APP_NAME} PRIVATE opengl32)
+    target_link_libraries(${APP_NAME} PRIVATE "${THIRD_PARTY_DIR}/glew/lib/Release/x64/glew32s.lib")
+    target_include_directories(${APP_NAME} PRIVATE "${THIRD_PARTY_DIR}/glew/include")
+endif()
+
+if(USE_VULKAN)
+    target_link_libraries(${APP_NAME} PRIVATE ${THIRD_PARTY_DIR}/VulkanSDK/Lib/vulkan-1.lib)
+endif()
+
+if(USE_DX12)
+    target_link_libraries(${APP_NAME} PRIVATE d3d12.lib d3dcompiler.lib dxcompiler.lib)
+endif()
+
+if(USE_SDL2)
+    target_link_libraries(${APP_NAME} PRIVATE
+        "${THIRD_PARTY_DIR}/SDL2_windows/lib/x64/SDL2.lib"
+        "${THIRD_PARTY_DIR}/SDL2_windows/lib/x64/SDL2main.lib"
+    )
+    target_include_directories(${APP_NAME} PRIVATE "${THIRD_PARTY_DIR}/SDL2_windows/include")
+endif()
+
+# SoLoud
+target_link_libraries(${APP_NAME} PRIVATE 
+    "${THIRD_PARTY_DIR}/soloud/lib/soloud_static_x64_d.lib"
+)
+
+target_link_libraries(${APP_NAME} PRIVATE ${LIBS_TO_LINK})
