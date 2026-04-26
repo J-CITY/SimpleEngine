@@ -48,9 +48,6 @@
 [submodule "3rd/VulkanMemoryAllocator"]
 	path = 3rd/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
-[submodule "3rd/serdepp"]
-	path = 3rd/serdepp
-	url = https://github.com/injae/serdepp.git
 [submodule "3rd/vfspp"]
 	path = 3rd/vfspp
 	url = https://github.com/J-CITY/vfspp.git
@@ -63,3 +60,6 @@
 [submodule "3rd/glslang"]
 	path = 3rd/glslang
 	url = https://github.com/KhronosGroup/glslang
+[submodule "3rd/serdepp"]
+	path = 3rd/serdepp
+	url = https://github.com/injae/serdepp.git
