@@ -1,4 +1,6 @@
 #include "transform.h"
+#include "generated/transform.generated.h"
+
 #include <windowModule/window/window.h>
 
 #include "coreModule/ecs/object.h"

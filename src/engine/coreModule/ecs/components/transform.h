@@ -1,11 +1,12 @@
 #pragma once
 
 #include "component.h"
+#include "utilsModule/reflection/reflection_macros.h"
+
 #include <functional>
 
 #include "mathModule/math.h"
 #include "utilsModule/ref.h"
-
 
 namespace IKIGAI::ECS { class Object; }
 
@@ -103,7 +104,9 @@ namespace IKIGAI::ECS {
 		MATH::Vector2f mSize;
 	};
 	
+	IKI_CLASS()
 	class TransformComponent : public Component {
+        IKI_GENERATED_BODY(TransformComponent)
 	public:
 		struct Descriptor : public Component::Descriptor {
 			std::string Type;
@@ -209,6 +212,19 @@ namespace IKIGAI::ECS {
 		std::shared_ptr<Transform> transform;
 
 	public:
+		IKI_PROPERTY(
+			Name=LocalScale, 
+			Type=MATH::Vector3f, 
+			Getter=getLocalScale_, 
+			Setter=setLocalScale_, 
+			Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], 
+			EditRange=MATH::Vector2f{0.0f, 10000.0f}, 
+			EditStep=0.1f, 
+			EditWidget=DRAG_FLOAT_3
+		)
+		IKI_PROPERTY(Name=LocalRotation, Type=MATH::Vector3f, Getter=getLocalRotationDeg, Setter=setLocalRotationDeg, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 10000.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT_3)
+		IKI_PROPERTY(Name=LocalPosition, Type=MATH::Vector3f, Getter=getLocalPosition_, Setter=setLocalPosition_, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 10000.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT_3)
+
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfo("LocalScale", &TransformComponent::getLocalScale_, &TransformComponent::setLocalScale_,
