@@ -35,7 +35,7 @@ namespace IKIGAI::TEST {
 		}
 
 		IKI_FUNCTION()
-		virtual int Calculate(float x, float y) override {
+		virtual int Calculate(float x, float y) {
 			return static_cast<int>(x + y);
 		}
 	};

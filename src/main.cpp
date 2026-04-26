@@ -135,11 +135,6 @@
 #include "ecsModule/world.h"
 #include "sceneModule/sceneManager.h"
 
-#include "utilsModule/reflection/reflection/ReflMngr.hpp"
-#include "utilsModule/reflection/reflection/ranges/FieldRange.hpp"
-#include "utilsModule/reflection/reflection/ranges/MethodRange.hpp"
-
-#include <nameof.hpp>
 
 struct Vec {
   float x = 0;
@@ -273,7 +268,7 @@ vec4 g_DiffuseTexel;
 vec4 g_SpecularTexel;
 vec4 g_HeightTexel;
 vec4 g_NormalTexel;
-
+/
 
 void main() {
     g_TexCoords = data_UBO.u_TextureOffset + vec2(mod(fs_in.TexCoord.x * data_UBO.u_TextureTiling.x, 1), mod(fs_in.TexCoord.y * data_UBO.u_TextureTiling.y, 1)); 

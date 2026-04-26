@@ -55,7 +55,7 @@ std::vector<uint32_t> HexToSpirv(const std::string &hex) {
 }
 
 struct SpirvCache {
-  std::map<int, std::string> stages;
+  std::map<std::string, std::string> stages;
 
   template <class Context>
   constexpr static auto serde(Context &context, SpirvCache &value) {
@@ -100,7 +100,7 @@ IKIGAI::RENDER::ShaderGl::Create(const ShaderResource &resource) {
             !res.isErr()) {
           const auto &cache = res.unwrap();
           for (const auto &[key, hexStr] : cache.stages) {
-            resource.spirvSources[static_cast<ShaderType>(key)] =
+            resource.spirvSources[static_cast<ShaderType>(std::stoi(key))] =
                 HexToSpirv(hexStr);
           }
           return std::make_shared<ShaderGl>(resource);
@@ -133,7 +133,7 @@ IKIGAI::RENDER::ShaderGl::Create(const ShaderResource &resource) {
     if (!fs.isFileExist(cacheJsonPath)) {
       SpirvCache cache;
       for (const auto &[type, spirv] : resource.spirvSources) {
-        cache.stages[static_cast<int>(type)] = SpirvToHex(spirv);
+        cache.stages[std::to_string(static_cast<int>(type))] = SpirvToHex(spirv);
       }
       if (auto res = IKIGAI::UTILS::ToJsonStr(cache, 2); !res.isErr()) {
         if (auto file =
