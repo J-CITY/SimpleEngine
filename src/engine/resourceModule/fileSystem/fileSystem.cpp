@@ -1,6 +1,7 @@
 #include "fileSystem.h"
 #include "vfspp/VFS.h"
 #include "sdlFileSystem.h"
+#include "utilsModule/exeptions.h"
 
 namespace IKIGAI::RESOURCES {
 	class FileSystemInternal {
@@ -139,6 +140,22 @@ std::optional<std::string> IKIGAI::RESOURCES::FileSystem::getAbsolutePath(const 
 bool IKIGAI::RESOURCES::FileSystem::isDir(const std::string& path) const {
 	auto info = vfspp::FileInfo(path);
 	return info.IsDir();
+}
+
+IKIGAI::RESOURCES::FileSystem::FileTime IKIGAI::RESOURCES::FileSystem::lastWriteTime(const std::string& path) {
+	auto pathOpt = getAbsolutePath(path);
+	if (!pathOpt) {
+		throw UTILS::EXEPTIONS::WrongPath(path.c_str());
+	}
+	return std::filesystem::last_write_time(*pathOpt);
+}
+
+uintmax_t IKIGAI::RESOURCES::FileSystem::fileSize(const std::string& path) {
+	auto pathOpt = getAbsolutePath(path);
+	if (!pathOpt) {
+		throw UTILS::EXEPTIONS::WrongPath(path.c_str());
+	}
+	return std::filesystem::file_size(*pathOpt);
 }
 
 std::shared_ptr<IKIGAI::RESOURCES::File> IKIGAI::RESOURCES::FileSystem::getFile(const std::string& path, FileMode mode) {

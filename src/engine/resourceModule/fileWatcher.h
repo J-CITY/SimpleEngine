@@ -14,10 +14,14 @@ namespace IKIGAI::RESOURCES {
 		constexpr static int DELAY_UPDATE = 5000;
 		enum class FileStatus { CREATE, MODIFIED, DEL };
 	private:
+		using FileTime = std::filesystem::file_time_type;
+		using Path = std::filesystem::path;
+
 		struct FileModificationInfo {
-			std::filesystem::file_time_type mLastModifyTime;
+			FileTime mLastModifyTime;
 			std::uintmax_t mFileSize{};
 		};
+
 		std::unordered_map<std::string, FileModificationInfo> m_filesLastModifications;
 		std::unordered_map<std::string, EVENT::Event<FileStatus>> m_filesCallbacks;
 		std::vector<std::pair<std::string, FileStatus>> m_events;
@@ -50,11 +54,11 @@ namespace IKIGAI::RESOURCES {
 			return m_instance;
 		}
 
-		EVENT::Event<FileStatus>::id add(const std::filesystem::path& path, std::function<void(FileStatus)> cb);
-		void remove(const std::filesystem::path& path, EVENT::Event<FileStatus>::id id);
+		EVENT::Event<FileStatus>::id add(const Path& path, std::function<void(FileStatus)> cb);
+		void remove(const Path& path, EVENT::Event<FileStatus>::id id);
 
-		void addDeferred(const std::filesystem::path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb);
-		void removeDeferred(const std::filesystem::path& path, EVENT::Event<FileStatus>::id id);
+		void addDeferred(const Path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb);
+		void removeDeferred(const Path& path, EVENT::Event<FileStatus>::id id);
 
 		void start();
 		void stop();

@@ -7,4 +7,9 @@ namespace IKIGAI::UTILS::EXEPTIONS
 	public:
 		IndexOutOfRange() : std::runtime_error("Index is out of range") {}
 	};
+
+	class WrongPath final : public std::runtime_error {
+	public:
+		WrongPath(const char* path) : std::runtime_error(path) {}
+	};
 }

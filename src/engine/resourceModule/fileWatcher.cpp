@@ -2,32 +2,30 @@
 
 #include "serviceManager.h"
 #include "fileSystem/fileSystem.h"
+#include "utilsModule/exeptions.h"
 
-using namespace IKIGAI::RESOURCES;
+namespace IKIGAI::RESOURCES {
 
 IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::_add(const std::string& path, std::function<void(FileStatus)> cb) {
-	if (!ServiceManager::Get<FileSystem>().isFileExist(path)) {
-		throw;
+	auto& fs = ServiceManager::Get<FileSystem>();
+	if (!fs.isFileExist(path)) {
+		throw UTILS::EXEPTIONS::WrongPath(path.c_str());
 	}
-	auto pathOpt = ServiceManager::Get<FileSystem>().getAbsolutePath(path);
-	if (!pathOpt) {
-		throw;
-	}
-	m_filesLastModifications[path].mLastModifyTime = std::filesystem::last_write_time(*pathOpt);
-	m_filesLastModifications[path].mFileSize = std::filesystem::file_size(*pathOpt);
+	m_filesLastModifications[path].mLastModifyTime = fs.lastWriteTime(path);
+	m_filesLastModifications[path].mFileSize = fs.fileSize(path);
 	if (!m_filesCallbacks.contains(path)) {
 		m_filesCallbacks[path] = EVENT::Event<FileStatus>();
 	}
 	return m_filesCallbacks[path].add(cb);
-}
+};
 
-IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::add(const std::filesystem::path& path, std::function<void(FileStatus)> cb) {
+IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::add(const Path& path, std::function<void(FileStatus)> cb) {
 	const std::lock_guard lock(m_mutex);
 	const auto _path = path.string();
 	return _add(_path, cb);
 }
 
-void FileWatcher::addDeferred(const std::filesystem::path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb) {
+void FileWatcher::addDeferred(const Path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb) {
 	const std::lock_guard lock(m_mutexDeferred);
 	if (!ServiceManager::Get<FileSystem>().isFileExist(path.string())) {
 		throw;
@@ -48,23 +46,19 @@ void FileWatcher::_remove(const std::string& path, EVENT::Event<FileStatus>::id 
 	}
 }
 
-void FileWatcher::remove(const std::filesystem::path& path, EVENT::Event<FileStatus>::id id) {
+void FileWatcher::remove(const Path& path, EVENT::Event<FileStatus>::id id) {
 	const std::lock_guard lock(m_mutex);
 	const auto _path = path.string();
 	_remove(_path, id);
 }
 
-void FileWatcher::removeDeferred(const std::filesystem::path& path, EVENT::Event<FileStatus>::id id) {
+void FileWatcher::removeDeferred(const Path& path, EVENT::Event<FileStatus>::id id) {
 	const std::lock_guard lock(m_mutexDeferred);
-	auto pathOpt = ServiceManager::Get<FileSystem>().getAbsolutePath(path.string());
-	if (!pathOpt) {
-		throw;
-	}
-	if (!std::filesystem::exists(*pathOpt)) {
-		throw;
-	}
+	auto& fs = ServiceManager::Get<FileSystem>();
 	const auto _path = path.string();
-
+	if (!fs.isFileExist(_path)) {
+		throw UTILS::EXEPTIONS::WrongPath(_path.c_str());;
+	}
 	deferredEvents.push({ QueueEvent::Action::REMOVE, _path, nullptr, nullptr, id });
 }
 
@@ -111,12 +105,9 @@ void FileWatcher::update() {
 			m_events.emplace_back(file.first, FileStatus::DEL);
 		}
 		else {
-			auto pathOpt = ServiceManager::Get<FileSystem>().getAbsolutePath(file.first);
-			if (!pathOpt) {
-				throw;
-			}
-			auto lastModification = std::filesystem::last_write_time(*pathOpt);
-			auto fileSize = std::filesystem::file_size(*pathOpt);
+			auto& fs = ServiceManager::Get<FileSystem>();
+			auto lastModification = fs.lastWriteTime(file.first);
+			auto fileSize = fs.fileSize(file.first);
 
 			if (lastModification != file.second.mLastModifyTime || fileSize != file.second.mFileSize) {
 				m_filesLastModifications[file.first] = {lastModification, fileSize};
@@ -124,4 +115,5 @@ void FileWatcher::update() {
 			}
 		}
 	}
+}
 }

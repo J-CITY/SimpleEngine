@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -59,6 +60,8 @@ namespace IKIGAI::RESOURCES {
 	class FileSystem {
 		std::unique_ptr<FileSystemInternal> mInternal;
 	public:
+		using FileTime = std::filesystem::file_time_type;
+
 		FileSystem();
 		~FileSystem();
 
@@ -73,6 +76,9 @@ namespace IKIGAI::RESOURCES {
 		std::string getFileName(const std::string& path) const;
 		std::optional<std::string> getAbsolutePath(const std::string& path) const;
 		bool isDir(const std::string& path) const;
+
+		FileTime lastWriteTime(const std::string& path);
+		uintmax_t fileSize(const std::string& path);
 
 		std::shared_ptr<File> getFile(const std::string& path, FileMode mode = FileMode::READ_WRITE);
 		std::optional<std::string> getFilePath(const std::string& path) const;
