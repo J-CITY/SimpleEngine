@@ -4,10 +4,16 @@
 #include <stdexcept>
 #include <array>
 
+#if defined(__SSE__) || defined(_M_IX86) || defined(_M_X64)
+#include <xmmintrin.h>
+#define IKIGAI_USE_SSE
+#elif defined(__ARM_NEON) || defined(_M_ARM64)
+#include <arm_neon.h>
+#define IKIGAI_USE_NEON
+#endif
+
 #include <serdepp/attribute/default.hpp>
 #include <serdepp/serializer.hpp>
-
-//TODO: move it to new file
 #include <nlohmann/json.hpp>
 namespace serde {
 	template<typename E, int SIZE>
@@ -34,7 +40,7 @@ namespace serde {
 
 namespace IKIGAI::MATH {
 	constexpr float PI = 3.14159265359f;
-	constexpr float EPSILON = 0.00001f;
+	constexpr float EPSILON = 10e-7;
 	constexpr float SLEEP_EPS = 0.3f;
 
 	template<typename T>
@@ -51,9 +57,16 @@ namespace IKIGAI::MATH {
 		return fabs(a - b) < eps;
 	}
 
+	constexpr int math_max(int a) { return a; }
+	template <typename... Args>
+	constexpr int math_max(int a, Args... args) {
+		int b = math_max(args...);
+		return a > b ? a : b;
+	}
+
 	template<template<typename> class TT, typename T, int ... Indexes>
 	class Swizzle {
-		T v[sizeof...(Indexes)];
+		T v[math_max(Indexes...) + 1];
 	public:
 		TT<T>& operator=(const TT<T>& rhs) {
 			int indexes[] = { Indexes... }; // unpack
@@ -74,6 +87,7 @@ namespace IKIGAI::MATH {
 		union {
 			T data[2];
 			struct { T x, y; };
+			struct { T width, heights; };
 			Swizzle<Vector2, T, 0, 0> xx;
 			Swizzle<Vector2, T, 0, 0> rr;
 			Swizzle<Vector2, T, 0, 1> xy;
@@ -188,12 +202,6 @@ namespace IKIGAI::MATH {
 			x = y = 0;
 		}
 
-		//static auto GetMembers() {
-		//	return std::tuple{
-		//		IKIGAI::UTILS::MakeMemberInfo("x", &Vector2::x),
-		//		IKIGAI::UTILS::MakeMemberInfo("y", &Vector2::y)
-		//	};
-		//}
 		template<class Context>
 		constexpr static auto serde(Context& context, Vector2& value) {
 			using Self = Vector2;
@@ -280,7 +288,6 @@ namespace IKIGAI::MATH {
 		operator T* () { return data; };
 		operator const T* () const { return static_cast<const T*>(data); };
 
-
 		static const Vector3 One;
 		static const Vector3 Zero;
 		static const Vector3 Forward;
@@ -305,7 +312,6 @@ namespace IKIGAI::MATH {
 		void setZ(T v) {
 			z = v;
 		}
-
 
 		Vector3 operator-() const {
 			return operator*(-1);
@@ -388,7 +394,7 @@ namespace IKIGAI::MATH {
 		static Vector3 Divide(const Vector3& left, float scalar) {
 			Vector3 result(left);
 
-			if (scalar == 0)
+			if (CMP(scalar, 0.0f))
 				throw std::logic_error("Division by 0");
 
 			result.x /= scalar;
@@ -402,7 +408,7 @@ namespace IKIGAI::MATH {
 			return std::sqrt(target.x * target.x + target.y * target.y + target.z * target.z);
 		}
 
-		static float LengthSqrt(const Vector3& target) {
+		static float LengthSquare(const Vector3& target) {
 			return (target.x * target.x + target.y * target.y + target.z * target.z);
 		}
 
@@ -521,14 +527,6 @@ namespace IKIGAI::MATH {
 			throw std::out_of_range("Vector2: out of range");
 		}
 
-		//static auto GetMembers() {
-		//	return std::tuple{
-		//		IKIGAI::UTILS::MakeMemberInfo("x", &Vector3::x),
-		//		IKIGAI::UTILS::MakeMemberInfo("y", &Vector3::y),
-		//		IKIGAI::UTILS::MakeMemberInfo("z", &Vector3::z)
-		//	};
-		//}
-
 		template<class Context>
 		constexpr static auto serde(Context& context, Vector3& value) {
 			using Self = Vector3;
@@ -538,8 +536,6 @@ namespace IKIGAI::MATH {
 				.field(&Self::y, "Y")
 				.field(&Self::z, "Z");
 		}
-
-		//inline static Vector3<T> Zero = Vector3<T>(0);
 	};
 
 	template <typename T>
@@ -1149,6 +1145,9 @@ namespace IKIGAI::MATH {
 		Vector4<T>(const T& _x, const T& _y, const T& _z, const T& _w) : x(_x), y(_y), z(_z), w(_w) {};
 		Vector4<T>(const Vector3<T>& v, const T& _w) : x(v.x), y(v.y), z(v.z), w(_w) {};
 
+		static const Vector4 One;
+		static const Vector4 Zero;
+
 		operator T* () { return data; };
 		operator const T* () const { return static_cast<const T*>(data); };
 
@@ -1199,6 +1198,7 @@ namespace IKIGAI::MATH {
 			}
 			throw std::out_of_range("Vector2: out of range");
 		}
+
 		const float& operator[](const unsigned index) const {
 			switch (index) {
 			case 0: return x;
@@ -1233,7 +1233,6 @@ namespace IKIGAI::MATH {
 		static Vector4 Normalize(const Vector4& V) {
 			return V / Length(V);
 		}
-		
 
 		Vector4 operator-() {
 			return Vector4(-x, -y, -z, -w);
@@ -1253,34 +1252,115 @@ namespace IKIGAI::MATH {
 			w -= V2.w;
 		}
 
-		Vector4 operator+(const Vector4& V2) {
-			return Vector4(x + V2.x, y + V2.y, z + V2.z, w + V2.w);
+		Vector4 operator+(const Vector4& V2) const {
+			if constexpr (std::is_same_v<T, float>) {
+#ifdef IKIGAI_USE_SSE
+				Vector4 result;
+				__m128 a = _mm_loadu_ps(this->data);
+				__m128 b = _mm_loadu_ps(V2.data);
+				_mm_storeu_ps(result.data, _mm_add_ps(a, b));
+				return result;
+#elif defined(IKIGAI_USE_NEON)
+				Vector4 result;
+				float32x4_t a = vld1q_f32(this->data);
+				float32x4_t b = vld1q_f32(V2.data);
+				vst1q_f32(result.data, vaddq_f32(a, b));
+				return result;
+#else
+				return Vector4(x + V2.x, y + V2.y, z + V2.z, w + V2.w);
+#endif
+			} else {
+				return Vector4(x + V2.x, y + V2.y, z + V2.z, w + V2.w);
+			}
 		}
 
-		Vector4 operator-(const Vector4& V2) {
-			return Vector4(x - V2.x, y - V2.y, z - V2.z, w - V2.w);
+		Vector4 operator-(const Vector4& V2) const {
+			if constexpr (std::is_same_v<T, float>) {
+#ifdef IKIGAI_USE_SSE
+				Vector4 result;
+				__m128 a = _mm_loadu_ps(this->data);
+				__m128 b = _mm_loadu_ps(V2.data);
+				_mm_storeu_ps(result.data, _mm_sub_ps(a, b));
+				return result;
+#elif defined(IKIGAI_USE_NEON)
+				Vector4 result;
+				float32x4_t a = vld1q_f32(this->data);
+				float32x4_t b = vld1q_f32(V2.data);
+				vst1q_f32(result.data, vsubq_f32(a, b));
+				return result;
+#else
+				return Vector4(x - V2.x, y - V2.y, z - V2.z, w - V2.w);
+#endif
+			} else {
+				return Vector4(x - V2.x, y - V2.y, z - V2.z, w - V2.w);
+			}
 		}
 
-		Vector4 operator*(const Vector4& V2) {
-			return Vector4(x * V2.x, y * V2.y, z * V2.z, w * V2.w);
+		Vector4 operator*(const Vector4& V2) const {
+			if constexpr (std::is_same_v<T, float>) {
+#ifdef IKIGAI_USE_SSE
+				Vector4 result;
+				__m128 a = _mm_loadu_ps(this->data);
+				__m128 b = _mm_loadu_ps(V2.data);
+				_mm_storeu_ps(result.data, _mm_mul_ps(a, b));
+				return result;
+#elif defined(IKIGAI_USE_NEON)
+				Vector4 result;
+				float32x4_t a = vld1q_f32(this->data);
+				float32x4_t b = vld1q_f32(V2.data);
+				vst1q_f32(result.data, vmulq_f32(a, b));
+				return result;
+#else
+				return Vector4(x * V2.x, y * V2.y, z * V2.z, w * V2.w);
+#endif
+			} else {
+				return Vector4(x * V2.x, y * V2.y, z * V2.z, w * V2.w);
+			}
 		}
 
-		Vector4 operator*(const float f) const {
-			return Vector4(x * f, y * f, z * f, w * f);
+		Vector4 operator*(const T f) const {
+			if constexpr (std::is_same_v<T, float>) {
+#ifdef IKIGAI_USE_SSE
+				Vector4 result;
+				__m128 a = _mm_loadu_ps(this->data);
+				__m128 b = _mm_set1_ps(f);
+				_mm_storeu_ps(result.data, _mm_mul_ps(a, b));
+				return result;
+#elif defined(IKIGAI_USE_NEON)
+				Vector4 result;
+				float32x4_t a = vld1q_f32(this->data);
+				float32x4_t b = vdupq_n_f32(f);
+				vst1q_f32(result.data, vmulq_f32(a, b));
+				return result;
+#else
+				return Vector4(x * f, y * f, z * f, w * f);
+#endif
+			} else {
+				return Vector4(x * f, y * f, z * f, w * f);
+			}
 		}
 
-		Vector4 operator/(const float f) const {
-			return Vector4(x / f, y / f, z / f, w / f);
+		Vector4 operator/(const T f) const {
+			if constexpr (std::is_same_v<T, float>) {
+#ifdef IKIGAI_USE_SSE
+				Vector4 result;
+				__m128 a = _mm_loadu_ps(this->data);
+				__m128 b = _mm_set1_ps(f);
+				_mm_storeu_ps(result.data, _mm_div_ps(a, b));
+				return result;
+#elif defined(IKIGAI_USE_NEON)
+				Vector4 result;
+				float32x4_t a = vld1q_f32(this->data);
+				float32x4_t b = vdupq_n_f32(1.0f / f);
+				vst1q_f32(result.data, vmulq_f32(a, b)); // NEON usually doesn't have a direct float division instruction, so multiply by reciprocal
+				return result;
+#else
+				return Vector4(x / f, y / f, z / f, w / f);
+#endif
+			} else {
+				return Vector4(x / f, y / f, z / f, w / f);
+			}
 		}
-
-		//static auto GetMembers() {
-		//	return std::tuple{
-		//		IKIGAI::UTILS::MakeMemberInfo("x", &Vector4::x),
-		//		IKIGAI::UTILS::MakeMemberInfo("y", &Vector4::y),
-		//		IKIGAI::UTILS::MakeMemberInfo("z", &Vector4::z),
-		//		IKIGAI::UTILS::MakeMemberInfo("w", &Vector4::w)
-		//	};
-		//}
 
 		template<class Context>
 		constexpr static auto serde(Context& context, Vector4& value) {
@@ -1322,10 +1402,10 @@ namespace IKIGAI::MATH {
 		static const Matrix3 Identity;
 		static const Matrix3 Zero;
 
-
 		Matrix3() {
 			data = Identity.data;
 		}
+
 		Matrix3(T val) {
 			for (auto i = 0u; i < data.size(); i++) {
 				data[i] = val;
@@ -1501,11 +1581,11 @@ namespace IKIGAI::MATH {
 			return *this;
 		}
 
-		Matrix3 operator*(float scalar) const {
+		Matrix3 operator*(T scalar) const {
 			return Multiply(*this, scalar);
 		}
 
-		Matrix3& operator*=(float scalar) {
+		Matrix3& operator*=(T scalar) {
 			*this = Multiply(*this, scalar);
 			return *this;
 		}
@@ -1523,11 +1603,11 @@ namespace IKIGAI::MATH {
 			return *this;
 		}
 
-		Matrix3 operator/(float scalar) const {
+		Matrix3 operator/(T scalar) const {
 			return Divide(*this, scalar);
 		}
 
-		Matrix3& operator/=(float scalar) {
+		Matrix3& operator/=(T scalar) {
 			*this = Divide(*this, scalar);
 			return *this;
 		}
@@ -1549,26 +1629,28 @@ namespace IKIGAI::MATH {
 		}
 
 		static bool AreEquals(const Matrix3& left, const Matrix3& right) {
-			return memcmp(&left, &right, 9 * sizeof(float)) == 0;
+			return left.data == right.data;
 		}
 
-		static Matrix3 Add(const Matrix3& left, float scalar) {
+		static Matrix3 Add(const Matrix3& left, T scalar) {
 			Matrix3 result(left);
-			for (uint8_t i = 0; i < 9; ++i)
+			for (unsigned i = 0; i < 9; ++i) {
 				result.data[i] += scalar;
+			}
 			return result;
 		}
 
 		static Matrix3 Add(const Matrix3& left, const Matrix3& right) {
 			Matrix3 result(left);
-			for (uint8_t i = 0; i < 9; ++i)
+			for (unsigned i = 0; i < 9; ++i) {
 				result.data[i] += right.data[i];
+			}
 			return result;
 		}
 
-		static Matrix3 Subtract(const Matrix3& left, float scalar) {
+		static Matrix3 Subtract(const Matrix3& left, T scalar) {
 			Matrix3 result(left);
-			for (uint8_t i = 0; i < 9; ++i) {
+			for (unsigned i = 0; i < 9; ++i) {
 				result.data[i] -= scalar;
 			}
 			return result;
@@ -1576,15 +1658,15 @@ namespace IKIGAI::MATH {
 
 		static Matrix3 Subtract(const Matrix3& left, const Matrix3& right) {
 			Matrix3 result(left);
-			for (uint8_t i = 0; i < 9; ++i) {
+			for (unsigned i = 0; i < 9; ++i) {
 				result.data[i] -= right.data[i];
 			}
 			return result;
 		}
 
-		static Matrix3 Multiply(const Matrix3& left, float scalar) {
+		static Matrix3 Multiply(const Matrix3& left, T scalar) {
 			Matrix3 result(left);
-			for (uint8_t i = 0; i < 9; ++i) {
+			for (unsigned i = 0; i < 9; ++i) {
 				result.data[i] *= scalar;
 			}
 			return result;
@@ -1600,32 +1682,24 @@ namespace IKIGAI::MATH {
 
 		static Matrix3 Multiply(const Matrix3& left, const Matrix3& right) {
 			return Matrix3(
-				(left.data[0] * right.data[0]) + (left.data[1] * right.data[3]) + (left.data[2
-				] * right.data[6]),
-				(left.data[0] * right.data[1]) + (left.data[1] * right.data[4]) + (left.data[2
-				] * right.data[7]),
-				(left.data[0] * right.data[2]) + (left.data[1] * right.data[5]) + (left.data[2
-				] * right.data[8]),
+				(left.data[0] * right.data[0]) + (left.data[1] * right.data[3]) + (left.data[2] * right.data[6]),
+				(left.data[0] * right.data[1]) + (left.data[1] * right.data[4]) + (left.data[2] * right.data[7]),
+				(left.data[0] * right.data[2]) + (left.data[1] * right.data[5]) + (left.data[2] * right.data[8]),
 
-				(left.data[3] * right.data[0]) + (left.data[4] * right.data[3]) + (left.data[5
-				] * right.data[6]),
-				(left.data[3] * right.data[1]) + (left.data[4] * right.data[4]) + (left.data[5
-				] * right.data[7]),
-				(left.data[3] * right.data[2]) + (left.data[4] * right.data[5]) + (left.data[5
-				] * right.data[8]),
+				(left.data[3] * right.data[0]) + (left.data[4] * right.data[3]) + (left.data[5] * right.data[6]),
+				(left.data[3] * right.data[1]) + (left.data[4] * right.data[4]) + (left.data[5] * right.data[7]),
+				(left.data[3] * right.data[2]) + (left.data[4] * right.data[5]) + (left.data[5] * right.data[8]),
 
-				(left.data[6] * right.data[0]) + (left.data[7] * right.data[3]) + (left.data[8
-				] * right.data[6]),
-				(left.data[6] * right.data[1]) + (left.data[7] * right.data[4]) + (left.data[8
-				] * right.data[7]),
-				(left.data[6] * right.data[2]) + (left.data[7] * right.data[5]) + (left.data[8
-				] * right.data[8]));
+				(left.data[6] * right.data[0]) + (left.data[7] * right.data[3]) + (left.data[8] * right.data[6]),
+				(left.data[6] * right.data[1]) + (left.data[7] * right.data[4]) + (left.data[8] * right.data[7]),
+				(left.data[6] * right.data[2]) + (left.data[7] * right.data[5]) + (left.data[8] * right.data[8]));
 		}
 
-		static Matrix3 Divide(const Matrix3& left, float scalar) {
+		static Matrix3 Divide(const Matrix3& left, T scalar) {
 			Matrix3 result(left);
-			for (uint8_t i = 0; i < 9; ++i)
+			for (unsigned i = 0; i < 9; ++i) {
 				result.data[i] /= scalar;
+			}
 			return result;
 		}
 
@@ -1913,7 +1987,7 @@ namespace IKIGAI::MATH {
 			return *this;
 		}
 
-		Matrix4 operator-(float scalar) const {
+		Matrix4 operator-(T scalar) const {
 			return Subtract(*this, scalar);
 		}
 
@@ -1926,11 +2000,11 @@ namespace IKIGAI::MATH {
 			return *this;
 		}
 
-		Matrix4 operator*(float scalar) const {
+		Matrix4 operator*(T scalar) const {
 			return Multiply(*this, scalar);
 		}
 
-		Matrix4& operator*=(float scalar) {
+		Matrix4& operator*=(T scalar) {
 			*this = Multiply(*this, scalar);
 			return *this;
 		}
@@ -1948,11 +2022,11 @@ namespace IKIGAI::MATH {
 			return *this;
 		}
 
-		Matrix4 operator/(float scalar) const {
+		Matrix4 operator/(T scalar) const {
 			return Divide(*this, scalar);
 		}
 
-		Matrix4& operator/=(float scalar) {
+		Matrix4& operator/=(T scalar) {
 			*this = Divide(*this, scalar);
 			return *this;
 		}
@@ -2031,59 +2105,109 @@ namespace IKIGAI::MATH {
 		}
 
 		static bool AreEquals(const Matrix4& left, const Matrix4& right) {
-			return memcmp(&left, &right, 16 * sizeof(float)) == 0;
+			return left.data == right.data;
 		}
 
-		static Matrix4 Add(const Matrix4& left, float scalar) {
+		static Matrix4 Add(const Matrix4& left, T scalar) {
 			Matrix4 result(left);
-			for (int8_t i = 0; i < 16; i++)
+			for (unsigned i = 0; i < 16; i++)
 				result.data[i] += scalar;
 			return result;
 		}
 
 		static Matrix4 Add(const Matrix4& left, const Matrix4& right) {
 			Matrix4 result(left);
-			for (int8_t i = 0; i < 16; i++)
+			for (unsigned i = 0; i < 16; i++)
 				result.data[i] += right.data[i];
 			return result;
 		}
 
-		static Matrix4 Subtract(const Matrix4& left, float scalar) {
+		static Matrix4 Subtract(const Matrix4& left, T scalar) {
 			Matrix4 result(left);
-			for (int8_t i = 0; i < 16; ++i)
+			for (unsigned i = 0; i < 16; ++i) {
 				result.data[i] -= scalar;
+			}
 			return result;
 		}
 
 		static Matrix4 Subtract(const Matrix4& left, const Matrix4& right) {
 			Matrix4 result(left);
-			for (int8_t i = 0; i < 16; ++i)
+			for (unsigned i = 0; i < 16; ++i) {
 				result.data[i] -= right.data[i];
+			}
 			return result;
 		}
 
-		static Matrix4 Multiply(const Matrix4& left, float scalar) {
+		static Matrix4 Multiply(const Matrix4& left, T scalar) {
 			Matrix4 result(left);
-			for (int8_t i = 0; i < 16; ++i)
+			for (unsigned i = 0; i < 16; ++i) {
 				result.data[i] *= scalar;
+			}
 			return result;
 		}
 
 		static Vector4<T> Multiply(const Matrix4& matrix, const Vector4<T>& vector) {
 			Vector4<T> multiply;
 
-			multiply.x = ((matrix.data[0] * vector.x) + (matrix.data[1] * vector.y) + (matrix.data[2]
-				* vector.z) + (matrix.data[3] * vector.w));
-			multiply.y = ((matrix.data[4] * vector.x) + (matrix.data[5] * vector.y) + (matrix.data[6]
-				* vector.z) + (matrix.data[7] * vector.w));
-			multiply.z = ((matrix.data[8] * vector.x) + (matrix.data[9] * vector.y) + (matrix.data[10]
-				* vector.z) + (matrix.data[11] * vector.w));
-			multiply.w = ((matrix.data[12] * vector.x) + (matrix.data[13] * vector.y) + (matrix.data[
-				14] * vector.z) + (matrix.data[15] * vector.w));
+			multiply.x = ((matrix.data[0] * vector.x) + (matrix.data[1] * vector.y) + (matrix.data[2] * vector.z) + (matrix.data[3] * vector.w));
+			multiply.y = ((matrix.data[4] * vector.x) + (matrix.data[5] * vector.y) + (matrix.data[6] * vector.z) + (matrix.data[7] * vector.w));
+			multiply.z = ((matrix.data[8] * vector.x) + (matrix.data[9] * vector.y) + (matrix.data[10] * vector.z) + (matrix.data[11] * vector.w));
+			multiply.w = ((matrix.data[12] * vector.x) + (matrix.data[13] * vector.y) + (matrix.data[14] * vector.z) + (matrix.data[15] * vector.w));
 			return multiply;
 		}
 
 		static Matrix4 Multiply(const Matrix4& left, const Matrix4& right) {
+			if constexpr (std::is_same_v<T, float>) {
+#ifdef IKIGAI_USE_SSE
+				Matrix4 result;
+				const float* A = left.data.data();
+				const float* B = right.data.data();
+				float* C = result.data.data();
+
+				__m128 b0 = _mm_loadu_ps(B);
+				__m128 b1 = _mm_loadu_ps(B + 4);
+				__m128 b2 = _mm_loadu_ps(B + 8);
+				__m128 b3 = _mm_loadu_ps(B + 12);
+
+				for (int i = 0; i < 4; ++i) {
+					__m128 a0 = _mm_set1_ps(A[i * 4 + 0]);
+					__m128 a1 = _mm_set1_ps(A[i * 4 + 1]);
+					__m128 a2 = _mm_set1_ps(A[i * 4 + 2]);
+					__m128 a3 = _mm_set1_ps(A[i * 4 + 3]);
+
+					__m128 r = _mm_add_ps(_mm_mul_ps(a0, b0),
+					           _mm_add_ps(_mm_mul_ps(a1, b1),
+					           _mm_add_ps(_mm_mul_ps(a2, b2),
+					                      _mm_mul_ps(a3, b3))));
+					_mm_storeu_ps(C + i * 4, r);
+				}
+				return result;
+#elif defined(IKIGAI_USE_NEON)
+				Matrix4 result;
+				const float* A = left.data.data();
+				const float* B = right.data.data();
+				float* C = result.data.data();
+
+				float32x4_t b0 = vld1q_f32(B);
+				float32x4_t b1 = vld1q_f32(B + 4);
+				float32x4_t b2 = vld1q_f32(B + 8);
+				float32x4_t b3 = vld1q_f32(B + 12);
+
+				for (int i = 0; i < 4; ++i) {
+					float32x4_t a0 = vdupq_n_f32(A[i * 4 + 0]);
+					float32x4_t a1 = vdupq_n_f32(A[i * 4 + 1]);
+					float32x4_t a2 = vdupq_n_f32(A[i * 4 + 2]);
+					float32x4_t a3 = vdupq_n_f32(A[i * 4 + 3]);
+
+					float32x4_t r = vaddq_f32(vmulq_f32(a0, b0),
+					                vaddq_f32(vmulq_f32(a1, b1),
+					                vaddq_f32(vmulq_f32(a2, b2),
+					                          vmulq_f32(a3, b3))));
+					vst1q_f32(C + i * 4, r);
+				}
+				return result;
+#endif
+			}
 			return Matrix4(
 				((left.data[0] * right.data[0]) + (left.data[1] * right.data[4]) + (left.data[2] * right.data[8]) + (left.data[3] * right.data[12])),
 				((left.data[0] * right.data[1]) + (left.data[1] * right.data[5]) + (left.data[2] * right.data[9]) + (left.data[3] * right.data[13])),
@@ -2103,10 +2227,11 @@ namespace IKIGAI::MATH {
 				((left.data[12] * right.data[3]) + (left.data[13] * right.data[7]) + (left.data[14] * right.data[11]) + (left.data[15] * right.data[15])));
 		}
 
-		static Matrix4 Divide(const Matrix4& left, float scalar) {
+		static Matrix4 Divide(const Matrix4& left, T scalar) {
 			Matrix4 result(left);
-			for (int8_t i = 0; i < 16; ++i)
+			for (unsigned i = 0; i < 16; ++i) {
 				result.data[i] /= scalar;
+			}
 			return result;
 		}
 
@@ -2126,14 +2251,10 @@ namespace IKIGAI::MATH {
 		}
 
 		static float Determinant(const Matrix4& matrix) {
-			return matrix.data[0] * GetMinor(matrix.data[5], matrix.data[9], matrix.data[13], matrix.data[6], matrix.data[10], matrix.data[14],
-				matrix.data[7], matrix.data[11], matrix.data[15])
-				- matrix.data[4] * GetMinor(matrix.data[1], matrix.data[9], matrix.data[13], matrix.data[2], matrix.data[10], matrix.data[14],
-					matrix.data[3], matrix.data[11], matrix.data[15])
-				+ matrix.data[8] * GetMinor(matrix.data[1], matrix.data[5], matrix.data[13], matrix.data[2], matrix.data[6], matrix.data[14],
-					matrix.data[3], matrix.data[7], matrix.data[15])
-				- matrix.data[12] * GetMinor(matrix.data[1], matrix.data[5], matrix.data[9], matrix.data[2], matrix.data[6], matrix.data[10],
-					matrix.data[3], matrix.data[7], matrix.data[11]);
+			return matrix.data[0] * GetMinor(matrix.data[5], matrix.data[9], matrix.data[13], matrix.data[6], matrix.data[10], matrix.data[14], matrix.data[7], matrix.data[11], matrix.data[15])
+				- matrix.data[4] * GetMinor(matrix.data[1], matrix.data[9], matrix.data[13], matrix.data[2], matrix.data[10], matrix.data[14], matrix.data[3], matrix.data[11], matrix.data[15])
+				+ matrix.data[8] * GetMinor(matrix.data[1], matrix.data[5], matrix.data[13], matrix.data[2], matrix.data[6], matrix.data[14], matrix.data[3], matrix.data[7], matrix.data[15])
+				- matrix.data[12] * GetMinor(matrix.data[1], matrix.data[5], matrix.data[9], matrix.data[2], matrix.data[6], matrix.data[10], matrix.data[3], matrix.data[7], matrix.data[11]);
 		}
 
 		static Matrix4 Transpose(const Matrix4& matrix) {
@@ -2559,6 +2680,7 @@ namespace IKIGAI::MATH {
 			converted.getData()[12] = 0;								converted.getData()[13] = 0;								converted.getData()[14] = 0;							 converted.getData()[15] = 1;
 			return converted;
 		}
+
 		static bool IsNormalized(const Quaternion& target) {
 			return abs(Length(target) - 1.0f) < 0.0001f;
 		}
@@ -2574,7 +2696,6 @@ namespace IKIGAI::MATH {
 			Vector3 toRotate = point - pivot;
 			return RotatePoint(toRotate, quaternion);
 		}
-
 
 		static float Length(const Quaternion& target) {
 			return std::sqrtf(LengthSquare(target));
@@ -2655,14 +2776,10 @@ namespace IKIGAI::MATH {
 
 		Quaternion& operator*=(const Quaternion& otherQuat) {
 			Quaternion temp(
-				x * otherQuat.w + y * otherQuat.z - z * otherQuat.x +
-				w * otherQuat.x,
-				-x * otherQuat.z + y * otherQuat.w + z * otherQuat.x +
-				w * otherQuat.x,
-				x * otherQuat.x - y * otherQuat.x + z * otherQuat.w -
-				w * otherQuat.z,
-				-x * otherQuat.x - y * otherQuat.x - z * otherQuat.z +
-				w * otherQuat.w);
+				x * otherQuat.w + y * otherQuat.z - z * otherQuat.x + w * otherQuat.x,
+				-x * otherQuat.z + y * otherQuat.w + z * otherQuat.x + w * otherQuat.x,
+				x * otherQuat.x - y * otherQuat.x + z * otherQuat.w - w * otherQuat.z,
+				-x * otherQuat.x - y * otherQuat.x - z * otherQuat.z + w * otherQuat.w);
 
 			x = temp.x;
 			y = temp.y;
@@ -2686,12 +2803,9 @@ namespace IKIGAI::MATH {
 			const float num11 = w * num2;
 			const float num12 = w * num3;
 			Vector3<T> result;
-			result.x = (1.f - (num5 + num6)) * toMultiply.x + (num7 - num12) * toMultiply.y + (num8 + num11) *
-				toMultiply.z;
-			result.y = (num7 + num12) * toMultiply.x + (1.f - (num4 + num6)) * toMultiply.y + (num9 - num10) *
-				toMultiply.z;
-			result.z = (num8 - num11) * toMultiply.x + (num9 + num10) * toMultiply.y + (1.f - (num4 + num5)) *
-				toMultiply.z;
+			result.x = (1.f - (num5 + num6)) * toMultiply.x + (num7 - num12) * toMultiply.y + (num8 + num11) * toMultiply.z;
+			result.y = (num7 + num12) * toMultiply.x + (1.f - (num4 + num6)) * toMultiply.y + (num9 - num10) * toMultiply.z;
+			result.z = (num8 - num11) * toMultiply.x + (num9 + num10) * toMultiply.y + (1.f - (num4 + num5)) * toMultiply.z;
 			return result;
 		}
 
@@ -2776,6 +2890,7 @@ namespace IKIGAI::MATH {
 		void normalise() {
 			*this = Normalize(*this);
 		}
+
 		void addScaledVector(const Vector3<T>& vector, float scale) {
 			Quaternion q(
 				vector.x * scale,
@@ -2793,6 +2908,7 @@ namespace IKIGAI::MATH {
 		static float Dot(const Quaternion& V1, const Quaternion& V2) {
 			return V1.x * V2.x + V1.y * V2.y + V1.z * V2.z + V1.w * V2.w;
 		}
+
 		static Quaternion Slerp(const Quaternion& x, const Quaternion& y, float a) {
 			Quaternion z = y;
 
@@ -2906,33 +3022,41 @@ namespace IKIGAI::MATH {
 	using Vector2i = Vector2<int>;
 	using Vector2u = Vector2<unsigned>;
 	using Vector2f = Vector2<float>;
+	using Vector2d = Vector2<double>;
 
 	using Vector3i = Vector3<int>;
 	using Vector3u = Vector3<unsigned>;
 	using Vector3f = Vector3<float>;
+	using Vector3d = Vector3<double>;
 
 	using Vector4i = Vector4<int>;
 	using Vector4u = Vector4<unsigned>;
 	using Vector4f = Vector4<float>;
+	using Vector4d = Vector4<double>;
 
 	using Matrix3i = Matrix3<int>;
 	using Matrix3u = Matrix3<unsigned>;
 	using Matrix3f = Matrix3<float>;
+	using Matrix3d = Matrix3<double>;
 
 	using Matrix4i = Matrix4<int>;
 	using Matrix4u = Matrix4<unsigned>;
 	using Matrix4f = Matrix4<float>;
+	using Matrix4d = Matrix4<double>;
 
 	using QuaternionI = Quaternion<int>;
 	using QuaternionU = Quaternion<unsigned>;
 	using QuaternionF = Quaternion<float>;
+	using QuaternionD = Quaternion<double>;
 
-	
 	template <typename T> const Vector3<T> Vector3<T>::One = Vector3<T>(1.0f, 1.0f, 1.0f);
 	template <typename T> const Vector3<T> Vector3<T>::Zero = Vector3<T>(0.0f, 0.0f, 0.0f);
 	template <typename T> const Vector3<T> Vector3<T>::Forward = Vector3<T>(0.0f, 0.0f, 1.0f);
 	template <typename T> const Vector3<T> Vector3<T>::Right = Vector3<T>(1.0f, 0.0f, 0.0f);
 	template <typename T> const Vector3<T> Vector3<T>::Up = Vector3<T>(0.0f, 1.0f, 0.0f);
+
+	template <typename T> const Vector4<T> Vector4<T>::One = Vector4<T>(1.0f, 1.0f, 1.0f, 1.0f);
+	template <typename T> const Vector4<T> Vector4<T>::Zero = Vector4<T>(0.0f, 0.0f, 0.0f, 0.0f);
 
 	template <typename T> const Matrix3<T> Matrix3<T>::Identity = Matrix3<T>(
 		1.0, 0.0, 0.0,

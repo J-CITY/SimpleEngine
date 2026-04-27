@@ -16,14 +16,14 @@ float IKIGAI::RENDER::BoundingSphere::getSize() const {
 }
 
 int IKIGAI::RENDER::BoundingSphere::intersect(const BoundingSphere& sphere) const {
-	float distance = MATH::Vector3f::LengthSqrt(position - sphere.position);
+	float distance = MATH::Vector3f::LengthSquare(position - sphere.position);
 
 	return (distance < (radius + sphere.radius)* (radius + sphere.radius)) ? 1 : 0;
 }
 
 void IKIGAI::RENDER::BoundingSphere::createFromTwo(const BoundingSphere& one, const BoundingSphere& two) {
 	MATH::Vector3f centerOffset = two.position - one.position;
-	float distance = centerOffset.LengthSqrt(centerOffset);
+	float distance = MATH::Vector3f::LengthSquare(centerOffset);
 
 	float radiusDiff = two.radius - one.radius;
 
