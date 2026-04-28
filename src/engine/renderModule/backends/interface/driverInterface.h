@@ -9,6 +9,8 @@
 #include "storageBufferInterface.h"
 #include "textureInterface.h"
 #include "meshInterface.h"
+#include "modelInterface.h"
+#include "materialInterface.h"
 #include "frameBufferInterface.h"
 #include <utilsModule/memoryAlloc.h>
 #include <functional>
@@ -20,6 +22,9 @@ namespace IKIGAI::RENDER {
 	class ShaderInterface;
 
 	using ResourceDeleter = std::function<void(TextureInterface*)>;
+	using ModelDeleter = std::function<void(ModelInterface*)>;
+	using ShaderDeleter = std::function<void(ShaderInterface*)>;
+	using MaterialDeleter = std::function<void(MaterialInterface*)>;
 
 	template <typename T, typename... Args>
 	std::shared_ptr<T> AllocateTexture(UTILS::IAllocator* allocator, ResourceDeleter customDeleter, Args&&... args) {
@@ -36,6 +41,56 @@ namespace IKIGAI::RENDER {
 		};
 
 		return std::shared_ptr<T>(texObj, std::move(finalDeleter));
+	}
+
+	template <typename T, typename... Args>
+	std::shared_ptr<T> AllocateModel(UTILS::IAllocator* allocator, ModelDeleter customDeleter, Args&&... args) {
+		void* raw = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
+		auto* obj = new(raw) T(std::forward<Args>(args)...);
+
+		ModelDeleter finalDeleter = [allocator, customDeleter](ModelInterface* p) {
+			if (customDeleter) {
+				customDeleter(p);
+			}
+			p->~ModelInterface();
+			if (allocator) allocator->deallocate(p);
+			else ::operator delete(p);
+		};
+
+		return std::shared_ptr<T>(obj, std::move(finalDeleter));
+	}
+
+	template <typename T, typename... Args>
+	std::shared_ptr<T> AllocateShader(UTILS::IAllocator* allocator, ShaderDeleter customDeleter, Args&&... args) {
+		void* raw = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
+		auto* obj = new(raw) T(std::forward<Args>(args)...);
+
+		ShaderDeleter finalDeleter = [allocator, customDeleter](ShaderInterface* p) {
+			if (customDeleter) {
+				customDeleter(p);
+			}
+			p->~ShaderInterface();
+			if (allocator) allocator->deallocate(p);
+			else ::operator delete(p);
+		};
+		return std::shared_ptr<T>(obj, std::move(finalDeleter));
+	}
+
+	template <typename T, typename... Args>
+	std::shared_ptr<T> AllocateMaterial(UTILS::IAllocator* allocator, MaterialDeleter customDeleter, Args&&... args) {
+		void* raw = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
+		auto* obj = new(raw) T(std::forward<Args>(args)...);
+
+		MaterialDeleter finalDeleter = [allocator, customDeleter](MaterialInterface* p) {
+			if (customDeleter) {
+				customDeleter(p);
+			}
+			p->~MaterialInterface();
+			if (allocator) allocator->deallocate(p);
+			else ::operator delete(p);
+		};
+
+		return std::shared_ptr<T>(obj, std::move(finalDeleter));
 	}
 
 	struct RenderSettings {
@@ -146,7 +201,11 @@ namespace IKIGAI::RENDER {
 			createShader(const std::string& vertexPath,
 			const std::string& fragmentPath) = 0;
 		virtual std::shared_ptr<ShaderInterface>
-			createShader(const ShaderResource& res) = 0;
+			createShader(const ShaderResource& res, UTILS::IAllocator* allocator = nullptr, ShaderDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<ModelInterface>
+			createModel(const std::string& path, UTILS::IAllocator* allocator = nullptr, ModelDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<MaterialInterface>
+			createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator = nullptr, MaterialDeleter deleter = nullptr) = 0;
 		virtual std::shared_ptr<FrameBufferInterface> createFrameBuffer(
 			const std::vector<std::shared_ptr<TextureInterface>>& textures,
 			std::shared_ptr<TextureInterface> depth) = 0;

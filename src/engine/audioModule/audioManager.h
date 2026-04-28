@@ -89,7 +89,7 @@ namespace IKIGAI {
 			unsigned int playBus(SoLoud::Bus& bus);
 
 			void addSource(SoundResource& source);
-			void removeSource(std::optional<SoLoud::handle> id);
+			void removeSource(SoundResource& source);
 
 			void set3dSoundSpeedSpeed(float speed);
 			void setListenerPos(MATH::Vector3f pos, MATH::Vector3f dir);

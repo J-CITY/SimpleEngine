@@ -106,7 +106,11 @@ namespace IKIGAI {
 				createShader(const std::string& vertexPath,
 				const std::string& fragmentPath) override;
 			std::shared_ptr<ShaderInterface>
-				createShader(const ShaderResource& res) override;
+				createShader(const ShaderResource& res, UTILS::IAllocator* allocator = nullptr, ShaderDeleter deleter = nullptr) override;
+			std::shared_ptr<ModelInterface>
+				createModel(const std::string& path, UTILS::IAllocator* allocator = nullptr, ModelDeleter deleter = nullptr) override;
+			std::shared_ptr<MaterialInterface>
+				createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator = nullptr, MaterialDeleter deleter = nullptr) override;
 			std::shared_ptr<FrameBufferInterface> createFrameBuffer(
 				const std::vector<std::shared_ptr<TextureInterface>>& textures,
 				std::shared_ptr<TextureInterface> depth) override;

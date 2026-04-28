@@ -446,8 +446,14 @@ namespace IKIGAI::RENDER {
 			return mDriver->createShader(vertexPath, fragmentPath);
 		}
 
-		std::shared_ptr<ShaderInterface> createShader(const ShaderResource& res) {
-			return mDriver->createShader(res);
+		std::shared_ptr<ShaderInterface> createShader(const ShaderResource& res,
+				UTILS::IAllocator* allocator = nullptr, ShaderDeleter deleter = nullptr) {
+			return mDriver->createShader(res, allocator, deleter);
+		}
+
+		std::shared_ptr<ModelInterface> createModel(const std::string& path,
+				UTILS::IAllocator* allocator = nullptr, ModelDeleter deleter = nullptr) {
+			return mDriver->createModel(path, allocator, deleter);
 		}
 
 		std::shared_ptr<FrameBufferInterface> createFrameBuffer(
@@ -456,14 +462,11 @@ namespace IKIGAI::RENDER {
 			return mDriver->createFrameBuffer(textures, depth);
 		}
 
-		std::shared_ptr<MaterialInterface>
-			createMaterial(const MaterialResource& res) {
-			return nullptr;
-			// return mDriver->createMaterial(res);
-		}
-
-		std::shared_ptr<MaterialInterface> createMaterial() {
-			return nullptr; // return mDriver->createMaterial();
+		std::shared_ptr<MaterialInterface> createMaterial(
+				const MaterialResource& res,
+				UTILS::IAllocator* allocator = nullptr,
+				MaterialDeleter deleter = nullptr) {
+			return mDriver->createMaterial(res, allocator, deleter);
 		}
 
 		// Flush commands to executor (Buffer mode)

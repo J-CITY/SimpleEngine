@@ -14,6 +14,10 @@
 #include "renderModule/backends/interface/renderEnums.h"
 #include "renderModule/backends/interface/resourceStruct.h"
 #include "resourceModule/serviceManager.h"
+#include "resourceModule/modelManager.h"
+#include "resourceModule/materialManager.h"
+#include "modelDx12.h"
+#include "materialDx12.h"
 #include "windowModule/window/window.h"
 #include "../../gameRendererDx12.h"
 #include <dxgi1_6.h>
@@ -972,5 +976,44 @@ void DriverDx12::applyState() {
 		};
 		mCommandList->IASetIndexBuffer(&bufferView);
 	}
+}
+
+std::shared_ptr<ShaderInterface> DriverDx12::createShader(const std::string& vertexPath, const std::string& fragmentPath) {
+	ShaderResource res;
+	res.vertexPath = vertexPath;
+	res.fragmentPath = fragmentPath;
+	return AllocateShader<ShaderDx12>(nullptr, nullptr, res);
+}
+
+std::shared_ptr<ShaderInterface> DriverDx12::createShader(const ShaderResource& res, UTILS::IAllocator* allocator, ShaderDeleter deleter) {
+	return AllocateShader<ShaderDx12>(allocator, deleter, res);
+}
+
+std::shared_ptr<ModelInterface> DriverDx12::createModel(const std::string& path, UTILS::IAllocator* allocator, ModelDeleter deleter) {
+	ModelDeleter finalDeleter = [deleter](ModelInterface* m) {
+		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ModelLoader>().unloadResource(m->getPath());
+		if (deleter) deleter(m);
+	};
+	return AllocateModel<ModelDx12>(allocator, std::move(finalDeleter), path);
+}
+
+std::shared_ptr<MaterialInterface> DriverDx12::createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator, MaterialDeleter deleter) {
+	MaterialDeleter finalDeleter = [deleter](MaterialInterface* m) {
+		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::MaterialLoader>().unloadResource(m->getPath());
+		if (deleter) deleter(m);
+	};
+	return AllocateMaterial<MaterialDx12>(allocator, std::move(finalDeleter), res);
+}
+
+std::shared_ptr<UniformBufferInterface> DriverDx12::createUniformBuffer(const void* data, size_t size) {
+	return std::make_shared<UniformBufferDx12>(data, size);
+}
+
+std::shared_ptr<StorageBufferInterface> DriverDx12::createStorageBuffer(const void* data, size_t size, size_t stride) {
+	return std::make_shared<StorageBufferDx12>(data, size, stride);
+}
+
+std::shared_ptr<FrameBufferInterface> DriverDx12::createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth) {
+	return std::make_shared<FrameBufferDx12>(textures, depth);
 }
 #endif

@@ -27,6 +27,11 @@
 #include "shaderVk.h"
 #include "frameBufferVk.h"
 #include "storageBufferVk.h"
+#include "resourceModule/serviceManager.h"
+#include "resourceModule/modelManager.h"
+#include "resourceModule/materialManager.h"
+#include "modelVk.h"
+#include "materialVk.h"
 //#include "../../GUI.h"
 
 
@@ -1439,6 +1444,33 @@ std::shared_ptr<TextureInterface> DriverVk::createTextureAtlas(const TextureReso
 }
 std::shared_ptr<TextureInterface> DriverVk::createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	return nullptr; // not implemented
+}
+
+std::shared_ptr<ShaderInterface> DriverVk::createShader(const std::string& vertexPath, const std::string& fragmentPath) {
+	ShaderResource res;
+	res.vertexPath = vertexPath;
+	res.fragmentPath = fragmentPath;
+	return AllocateShader<ShaderVk>(nullptr, nullptr, res);
+}
+
+std::shared_ptr<ShaderInterface> DriverVk::createShader(const ShaderResource& res, UTILS::IAllocator* allocator, ShaderDeleter deleter) {
+	return AllocateShader<ShaderVk>(allocator, deleter, res);
+}
+
+std::shared_ptr<ModelInterface> DriverVk::createModel(const std::string& path, UTILS::IAllocator* allocator, ModelDeleter deleter) {
+	ModelDeleter finalDeleter = [deleter](ModelInterface* m) {
+		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ModelLoader>().unloadResource(m->getPath());
+		if (deleter) deleter(m);
+	};
+	return AllocateModel<ModelVk>(allocator, std::move(finalDeleter), path);
+}
+
+std::shared_ptr<MaterialInterface> DriverVk::createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator, MaterialDeleter deleter) {
+	MaterialDeleter finalDeleter = [deleter](MaterialInterface* m) {
+		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::MaterialLoader>().unloadResource(m->getPath());
+		if (deleter) deleter(m);
+	};
+	return AllocateMaterial<MaterialVk>(allocator, std::move(finalDeleter), res);
 }
 
 #endif

@@ -3,9 +3,40 @@
 #include <iostream>
 #include <future>
 #include <vector>
+#include "utilsModule/assertion.h"
 #include "utilsModule/pathGetter.h"
+#include "serviceManager.h"
+#include <resourceModule/fileSystem/fileSystem.h>
+#include <string>
+#include <serdepp/attribute/default.hpp>
 
 namespace IKIGAI::RESOURCES {
+
+	struct ResourcePackItem {
+		std::string path;
+		std::string method = "resource";
+
+		template<class Context>
+		constexpr static auto serde(Context& context, ResourcePackItem& value) {
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&ResourcePackItem::path, "path")
+				.field(&ResourcePackItem::method, "method", default_{"resource"});
+		}
+	};
+
+	struct ResourcePackDef {
+		std::vector<std::string> packs;
+		std::map<std::string, std::vector<ResourcePackItem>> resources;
+
+		template<class Context>
+		constexpr static auto serde(Context& context, ResourcePackDef& value) {
+			using namespace serde::attribute;
+			serde::serde_struct(context, value)
+				.field(&ResourcePackDef::packs, "packs", default_{std::vector<std::string>()})
+				.field(&ResourcePackDef::resources, "resources", default_{std::map<std::string, std::vector<ResourcePackItem>>()});
+		}
+	};
 
 	void ResourcePackManager::loadPack(const std::string& path, ELoadingPolicy policy) {
 		if (mLoadedPacks.contains(path)) {
@@ -13,76 +44,50 @@ namespace IKIGAI::RESOURCES {
 		}
 
 		if (policy == ELoadingPolicy::Asynchronous) {
-			// Launch in a separate thread
-			// Note: This launches the parsing and loading of the pack asynchronously.
-			// The individual resource loads inside will happen in that thread.
-			// We don't wait for it here.
-			// ISSUE: We need to store the future or handle, otherwise destructor blocks?
-			// std::async default policy is distinct. But if we discard return value of std::async with launch::async, 
-			// it might block in destructor (C++ standard issue).
-			// We should probably use a detached thread or a TaskSystem if available.
-			// User mentioned "TaskSystem" in ServiceManager check.
-			// For now, let's just run synchronously inside this call if policy is Async, assuming the caller 
-			// might wrapped THIS call in a task? 
-			// Or we recursively call loaders with Async policy.
-			// Let's stick to: Parsing is synchronous (fast), resource loading depends on policy passed to loader.
+			//TODO:
+			ASSERT("Not implemented yet");
+			return;
 		}
 
-		// Read and Parse
-		//TODO: use vfs
-		auto res = UTILS::ReadFileIntoString(path);
+		if (!IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::FileSystem>().isFileExist(path)) {
+			ASSERT(std::string("ResourcePackManager: Failed to load pack: " + path).c_str());
+			return;
+		}
+		
+		auto res = UTILS::FromJson<ResourcePackDef>(path);
 		if (res.isErr()) {
-			std::cerr << "ResourcePackManager: Failed to load pack: " << path << " Error: " << res.unwrapErr().text << std::endl;
+			ASSERT(std::string("ResourcePackManager: JSON Parse Error in " + path + ": " + res.unwrapErr().text).c_str());
 			return;
 		}
-
-		auto jsonStr = res.unwrap();
-		nlohmann::json jsonData;
-		try {
-			jsonData = nlohmann::json::parse(jsonStr);
-		} catch (const std::exception& e) {
-			std::cerr << "ResourcePackManager: JSON Parse Error in " << path << ": " << e.what() << std::endl;
-			return;
-		}
+		auto packDef = res.unwrap();
 
 		std::vector<LoadedResource> loadedResources;
 		std::vector<std::future<void>> asyncTasks; // To keep futures if we do local async
 
-		auto loadItems = [&](const std::string& type, const nlohmann::json& items) {
+		for (const auto& pPath : packDef.packs) {
+			loadPack(pPath, policy);
+			loadedResources.push_back({"pack", pPath});
+		}
+
+		for (const auto& [type, items] : packDef.resources) {
 			if (!mLoaders.contains(type)) {
-				// std::cerr << "ResourcePackManager: Unknown resource type: " << type << std::endl;
-				return;
+				ASSERT(std::string("ResourcePackManager: Unknown resource type: " + type).c_str());
+				continue;
 			}
 			auto& loader = mLoaders[type];
 
 			for (const auto& item : items) {
-				std::string itemPath = item.value("path", "");
-				if (itemPath.empty()) continue;
+				if (item.path.empty()) continue;
 
-				std::string methodStr = item.value("method", "resource");
 				ELoadingType method = ELoadingType::RESOURCE;
-				if (methodStr == "file") method = ELoadingType::FILE;
-				else if (methodStr == "memory") method = ELoadingType::MEMORY;
+				if (item.method == "file") method = ELoadingType::FILE;
+				else if (item.method == "memory") method = ELoadingType::MEMORY;
 
-				auto res = loader(itemPath, method, policy);
-				if (policy == ELoadingPolicy::Asynchronous && res.has_value()) {
-					mAsyncFutures.push_back(std::move(res));
+				auto resLoad = loader(item.path, method, policy);
+				if (policy == ELoadingPolicy::Asynchronous && resLoad.has_value()) {
+					mAsyncFutures.push_back(std::move(resLoad));
 				}
-				loadedResources.push_back({type, itemPath});
-			}
-		};
-
-		for (auto& [key, value] : jsonData.items()) {
-			if (key == "packs") {
-				for (const auto& packPath : value) {
-					std::string pPath = packPath.get<std::string>();
-					loadPack(pPath, policy);
-					loadedResources.push_back({"pack", pPath});
-				}
-				continue;
-			}
-			if (value.is_array()) {
-				loadItems(key, value);
+				loadedResources.push_back({type, item.path});
 			}
 		}
 

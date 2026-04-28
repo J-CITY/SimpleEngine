@@ -25,6 +25,9 @@ namespace IKIGAI::RENDER {
 		MaterialResource getDescriptor() override {
 			return MaterialResource();
 		};
+		void create(const MaterialResource& res) override {
+			//TODO
+		};
 	};
 }
 #endif

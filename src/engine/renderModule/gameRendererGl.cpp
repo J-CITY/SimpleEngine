@@ -35,7 +35,8 @@ namespace IKIGAI::RENDER {
 	void GameRendererGl::Init() {
 		auto& render = mContext.render;
 
-		mEmptyMaterial = render->createMaterial();
+		mEmptyMaterial = nullptr;
+		//mEmptyMaterial = render->createMaterial();
 		//ShaderResource shaderRes;
 		//mEmptyMaterial->setShader(render->createShader(shaderRes));
 		//mEmptyMaterial->set("u_Diffuse", MATH::Vector4(1.f, 0.f, 1.f, 1.f));

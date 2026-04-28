@@ -4,106 +4,127 @@
 #include <nlohmann/json.hpp>
 #include <renderModule/backends/interface/materialInterface.h>
 #include <resourceModule/fileSystem/fileSystem.h>
-#ifdef OPENGL_BACKEND
-#include <renderModule/backends/gl/materialGl.h>
-#endif
-#ifdef VULKAN_BACKEND
-#include <renderModule/backends/vk/materialVk.h>
-#endif
-#ifdef DX12_BACKEND
-#include <renderModule/backends/dx12/materialDx12.h>
-#endif
 #include <renderModule/backends/interface/driverInterface.h>
 #include "fileWatcher.h"
 #include "utilsModule/jsonLoader.h"
-
-// TODO: add load from resource file and file
-// TODO: add load from ready resource config
-// TODO: create material from render and remove defines
-// TODO: add static Reload
-
-//TODO: delete it
-IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::CreateFromFile(const std::string& path) {
-	const std::string realPath = "/" + path;
-	auto material = Create("/"+ path);
-	//set path from constructor
-	if (material) {
-		//material->getPath() = path;
-	}
-	return material;
-}
+#include "renderModule/render.h"
+#include "utilsModule/assertion.h"
 #include <utilsModule/pathGetter.h>
-//TODO: return support file watch
-IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::Create(const std::string& path) {
-#ifdef OPENGL_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
-		//TODO: add check
-		auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
-		auto materialDescriptor = UTILS::FromJsonStr<RENDER::MaterialResource>(content).unwrap();
+
+namespace IKIGAI::RESOURCES {
+
+	ResourcePtr<RENDER::MaterialInterface> MaterialLoader::Create(const std::string& path, UTILS::IAllocator* allocator, RENDER::MaterialDeleter deleter) {
+		auto& render = ServiceManager::Get<RENDER::Renderer>();
+		auto file = ServiceManager::Get<FileSystem>().getFile(path, FileMode::READ);
+		if (!file || !file->isValid()) {
+			ASSERT("MaterialLoader: cannot open .material file");
+			return nullptr;
+		}
+
+		auto parseResult = UTILS::FromJsonStr<RENDER::MaterialResource>(file->readStr());
+		if (parseResult.isErr()) {
+			ASSERT("MaterialLoader: failed to parse .material file");
+			return nullptr;
+		}
+
+		auto materialDescriptor = parseResult.unwrap();
 		materialDescriptor.path = path;
-		auto material = ResourcePtr<RENDER::MaterialGl>(new RENDER::MaterialGl(materialDescriptor), [](RENDER::MaterialGl* m) {
-			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
-		});
-		if (!path.empty()) {
-			//material->mPath = path;
-			auto id = RESOURCES::FileWatcher::getInstance()->add(path, [material, path](RESOURCES::FileWatcher::FileStatus status) {
-				switch (status) {
-				case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-					auto content = ServiceManager::Get<FileSystem>().getFile(material->getPath())->readStr();
-					auto materialDescriptor = UTILS::FromJsonStr<RENDER::MaterialResource>(content).unwrap();
-					materialDescriptor.path = path;
-					material->create(materialDescriptor);
-					break;
+		
+		return render.createMaterial(materialDescriptor, allocator, deleter);
+	}
+
+	ResourcePtr<RENDER::MaterialInterface> MaterialLoader::createFromResource(const std::string& path) {
+		if (auto resource = getResource(path)) {
+			return resource;
+		}
+
+		RENDER::MaterialResource cachedDescriptor;
+		if (auto it = sResourceCache.find(path); it != sResourceCache.end()) {
+			cachedDescriptor = it->second;
+		}
+		else {
+			//TODO: remove "/" +
+			auto file = ServiceManager::Get<FileSystem>().getFile("/" + path, FileMode::READ);
+			if (!file || !file->isValid()) {
+				ASSERT("MaterialLoader: cannot open .material file");
+				return nullptr;
+			}
+			auto parseResult = UTILS::FromJsonStr<RENDER::MaterialResource>(file->readStr());
+			if (parseResult.isErr()) {
+				ASSERT("MaterialLoader: failed to parse .material file");
+				return nullptr;
+			}
+			cachedDescriptor = parseResult.unwrap();
+			cachedDescriptor.path = path;
+			sResourceCache[path] = cachedDescriptor;
+		}
+
+		if (auto newResource = Create("/" + path, nullptr, createCacheDeleter(path))) {
+			auto& fs = ServiceManager::Get<FileSystem>();
+			auto basePathOpt = fs.getFilePath(path);
+			if (basePathOpt) {
+				AddToFileWatch(*basePathOpt, newResource);
+			}
+
+			return registerResource(path, newResource);
+		}
+		return nullptr;
+	}
+
+	ResourcePtr<RENDER::MaterialInterface> MaterialLoader::createResource(const std::string& path) {
+		return createFromResource(path);
+	}
+
+	ResourcePtr<RENDER::MaterialInterface> MaterialLoader::createResource(const std::string& path, ELoadingType type) {
+		return createResource(path, type, std::any());
+	}
+
+	ResourcePtr<RENDER::MaterialInterface> MaterialLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+		if (type == ELoadingType::RESOURCE) {
+			return createFromResource(path);
+		}
+		// MEMORY and FILE not supported for Material directly in this context without JSON
+		return createFromResource(path);
+	}
+
+	void MaterialLoader::AddToFileWatch(const std::string& watchPath, std::weak_ptr<RENDER::MaterialInterface> weakMat) {
+		auto fwCb = [watchPath, weakMat](RESOURCES::FileWatcher::FileStatus status) {
+			if (status == RESOURCES::FileWatcher::FileStatus::MODIFIED) {
+				if (auto mat = weakMat.lock()) {
+					// Remove old watcher
+					for (auto& e : sFWSubscribersIds[watchPath]) {
+						RESOURCES::FileWatcher::getInstance()->removeDeferred(watchPath, e);
+					}
+					sFWSubscribersIds[watchPath].clear();
+
+					auto& fs = ServiceManager::Get<FileSystem>();
+					auto f = fs.getFile(watchPath, FileMode::READ);
+					if (f && f->isValid()) {
+						auto pr = UTILS::FromJsonStr<RENDER::MaterialResource>(f->readStr());
+						if (pr.isOk()) {
+							auto r = pr.unwrap();
+							r.path = watchPath;
+							sResourceCache[watchPath] = r; 
+							
+							mat->create(r); // Re-initialize material with new descriptor
+						}
+					}
+					AddToFileWatch(watchPath, weakMat);
 				}
-				case RESOURCES::FileWatcher::FileStatus::DEL: break;
-				case RESOURCES::FileWatcher::FileStatus::CREATE: break;
-				}
-			});
-		}
-		return material;
-	}
-#endif
-#ifdef VULKAN_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::VULKAN) {
-		auto material = ResourcePtr<RENDER::MaterialVk>(new RENDER::MaterialVk(), [](RENDER::MaterialVk* m) {
-			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
-		});
-		if (!path.empty()) {
-			std::ifstream ifs(path);
-			auto root = nlohmann::json::parse(ifs);
-			//material->onDeserialize(root);
-		}
-		return material;
-	}
-#endif
+			}
+		};
 
-#ifdef DX12_BACKEND
-	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12) {
-		auto material = ResourcePtr<RENDER::MaterialDx12>(new RENDER::MaterialDx12(), [](RENDER::MaterialDx12* m) {
-			ServiceManager::Get<MaterialLoader>().unloadResource(m->getPath());
-		});
-		if (!path.empty()) {
-			std::ifstream ifs(path);
-			auto root = nlohmann::json::parse(ifs);
-			//material->onDeserialize(root);
-		}
-		return material;
+		auto saveCb = [watchPath](auto e) {
+			sFWSubscribersIds[watchPath].push_back(e);
+		};
+
+		RESOURCES::FileWatcher::getInstance()->addDeferred(watchPath, fwCb, saveCb);
 	}
-#endif
-	return nullptr;
-}
 
-IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path) {
-	return CreateFromFile(path);
-}
-
-IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path, ELoadingType type) {
-	return createResource(path, type, std::any());
-}
-
-IKIGAI::RESOURCES::ResourcePtr<IKIGAI::RENDER::MaterialInterface> IKIGAI::RESOURCES::MaterialLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
-	if (type == ELoadingType::RESOURCE) {
-		return CreateFromFile(path);
+	RENDER::MaterialDeleter MaterialLoader::createCacheDeleter(const std::string& path) {
+		return [this, path](RENDER::MaterialInterface* ptr) {
+			this->unloadResource(path);
+		};
 	}
-	return createResource(path);
+
 }

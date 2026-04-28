@@ -44,7 +44,7 @@ namespace IKIGAI {
 
 			MaterialResource getDescriptor() override;
 
-			void create(const MaterialResource& res);
+			void create(const MaterialResource& res) override;
 			auto& getUniforms() { return mUniforms; }
 		private:
 			void generateUniformsData();

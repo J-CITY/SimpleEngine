@@ -52,6 +52,8 @@ namespace IKIGAI::RENDER {
 		virtual void set(const std::string& name, const UniformData& data) = 0;
 		virtual UniformData& get(const std::string& name) = 0;
 
+		virtual void create(const MaterialResource& res) = 0;
+
 		unsigned getGPUInstances() const {
 			return mGpuInstances;
 		}

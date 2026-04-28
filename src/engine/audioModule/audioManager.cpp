@@ -1,7 +1,6 @@
 #include "audioManager.h"
 
 #include "resourceModule/fileSystem/fileSystem.h"
-#include "utilsModule/pathGetter.h"
 
 IKIGAI::AUDIO::AudioManagerAL::AudioManagerAL() {
 	audioEngine = std::make_unique<SoLoud::Soloud>();
@@ -73,10 +72,18 @@ void IKIGAI::AUDIO::AudioManagerAL::addSource(SoundResource& source) {
 	audioEngine->setLooping(source.id.value(), source.data.isLooped);
 }
 
-void IKIGAI::AUDIO::AudioManagerAL::removeSource(std::optional<SoLoud::handle> id) {
-	//TODO:
+void IKIGAI::AUDIO::AudioManagerAL::removeSource(SoundResource& source) {
+	auto& id = source.id;
 	if (!id) {
 		return;
+	}
+	audioEngine->stop(*id);
+
+	if (musics.contains(source.path)) {
+		musics.erase(source.path);
+	}
+	if (sounds.contains(source.path)) {
+		sounds.erase(source.path);
 	}
 }
 

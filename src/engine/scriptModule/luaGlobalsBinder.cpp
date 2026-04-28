@@ -211,8 +211,8 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 
 	p_luaState["Scenes"]["GetCurrentScene"] = []() -> Scene& { return IKIGAI::RESOURCES::ServiceManager::Get<SceneManager>().getCurrentScene(); };
 
-	p_luaState["Resources"]["GetModel"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ModelLoader>().CreateFromFile(p_resPath); };
+	p_luaState["Resources"]["GetModel"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ModelLoader>().CreateFromFile(p_resPath, RESOURCES::ModelParserFlags::NONE); };
 	//p_luaState["Resources"]["GetShader"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromFile(p_resPath); };
 	//p_luaState["Resources"]["GetTexture"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>().CreateFromFile(p_resPath); };
-	p_luaState["Resources"]["GetMaterial"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::MaterialLoader>().CreateFromFile(p_resPath); };
+	p_luaState["Resources"]["GetMaterial"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::MaterialLoader>().Create(p_resPath); };
 }

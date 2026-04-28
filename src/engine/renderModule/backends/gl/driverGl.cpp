@@ -6,11 +6,14 @@
 #include "indexBufferGl.h"
 #include "shaderGl.h"
 #include "storageBufferGl.h"
+#include "materialGl.h"
 #include "textureGl.h"
 #include "uniformBufferGl.h"
 #include <coreModule/graphicsWrapper.hpp>
 #include <iostream>
 #include <string>
+
+#include "modelGl.h"
 
 constexpr GLenum FrontFaceTable[] = {GL_CW, GL_CCW};
 
@@ -437,8 +440,18 @@ IKIGAI::RENDER::DriverGl::createShader(const std::string &vertexPath,
 }
 
 std::shared_ptr<IKIGAI::RENDER::ShaderInterface>
-IKIGAI::RENDER::DriverGl::createShader(const ShaderResource &res) {
-  return ShaderGl::Create(res);
+IKIGAI::RENDER::DriverGl::createShader(const ShaderResource &res, UTILS::IAllocator* allocator, ShaderDeleter deleter) {
+	return AllocateShader<ShaderGl>(allocator, deleter, res);
+}
+
+std::shared_ptr<IKIGAI::RENDER::ModelInterface>
+IKIGAI::RENDER::DriverGl::createModel(const std::string& path, UTILS::IAllocator* allocator, ModelDeleter deleter) {
+	return AllocateModel<ModelGl>(allocator, std::move(deleter), path);
+}
+
+std::shared_ptr<IKIGAI::RENDER::MaterialInterface>
+IKIGAI::RENDER::DriverGl::createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator, MaterialDeleter deleter) {
+	return AllocateMaterial<MaterialGl>(allocator, std::move(deleter), res);
 }
 
 std::shared_ptr<IKIGAI::RENDER::FrameBufferInterface>

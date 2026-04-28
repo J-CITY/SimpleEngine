@@ -43,7 +43,7 @@ void ModelRenderer::setCustomBoundingSphere(const RENDER::BoundingSphere& boundi
 }
 
 void ModelRenderer::setModelByPath(std::string path) {
-	m_model = RESOURCES::ModelLoader().CreateFromFile(path);
+	m_model = RESOURCES::ModelLoader().CreateFromFile(path, RESOURCES::ModelParserFlags::NONE);
 	setFrustumBehaviour(IKIGAI::ECS::EFrustumBehaviour::CULL_MODEL);
 	auto bs = IKIGAI::RENDER::BoundingSphere();
 	bs.position = { 0.0f, 0.0f, 0.0f };
@@ -128,7 +128,7 @@ void ModelLODRenderer::setModelsByPath(std::vector<ModelLODRenderer::ModelLodRef
 		if (path.Path.empty()) {
 			continue;
 		}
-		auto model = RESOURCES::ModelLoader().CreateFromFile(path.Path);
+		auto model = RESOURCES::ModelLoader().CreateFromFile(path.Path, RESOURCES::ModelParserFlags::NONE);
 		setFrustumBehaviour(IKIGAI::ECS::EFrustumBehaviour::CULL_MODEL);
 		auto bs = IKIGAI::RENDER::BoundingSphere();
 		bs.position = { 0.0f, 0.0f, 0.0f };
