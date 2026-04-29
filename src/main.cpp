@@ -429,6 +429,11 @@ int main(int, char *[]) {
   IKIGAI::CORE::App app;
   app.getCore()->sceneManager->loadFromFile("scenes/scene.json");
   std::cout << "START" << std::endl;
+
+    //TEST PATCH RESOURCE
+  //auto res = IKIGAI::UTILS::FromJson<IKIGAI::RENDER::MaterialResource>("/materials/a.material");
+  //auto resStr = IKIGAI::UTILS::ToJsonStr(res.unwrap());
+
   app.run();
 
   // Example::EcsDemo::run();

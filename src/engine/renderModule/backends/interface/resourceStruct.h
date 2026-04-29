@@ -16,7 +16,11 @@
 namespace IKIGAI::RENDER {
 enum class ResourceType { SHADER, TEXTURE, MODEL, AUDIO, MATERIAL };
 
-struct TextureResource {
+struct ResourceBase {
+    std::string parentPath;
+};
+
+struct TextureResource: public ResourceBase {
   ResourceType type = ResourceType::TEXTURE;
   std::string path;
   // bool needFileWatch = false;
@@ -64,6 +68,7 @@ struct TextureResource {
         .field(&Self::channels, "Channels", default_{0})
         .field(&Self::pixelType, "PixelType", default_{PixelFormat::RGBA_INT})
         .field(&Self::isFloat, "IsFloat", default_{false})
+        .field(&Self::parentPath, "##parent", default_{std::string()})
         .field(&Self::useMipmap, "UseMipmap", default_{true});
   }
   static auto GetMembers() {
@@ -90,7 +95,7 @@ struct TextureResource {
   }
 };
 
-struct ShaderResource {
+struct ShaderResource : public ResourceBase {
   ResourceType type = ResourceType::SHADER;
   std::string path;
 
@@ -145,6 +150,7 @@ struct ShaderResource {
     using namespace serde::attribute;
     serde::serde_struct(context, value)
         .field(&Self::useBinary, "UseBinary", default_{false})
+  	.field(&Self::parentPath, "##parent", default_{std::string()})
         .field(&Self::paths, "Paths");
   }
 
@@ -156,7 +162,7 @@ struct ShaderResource {
   }
 };
 
-struct ModelResource {
+struct ModelResource : public ResourceBase {
   ResourceType type = ResourceType::MODEL;
   std::string path;
   bool needFileWatch = false;
@@ -171,6 +177,7 @@ struct ModelResource {
     serde::serde_struct(context, value)
         .field(&Self::needFileWatch, "NeedFileWatch", default_{true})
         .field(&Self::pathModel, "PathModel")
+        .field(&Self::parentPath, "##parent", default_{std::string()})
         .field(&Self::flags, "Flags",
                default_{std::vector<RESOURCES::ModelParserFlags>()});
   }
@@ -184,7 +191,7 @@ struct ModelResource {
   }
 };
 
-struct MaterialResource {
+struct MaterialResource : public ResourceBase {
   ResourceType Type = ResourceType::MATERIAL;
   std::string path;
   bool NeedFileWatch = false;
@@ -223,6 +230,7 @@ struct MaterialResource {
         .field(&Self::GpuInstances, "GpuInstances", default_{1})
         .field(&Self::IsDeferred, "IsDeferred", default_{false})
         .field(&Self::DepthFunc, "DepthFunc", default_{DepthFunction::LESS})
+        .field(&Self::parentPath, "##parent", default_{std::string()})
         .field(&Self::Uniforms, "Uniforms");
   }
   static auto GetMembers() {
