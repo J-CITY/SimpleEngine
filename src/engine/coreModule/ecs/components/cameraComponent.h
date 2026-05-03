@@ -3,6 +3,7 @@
 #include "component.h"
 #include <renderModule/camera.h>
 //#include <opencv2/aruco.hpp>
+#include "utilsModule/reflection/reflection_macros.h"
 //#include <opencv2/opencv.hpp>
 namespace IKIGAI
 {
@@ -16,34 +17,31 @@ namespace IKIGAI::ECS { class Object; }
 
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class CameraComponent : public Component {
+		IKI_GENERATED_BODY(CameraComponent)
 	public:
+		IKI_CLASS(Name=CameraComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(CameraComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="CameraComponentType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Fov"))
 			float Fov = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Size"))
 			float Size = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Near"))
 			float Near = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Far"))
 			float Far = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="GeometryCulling"))
 			bool GeometryCulling = false;
+			IKI_PROPERTY(SEREALIZE(name="GeometryBVHCulling"))
 			bool GeometryBVHCulling = false;
+			IKI_PROPERTY(SEREALIZE(name="LightCulling"))
 			bool LightCulling = false;
+			IKI_PROPERTY(SEREALIZE(name="Mode"))
 			RENDER::Camera::ProjectionMode Mode = RENDER::Camera::ProjectionMode::PERSPECTIVE;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "CameraComponentType")
-					.field(&Self::Fov, "Fov")
-					.field(&Self::Size, "Size")
-					.field(&Self::Near, "Near")
-					.field(&Self::Far, "Far")
-					.field(&Self::GeometryCulling, "GeometryCulling")
-					.field(&Self::GeometryBVHCulling, "GeometryBVHCulling")
-					.field(&Self::LightCulling, "LightCulling")
-					.field(&Self::Mode, "Mode");
-			}
 		};
 		int blurAmount = 0;
 		float exposure = 1.0f;
@@ -74,6 +72,13 @@ namespace IKIGAI::ECS {
 		RENDER::Camera& getCamera();
 		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
+		IKI_PROPERTY(Name=Far, Type=float, Getter=getFar, Setter=setFar, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 10000.0f}, EditStep=1.0f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Fov, Type=float, Getter=getFov, Setter=setFov, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 200.0f}, EditStep=1.0f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Near, Type=float, Getter=getNear, Setter=setNear, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1000.0f}, EditStep=1.0f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=ProjectionMode, Type=RENDER::Camera::ProjectionMode, Getter=getProjectionMode, Setter=setProjectionMode, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=COMBO)
+		IKI_PROPERTY(Name=FrustumCulling, Type=bool, Getter=isFrustumGeometryCulling, Setter=setFrustumGeometryCulling, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=BOOL)
+		IKI_PROPERTY(Name=FrustumLight, Type=bool, Getter=isFrustumLightCulling, Setter=setFrustumLightCulling, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=BOOL)
+		IKI_PROPERTY(Name=FrustumCullingBVH, Type=bool, Getter=isFrustumGeometryBVHCulling, Setter=setFrustumGeometryBVHCulling, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=BOOL)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfo("Far", &CameraComponent::getFar, &CameraComponent::setFar,
@@ -129,34 +134,31 @@ namespace IKIGAI::ECS {
 		RENDER::Camera camera;
 	};
 
+	IKI_CLASS()
 	class VrCameraComponent : public CameraComponent {
+		IKI_GENERATED_BODY(VrCameraComponent)
 	public:
+		IKI_CLASS(Name=VrCameraComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(VrCameraComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="VrCameraComponentType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Fov"))
 			float Fov = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Size"))
 			float Size = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Near"))
 			float Near = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Far"))
 			float Far = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="GeometryCulling"))
 			bool GeometryCulling = false;
+			IKI_PROPERTY(SEREALIZE(name="GeometryBVHCulling"))
 			bool GeometryBVHCulling = false;
+			IKI_PROPERTY(SEREALIZE(name="LightCulling"))
 			bool LightCulling = false;
+			IKI_PROPERTY(SEREALIZE(name="Mode"))
 			RENDER::Camera::ProjectionMode Mode = RENDER::Camera::ProjectionMode::PERSPECTIVE;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "VrCameraComponentType")
-					.field(&Self::Fov, "Fov")
-					.field(&Self::Size, "Size")
-					.field(&Self::Near, "Near")
-					.field(&Self::Far, "Far")
-					.field(&Self::GeometryCulling, "GeometryCulling")
-					.field(&Self::GeometryBVHCulling, "GeometryBVHCulling")
-					.field(&Self::LightCulling, "LightCulling")
-					.field(&Self::Mode, "Mode");
-			}
 		};
 		int blurAmount = 0;
 		float exposure = 1.0f;
@@ -183,6 +185,13 @@ namespace IKIGAI::ECS {
 		float EyeDistance = 0.1f;
 		float FocusDistance = 10.0f;
 	public:
+		IKI_PROPERTY(Name=Far, Type=float, Getter=getFar, Setter=setFar, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 10000.0f}, EditStep=1.0f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Fov, Type=float, Getter=getFov, Setter=setFov, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 200.0f}, EditStep=1.0f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Near, Type=float, Getter=getNear, Setter=setNear, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1000.0f}, EditStep=1.0f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=ProjectionMode, Type=RENDER::Camera::ProjectionMode, Getter=getProjectionMode, Setter=setProjectionMode, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=COMBO)
+		IKI_PROPERTY(Name=FrustumCulling, Type=bool, Getter=isFrustumGeometryCulling, Setter=setFrustumGeometryCulling, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=BOOL)
+		IKI_PROPERTY(Name=FrustumLight, Type=bool, Getter=isFrustumLightCulling, Setter=setFrustumLightCulling, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=BOOL)
+		IKI_PROPERTY(Name=FrustumCullingBVH, Type=bool, Getter=isFrustumGeometryBVHCulling, Setter=setFrustumGeometryBVHCulling, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=BOOL)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfoLambda<VrCameraComponent, float>("Far",
@@ -289,3 +298,4 @@ namespace IKIGAI::ECS {
 		//private:
 	};*/
 }
+#include "generated/cameraComponent.generated.h"

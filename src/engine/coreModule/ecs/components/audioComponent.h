@@ -1,6 +1,7 @@
 #pragma once
 #include "component.h"
 #include <audioModule/audioManager.h>
+#include "utilsModule/reflection/reflection_macros.h"
 
 #include "pointLight.h"
 
@@ -8,20 +9,17 @@
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class AudioComponent : public Component {
+		IKI_GENERATED_BODY(AudioComponent)
 	public:
+		IKI_CLASS(Name=AudioComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(AudioComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="AudioComponentType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="AudioPath"))
 			std::string AudioPath;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "AudioComponentType")
-					.field(&Self::AudioPath, "AudioPath");
-			}
 		};
 		AudioComponent(UTILS::Ref<ECS::Object> _obj);
 
@@ -56,6 +54,12 @@ namespace IKIGAI::ECS {
 
 		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
+		IKI_PROPERTY(Name=SourcePath, Type=std::string, Getter=getSourcePath, Setter=setSourcePath, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=STRING)
+		IKI_PROPERTY(Name=Sound, Type=std::string, Getter=getSoundPath, Setter=setSoundPath, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=STRING)
+		IKI_PROPERTY(Name=Is3D, Type=bool, Getter=getIs3D, Setter=setIs3D, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=BOOL)
+		IKI_PROPERTY(Name=Volume, Type=float, Getter=getVolume, Setter=setVolume, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.01f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Pan, Type=float, Getter=getPan, Setter=setPan, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 100.0f}, EditStep=1.0f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=State, Type=AUDIO::SoundStatus, Getter=getState, Setter=setState, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=COMBO)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfo("SourcePath", &AudioComponent::getSourcePath, &AudioComponent::setSourcePath,
@@ -68,7 +72,7 @@ namespace IKIGAI::ECS {
 					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
 				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::STRING},
 				}),
-				IKIGAI::UTILS::MakeMemberInfo("Is 3D", &AudioComponent::getIs3D, &AudioComponent::setIs3D,
+				IKIGAI::UTILS::MakeMemberInfo("Is3D", &AudioComponent::getIs3D, &AudioComponent::setIs3D,
 				UTILS::Meta_t{
 					{UTILS::MetaParam::FLAGS, UTILS::MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR},
 				{UTILS::MetaParam::EDIT_WIDGET, UTILS::WidgetType::BOOL},
@@ -96,18 +100,15 @@ namespace IKIGAI::ECS {
 		}
 	};
 
+	IKI_CLASS()
 	class AudioListenerComponent : public Component {
+		IKI_GENERATED_BODY(AudioListenerComponent)
 	public:
+		IKI_CLASS(Name=AudioListenerComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(AudioListenerComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="AudioListenerComponentType"))
 			std::string Type;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "AudioListenerComponentType");
-			}
 		};
 		AudioListenerComponent(UTILS::Ref<ECS::Object> obj);
 		AudioListenerComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
@@ -140,3 +141,5 @@ namespace IKIGAI::ECS {
 		return "AudioComponent";
 	}
 }
+
+#include "generated/audioComponent.generated.h"

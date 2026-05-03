@@ -126,9 +126,19 @@ def parse_args_string(arg_str):
     if curr: parts.append(curr.strip())
             
     for p in parts:
-        if '=' in p:
-            k, v = p.split('=', 1)
-            args[k.strip()] = v.strip()
+        eq_idx = -1
+        lvl_eq = 0
+        for i, char in enumerate(p):
+            if char in '({[': lvl_eq += 1
+            elif char in ')}]': lvl_eq -= 1
+            elif char == '=' and lvl_eq == 0:
+                eq_idx = i
+                break
+                
+        if eq_idx != -1:
+            k = p[:eq_idx].strip()
+            v = p[eq_idx+1:].strip()
+            args[k] = v
         else:
             args[p.strip()] = "true"
     return args
@@ -174,6 +184,19 @@ def extract_properties(class_content, filepath):
             
         p_args = parse_args_string(args_str)
         
+        # Check if any key is SEREALIZE(...)
+        serealize_data = None
+        keys_to_remove = []
+        for k in p_args.keys():
+            if k.startswith('SEREALIZE(') and k.endswith(')'):
+                serealize_data = parse_args_string(k[10:-1])
+                keys_to_remove.append(k)
+        for k in keys_to_remove:
+            del p_args[k]
+            
+        if serealize_data is not None:
+            p_args['SEREALIZE'] = serealize_data
+            
         has_name = 'Name' in p_args
         has_type = 'Type' in p_args
         is_static = False
@@ -299,12 +322,42 @@ def process_file(filepath):
         namespace = ns_matches[-1].group(1) if ns_matches else ""
         
         start_pos = class_match.end()
-        next_class = class_re.search(content, start_pos)
-        end_pos = next_class.start() if next_class else len(content)
+        brace_idx = content.find('{', start_pos)
+        end_pos = len(content)
+        if brace_idx != -1:
+            lvl = 1
+            for i in range(brace_idx + 1, len(content)):
+                if content[i] == '{': lvl += 1
+                elif content[i] == '}':
+                    lvl -= 1
+                    if lvl == 0:
+                        end_pos = i + 1
+                        break
         
         class_content = content[start_pos:end_pos]
-        props = extract_properties(class_content, filepath)
-        funcs = extract_functions(class_content, filepath)
+        
+        masked_content = class_content
+        nested_idx = 0
+        while True:
+            nested_idx = masked_content.find('IKI_CLASS', nested_idx)
+            if nested_idx == -1: break
+            
+            nested_brace = masked_content.find('{', nested_idx)
+            if nested_brace != -1:
+                n_lvl = 1
+                n_end = len(masked_content)
+                for i in range(nested_brace + 1, len(masked_content)):
+                    if masked_content[i] == '{': n_lvl += 1
+                    elif masked_content[i] == '}':
+                        n_lvl -= 1
+                        if n_lvl == 0:
+                            n_end = i + 1
+                            break
+                masked_content = masked_content[:nested_brace] + " " * (n_end - nested_brace) + masked_content[n_end:]
+            nested_idx += 9
+            
+        props = extract_properties(masked_content, filepath)
+        funcs = extract_functions(masked_content, filepath)
             
         classes.append({
             'name': class_name,
@@ -325,6 +378,9 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
         classes = file_data['classes']
         enums = file_data['enums']
         
+        print(root_dir)
+        print(orig_filepath)
+
         rel_path = os.path.relpath(orig_filepath, root_dir).replace('\\', '/')
         if rel_path.startswith('engine/'):
             rel_path = rel_path[7:]
@@ -344,13 +400,67 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
         cpp_content += f"#include \"utilsModule/reflection/reflection.h\"\n"
         cpp_content += f"#include \"{rel_path}\"\n\n"
 
+        # Generate serde functions first (for ADL)
+        for c in classes:
+            cname = c["args"].get("Name", c["name"])
+            namespace = c["namespace"]
+            full_name = f"{namespace}::{cname}" if namespace else cname
+            
+            serde_fields = []
+            for p in c['props']:
+                s_data = p['args'].pop('SEREALIZE', None)
+                if s_data is not None:
+                    serde_fields.append((p['name'], s_data))
+                    
+            if serde_fields:
+                if namespace:
+                    cpp_content += f"namespace {namespace} {{\n"
+                
+                cpp_content += f"    template<class Context>\n"
+                cpp_content += f"    constexpr auto ikigai_serde(Context& context, {cname}& value) {{\n"
+                cpp_content += f"        using namespace serde::attribute;\n"
+                cpp_content += f"        serde::serde_struct(context, value)\n"
+                
+                for i, (s_name, s_args) in enumerate(serde_fields):
+                    s_name_attr = s_args.get('name', f'"{s_name}"')
+                    if 'default' in s_args:
+                        def_val = s_args['default']
+                        cpp_content += f"            .field(&{cname}::{s_name}, {s_name_attr}, default_{{{def_val}}})"
+                    else:
+                        cpp_content += f"            .field(&{cname}::{s_name}, {s_name_attr})"
+                    
+                    if i < len(serde_fields) - 1:
+                        cpp_content += "\n"
+                    else:
+                        cpp_content += ";\n"
+                        
+                cpp_content += f"    }}\n"
+                
+                if namespace:
+                    cpp_content += f"}}\n"
+                cpp_content += "\n"
+            else:
+                if namespace:
+                    cpp_content += f"namespace {namespace} {{\n"
+
+                cpp_content += f"    template<class Context>\n"
+                cpp_content += f"    constexpr auto ikigai_serde(Context& context, {cname}& value) {{\n"
+                cpp_content += f"        using namespace serde::attribute;\n"
+                cpp_content += f"        serde::serde_struct(context, value);\n"
+                cpp_content += f"    }}\n"
+
+                if namespace:
+                    cpp_content += f"}}\n"
+                cpp_content += "\n"
+
         cpp_content += f"namespace IKIGAI::UTILS {{\n"
 
         for c in classes:
-            cname = c["name"]
+            cname = c["args"].get("Name", c["name"])
             namespace = c["namespace"]
             full_name = f"{namespace}::{cname}" if namespace else cname
-            c_args = c["args"]
+            c_args = c["args"].copy()
+            c_args.pop("Name", None)
             
             registry_code = []
             registry_code.append(f'            auto& m = IKIGAI::UTILS::ReflectionManager::Instance();')
@@ -405,7 +515,8 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
             cpp_content += " \n".join(registry_code) + "\n"
             cpp_content += f"        }}\n"
             cpp_content += f"    }};\n"
-            cpp_content += f"    static inline ReflectionReg<{full_name}> _is_registered_{cname};\n\n"
+            cnamef = cname.replace("::", "__")
+            cpp_content += f"    static inline ReflectionReg<{full_name}> _is_registered_{cnamef};\n\n"
 
         for e in enums:
             ename = e["name"]
@@ -419,7 +530,8 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
             cpp_content += f'            m.registerEnum<{full_name}>("{ename}", {{ {pairs_str} }});\n'
             cpp_content += f"        }}\n"
             cpp_content += f"    }};\n"
-            cpp_content += f"    static inline ReflectionReg_Enum_{ename} _is_registered_Enum_{ename};\n\n"
+            cnamef = ename.replace("::", "__")
+            cpp_content += f"    static inline ReflectionReg_Enum_{ename} _is_registered_Enum_{cnamef};\n\n"
 
         cpp_content += f"}}\n\n"
 

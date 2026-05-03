@@ -3,22 +3,20 @@
 #include <string>
 
 #include "component.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class LogicComponent : public Component {
+		IKI_GENERATED_BODY(LogicComponent)
 	public:
+		IKI_CLASS(Name=LogicComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(LogicComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="LogicComponentType"))
 			std::string Type;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "LogicComponentType");
-			}
 		};
 		std::function<void()> _onAwake = []{};
 		std::function<void()> _onStart = []{};
@@ -84,3 +82,5 @@ namespace IKIGAI::ECS {
 		return "LogicComponent";
 	}
 }
+
+#include "generated/logicComponent.generated.h"

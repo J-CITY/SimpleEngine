@@ -2,6 +2,7 @@
 #include <optional>
 
 #include "component.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 
 namespace IKIGAI::RESOURCES {
@@ -12,22 +13,19 @@ namespace IKIGAI::RESOURCES {
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class Skeletal : public Component {
+		IKI_GENERATED_BODY(Skeletal)
 	public:
+		IKI_CLASS(Name=Skeletal::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(Skeletal::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="SkeletalType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Path"))
 			std::string Path;
+			IKI_PROPERTY(SEREALIZE(name="Animation"))
 			std::string Animation;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "SkeletalType")
-					.field(&Self::Path, "Path")
-					.field(&Self::Animation, "Animation");
-			}
 		};
 		Skeletal(UTILS::Ref<ECS::Object> _obj);
 		Skeletal(UTILS::Ref<ECS::Object> _obj, const std::string& _path, const std::optional<std::string>& _startAnimation=std::nullopt);
@@ -58,6 +56,10 @@ namespace IKIGAI::ECS {
 		void setx(float v) { pointX = v; }
 		void sety(float v) { pointY = v; }
 	public:
+		IKI_PROPERTY(Name=AnimationPath, Type=std::string, Getter=getAnimationPath, Setter=setAnimationPath, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=STRING)
+		IKI_PROPERTY(Name=Animation, Type=std::string, Getter=getCurrentAnimationName, Setter=setAnimation, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=STRING)
+		IKI_PROPERTY(Name=PointX, Type=float, Getter=getx, Setter=setx, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=PointY, Type=float, Getter=gety, Setter=sety, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=DRAG_FLOAT)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfo("AnimationPath", &Skeletal::getAnimationPath, &Skeletal::setAnimationPath,
@@ -94,3 +96,5 @@ namespace IKIGAI::ECS {
 		return "Skeletal";
 	}
 }
+
+#include "generated/skeletal.generated.h"

@@ -1,31 +1,29 @@
 #pragma once
 #include "lightComponent.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS{
+	IKI_CLASS()
 	class PointLight : public LightComponent {
+		IKI_GENERATED_BODY(PointLight)
 	public:
+		IKI_CLASS(Name=PointLight::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(PointLight::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="PointLightType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Color", default=MATH::Vector3f(1.0f, 1.0f, 1.0f)))
 			MATH::Vector3f Color;
+			IKI_PROPERTY(SEREALIZE(name="Intensity"))
 			float Intensity = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Constant"))
 			float Constant = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Linear"))
 			float Linear = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Quadratic"))
 			float Quadratic = 0.0f;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "PointLightType")
-					.field(&Self::Color, "Color", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
-					.field(&Self::Intensity, "Intensity")
-					.field(&Self::Constant, "Constant")
-					.field(&Self::Linear, "Linear")
-					.field(&Self::Quadratic, "Quadratic");
-			}
 		};
 		PointLight(UTILS::Ref<ECS::Object> _obj);
 		PointLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor);
@@ -72,6 +70,11 @@ namespace IKIGAI::ECS{
 		float zFar = 0.0f;
 
 	public:
+		IKI_PROPERTY(Name=Color, Type=MATH::Vector3f, Getter=getColor, Setter=setColor, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=DRAG_COLOR_3)
+		IKI_PROPERTY(Name=Intensity, Type=float, Getter=getIntensity, Setter=setIntensity, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Linear, Type=float, Getter=getLinear, Setter=setLinear, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Quadratic, Type=float, Getter=getQuadratic, Setter=setQuadratic, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Constant, Type=float, Getter=getConstant, Setter=setConstant, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfoLambda<PointLight, const MATH::Vector3f&>("Color", 
@@ -125,3 +128,5 @@ namespace IKIGAI::ECS{
 		return "PointLight";
 	}
 }
+
+#include "generated/pointLight.generated.h"

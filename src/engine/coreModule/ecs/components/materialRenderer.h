@@ -4,6 +4,7 @@
 #include <renderModule/backends/interface/materialInterface.h>
 
 #include "utilsModule/event.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 #define MAX_MATERIAL_COUNT 255
 
@@ -11,22 +12,19 @@
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class MaterialRenderer : public Component {
+		IKI_GENERATED_BODY(MaterialRenderer)
 	public:
+		IKI_CLASS(Name=MaterialRenderer::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(MaterialRenderer::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="MaterialRendererType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="MaterialNames"))
 			std::vector<std::string> MaterialNames;
+			IKI_PROPERTY(SEREALIZE(name="Materials"))
 			std::vector<std::string> Materials;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "MaterialRendererType")
-					.field(&Self::MaterialNames, "MaterialNames")
-					.field(&Self::Materials, "Materials");
-			}
 		};
 
 		using MaterialList = std::array<std::shared_ptr<RENDER::MaterialInterface>, MAX_MATERIAL_COUNT>;
@@ -90,3 +88,5 @@ namespace IKIGAI::ECS {
 		return "MaterialRenderer";
 	}
 }
+
+#include "generated/materialRenderer.generated.h"

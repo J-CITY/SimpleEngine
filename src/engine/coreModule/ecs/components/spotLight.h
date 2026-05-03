@@ -1,36 +1,35 @@
 #pragma once
 #include "lightComponent.h"
+#include "lightComponent.h"
 #include "mathModule/math.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class SpotLight : public LightComponent {
+		IKI_GENERATED_BODY(SpotLight)
 	public:
+		IKI_CLASS(Name=SpotLight::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(SpotLight::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="SpotLightType"))
 			std::string Type = "class IKIGAI::ECS::SpotLight";
+			IKI_PROPERTY(SEREALIZE(name="Color", default=MATH::Vector3f(1.0f, 1.0f, 1.0f)))
 			MATH::Vector3f Color;
+			IKI_PROPERTY(SEREALIZE(name="Intensity"))
 			float Intensity = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Constant"))
 			float Constant = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Linear"))
 			float Linear = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Quadratic"))
 			float Quadratic = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Cutoff"))
 			float Cutoff = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="OuterCutoff"))
 			float OuterCutoff = 0.0f;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "SpotLightType")
-					.field(&Self::Color, "Color", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
-					.field(&Self::Intensity, "Intensity")
-					.field(&Self::Constant, "Constant")
-					.field(&Self::Linear, "Linear")
-					.field(&Self::Quadratic, "Quadratic")
-					.field(&Self::Cutoff, "Cutoff")
-					.field(&Self::OuterCutoff, "OuterCutoff");
-			}
 		};
 		SpotLight(UTILS::Ref<ECS::Object> obj);
 		SpotLight(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
@@ -63,6 +62,13 @@ namespace IKIGAI::ECS {
 
 		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
+		IKI_PROPERTY(Name=Color, Type=MATH::Vector3f, Getter=getColor, Setter=setColor, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=DRAG_COLOR_3)
+		IKI_PROPERTY(Name=Intensity, Type=float, Getter=getIntensity, Setter=setIntensity, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Linear, Type=float, Getter=getLinear, Setter=setLinear, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Quadratic, Type=float, Getter=getQuadratic, Setter=setQuadratic, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Constant, Type=float, Getter=getConstant, Setter=setConstant, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Cutoff, Type=float, Getter=getCutoff, Setter=setCutoff, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=OuterCutoff, Type=float, Getter=getOuterCutoff, Setter=setOuterCutoff, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfoLambda<SpotLight, const MATH::Vector3f&>("Color",
@@ -130,3 +136,5 @@ namespace IKIGAI::ECS {
 		return "SpotLight";
 	}
 }
+
+#include "generated/spotLight.generated.h"

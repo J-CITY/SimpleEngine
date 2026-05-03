@@ -5,6 +5,7 @@
 #include <renderModule/objects/BoundingSphere.h>
 #include <physicsModule/body.h>
 #include "physicsModule/narrowPhase.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI
 {
@@ -24,19 +25,16 @@ namespace IKIGAI::ECS {
 		OBB,
 		COUNT,
 	};
+	IKI_CLASS()
 	class PhysicsComponent : public Component {
+		IKI_GENERATED_BODY(PhysicsComponent)
 	public:
 		//TODO: add params
+		IKI_CLASS(Name=PhysicsComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(PhysicsComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="PhysicsComponentType"))
 			std::string Type;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "PhysicsComponentType");
-			}
 		};
 
 		PhysicsComponent(UTILS::Ref<ECS::Object> obj);
@@ -75,3 +73,5 @@ namespace IKIGAI::ECS {
 		return "PhysicsComponent";
 	}
 }
+
+#include "generated/physicsComponent.generated.h"

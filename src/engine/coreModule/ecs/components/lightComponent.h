@@ -24,3 +24,4 @@ namespace IKIGAI::ECS {
 		RENDER::Light data;
 	};
 }
+

@@ -1,28 +1,26 @@
 #pragma once
 
 #include "lightComponent.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class AmbientSphereLight : public LightComponent {
+		IKI_GENERATED_BODY(AmbientSphereLight)
 	public:
+		IKI_CLASS(Name=AmbientSphereLight::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(AmbientSphereLight::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="AmbientSphereLightType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Color", default=MATH::Vector3f(1.0f, 1.0f, 1.0f)))
 			MATH::Vector3f Color;
+			IKI_PROPERTY(SEREALIZE(name="Radius", default=1.0f))
 			float Radius = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Intensity"))
 			float Intensity;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "AmbientSphereLightType")
-					.field(&Self::Color, "Color", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
-					.field(&Self::Radius, "Radius", default_{1.0f})
-					.field(&Self::Intensity, "Intensity");
-			}
 		};
 		AmbientSphereLight(UTILS::Ref<ECS::Object> _obj);
 		AmbientSphereLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor);
@@ -34,6 +32,9 @@ namespace IKIGAI::ECS {
 		void setRadius(float p_radius);
 		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
+		IKI_PROPERTY(Name=Color, Type=MATH::Vector3f, Getter=getColor, Setter=setColor, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=DRAG_COLOR_3)
+		IKI_PROPERTY(Name=Intensity, Type=float, Getter=getIntensity, Setter=setIntensity, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
+		IKI_PROPERTY(Name=Radius, Type=float, Getter=getRadius, Setter=setRadius, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 10000.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfoLambda<AmbientSphereLight, const MATH::Vector3f&>("Color",
@@ -72,3 +73,5 @@ namespace IKIGAI::ECS {
 		return "AmbientSphereLight";
 	}
 }
+
+#include "generated/ambientSphereLight.generated.h"

@@ -4,24 +4,22 @@
 
 #include "component.h"
 #include <utilsModule/event.h>
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class ScriptComponent : public Component {
+		IKI_GENERATED_BODY(ScriptComponent)
 	public:
+		IKI_CLASS(Name=ScriptComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(ScriptComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="ScriptComponentType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Path"))
 			std::string Path;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "ScriptComponentType")
-					.field(&Self::Path, "Path");
-			}
 		};
 		ScriptComponent(UTILS::Ref<ECS::Object> obj);
 		ScriptComponent(UTILS::Ref<ECS::Object> obj, const std::string& name);
@@ -42,6 +40,7 @@ namespace IKIGAI::ECS {
 		std::string name;
 		sol::table object = sol::nil;
 	public:
+		IKI_PROPERTY(Name=Path, Type=std::string, Getter=getScriptName, Setter=setScript, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=STRING)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfo("Path", &ScriptComponent::getScriptName, &ScriptComponent::setScript,
@@ -68,3 +67,5 @@ namespace IKIGAI::ECS {
 		return "ScriptComponent";
 	}
 }
+
+#include "generated/scriptComponent.generated.h"

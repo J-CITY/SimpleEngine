@@ -4,6 +4,7 @@
 #include "../object.h"
 #include "resourceModule/modelManager.h"
 #include "utilsModule/log/loggerDefine.h"
+#include "generated/modelRenderer.generated.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;

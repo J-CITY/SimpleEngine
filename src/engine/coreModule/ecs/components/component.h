@@ -73,3 +73,4 @@ namespace IKIGAI::ECS {
 		return "";
 	}
 }
+

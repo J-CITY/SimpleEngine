@@ -1,28 +1,26 @@
 #pragma once
 
 #include "directionalLight.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class AmbientLight: public LightComponent {
+		IKI_GENERATED_BODY(AmbientLight)
 	public:
+		IKI_CLASS(Name=AmbientLight::Descriptor)
 		struct Descriptor: public Component::Descriptor {
+			IKI_GENERATED_BODY(AmbientLight::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="AmbientLightType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Color", default=MATH::Vector3f(1.0f, 1.0f, 1.0f)))
 			MATH::Vector3f Color;
+			IKI_PROPERTY(SEREALIZE(name="Size", default=MATH::Vector3f(1.0f, 1.0f, 1.0f)))
 			MATH::Vector3f Size;
+			IKI_PROPERTY(SEREALIZE(name="Intensity"))
 			float Intensity = 0.0f;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "AmbientLightType")
-					.field(&Self::Color, "Color", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
-					.field(&Self::Size, "Size", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
-					.field(&Self::Intensity, "Intensity");
-			}
 		};
 
 		AmbientLight(UTILS::Ref<ECS::Object> _obj);
@@ -34,6 +32,8 @@ namespace IKIGAI::ECS {
 		void setSize(const MATH::Vector3f& val);
 		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
+		IKI_PROPERTY(Name=Color, Type=MATH::Vector3f, Getter=getColor, Setter=setColor, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=DRAG_COLOR_3)
+		IKI_PROPERTY(Name=Intensity, Type=float, Getter=getIntensity, Setter=setIntensity, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfoLambda<AmbientLight, const MATH::Vector3f&>("Color",
@@ -66,3 +66,5 @@ namespace IKIGAI::ECS {
 		return "AmbientLight";
 	}
 }
+
+#include "generated/ambientLight.generated.h"

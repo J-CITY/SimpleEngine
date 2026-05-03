@@ -3,24 +3,22 @@
 #include <string>
 
 #include "component.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class InputComponent : public Component {
+		IKI_GENERATED_BODY(InputComponent)
 		bool isActive = true;
 		std::function<void(std::chrono::duration<double>)> inputEventFun = [](std::chrono::duration<double>){};
 	public:
+		IKI_CLASS(Name=InputComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(InputComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="InputComponentType"))
 			std::string Type;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "InputComponentType");
-			}
 		};
 		InputComponent(UTILS::Ref<ECS::Object> obj, std::function<void(std::chrono::duration<double>)> inputEventFun);
 		InputComponent(UTILS::Ref<ECS::Object> obj);
@@ -48,3 +46,5 @@ namespace IKIGAI::ECS {
 		return "InputComponent";
 	}
 }
+
+#include "generated/inputComponent.generated.h"

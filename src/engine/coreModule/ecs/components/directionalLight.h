@@ -2,29 +2,27 @@
 #include <string>
 
 #include "lightComponent.h"
+#include "utilsModule/reflection/reflection_macros.h"
 //#include "../../../DiffuseLightRT.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class DirectionalLight : public LightComponent {
+		IKI_GENERATED_BODY(DirectionalLight)
 	public:
+		IKI_CLASS(Name=DirectionalLight::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(DirectionalLight::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="DirectionalLightType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Color", default=MATH::Vector3f(1.0f, 1.0f, 1.0f)))
 			MATH::Vector3f Color;
+			IKI_PROPERTY(SEREALIZE(name="Distance"))
 			float Distance;
+			IKI_PROPERTY(SEREALIZE(name="Intensity"))
 			float Intensity;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "DirectionalLightType")
-					.field(&Self::Color, "Color", default_{MATH::Vector3f(1.0f, 1.0f, 1.0f)})
-					.field(&Self::Distance, "Distance")
-					.field(&Self::Intensity, "Intensity");
-			}
 		};
 		constexpr static size_t TextureCount = 3;
 		DirectionalLight(UTILS::Ref<ECS::Object> obj);
@@ -53,6 +51,8 @@ namespace IKIGAI::ECS {
 		size_t depthMapTextureID = 0;
 		[[nodiscard]] Descriptor getDescriptor() const;
 	public:
+		IKI_PROPERTY(Name=Color, Type=MATH::Vector3f, Getter=getColor, Setter=setColor, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget=DRAG_COLOR_3)
+		IKI_PROPERTY(Name=Intensity, Type=float, Getter=getIntensity, Setter=setIntensity, Flags=[USE_IN_EDITOR_COMPONENT_INSPECTOR], EditRange=MATH::Vector2f{0.0f, 1.0f}, EditStep=0.1f, EditWidget=DRAG_FLOAT)
 		static auto GetMembers() {
 			return std::tuple{
 				IKIGAI::UTILS::MakeMemberInfoLambda<DirectionalLight, const MATH::Vector3f&>("Color",
@@ -85,3 +85,5 @@ namespace IKIGAI::ECS {
 		return "DirectionalLight";
 	}
 }
+
+#include "generated/directionalLight.generated.h"

@@ -4,6 +4,7 @@
 #include <utilsModule/event.h>
 
 #include "utilsModule/meshGenerator.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
@@ -14,20 +15,17 @@ namespace IKIGAI::ECS{
 		CULL_MESHES = 2,
 		CULL_CUSTOM = 3
 	};
+	IKI_CLASS()
 	class  ModelRenderer : public Component {
+		IKI_GENERATED_BODY(ModelRenderer)
 	public:
+		IKI_CLASS(Name=ModelRenderer::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(ModelRenderer::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="ModelRendererType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Path"))
 			std::string Path;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "ModelRendererType")
-					.field(&Self::Path, "Path");
-			}
 		};
 		ModelRenderer(UTILS::Ref<ECS::Object> obj);
 		ModelRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor);
@@ -55,33 +53,25 @@ namespace IKIGAI::ECS{
 		}
 	};
 
+	IKI_CLASS()
 	class ModelLODRenderer : public Component {
+		IKI_GENERATED_BODY(ModelLODRenderer)
 	public:
+		IKI_CLASS(Name=ModelLODRenderer::ModelLodRefl)
 		struct ModelLodRefl {
+			IKI_GENERATED_BODY(ModelLODRenderer::ModelLodRefl)
+			IKI_PROPERTY(SEREALIZE(name="Distance"))
 			float Distance = 0.0f;
+			IKI_PROPERTY(SEREALIZE(name="Path"))
 			std::string Path;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, ModelLodRefl& value) {
-				using Self = ModelLodRefl;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Distance, "Distance")
-					.field(&Self::Path, "Path");
-			}
 		};
+		IKI_CLASS(Name=ModelLODRenderer::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(ModelLODRenderer::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="ModelLODRendererType"))
 			std::string Type;
-			std::vector<ModelLodRefl> Paths;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "ModelLODRendererType")
-					.field(&Self::Paths, "Paths");
-			}
+			IKI_PROPERTY(SEREALIZE(name="Paths"))
+			std::vector<IKIGAI::ECS::ModelLODRenderer::ModelLodRefl> Paths;
 		};
 		
 		struct ModelLod {
@@ -139,19 +129,17 @@ namespace IKIGAI::ECS{
 	}
 
 
+	IKI_CLASS()
 	class ChunkModelRenderer : public Component {
+		IKI_GENERATED_BODY(ChunkModelRenderer)
 	public:
+		IKI_CLASS(Name=ChunkModelRenderer::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(ChunkModelRenderer::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="ChunkModelRendererType"))
 			std::string Type;
+			IKI_PROPERTY(SEREALIZE(name="Path"))
 			std::string Path;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "ChunkModelRendererType");
-			}
 		};
 		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj);
 		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor);
@@ -190,3 +178,5 @@ namespace IKIGAI::ECS{
 	}
 
 }
+
+#include "generated/modelRenderer.generated.h"

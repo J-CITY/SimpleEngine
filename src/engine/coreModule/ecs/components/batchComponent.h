@@ -2,22 +2,20 @@
 #include "component.h"
 #include "materialRenderer.h"
 #include "modelRenderer.h"
+#include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
+	IKI_CLASS()
 	class BatchComponent : public Component {
+		IKI_GENERATED_BODY(BatchComponent)
 	public:
+		IKI_CLASS(Name=BatchComponent::Descriptor)
 		struct Descriptor : public Component::Descriptor {
+			IKI_GENERATED_BODY(BatchComponent::Descriptor)
+			IKI_PROPERTY(SEREALIZE(name="BatchComponentType"))
 			std::string Type;
-
-			template<class Context>
-			constexpr static auto serde(Context& context, Descriptor& value) {
-				using Self = Descriptor;
-				using namespace serde::attribute;
-				serde::serde_struct(context, value)
-					.field(&Self::Type, "BatchComponentType");
-			}
 		};
 		inline static std::vector<unsigned> ids;
 		BatchComponent(UTILS::Ref<ECS::Object> obj);
@@ -49,3 +47,5 @@ namespace IKIGAI::ECS {
 		return "BatchComponent";
 	}
 }
+
+#include "generated/batchComponent.generated.h"

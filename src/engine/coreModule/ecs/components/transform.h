@@ -264,3 +264,5 @@ namespace IKIGAI::ECS {
 		return "TransformComponent";
 	}
 }
+
+#include "generated/transform.generated.h"
