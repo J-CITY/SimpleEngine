@@ -2,11 +2,12 @@
 
 #include "renderModule/gameRendererGl.h"
 #include "renderModule/gameRendererInterface.h"
+#include "sceneModule/sceneManager.h"
 
 namespace IKIGAI::ECS {
-	//TODO: add signal update frame buffer? when set render pipeline
-	//TODO: add fb to drawable
-	RenderTargetComponent::RenderTargetComponent(UTILS::Ref<ECS::Object> _obj) : Component(_obj) {
+	//TODO: add signal update frame buffer, when set render pipeline
+	//TODO: add signal to subscribe on object with camera
+	RenderTargetComponent::RenderTargetComponent(UTILS::Ref<ECS::Object> _obj) : ComponentBase(_obj) {
 		__NAME__ = "RenderTargetComponent";
 
 	}
@@ -14,6 +15,7 @@ namespace IKIGAI::ECS {
 	RenderTargetComponent::RenderTargetComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor) : RenderTargetComponent(_obj) {
 		mFlowType = descriptor.flowType;
 		mFrameBufferName = descriptor.frameBufferName;
+		mCameraObjectId = ECS2::Entity(ECS2::Entity::ID(descriptor.cameraObjectId));
 	}
 
 	void RenderTargetComponent::setName(const std::string& name) {
@@ -40,10 +42,20 @@ namespace IKIGAI::ECS {
 		return mFrameBuffer;
 	}
 
+	UTILS::WeakPtr<CameraComponent> RenderTargetComponent::getCamera() {
+		auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
+		auto obj = scene.findObjectByID(mCameraObjectId);
+		if (obj) {
+			mCamera = obj->getComponent<CameraComponent>();
+		}
+		return mCamera;
+	}
+
 	RenderTargetComponent::Descriptor RenderTargetComponent::getDescriptor() const {
 		Descriptor descriptor;
 		descriptor.flowType = mFlowType;
 		descriptor.frameBufferName = mFrameBufferName;
+		descriptor.cameraObjectId = static_cast<int>(mCameraObjectId.getUniqueId());
 		return descriptor;
 	}
 }
