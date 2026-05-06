@@ -109,7 +109,7 @@ public:
   // }
 
   UTILS::WeakPtr<T> getDataPtr(Entity entity) {
-    static_assert(std::is_base_of_v<Component, T>,
+    static_assert(std::is_base_of_v<ECS2::Component, T>,
                   "Must inherit from class Component");
     assert(entityToIndexInArray.contains(entity) &&
            "Retrieving non-existent component.");
@@ -117,13 +117,13 @@ public:
     return componentArray[entityToIndexInArray[entity]].template getWeak<T>();
   }
 
-  UTILS::WeakPtr<ECS::Component> getDataBasePtr(Entity entity) {
-    static_assert(std::is_base_of_v<Component, T>,
+  UTILS::WeakPtr<ECS2::Component> getDataBasePtr(Entity entity) {
+    static_assert(std::is_base_of_v<ECS2::Component, T>,
                   "Must inherit from class Component");
     assert(entityToIndexInArray.contains(entity) &&
            "Retrieving non-existent component.");
 
-    return UTILS::WeakPtr<ECS::Component>(
+    return UTILS::WeakPtr<ECS2::Component>(
         componentArray[entityToIndexInArray[entity]]);
   }
 

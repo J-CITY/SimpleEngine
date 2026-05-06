@@ -13,7 +13,7 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-BatchComponent::BatchComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
+BatchComponent::BatchComponent(UTILS::Ref<ECS::Object> obj) : ComponentBase(obj) {
 	__NAME__ = "BatchComponent";
 #ifdef OPENGL_BACKEND
 	init();

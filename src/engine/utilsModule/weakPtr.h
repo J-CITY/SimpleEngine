@@ -1,9 +1,8 @@
 #pragma once
 #include <atomic>
 
-namespace IKIGAI::ECS {
+namespace IKIGAI::ECS2 {
 	class Component;
-	class ScriptComponent;
 }
 
 namespace IKIGAI::UTILS {
@@ -19,7 +18,7 @@ namespace IKIGAI::UTILS {
 		UTILS::ControlBlock* mCb = nullptr;
 	public:
 		ControlBlockHandler();
-		ControlBlockHandler(ECS::Component* ptr);
+		ControlBlockHandler(ECS2::Component* ptr);
 		//TODO: delete copy constructor 
 		ControlBlockHandler(const ControlBlockHandler& obj);
 		ControlBlockHandler& operator=(const ControlBlockHandler& obj);
@@ -114,7 +113,7 @@ namespace IKIGAI::UTILS {
 
 	template <typename T>
 	concept ComponentT = requires (T t) {
-		std::is_base_of_v<ECS::Component, decltype(t)>;
+		std::is_base_of_v<ECS2::Component, decltype(t)>;
 	};
 
 	template<ComponentT T>

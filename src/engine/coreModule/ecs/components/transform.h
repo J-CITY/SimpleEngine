@@ -105,10 +105,10 @@ namespace IKIGAI::ECS {
 	};
 	
 	IKI_CLASS()
-	class TransformComponent : public Component {
+	class TransformComponent : public ComponentBase {
         IKI_GENERATED_BODY(TransformComponent)
 	public:
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			std::string Type;
 			MATH::Vector3f LocalPosition;
 			MATH::Vector3f LocalScale;
@@ -132,7 +132,7 @@ namespace IKIGAI::ECS {
 			IKIGAI::MATH::Vector3f localScale = IKIGAI::MATH::Vector3f(1.0f, 1.0f, 1.0f));
 
 		TransformComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
-		TransformComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+		TransformComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 			TransformComponent(obj, static_cast<const Descriptor&>(descriptor)) {};
 
 		[[nodiscard]] Descriptor getDescriptor() const;

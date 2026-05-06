@@ -4,6 +4,11 @@
 #endif
 #include <memory>
 #ifdef USE_EDITOR
+namespace IKIGAI::ECS2
+{
+	class World;
+}
+
 namespace IKIGAI
 {
 	namespace EDITOR
@@ -143,6 +148,7 @@ namespace IKIGAI {
 			std::unique_ptr<PHYSICS::PhysicWorld>         physicsManger;
 			std::unique_ptr<TASK::TaskSystem>             taskManger;
 			std::unique_ptr<EVENT::EventBroadcaster>      eventBroadcaster;
+			std::unique_ptr<ECS2::World>      world;
 
 #ifdef USE_EDITOR
 			std::unique_ptr<IKIGAI::EDITOR::EditorRender> editorRender;

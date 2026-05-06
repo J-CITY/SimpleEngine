@@ -957,14 +957,14 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::openResource(const std::string& pa
 struct Prop {
 	Prop() = default;
 	Prop(std::string objName,
-		IKIGAI::ECS::Object::Id_ objId,
+		IKIGAI::ECS::Object::Id objId,
 		std::string componentName,
 		std::string propertyName,
 		IKIGAI::ANIMATION::AnimationProperty animProp,
 		IKIGAI::ANIMATION::PropType defaultValue):objName(objName), objId(objId), componentName(componentName), propertyName(propertyName), animProp(animProp), defaultValue(defaultValue){}
 
 	std::string objName;
-	IKIGAI::ECS::Object::Id_ objId{0};
+	IKIGAI::ECS::Object::Id objId{IKIGAI::ECS2::Entity::ID(0)};
 	std::string componentName;
 	std::string propertyName;
 	IKIGAI::ANIMATION::AnimationProperty animProp;
@@ -976,26 +976,29 @@ std::map<std::string, Prop> AllObjPropsInAnimation;
 std::map<std::string, Prop> ObjProps;
 
 template<typename T>
-void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp) {
+void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
 	if (comp->getName() == IKIGAI::ECS::GetComponentName<T>()) {
+		auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
 		auto props = T::GetMembers();
-		std::apply([&comp, &name, &id]<typename... Args> (Args&... tpl) {
-			auto drawElem = [&comp, &name, &id](auto& prop) {
+		std::apply([&comp, &name, &id, cm]<typename... Args> (Args&... tpl) {
+			auto drawElem = [&comp, &name, &id, cm](auto& prop) {
 				const auto propName = prop.getName();
 				const auto wType = std::get<IKIGAI::UTILS::WidgetType>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
 				const auto lineName = name + comp->getName() + propName;
 				switch (wType) {
 				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
 					if constexpr (std::is_same_v<decltype(prop.getPropType()), IKIGAI::MATH::Vector4f>) {
-						ObjProps[lineName] = Prop{
+						ObjProps[lineName, cm] = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								prop.set(*component.get(), std::get<IKIGAI::MATH::Vector4f>(val));
 							},
-							[prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return prop.get(*component.get());
 							}),
 							prop.getPropType()};
@@ -1010,12 +1013,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, I
 						ObjProps[lineName] = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								prop.set(*component.get(), std::get<IKIGAI::MATH::Vector3f>(val));
 							},
-							[prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return prop.get(*component.get());
 							}),
 							prop.getPropType()};
@@ -1031,13 +1036,15 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, I
 						ObjProps[lineName] = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								prop.set(*component.get(), std::get<float>(val));
 							},
-							[prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-							return prop.get(*component.get());
+							[prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+								return prop.get(*component.get());
 							}),
 							prop.getPropType()};
 					}
@@ -1048,12 +1055,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, I
 						ObjProps[lineName] = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								prop.set(*component.get(), std::get<int>(val));
 							},
-							[prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return prop.get(*component.get());
 							}),
 							prop.getPropType()};
@@ -1065,12 +1074,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, I
 						ObjProps[lineName] = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								prop.set(*component.get(), std::get<bool>(val));
 							},
-							[prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return prop.get(*component.get());
 							}),
 							prop.getPropType()};
@@ -1093,18 +1104,18 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, I
 }
 
 template<template<typename...> class Container, typename...ComponentType>
-void getProps(const std::string& name, const IKIGAI::ECS::Object::Id_& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp, Container<ComponentType...> opt) {
+void getProps(const std::string& name, const IKIGAI::ECS::Object::Id& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp, Container<ComponentType...> opt) {
 	(getPropsImpl<ComponentType>(name, id, comp), ...);
 }
 
-void getProps(const std::string& name, const IKIGAI::ECS::Object::Id_& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp) {
+void getProps(const std::string& name, const IKIGAI::ECS::Object::Id& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
 	getProps(name, id, comp, IKIGAI::ECS::ComponentsTypeProviderType{});
 }
 ////////////
 
 
 template<typename T>
-void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, const std::string& componentName, const std::string& propName, Prop& prop) {
+void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop) {
 	if (componentName == IKIGAI::ECS::GetComponentName<T>()) {
 		auto props = T::GetMembers();
 
@@ -1117,9 +1128,10 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, c
 		}
 
 		auto comp = obj->getComponent<T>();
+		auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
 
-		std::apply([&comp, &name, &id, &propName, &prop]<typename... Args> (Args&... tpl) {
-			auto drawElem = [&comp, &name, &id, &propName, &prop](auto& _prop) {
+		std::apply([&comp, &name, &id, &propName, &prop, cm]<typename... Args> (Args&... tpl) {
+			auto drawElem = [&comp, &name, &id, &propName, &prop, cm](auto& _prop) {
 
 				const auto _propName = _prop.getName();
 				if (propName != _propName) {
@@ -1134,12 +1146,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, c
 						prop = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								_prop.set(*component.get(), std::get<IKIGAI::MATH::Vector4f>(val));
 							},
-							[_prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return _prop.get(*component.get());
 							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
 							_prop.getPropType()};
@@ -1154,12 +1168,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, c
 						prop = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								_prop.set(*component.get(), std::get<IKIGAI::MATH::Vector3f>(val));
 							},
-							[_prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return _prop.get(*component.get());
 							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
 							_prop.getPropType()};
@@ -1175,12 +1191,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, c
 						prop = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								_prop.set(*component.get(), std::get<float>(val));
 							},
-							[_prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return _prop.get(*component.get());
 							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
 							_prop.getPropType()};
@@ -1192,12 +1210,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, c
 						prop = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								_prop.set(*component.get(), std::get<int>(val));
 							},
-							[_prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return _prop.get(*component.get());
 							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
 							_prop.getPropType()};
@@ -1209,12 +1229,14 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, c
 						prop = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id](IKIGAI::ANIMATION::PropType val) {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								_prop.set(*component.get(), std::get<bool>(val));
 							},
-							[_prop, id]() {
-								auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
+							[_prop, id, cm]() {
+								auto component = cm->getComponent<T>(id);
+								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
 								return _prop.get(*component.get());
 							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
 							_prop.getPropType()};
@@ -1237,11 +1259,11 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id_& id, c
 }
 
 template<template<typename...> class Container, typename...ComponentType>
-void getProp(const std::string& name, const IKIGAI::ECS::Object::Id_& id, const std::string& componentName, const std::string& propName, Prop& prop, Container<ComponentType...> opt) {
+void getProp(const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop, Container<ComponentType...> opt) {
 	(getPropsImpl<ComponentType>(name, id, componentName, propName, prop), ...);
 }
 
-void getProp(const std::string& name, const IKIGAI::ECS::Object::Id_& id, const std::string& componentName, const std::string& propName, Prop& prop) {
+void getProp(const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop) {
 	getProp(name, id, componentName, propName, prop, IKIGAI::ECS::ComponentsTypeProviderType{});
 }
 
@@ -1268,12 +1290,14 @@ void getObjectProps() {
 	const auto objId = selectObject->getID();
 	const auto objName = selectObject->getName();
 
-	auto components = IKIGAI::ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
+	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	auto components = cm->getComponents<IKIGAI::ECS::ComponentBase>(selectObject->getID());
+	//auto components = IKIGAI::ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
 	for (auto& component : components) {
 		getProps(objName, objId, component);
 	}
 
-	Prop eventProp("", IKIGAI::ECS::Object::Id_(0), "EVENT", "",
+	Prop eventProp("", IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(0)), "EVENT", "",
 		IKIGAI::ANIMATION::AnimationProperty(objName + "EVENT",
 		[](IKIGAI::ANIMATION::PropType val) {
 			std::cout << "SEND EVENT" << std::get<std::string>(val) << std::endl;
@@ -1297,7 +1321,7 @@ IKIGAI::ANIMATION::TimelineAnimationDescriptor IKIGAI::EDITOR::TimelineAnimation
 	for (auto& track : AllObjPropsInAnimation) {
 		desc.tracks[track.first] = IKIGAI::ANIMATION::TimelineAnimationTrackDescriptor{
 			track.second.objName,
-			static_cast<int>(track.second.objId),
+			static_cast<int>(track.second.objId.getUniqueId()),
 			track.second.componentName,
 			track.second.propertyName,
 		};
@@ -1323,7 +1347,7 @@ std::unique_ptr<IKIGAI::ANIMATION::Animation> IKIGAI::EDITOR::TimelineAnimationW
 
 	for (auto& track : desc.tracks) {
 		Prop prop;
-		getProp(track.second.objectName, IKIGAI::ECS::Object::Id_(track.second.objectId), track.second.componentName, track.second.propertyName, prop);
+		getProp(track.second.objectName, IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(track.second.objectId)), track.second.componentName, track.second.propertyName, prop);
 
 		mAnimation->addProperty(ObjProps[track.first].animProp);
 		AllObjPropsInAnimation[track.first] = prop;

@@ -9,11 +9,11 @@
 #include "sceneModule/sceneManager.h"
 using namespace IKIGAI::ECS;
 
-CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj): Component(_obj) {
+CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj): ComponentBase(_obj) {
 	__NAME__ = "CameraComponent";
 }
 
-CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : Component(_obj) {
+CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : ComponentBase(_obj) {
 	__NAME__ = "CameraComponent";
 	setFov(_descriptor.Fov);
 	setSize(_descriptor.Size);
@@ -163,7 +163,7 @@ VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj, const Descrip
 
 std::shared_ptr<IKIGAI::ECS::Object> VrCameraComponent::createObject(const std::string& name) {
 	static int id = 0;
-	auto instance = std::make_shared<ECS::Object>(Object::Id_(id), name, "");
+	auto instance = std::make_shared<ECS::Object>(Object::Id(Object::Id::ID(id)), name, "");
 	//if (isExecute) {
 		instance->setActive(true);
 		if (instance->getIsActive()) {

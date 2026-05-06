@@ -4,12 +4,14 @@
 #include <limits>
 
 #include "coreModule/ecs/componentManager.h"
+#include "coreModule/ecs/object.h"
+#include "ecsModule/world.h"
 #include "mathModule/math.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-Light::Light(Id<ECS::Object> objId, Type type) : objId(objId), type(type) {}
+Light::Light(ECS2::Entity objId, Type type) : objId(objId), type(type) {}
 
 uint32_t pack(uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3) {
 	return (c0 << 24) | (c1 << 16) | (c2 << 8) | c3;
@@ -22,7 +24,10 @@ uint32_t Pack(const IKIGAI::MATH::Vector3f& vec) {
 
 LightOGL Light::generateOGLStruct() const {
 	LightOGL result;
-	auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
+	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+	auto cm = world.getComponentManager();
+	auto transform = cm->getComponent<ECS::TransformComponent>(objId);
+	//auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
 	auto position = transform->getWorldPosition();
 	result.pos[0] = position.x;
 	result.pos[1] = position.y;
@@ -105,7 +110,10 @@ float Light::getEffectRange() const {
 	case Type::POINT:
 	case Type::SPOT:			return calculatePointLightRadius(constant, linear, quadratic, intensity);
 	case Type::AMBIENT_BOX: {
-		auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
+		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+		auto cm = world.getComponentManager();
+		auto transform = cm->getComponent<ECS::TransformComponent>(objId);
+		//auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
 		return calculateAmbientBoxLightRadius(transform->getWorldPosition(), { constant, linear, quadratic });
 	}
 	case Type::AMBIENT_SPHERE:	return constant;
@@ -115,6 +123,9 @@ float Light::getEffectRange() const {
 }
 
 const ECS::Transform& Light::getTransform() const {
-	auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
+	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+	auto cm = world.getComponentManager();
+	auto transform = cm->getComponent<ECS::TransformComponent>(objId);
+	//auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
 	return transform->getTransform();
 }

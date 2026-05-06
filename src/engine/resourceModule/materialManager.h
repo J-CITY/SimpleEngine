@@ -37,7 +37,7 @@ namespace IKIGAI {
 			// Кэш разобранных дескрипторов материалов
 			inline static std::unordered_map<std::string, RENDER::MaterialResource> sResourceCache;
 			// FW subscription ids: path -> list of watch ids
-			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::id>> sFWSubscribersIds;
+			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::ID>> sFWSubscribersIds;
 		};
 	}
 }

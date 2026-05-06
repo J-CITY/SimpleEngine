@@ -6,7 +6,7 @@
 
 namespace IKIGAI::RESOURCES {
 
-IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::_add(const std::string& path, std::function<void(FileStatus)> cb) {
+IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::ID FileWatcher::_add(const std::string& path, std::function<void(FileStatus)> cb) {
 	auto& fs = ServiceManager::Get<FileSystem>();
 	if (!fs.isFileExist(path)) {
 		throw UTILS::EXEPTIONS::WrongPath(path.c_str());
@@ -19,13 +19,13 @@ IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::_add(const std::str
 	return m_filesCallbacks[path].add(cb);
 };
 
-IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::id FileWatcher::add(const Path& path, std::function<void(FileStatus)> cb) {
+IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::ID FileWatcher::add(const Path& path, std::function<void(FileStatus)> cb) {
 	const std::lock_guard lock(m_mutex);
 	const auto _path = path.string();
 	return _add(_path, cb);
 }
 
-void FileWatcher::addDeferred(const Path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb) {
+void FileWatcher::addDeferred(const Path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::ID)> retCb) {
 	const std::lock_guard lock(m_mutexDeferred);
 	if (!ServiceManager::Get<FileSystem>().isFileExist(path.string())) {
 		throw;
@@ -35,7 +35,7 @@ void FileWatcher::addDeferred(const Path& path, std::function<void(FileStatus)> 
 	deferredEvents.push({ QueueEvent::Action::ADD, _path, cb, retCb });
 }
 
-void FileWatcher::_remove(const std::string& path, EVENT::Event<FileStatus>::id id) {
+void FileWatcher::_remove(const std::string& path, EVENT::Event<FileStatus>::ID id) {
 	if (!m_filesCallbacks.contains(path)) {
 		return;
 	}
@@ -46,13 +46,13 @@ void FileWatcher::_remove(const std::string& path, EVENT::Event<FileStatus>::id 
 	}
 }
 
-void FileWatcher::remove(const Path& path, EVENT::Event<FileStatus>::id id) {
+void FileWatcher::remove(const Path& path, EVENT::Event<FileStatus>::ID id) {
 	const std::lock_guard lock(m_mutex);
 	const auto _path = path.string();
 	_remove(_path, id);
 }
 
-void FileWatcher::removeDeferred(const Path& path, EVENT::Event<FileStatus>::id id) {
+void FileWatcher::removeDeferred(const Path& path, EVENT::Event<FileStatus>::ID id) {
 	const std::lock_guard lock(m_mutexDeferred);
 	auto& fs = ServiceManager::Get<FileSystem>();
 	const auto _path = path.string();

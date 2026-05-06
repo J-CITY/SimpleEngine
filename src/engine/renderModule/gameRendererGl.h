@@ -197,6 +197,8 @@ namespace IKIGAI::RENDER {
 		void updateLights(SCENE_SYSTEM::Scene& scene);
 		void updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum);
 
+		const RenderGraphPipeline& getCurrentPipeline() const override;
+
 	public:
 		GameRendererGl(CORE::Core& context);
 		void Init();

@@ -13,7 +13,7 @@ namespace IKIGAI::ECS {
 		IKI_GENERATED_BODY(DirectionalLight)
 	public:
 		IKI_CLASS(Name=DirectionalLight::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(DirectionalLight::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="DirectionalLightType"))
 			std::string Type;
@@ -27,7 +27,7 @@ namespace IKIGAI::ECS {
 		constexpr static size_t TextureCount = 3;
 		DirectionalLight(UTILS::Ref<ECS::Object> obj);
 		DirectionalLight(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
-		DirectionalLight(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		DirectionalLight(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			DirectionalLight(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 

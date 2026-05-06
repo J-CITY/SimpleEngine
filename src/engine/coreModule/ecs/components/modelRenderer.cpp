@@ -9,11 +9,11 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-ModelRenderer::ModelRenderer(UTILS::Ref<ECS::Object> p_owner): Component(p_owner) {
+ModelRenderer::ModelRenderer(UTILS::Ref<ECS::Object> p_owner): ComponentBase(p_owner) {
 	__NAME__ = "ModelRenderer";
 }
 
-ModelRenderer::ModelRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor): Component(_obj) {
+ModelRenderer::ModelRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor): ComponentBase(_obj) {
 	__NAME__ = "ModelRenderer";
 	setModelByPath(_descriptor.Path);
 }
@@ -75,11 +75,11 @@ ModelRenderer::Descriptor ModelRenderer::getDescriptor() const {
 //---------------------------------------
 
 
-ModelLODRenderer::ModelLODRenderer(UTILS::Ref<ECS::Object> p_owner) : Component(p_owner) {
+ModelLODRenderer::ModelLODRenderer(UTILS::Ref<ECS::Object> p_owner) : ComponentBase(p_owner) {
 	__NAME__ = "ModelLODRenderer";
 }
 
-ModelLODRenderer::ModelLODRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor _descriptor) : Component(_obj)
+ModelLODRenderer::ModelLODRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor _descriptor) : ComponentBase(_obj)
 {
 	__NAME__ = "ModelLODRenderer";
 	setModelsByPath(_descriptor.Paths);
@@ -201,12 +201,12 @@ ModelLODRenderer::Descriptor ModelLODRenderer::getDescriptor() const {
 //----------------------------------------------
 
 
-ChunkModelRenderer::ChunkModelRenderer(UTILS::Ref<ECS::Object> p_owner) : Component(p_owner) {
+ChunkModelRenderer::ChunkModelRenderer(UTILS::Ref<ECS::Object> p_owner) : ComponentBase(p_owner) {
 	__NAME__ = "ChunkModelRenderer";
 	mModel = std::make_shared<superchunk>();
 }
 
-ChunkModelRenderer::ChunkModelRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : Component(_obj) {
+ChunkModelRenderer::ChunkModelRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : ComponentBase(_obj) {
 	__NAME__ = "ChunkModelRenderer";
 	mModel = std::make_shared<superchunk>();
 	//setModelByPath(_descriptor.Path);

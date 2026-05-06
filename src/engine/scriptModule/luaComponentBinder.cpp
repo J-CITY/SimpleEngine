@@ -20,12 +20,12 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
 	using namespace IKIGAI::MATH;
 	using namespace IKIGAI::ECS;
 	
-	p_luaState.new_usertype<Component>("Component",
-		"GetOwner", [](Component& p_component) -> const Object& { return p_component.obj; }
+	p_luaState.new_usertype<ComponentBase>("Component",
+		"GetOwner", [](ComponentBase& p_component) -> const Object& { return p_component.obj; }
 	);
 
 	p_luaState.new_usertype<TransformComponent>("Transform",
-		sol::base_classes, sol::bases<Component>(),
+		sol::base_classes, sol::bases<ComponentBase>(),
 		/* Methods */
 		"SetPosition", &TransformComponent::setLocalPosition,
 		"SetRotation", &TransformComponent::setLocalRotation,
@@ -62,7 +62,7 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
         });
 
 	p_luaState.new_usertype<ModelRenderer>("ModelRenderer",
-		sol::base_classes, sol::bases<Component>(),
+		sol::base_classes, sol::bases<ComponentBase>(),
 		"GetModel", &ModelRenderer::getModel,
 		"SetModel", &ModelRenderer::setModel,
 		"GetFrustumBehaviour", &ModelRenderer::getFrustumBehaviour,
@@ -70,7 +70,7 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
 	);
 
 	p_luaState.new_usertype<MaterialRenderer>("MaterialRenderer",
-		sol::base_classes, sol::bases<Component>(),
+		sol::base_classes, sol::bases<ComponentBase>(),
 		"SetMaterial", &MaterialRenderer::setMaterial
 	);
 
@@ -81,7 +81,7 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
     });
 
 	p_luaState.new_usertype<CameraComponent>("Camera",
-		sol::base_classes, sol::bases<Component>(),
+		sol::base_classes, sol::bases<ComponentBase>(),
 		"GetFov", &CameraComponent::getFov,
 		"GetSize", &CameraComponent::getSize,
 		"GetNear", &CameraComponent::getNear,

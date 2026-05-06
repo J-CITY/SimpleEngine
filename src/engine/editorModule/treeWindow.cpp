@@ -15,7 +15,7 @@
 
 using namespace IKIGAI::EDITOR;
 
-std::set<IKIGAI::ECS::Object::Id_> searchedObjectsIds;
+std::set<IKIGAI::ECS::Object::Id::ID> searchedObjectsIds;
 
 std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<IKIGAI::ECS::Object> parentEntity) {
 	std::shared_ptr<IKIGAI::ECS::Object> selectedNode;
@@ -47,11 +47,11 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 			node->setActive(!node->getIsActive());
 		}
 		ImGui::SameLine();
-		bool inSearch = searchedObjectsIds.contains(node->getID());
+		bool inSearch = searchedObjectsIds.contains(node->getID().getUniqueId());
 		if (inSearch) {
 			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
 		}
-		const bool nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID()), nodeFlags, name.c_str());
+		const bool nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID().getUniqueId()), nodeFlags, name.c_str());
 		if (inSearch) {
 			ImGui::PopStyleColor();
 		}
@@ -154,16 +154,16 @@ void TreeWindow::drawNodeTree() {
 			searchedObjectsIds.clear();
 			if (!searchInActors.empty()) {
 				for (auto obj : scene.getObjects()) {
-					ImGui::TreeNodeSetOpen(static_cast<int>(obj->getID()), false);
+					ImGui::TreeNodeSetOpen(static_cast<int>(obj->getID().getUniqueId()), false);
 				}
 				for (auto obj : scene.getObjects()) {
 					const auto foundInName = IKIGAI::UTILS::ToLower(obj->getName()).find(IKIGAI::UTILS::ToLower(searchInActors)) != std::string::npos;
 					const auto foundInTag = IKIGAI::UTILS::ToLower(obj->getTag()).find(IKIGAI::UTILS::ToLower(searchInActors)) != std::string::npos;
 					if (foundInName || foundInTag) {
-						searchedObjectsIds.insert(obj->getID());
+						searchedObjectsIds.insert(obj->getID().getUniqueId());
 						std::function<void(std::shared_ptr<IKIGAI::ECS::Object>)> expandAll;
 						expandAll = [&expandAll](std::shared_ptr<IKIGAI::ECS::Object> obj) {
-							ImGui::TreeNodeSetOpen(static_cast<int>(obj->getID()), true);
+							ImGui::TreeNodeSetOpen(static_cast<int>(obj->getID().getUniqueId()), true);
 							if (obj->getParent()) {
 								expandAll(obj->getParent());
 							}

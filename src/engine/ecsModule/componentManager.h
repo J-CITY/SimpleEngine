@@ -12,18 +12,12 @@
 #include "utilsModule/idGenerator.h"
 #include "utilsModule/singleton.h"
 
-#include <coreModule/ecs/components/component.h>
+#include "utilsModule/log/loggerDefine.h"
+#include <iostream>
 
 namespace IKIGAI::ECS2 {
 	//TODO: use faster std container (EA for example)
 	//TODO: use allocators for containers
-	/*
-	 *TODO:
-	 *Signature class
-	 *components relations
-	 *events
-	 *multythread
-	 */
 
 	class ComponentManager;
 
@@ -361,7 +355,7 @@ namespace IKIGAI::ECS2 {
 
 		template<class... Components>
 		void removeComponents(Entity entity) {
-			static_assert(sizeof...(Components) == 0, "Must contain non 0 components");
+			//static_assert(sizeof...(Components) == 0, "Must contain non 0 components");
 			(emitOnRemove<Components>(entity), ...);
 			Record& record = mEntityRecords[entity];
 			auto archetype = record.archetype;
@@ -404,6 +398,46 @@ namespace IKIGAI::ECS2 {
 			return getComponentBase<T>(entity);
 		}
 
+		template<class T = Component>
+		std::vector<UTILS::WeakPtr<T>> getComponents(Entity entity) {
+			std::vector<UTILS::WeakPtr<T>> res;
+
+			if (mEntityRecords.contains(entity)) {
+				const Record& record = mEntityRecords.at(entity);
+				const auto& archetype = record.archetype;
+
+				for (auto& [id, componentArr] : archetype->mComponentArrays) {
+					if (componentArr->contains(entity)) {
+						auto basePtr = componentArr->getComponentBasePtr(entity);
+						if (basePtr) {
+							if constexpr (std::is_same_v<T, Component> || std::is_same_v<T, IKIGAI::ECS2::Component>) {
+								res.push_back(std::static_pointer_cast<T>(basePtr));
+							} else {
+								auto casted = std::dynamic_pointer_cast<T>(basePtr);
+								if (casted) res.push_back(casted);
+							}
+						}
+					}
+				}
+			}
+
+			for (auto& [id, sparseArr] : mSparseArrays) {
+				if (sparseArr->contains(entity)) {
+					auto basePtr = sparseArr->getComponentBasePtr(entity);
+					if (basePtr) {
+						if constexpr (std::is_same_v<T, Component> || std::is_same_v<T, IKIGAI::ECS2::Component>) {
+							res.push_back(std::static_pointer_cast<T>(basePtr));
+						} else {
+							auto casted = std::dynamic_pointer_cast<T>(basePtr);
+							if (casted) res.push_back(casted);
+						}
+					}
+				}
+			}
+
+			return res;
+		}
+
 		template<typename T>
 		bool checkComponent(Entity entity) {
 			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
@@ -420,7 +454,7 @@ namespace IKIGAI::ECS2 {
 				// ComponentArray->getDataPtr returns nullptr if not found?
 				// need to check `entityDestroyed` logic or `hasData`.
 				// ComponentArray usually has `getDataPtr`.
-				return std::static_pointer_cast<ComponentArray<T>>(mSparseArrays[id])->getDataPtr(entity) != nullptr;
+				return std::static_pointer_cast<ComponentArray<T>>(mSparseArrays[id])->checkComponent(entity);
 			}
 			return false;
 		}
@@ -444,6 +478,10 @@ namespace IKIGAI::ECS2 {
 			mEntityRecords[entity] = Record{{}, getArchetype(Signature())};
 		}
 
+		void destroyEntity(Entity entity) {
+			mEntityRecords.erase(entity);
+		}
+
 		template<class... Components, class Func>
 		void forEach(Func&& func) {
 			Signature mask;
@@ -460,6 +498,19 @@ namespace IKIGAI::ECS2 {
 					}
 				}
 			}
+		}
+
+		template<class T>
+		ComponentArray<T>& getComponentsArray()
+		{
+			auto type = getComponentType<T>();
+			if (mSparseArrays.contains(type)) {
+				return *(std::static_pointer_cast<ComponentArray<T>>(mSparseArrays.at(type)));
+			}
+			ASSERT("Array is not exist");
+			//LOG_ERROR("Array does not exist");
+			static auto def = std::make_shared<ComponentArray<T>>();
+			return *def;
 		}
 
 		Signature getSignature(Entity entity) {

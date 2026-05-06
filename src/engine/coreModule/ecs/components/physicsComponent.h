@@ -26,19 +26,19 @@ namespace IKIGAI::ECS {
 		COUNT,
 	};
 	IKI_CLASS()
-	class PhysicsComponent : public Component {
+	class PhysicsComponent : public ComponentBase {
 		IKI_GENERATED_BODY(PhysicsComponent)
 	public:
 		//TODO: add params
 		IKI_CLASS(Name=PhysicsComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(PhysicsComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="PhysicsComponentType"))
 			std::string Type;
 		};
 
 		PhysicsComponent(UTILS::Ref<ECS::Object> obj);
-		PhysicsComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		PhysicsComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			PhysicsComponent(obj) {
 		};
 		int GetDirty() const { return m_dirtyFlag; }

@@ -1028,15 +1028,15 @@ struct AnimationNodeEditor: public NodeEditor<NodeType, Node> {
             res = std::make_unique<IKIGAI::ANIMATION::NodableAnimationNodeWait>(desc.time);
         }break;
         case NodeType::Position: {
-            res = std::make_unique<IKIGAI::ANIMATION::NodableAnimationNodePos>(IKIGAI::ECS::Object::Id_(desc.objId), std::get<IKIGAI::MATH::Vector3f>(desc.value), desc.time, desc.curveType);
+            res = std::make_unique<IKIGAI::ANIMATION::NodableAnimationNodePos>(IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(desc.objId)), std::get<IKIGAI::MATH::Vector3f>(desc.value), desc.time, desc.curveType);
             static_cast<IKIGAI::ANIMATION::NodableAnimationNodePos*>(res.get())->curve = desc.curve;
         }break;
         case NodeType::Scale: {
-            res = std::make_unique<IKIGAI::ANIMATION::NodableAnimationNodeScale>(IKIGAI::ECS::Object::Id_(desc.objId), std::get<IKIGAI::MATH::Vector3f>(desc.value), desc.time, desc.curveType);
+            res = std::make_unique<IKIGAI::ANIMATION::NodableAnimationNodeScale>(IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(desc.objId)), std::get<IKIGAI::MATH::Vector3f>(desc.value), desc.time, desc.curveType);
             static_cast<IKIGAI::ANIMATION::NodableAnimationNodeScale*>(res.get())->curve = desc.curve;
         }break;
         case NodeType::Rotation: {
-            res = std::make_unique<IKIGAI::ANIMATION::NodableAnimationNodeRotate>(IKIGAI::ECS::Object::Id_(desc.objId), std::get<IKIGAI::MATH::Vector3f>(desc.value), desc.time, desc.curveType);
+            res = std::make_unique<IKIGAI::ANIMATION::NodableAnimationNodeRotate>(IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(desc.objId)), std::get<IKIGAI::MATH::Vector3f>(desc.value), desc.time, desc.curveType);
             static_cast<IKIGAI::ANIMATION::NodableAnimationNodeRotate*>(res.get())->curve = desc.curve;
         }break;
         case NodeType::Sequence:  {

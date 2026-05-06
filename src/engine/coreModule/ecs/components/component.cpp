@@ -3,21 +3,21 @@
 
 using namespace IKIGAI::ECS;
 
-IKIGAI::ECS::Component::Component(UTILS::Ref<ECS::Object> obj) : ControlBlockHandler(this), obj(obj) {}
+IKIGAI::ECS::ComponentBase::ComponentBase(UTILS::Ref<ECS::Object> obj) : IKIGAI::ECS2::Component(), obj(obj) {}
 
-IKIGAI::ECS::Component::~Component() {
+IKIGAI::ECS::ComponentBase::~ComponentBase() {
 	onDisable();
 	onDestroy();
 }
 
-std::string IKIGAI::ECS::Component::getName() {
+std::string IKIGAI::ECS::ComponentBase::getName() {
 	return __NAME__;
 }
 
-std::string IKIGAI::ECS::Component::getTypeidName() {
+std::string IKIGAI::ECS::ComponentBase::getTypeidName() {
 	return typeid(*this).name();
 }
 
-const Object& Component::getObject() {
+const Object& ComponentBase::getObject() {
 	return obj.get();
 }

@@ -10,11 +10,11 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	IKI_CLASS()
-	class AudioComponent : public Component {
+	class AudioComponent : public ComponentBase {
 		IKI_GENERATED_BODY(AudioComponent)
 	public:
 		IKI_CLASS(Name=AudioComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(AudioComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="AudioComponentType"))
 			std::string Type;
@@ -25,7 +25,7 @@ namespace IKIGAI::ECS {
 
 		AudioComponent(UTILS::Ref<ECS::Object> _obj, std::string& path);
 		AudioComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor);
-		AudioComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		AudioComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			AudioComponent(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 
@@ -101,17 +101,17 @@ namespace IKIGAI::ECS {
 	};
 
 	IKI_CLASS()
-	class AudioListenerComponent : public Component {
+	class AudioListenerComponent : public ComponentBase {
 		IKI_GENERATED_BODY(AudioListenerComponent)
 	public:
 		IKI_CLASS(Name=AudioListenerComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(AudioListenerComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="AudioListenerComponentType"))
 			std::string Type;
 		};
 		AudioListenerComponent(UTILS::Ref<ECS::Object> obj);
-		AudioListenerComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		AudioListenerComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			AudioListenerComponent(obj) {
 		};
 

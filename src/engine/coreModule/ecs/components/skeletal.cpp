@@ -8,14 +8,18 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-Skeletal::Skeletal(UTILS::Ref<ECS::Object> obj) : Component(obj) {
+Skeletal::Skeletal(UTILS::Ref<ECS::Object> obj) : ComponentBase(obj) {
 	__NAME__ = "Skeletal";
 }
 
 Skeletal::Skeletal(UTILS::Ref<ECS::Object> _obj, const std::string& _path, const std::optional<std::string>& _startAnimation) :
-	Component(obj), animationPath(_path), curAnimation(_startAnimation) {
+	ComponentBase(obj), animationPath(_path), curAnimation(_startAnimation) {
 	__NAME__ = "Skeletal";
-	auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
+
+	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+	auto componentManager = world.getComponentManager();
+	auto model = componentManager->getComponent<ModelRenderer>(obj->getID());
+	//auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
 	animations = RESOURCES::Animation::LoadAnimations(animationPath, model->getModel().get());
 
 	if (_startAnimation) {
@@ -24,9 +28,12 @@ Skeletal::Skeletal(UTILS::Ref<ECS::Object> _obj, const std::string& _path, const
 }
 
 Skeletal::Skeletal(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) :
-	Component(_obj), animationPath(_descriptor.Path), curAnimation(_descriptor.Animation) {
+	ComponentBase(_obj), animationPath(_descriptor.Path), curAnimation(_descriptor.Animation) {
 	__NAME__ = "Skeletal";
-	auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
+	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+	auto componentManager = world.getComponentManager();
+	auto model = componentManager->getComponent<ModelRenderer>(obj->getID());
+	//auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
 	animations = RESOURCES::Animation::LoadAnimations(animationPath, model->getModel().get());
 
 	if (curAnimation) {
@@ -53,7 +60,10 @@ void Skeletal::setAnimation(std::string id) {
 
 void Skeletal::setAnimationPath(std::string id) {
 	animationPath = id;
-	auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
+	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+	auto componentManager = world.getComponentManager();
+	auto model = componentManager->getComponent<ModelRenderer>(obj->getID());
+	//auto model = ECS::ComponentManager::GetInstance().getComponent<ModelRenderer>(obj->getID());
 	animations = RESOURCES::Animation::LoadAnimations(animationPath, model->getModel().get());
 }
 

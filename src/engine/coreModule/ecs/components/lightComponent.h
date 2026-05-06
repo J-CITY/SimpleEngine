@@ -9,7 +9,7 @@
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
-	class LightComponent : public Component
+	class LightComponent : public ComponentBase
 	{
 	public:
 		LightComponent(UTILS::Ref<ECS::Object> obj);

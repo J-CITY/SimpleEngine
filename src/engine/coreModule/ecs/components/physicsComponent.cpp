@@ -6,7 +6,7 @@ using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
 
-PhysicsComponent::PhysicsComponent(UTILS::Ref<ECS::Object> obj): Component(obj){
+PhysicsComponent::PhysicsComponent(UTILS::Ref<ECS::Object> obj): ComponentBase(obj){
 	__NAME__ = "PhysicsComponent";
 }
 

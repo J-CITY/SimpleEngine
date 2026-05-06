@@ -154,7 +154,7 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		void addComponent(Entity entity, T& component) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			getComponentArray<T>()->insertData(entity, component);
 
 			auto signature = getSignature(entity);
@@ -166,7 +166,7 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		void removeComponent(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			getComponentArray<T>()->removeData(entity);
 
 			auto signature = getSignature(entity);
@@ -178,25 +178,25 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		bool checkComponent(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			return getComponentArray<T>()->count(entity);
 		}
 
 		template<typename T>
 		UTILS::Ref<T> getComponentRef(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			return getComponentArray<T>()->getData(entity);
 		}
 
 		template<typename T>
 		UTILS::WeakPtr<T> getComponent(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			return getComponentArray<T>()->getDataPtr(entity);
 		}
 
 		template<typename T>
-		UTILS::WeakPtr<Component> getComponentBase(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+		UTILS::WeakPtr<ComponentBase> getComponentBase(Entity entity) {
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			return getComponentArray<T>()->getDataBasePtr(entity);
 		}
 
@@ -276,7 +276,7 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		void moveEntity(Entity entity, std::shared_ptr<Archetype> from, std::shared_ptr<Archetype> to, Record& record) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			//if (record.archetype) {
 				//move all component to new Archetype
 				for (auto& [ctype, cvec] : from->componentArrays) {
@@ -304,7 +304,7 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		UTILS::WeakPtr<T> addComponentArchetype(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			Record& record = entityRecords.at(entity);
 			const auto archetype = record.archetype;
 			auto newMask = archetype->mask;
@@ -326,7 +326,7 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		UTILS::WeakPtr<T> addComponentArchetype(Entity entity, T& newComponent) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			Record& record = entityRecords.at(entity);
 			const auto archetype = record.archetype;
 			auto newMask = archetype->mask;
@@ -349,7 +349,7 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		void removeComponentArchetype(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			Record& record = entityRecords[entity];
 			auto archetype = record.archetype;
 
@@ -368,7 +368,7 @@ namespace IKIGAI::ECS {
 
 		template<typename T>
 		UTILS::WeakPtr<T> getComponentArchetype(Entity entity) {
-			static_assert(std::is_base_of_v<Component, T>, "Must inherit from class Component");
+			static_assert(std::is_base_of_v<ComponentBase, T>, "Must inherit from class Component");
 			Record& record = entityRecords[entity];
 			auto archetype = record.archetype;
 
@@ -382,21 +382,21 @@ namespace IKIGAI::ECS {
 		}
 	private:
 		template <typename T>
-		void tryGetComponent(std::vector<UTILS::WeakPtr<Component>>& res, Entity entity) {
-			auto arr = getComponentArray<T>();
-			if (arr->count(entity)) {
-				res.push_back(arr->getDataBasePtr(entity));
-			}
+		void tryGetComponent(std::vector<UTILS::WeakPtr<ComponentBase>>& res, Entity entity) {
+			//auto arr = getComponentArray<T>();
+			//if (arr->count(entity)) {
+			//	res.push_back(arr->getDataBasePtr(entity));
+			//}
 		}
 
 		template<template<typename...> class Container, typename...ComponentType>
-		std::vector<UTILS::WeakPtr<Component>> tryGetComponents(Entity entity, Container<ComponentType...> opt) {
-			std::vector<UTILS::WeakPtr<Component>> res;
+		std::vector<UTILS::WeakPtr<ComponentBase>> tryGetComponents(Entity entity, Container<ComponentType...> opt) {
+			std::vector<UTILS::WeakPtr<ComponentBase>> res;
 			(tryGetComponent<ComponentType>(res, entity), ...);
 			return res;
 		}
 	public:
-		std::vector<UTILS::WeakPtr<Component>> getComponents(Entity entity) {
+		std::vector<UTILS::WeakPtr<ComponentBase>> getComponents(Entity entity) {
 			return tryGetComponents(entity, ComponentsTypeProviderType{});
 		}
 

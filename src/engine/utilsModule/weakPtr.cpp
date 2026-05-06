@@ -9,7 +9,7 @@ ControlBlockHandler::ControlBlockHandler()
 	mCb->mPtr = this;
 }
 
-ControlBlockHandler::ControlBlockHandler(ECS::Component* ptr) {
+ControlBlockHandler::ControlBlockHandler(ECS2::Component* ptr) {
 	mCb = new UTILS::ControlBlock();
 	mCb->mRC += 1;
 	mCb->mPtr = (ControlBlockHandler*)ptr;

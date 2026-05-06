@@ -154,9 +154,9 @@ RootGuiComponent::Descriptor RootGuiComponent::getDescriptor() const {
 	return d;
 }
 
-RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj) {}
+RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj) {}
 
-RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	RootGuiComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
@@ -173,19 +173,19 @@ ColorComponent::Descriptor ColorComponent::getDescriptor() const
 	return d;
 }
 
-ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj) {
+ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj) {
 	mColor = descriptor.Color;
 }
 
-ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	ColorComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
 
-SpriteComponent::SpriteComponent(Object& obj) : Component(obj) {
+SpriteComponent::SpriteComponent(Object& obj) : ComponentBase(obj) {
 }
 
-SpriteComponent::SpriteComponent(Object& obj, const std::string& path): Component(obj) {
+SpriteComponent::SpriteComponent(Object& obj, const std::string& path): ComponentBase(obj) {
 	setTexture(path);
 }
 
@@ -236,7 +236,7 @@ SpriteComponent::Descriptor SpriteComponent::getDescriptor() const
 	return d;
 }
 
-SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj)
+SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj)
 {
 	mIs3D = descriptor.Is3D;
 	if (!descriptor.TexturePath.empty()) {
@@ -248,7 +248,7 @@ SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& 
 	}
 }
 
-SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	SpriteComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
@@ -326,7 +326,7 @@ SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, cons
 	setTexture(descriptor.TexturePath);
 }
 
-SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	SpriteAnimateComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
@@ -453,17 +453,17 @@ SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, co
 	}
 }
 
-SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	SpriteParticleComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
 
-LabelComponent::LabelComponent(Object& obj): Component(obj)
+LabelComponent::LabelComponent(Object& obj): ComponentBase(obj)
 {
 }
 
 LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font) :
-	Component(obj), mFont(font) {
+	ComponentBase(obj), mFont(font) {
 	mLabel = label;
 
 	float width = 0;
@@ -505,7 +505,7 @@ LabelComponent::Descriptor LabelComponent::getDescriptor() const
 	return d;
 }
 
-LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): Component(obj)
+LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj)
 {
 	mIs3D = descriptor.Is3D;
 	mLabel = descriptor.Label;
@@ -518,7 +518,7 @@ LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& de
 	mFont = std::make_shared<IKIGAI::GUI::Font>(*path, 42);
 }
 
-LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	LabelComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
@@ -537,10 +537,10 @@ SpineRefl SpineComponent::getSpine()
 	return { skelPath, atlasPath };
 }
 
-SpineComponent::SpineComponent(Object& obj) : Component(obj) {
+SpineComponent::SpineComponent(Object& obj) : ComponentBase(obj) {
 }
 
-SpineComponent::SpineComponent(Object& obj, std::string skelPath, std::string atlasPath): Component(obj), skelPath(skelPath), atlasPath(atlasPath){
+SpineComponent::SpineComponent(Object& obj, std::string skelPath, std::string atlasPath): ComponentBase(obj), skelPath(skelPath), atlasPath(atlasPath){
 	spine = std::make_shared<RENDER::SPINE::SpineController>(skelPath, atlasPath);
 }
 
@@ -560,7 +560,7 @@ SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& de
 
 }
 
-SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	SpineComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
@@ -624,11 +624,11 @@ SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const Component::Des
 //	glBindTexture(GL_TEXTURE_2D, 0);
 //}
 
-InteractionComponent::InteractionComponent(Object& obj) : Component(obj)
+InteractionComponent::InteractionComponent(Object& obj) : ComponentBase(obj)
 {
 }
 
-InteractionComponent::InteractionComponent(Object& obj, float w, float h) : Component(obj), mWidth(w), mHeight(h) {
+InteractionComponent::InteractionComponent(Object& obj, float w, float h) : ComponentBase(obj), mWidth(w), mHeight(h) {
 	//obj.transform->size = size;
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
@@ -647,7 +647,7 @@ InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const De
 
 }
 
-InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	InteractionComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
@@ -665,7 +665,7 @@ bool InteractionComponent::contains(float x, float y) {
 	return (x >= minX) && (x < maxX) && (y >= minY) && (y < maxY);
 }
 
-ClipComponent::ClipComponent(Object& obj) : Component(obj)
+ClipComponent::ClipComponent(Object& obj) : ComponentBase(obj)
 {
 }
 
@@ -712,7 +712,7 @@ ClipComponent::ClipComponent(Object& obj) : Component(obj)
 //	}
 //};
 //
-ClipComponent::ClipComponent(Object& obj, float w, float h) : Component(obj), mWidth(w), mHeight(h) {
+ClipComponent::ClipComponent(Object& obj, float w, float h) : ComponentBase(obj), mWidth(w), mHeight(h) {
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
 
@@ -730,16 +730,16 @@ ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& desc
 
 }
 
-ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	ClipComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
 
-ScrollComponent::ScrollComponent(Object& obj): Component(obj)
+ScrollComponent::ScrollComponent(Object& obj): ComponentBase(obj)
 {
 }
 
-ScrollComponent::ScrollComponent(Object& obj, float w, float h): Component(obj), mWidth(w), mHeight(h) {
+ScrollComponent::ScrollComponent(Object& obj, float w, float h): ComponentBase(obj), mWidth(w), mHeight(h) {
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
 
@@ -757,7 +757,7 @@ ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& 
 
 }
 
-ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	ScrollComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }
@@ -775,7 +775,7 @@ LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& 
 
 }
 
-LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor):
+LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
 	LayoutComponent(obj, static_cast<const Descriptor&>(descriptor))
 {
 }

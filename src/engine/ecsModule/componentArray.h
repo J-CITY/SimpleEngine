@@ -60,16 +60,21 @@ namespace IKIGAI::ECS2 {
 			return componentArray[entityToIndexInArray[entity]];
 		}
 
+		bool checkComponent(Entity entity) {
+			//static_assert(std::is_base_of_v<ECS::Component, T>, "Must inherit from class Component");
+			return entityToIndexInArray.contains(entity);
+		}
+
 		UTILS::WeakPtr<T> getDataPtr(Entity entity) {
 			//static_assert(std::is_base_of_v<ECS::Component, T>, "Must inherit from class Component");
 			ASSERT_IF(entityToIndexInArray.contains(entity), "Retrieving non-existent component");
 			return componentArray[entityToIndexInArray[entity]].template getWeak<T>();
 		}
 
-		UTILS::WeakPtr<ECS::Component> getDataBasePtr(Entity entity) {
+		UTILS::WeakPtr<ECS2::Component> getComponentBasePtr(Entity entity) override {
 			//static_assert(std::is_base_of_v<ECS::Component, T>, "Must inherit from class Component");
 			ASSERT_IF(entityToIndexInArray.contains(entity), "Retrieving non-existent component");
-			return UTILS::WeakPtr<ECS::Component>(componentArray[entityToIndexInArray[entity]]);
+			return UTILS::WeakPtr<ECS2::Component>(componentArray[entityToIndexInArray[entity]]);
 		}
 
 		//??
@@ -83,7 +88,7 @@ namespace IKIGAI::ECS2 {
 			return std::make_shared<ComponentArray<T>>();
 		}
 
-		[[nodiscard]] bool contains(Entity entity) const {
+		[[nodiscard]] bool contains(Entity entity) const override {
 			return entityToIndexInArray.contains(entity);
 		}
 

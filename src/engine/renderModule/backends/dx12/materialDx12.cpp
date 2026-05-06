@@ -8,6 +8,10 @@
 #include <utilsModule/jsonLoader.h>
 #include "uniformBufferDx12.h"
 #include "storageBufferDx12.h"
+#include "resourceModule/serviceManager.h"
+#include "resourceModule/shaderManager.h"
+#include "resourceModule/textureManager.h"
+#include "resourceModule/fileSystem/fileSystem.h"
 
 //TODO: add dirty flag for update buffers
 
@@ -17,35 +21,34 @@ using namespace IKIGAI::RENDER;
 MaterialDx12::MaterialDx12() {
 }
 
-MaterialDx12::MaterialDx12(const MaterialResource& res) {
-	mBlendable = res.Blendable;
-	mBackfaceCulling = res.BackfaceCulling;
-	mFrontfaceCulling = res.FrontfaceCulling;
-	mDepthTest = res.DepthTest;
-	mDepthWriting = res.DepthWriting;
-	mColorWriting = res.ColorWriting;
-	mGpuInstances = res.GpuInstances;
-	mIsDeferred = res.IsDeferred;
-	mDepthFunc = res.DepthFunc;
+MaterialDx12::MaterialDx12(const MaterialResource& res) : MaterialInterface(res) {
+	create(res);
+}
 
+void MaterialDx12::create(const MaterialResource& res) {
 	//TODO: do it not in constructor (add var in Material resource)
 	//TODO: load textures befor create material
 	auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
 	if (resData.isErr()) {
 
 	}
-	auto resShader = resData.unwrap();
-	std::map<ShaderType, std::string> path;
-	path[ShaderType::FRAGMENT] = resShader.fragment;
-	path[ShaderType::VERTEX] = resShader.vertex;
-	auto shader = ShaderDx12::CreateFromPath(path);
+	auto resDataVal = resData.unwrap();
+	resDataVal.path = res.ShaderPath;
+	auto shader = std::static_pointer_cast<RENDER::ShaderDx12>(
+		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resDataVal));
 	MaterialDx12::setShader(shader);
 
+	auto& textureLoader = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>();
 	for (const auto& [k, v] : res.Uniforms) {
 		std::visit([&](auto& arg) {
 			using T = std::decay_t<decltype(arg)>;
 			if constexpr (std::is_same_v<T, std::string>) {
-				mUniforms[k] = TextureDx12::Create(arg);
+				const auto ext = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFileExtension(arg);
+				if (ext == ".texture") {
+					mUniforms[k] = textureLoader.createFromResource(arg);
+				} else {
+					mUniforms[k] = textureLoader.createFromFile(arg, true);
+				}
 			}
 			else {
 				mUniforms[k] = arg;
@@ -193,5 +196,13 @@ void MaterialDx12::bind(std::shared_ptr<TextureInterface> defaultTexture, bool u
 
 void MaterialDx12::unbind() {
 	mShader->unbind();
+}
+
+void MaterialDx12::set(const std::string& name, const UniformData& data) {
+	mUniforms.at(name) = data;
+}
+
+MaterialInterface::UniformData& MaterialDx12::get(const std::string& name) {
+	return mUniforms.at(name);
 }
 #endif

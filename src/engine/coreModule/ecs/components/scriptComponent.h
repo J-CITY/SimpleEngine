@@ -10,11 +10,11 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	IKI_CLASS()
-	class ScriptComponent : public Component {
+	class ScriptComponent : public ComponentBase {
 		IKI_GENERATED_BODY(ScriptComponent)
 	public:
 		IKI_CLASS(Name=ScriptComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(ScriptComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="ScriptComponentType"))
 			std::string Type;
@@ -24,7 +24,7 @@ namespace IKIGAI::ECS {
 		ScriptComponent(UTILS::Ref<ECS::Object> obj);
 		ScriptComponent(UTILS::Ref<ECS::Object> obj, const std::string& name);
 		ScriptComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& name);
-		ScriptComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		ScriptComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			ScriptComponent(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		~ScriptComponent() override;

@@ -38,21 +38,27 @@ namespace IKIGAI {
 	template<typename T>
 	class IdGenerator {
 	public:
-		using id = Id<T>;
+		using ID = Id<T>;
 
 		IdGenerator() : mId(generateId()) {}
 
-		id getUniqueId() const noexcept {
+		IdGenerator(ID id) : mId(id) {
+			if (CurrentID <= static_cast<int>(mId)) {
+				CurrentID = static_cast<int>(mId) + 1;
+			}
+		}
+
+		ID getUniqueId() const noexcept {
 			return mId;
 		}
 
-		static id generateId() noexcept {
-			static int current_id = 0;
-			return id(current_id++);
+		static ID generateId() noexcept {
+			return ID(CurrentID++);
 		}
 
 	protected:
-		id mId;
+		inline static int CurrentID = 0;
+		ID mId;
 	};
 
 }

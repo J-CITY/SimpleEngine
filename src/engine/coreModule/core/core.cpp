@@ -28,6 +28,8 @@
 
 #include <coreModule/ecs/components/scriptComponent.h>
 #include "coreModule/ecs/components/batchComponent.h"
+#include "coreModule/ecs/components/renderTargetComponent.h"
+#include "ecsModule/world.h"
 #include "editorModule/editorRender.h"
 #include "renderModule/gameRendererGl.h"
 #include "renderModule/render.h"
@@ -155,52 +157,102 @@ Core:: Core(
 	physicsManger = std::make_unique<PHYSICS::PhysicWorld>(256);
 	taskManger = std::make_unique<TASK::TaskSystem>();
 	eventBroadcaster = std::make_unique<EVENT::EventBroadcaster>();
+	world = std::make_unique<ECS2::World>();
 
 #ifndef __EMSCRIPTEN__
 	taskManger->setup();
 #endif
-	
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::TransformComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientLight>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientSphereLight>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::AudioComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::AudioListenerComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::CameraComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::VrCameraComponent>();
-	//ECS::ComponentManager::getInstance()->registerComponent<ECS::ArCameraComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::DirectionalLight>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::InputComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::LogicComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::MaterialRenderer>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::ModelRenderer>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::PointLight>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::ScriptComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::Skeletal>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpotLight>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::PhysicsComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::ModelLODRenderer>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::BatchComponent>();
-	//GUI
+
+	RESOURCES::ServiceManager::Set<ECS2::World>(world.get());
+
+	auto compMgr = world->getComponentManager();
+	auto sysMgr = world->getSystemManager();
+	{
+		compMgr->registerComponent<ECS::TransformComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AmbientLight>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AmbientSphereLight>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AudioComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AudioListenerComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::CameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VrCameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		//compMgr->registerComponent<ECS::ArCameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::DirectionalLight>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::InputComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::LogicComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::MaterialRenderer>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ModelRenderer>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::PointLight>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ScriptComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Skeletal>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpotLight>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::PhysicsComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ModelLODRenderer>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::BatchComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::RenderTargetComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		//GUI
 #ifdef OPENGL_BACKEND
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::RootGuiComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteAnimateComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteParticleComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::LabelComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::InteractionComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::ClipComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::ScrollComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::LayoutComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpineComponent>();
-	ECS::ComponentManager::GetInstance().registerComponent<ECS::ChunkModelRenderer>();
+		compMgr->registerComponent<ECS::RootGuiComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpriteComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpriteAnimateComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpriteParticleComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::LabelComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::InteractionComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ClipComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ScrollComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::LayoutComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpineComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ChunkModelRenderer>(IKIGAI::ECS2::StorageType::Sparse);
 #endif
-	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::ScriptSystem>();
-	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::LogicSystem>();
-	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::InputSystem>();
-	ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::AudioSystem>();
-	ECS::Signature signature;
-	signature.set(static_cast<unsigned int>(ECS::ComponentManager::GetInstance().getComponentType<ECS::AudioComponent>()));
-	ECS::ComponentManager::GetInstance().setSystemSignature<ECS::AudioSystem>(signature);
+
+		sysMgr->registerSystem<ECS::ScriptSystem>();
+		sysMgr->registerSystem<ECS::LogicSystem>();
+		sysMgr->registerSystem<ECS::InputSystem>();
+		sysMgr->registerSystem<ECS::AudioSystem>();
+	}
+
+
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::TransformComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientLight>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientSphereLight>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AudioComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AudioListenerComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::CameraComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::VrCameraComponent>();
+	////ECS::ComponentManager::getInstance()->registerComponent<ECS::ArCameraComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::DirectionalLight>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::InputComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::LogicComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::MaterialRenderer>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::ModelRenderer>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::PointLight>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::ScriptComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::Skeletal>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::SpotLight>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::PhysicsComponent>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::ModelLODRenderer>();
+	//ECS::ComponentManager::GetInstance().registerComponent<ECS::BatchComponent>();
+	//GUI
+//#ifdef OPENGL_BACKEND
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::RootGuiComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteAnimateComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteParticleComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::LabelComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::InteractionComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::ClipComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::ScrollComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::LayoutComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpineComponent>();
+//	ECS::ComponentManager::GetInstance().registerComponent<ECS::ChunkModelRenderer>();
+//#endif
+	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::ScriptSystem>();
+	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::LogicSystem>();
+	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::InputSystem>();
+	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::AudioSystem>();
+	//ECS::Signature signature;
+	//signature.set(static_cast<unsigned int>(ECS::ComponentManager::GetInstance().getComponentType<ECS::AudioComponent>()));
+	//ECS::ComponentManager::GetInstance().setSystemSignature<ECS::AudioSystem>(signature);
+
 	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(modelManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(textureManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::ShaderLoader>(shaderManager.get());

@@ -53,24 +53,23 @@ Object::Descriptor Object::getDescriptor() const {
 	d.Tag = getTag();
 	d.Id = getIDInt();
 	d.ParentId = getParentId();
-	d.IsActive = isActive;
+	d.IsActive = mIsActive;
 	WriteComponentDescriptor(d.Components, this);
 	return d;
 }
 
-Object::Object(Id<Object> actorID, const std::string& name, const std::string& tag) :
-	id(actorID),
-	name(name),
-	tag(tag)//,
-	/*transform(addComponent<TransformComponent>())*/ {
-	transform = addComponent<TransformComponent>();
+Object::Object(ECS2::Entity actorID, const std::string& name, const std::string& tag) :
+	mEntity(actorID),
+	mName(name),
+	mTag(tag) {
+	mTransform = addComponent<TransformComponent>();
 	createdEvent.run(*this);
 }
 
 template<class Desc, typename T>
 void AddComponentImpl(const Desc& data, ECS::Object* obj) {
 	if (data.Type == ECS::GetType<T>()) {
-		auto c = obj->addComponent<T>(static_cast<const Component::Descriptor&>(data));
+		auto c = obj->addComponent<T>(static_cast<const ComponentBase::Descriptor&>(data));
 	}
 }
 
@@ -84,232 +83,254 @@ void AddComponent(const Desc& data, ECS::Object* obj) {
 	AddComponent(data, obj, ECS::ComponentsTypeProviderType{});
 }
 
-//TODO: set parent? when call this
-Object::Object(const Descriptor& _descriptor): id(_descriptor.Id), name(_descriptor.Name), tag(_descriptor.Tag) {
+//TODO: set mParent? when call this
+Object::Object(const Descriptor& _descriptor): mEntity(ECS2::Entity::ID(_descriptor.Id)), mName(_descriptor.Name), mTag(_descriptor.Tag) {
 	setActive(_descriptor.IsActive);
-
+	RESOURCES::ServiceManager::Get<ECS2::World>().registerEntity(mEntity);
 	for (auto& component : _descriptor.Components) {
 		std::visit(overloaded{[this](auto& arg) {AddComponent(arg, this);}}, component);
-		transform = getComponent<TransformComponent>();
+		mTransform = getComponent<TransformComponent>();
 	}
 }
 
 Object::~Object() {
-	if (isActive) {
+	if (mIsActive) {
 		onDisable();
 	}
-	if (isReady) {
+	if (mIsReady) {
 		onDestroy();
 	}
 
 	destroyedEvent.run(*this);
 
-	std::vector<std::shared_ptr<Object>> toDetach = children;
+	std::vector<std::shared_ptr<Object>> toDetach = mChildren;
 	for (auto child : toDetach) {
 		child->detachFromParent();
 	}
 	toDetach.clear();
 
 	detachFromParent();
-	auto components = ComponentManager::GetInstance().getComponents(id);
-	std::for_each(components.begin(), components.end(), [&](UTILS::WeakPtr<Component> p_component) {
-		componentRemovedEvent.run(p_component.get());
-	});
-	ComponentManager::GetInstance().entityDestroyed(getID());
+	for (auto& [key, val] : mComponents) {
+		if (val) {
+			componentRemovedEvent.run(val.get());
+		}
+	}
+	RESOURCES::ServiceManager::Get<ECS2::World>().destroyEntity(mEntity);
+	//ComponentManager::GetInstance().entityDestroyed(getID());
 }
 
 const std::string& Object::getName() const {
-	return name;
+	return mName;
 }
 
 const std::string& Object::getTag() const {
-	return tag;
+	return mTag;
 }
 
 void Object::setName(const std::string& val) {
-	name = val;
+	mName = val;
 }
 
 void Object::setTag(const std::string& val) {
-	tag = val;
+	mTag = val;
 }
 
 void Object::setActive(bool val) {
-	if (val != isActive) {
-		isActive = val;
+	if (val != mIsActive) {
+		mIsActive = val;
 		recursiveActiveUpdate();
 	}
 }
 
 bool Object::getIsSelfActive() const {
-	return isActive;
+	return mIsActive;
 }
 
 bool Object::getIsActive() const {
-	auto p = parent.lock();
-	return isActive && (p ? p->getIsActive() : true);
+	auto p = mParent.lock();
+	return mIsActive && (p ? p->getIsActive() : true);
 }
 
-void Object::setID(Id<Object> val) {
-	id = val;
+void Object::setID(ECS2::Entity val) {
+	mEntity = val;
 }
 
-Id<Object> Object::getID() const {
-	return id;
+ECS2::Entity Object::getID() const {
+	return mEntity;
 }
 
-void Object::setParent(std::shared_ptr<Object> _parent) {
+void Object::setParent(std::shared_ptr<Object> _mParent) {
 	detachFromParent();
 
-	parent = _parent;
-	getComponent<TransformComponent>()->setParent(*_parent->getComponent<TransformComponent>().get());
+	mParent = _mParent;
+	getComponent<TransformComponent>()->setParent(*_mParent->getComponent<TransformComponent>().get());
 
-	_parent->children.push_back(shared_from_this());
-	attachEvent.run(*this, *_parent);
+	_mParent->mChildren.push_back(shared_from_this());
+	attachEvent.run(*this, *_mParent);
 }
 
-void Object::setParentInPos(std::shared_ptr<Object> _parent, int pos) {
-	if (pos > _parent->children.size()) {
+void Object::setParentInPos(std::shared_ptr<Object> _mParent, int pos) {
+	if (pos > _mParent->mChildren.size()) {
 		//TODO: problem
 		return;
 	}
 	detachFromParent();
 
-	parent = _parent;
-	getComponent<TransformComponent>()->setParent(*_parent->getComponent<TransformComponent>().get());
+	mParent = _mParent;
+	getComponent<TransformComponent>()->setParent(*_mParent->getComponent<TransformComponent>().get());
 
-	_parent->children.insert(_parent->children.begin() + pos, shared_from_this());
-	attachEvent.run(*this, *_parent);
+	_mParent->mChildren.insert(_mParent->mChildren.begin() + pos, shared_from_this());
+	attachEvent.run(*this, *_mParent);
 }
 
 void Object::detachFromParent() {
 	dettachEvent.run(*this);
 
-	if (auto p = parent.lock()) {
-		p->children.erase(std::remove_if(p->children.begin(), p->children.end(), [this](std::shared_ptr<Object> e) {
+	if (auto p = mParent.lock()) {
+		p->mChildren.erase(std::remove_if(p->mChildren.begin(), p->mChildren.end(), [this](std::shared_ptr<Object> e) {
 			return e.get() == this;
 		}));
 	}
 }
 
 bool Object::hasParent() const {
-	return parent.lock() != nullptr;
+	return mParent.lock() != nullptr;
 }
 
 std::shared_ptr<Object> Object::getParent() const {
-	return parent.lock();
+	return mParent.lock();
 }
 
-Id<Object> Object::getParentID() const {
-	if (auto p = parent.lock()) {
+ECS2::Entity Object::getParentID() const {
+	if (auto p = mParent.lock()) {
 		return p->getID();
 	}
-	return Id<Object>(0);
+	return ECS2::Entity(ECS2::Entity::ID(0));
 }
 
 std::span<std::shared_ptr<Object>> Object::getChildren() {
-	return children;
+	return mChildren;
 }
 
 void Object::markAsDestroy() {
-	isDestroyed = true;
-	for (auto child : children) {
+	mIsDestroyed = true;
+	for (auto child : mChildren) {
 		child->markAsDestroy();
 	}
 }
 
 bool Object::isAlive() const {
-	return !isDestroyed;
+	return !mIsDestroyed;
 }
 
 void Object::onStart() {
-	isReady = true;
-	auto components = ComponentManager::GetInstance().getComponents(id);
-	std::for_each(components.begin(), components.end(), [](auto element) { element->onStart(); });
+	mIsReady = true;
+	for (auto& [key, val] : mComponents) {
+		if (val) {
+			val.get()->onStart();
+		}
+	}
+	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	//std::for_each(components.begin(), components.end(), [](auto element) { element->onStart(); });
 }
 
 void Object::onEnable() {
-	auto components = ComponentManager::GetInstance().getComponents(id);
-	std::for_each(components.begin(), components.end(), [](auto element) { element->onEnable(); });
-	ComponentManager::GetInstance().enable(id);
+	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	//std::for_each(components.begin(), components.end(), [](auto element) { element->onEnable(); });
+	//ComponentManager::GetInstance().enable(mEntity);
+	for (auto& [key, val] : mComponents) {
+		if (val) {
+			val.get()->onEnable();
+		}
+	}
 }
 
 void Object::onDisable() {
-	auto components = ComponentManager::GetInstance().getComponents(id);
-	std::for_each(components.begin(), components.end(), [](auto element) { element->onDisable(); });
-	ComponentManager::GetInstance().disable(id);
+	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	//std::for_each(components.begin(), components.end(), [](auto element) { element->onDisable(); });
+	//ComponentManager::GetInstance().disable(mEntity);
+	for (auto& [key, val] : mComponents) {
+		if (val) {
+			val.get()->onDisable();
+		}
+	}
 }
 
 void Object::onDestroy() {
-	auto components = ComponentManager::GetInstance().getComponents(id);
-	std::for_each(components.begin(), components.end(), [](auto element) { element->onDestroy(); });
+	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	//std::for_each(components.begin(), components.end(), [](auto element) { element->onDestroy(); });
+	for (auto& [key, val] : mComponents) {
+		if (val) {
+			val.get()->onDestroy();
+		}
+	}
 }
 
-//TODO: remove when add all systems
 void Object::onUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		auto components = ComponentManager::GetInstance().getComponents(id);
-		std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
-		//std::for_each(ComponentManager::GetInstance().scriptComponents[id].begin(),
-		//	ComponentManager::GetInstance().scriptComponents[id].end(), [&](auto element) { element.second->onUpdate(dt); });
+		//auto components = ComponentManager::GetInstance().getComponents(mEntity);
+		//std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
+		for (auto& [key, val] : mComponents) {
+			if (val) {
+				val.get()->onUpdate(dt);
+			}
+		}
 	}
 }
 
-//TODO: remove when add all systems
 void Object::onFixedUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		auto components = ComponentManager::GetInstance().getComponents(id);
-		std::for_each(components.begin(), components.end(), [&](auto element) { element->onFixedUpdate(dt); });
+		//auto components = ComponentManager::GetInstance().getComponents(mEntity);
+		//std::for_each(components.begin(), components.end(), [&](auto element) { element->onFixedUpdate(dt); });
+		for (auto& [key, val] : mComponents) {
+			if (val) {
+				val.get()->onFixedUpdate(dt);
+			}
+		}
 	}
 }
 
-//TODO: remove when add all systems
 void Object::onLateUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		auto components = ComponentManager::GetInstance().getComponents(id);
-		std::for_each(components.begin(), components.end(), [&](auto element) { element->onLateUpdate(dt); });
+		//auto components = ComponentManager::GetInstance().getComponents(mEntity);
+		//std::for_each(components.begin(), components.end(), [&](auto element) { element->onLateUpdate(dt); });
+		for (auto& [key, val] : mComponents) {
+			if (val) {
+				val.get()->onLateUpdate(dt);
+			}
+		}
 	}
 }
 
 void Object::recursiveActiveUpdate() {
-	bool isActive = getIsActive();
+	bool mIsActive = getIsActive();
 
-	if (isActive) {
+	if (mIsActive) {
 		onEnable();
-		if (!isReady) {
+		if (!mIsReady) {
 			onStart();
 		}
 	}
 
-	if (!isActive) {
+	if (!mIsActive) {
 		onDisable();
 	}
 
-	for (auto child : children) {
+	for (auto child : mChildren) {
 		child->recursiveActiveUpdate();
 	}
 }
 
 UTILS::WeakPtr<TransformComponent> Object::getTransform() const {
-	return transform;
+	return mTransform;
 }
 
-//ObjectData Object::getObjectData() {
-//	ObjectData res;
-//	res.parentId = hasParent() ? getParent()->getIDInt() : -1;
-//	res.name = getName();
-//	res.id = getIDInt();
-//	res.isActive = getIsActive();
-//	res.tag = getTag();
-//	return res;
-//}
+int Object::getIDInt() const { return static_cast<int>(mEntity.getUniqueId()); }
 
-int Object::getIDInt() const { return static_cast<int>(id); }
-
-void Object::setIDInt(int _id) { id = Id(id); }
+void Object::setIDInt(int id) { mEntity = ECS2::Entity(ECS2::Entity::ID(id)); }
 
 int Object::getParentId() const {
-	auto _p = parent.lock();
+	auto _p = mParent.lock();
 	if (!_p) {
 		return -1;
 	}
@@ -321,41 +342,9 @@ void Object::setParentId(int _id) {
 		return;
 	}
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
-	auto _p = scene.findObjectByID(Id_(_id));
+	auto _p = scene.findObjectByID(ECS2::Entity::ID(_id));
 	if (_p) {
 		LOG_ERROR << ("Object::setParentId: can not find actor with id: " + std::to_string(_id));
 	}
 	setParent(_p);
 }
-
-//#include <rttr/registration>
-//
-//RTTR_REGISTRATION
-//{
-//	rttr::registration::class_<IKIGAI::ECS::ObjectData>("ObjectData")
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
-//	)
-//	.property("Name", &IKIGAI::ECS::ObjectData::name)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
-//	)
-//	.property("Tag", &IKIGAI::ECS::ObjectData::tag)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
-//		rttr::metadata(MetaInfo::DEFAULT, std::string())
-//	)
-//	.property("Id", &IKIGAI::ECS::ObjectData::id)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE )
-//	)
-//	.property("IsActive", &IKIGAI::ECS::ObjectData::isActive)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE ),
-//		rttr::metadata(MetaInfo::DEFAULT, true)
-//	)
-//	.property("Parent", &IKIGAI::ECS::ObjectData::parentId)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE  | MetaInfo::OPTIONAL_PARAM)
-//	);
-//}

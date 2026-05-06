@@ -33,7 +33,7 @@ namespace IKIGAI {
 			
 			static void UpdateFileWatchResource(const std::string& filePath, std::weak_ptr<RENDER::ShaderInterface> weakShader);
 			static void AddFileWatchSubscribe(const std::string& filePath, std::weak_ptr<RENDER::ShaderInterface> weakShader);
-			inline static std::unordered_map<std::string, std::vector<std::pair<std::string, IKIGAI::IdGenerator<EVENT::Event<>>::id>>> fwSubscribersIds;
+			inline static std::unordered_map<std::string, std::vector<std::pair<std::string, IKIGAI::IdGenerator<EVENT::Event<>>::ID>>> fwSubscribersIds;
 			inline static std::unordered_map<std::string, RENDER::ShaderResource> sResourceCache;
 		};
 	}

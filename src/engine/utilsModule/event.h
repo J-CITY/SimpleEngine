@@ -14,12 +14,12 @@ namespace IKIGAI::EVENT {
 		Event() = default;
 		using Callback = std::function<void(ArgTypes...)>;
 		
-		id add(Callback p_callback) {
-			id listenerID = generateId();
+		ID add(Callback p_callback) {
+			ID listenerID = generateId();
 			mCallbacks.emplace(listenerID, p_callback);
 			return listenerID;
 		}
-		bool removeListener(id listenerID) {
+		bool removeListener(ID listenerID) {
 			return mCallbacks.erase(listenerID) != 0;
 		}
 		void removeAllListeners() {
@@ -35,7 +35,7 @@ namespace IKIGAI::EVENT {
 		}
 
 	private:
-		std::map<id, Callback> mCallbacks;
+		std::map<ID, Callback> mCallbacks;
 	};
 
 	using EventListener = Id<Event<>>;
@@ -49,7 +49,7 @@ namespace IKIGAI::EVENT {
 		std::mutex m;
 
 		std::vector<std::pair<std::string, Payload>> mDeferredEventsMsgs;
-		std::unordered_map<std::string, std::unordered_map<id, Handler>> mEventMap;
+		std::unordered_map<std::string, std::unordered_map<ID, Handler>> mEventMap;
 	public:
 
 		enum class ExecutionPolicy {
@@ -57,9 +57,9 @@ namespace IKIGAI::EVENT {
 			DEFERRED
 		};
 
-		id add(std::string_view msg, Handler cb) {
+		ID add(std::string_view msg, Handler cb) {
 			std::lock_guard lock(m);
-			const id eventId = generateId();
+			const ID eventId = generateId();
 			mEventMap[std::string(msg)][eventId] = cb;
 			return eventId;
 		}
@@ -69,7 +69,7 @@ namespace IKIGAI::EVENT {
 			mEventMap.erase(std::string(msg));
 		}
 
-		void remove(std::string_view msg, id cbId) {
+		void remove(std::string_view msg, ID cbId) {
 			std::lock_guard lock(m);
 			const auto _msg = std::string(msg);
 			if (!mEventMap.contains(_msg)) {

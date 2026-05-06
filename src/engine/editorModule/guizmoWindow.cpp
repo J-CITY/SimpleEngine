@@ -194,17 +194,18 @@ void GuizmoWindow::draw() {
 				lRayDir_world = (lRayDir_world);
 				//lRayDir_world = MATHGL::Vector3::Normalize(lRayDir_world);
 
-				auto origin = camera->obj->transform->getWorldPosition();
+				auto origin = camera->obj->mTransform->getWorldPosition();
 				//MATHGL::Vector3 out_end = origin + lRayDir_world * 1000.0f;
 
 				std::vector<UTILS::Ref<ECS::Object>> objs;
 
-				for (const auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelRenderer>()) {
+				for (const auto& modelRenderer : RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->getComponentsArray<ECS::ModelRenderer>()) {
+					//for (const auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelRenderer>()) {
 					if (modelRenderer.obj.get().getIsActive()) {
 						auto bs = modelRenderer.getModel()->getBoundingSphere();
 						std::vector<MATH::Vector3f> hits;
-						auto _pos = bs.position + modelRenderer.obj.get().transform->getWorldPosition();
-						auto scale = modelRenderer.obj.get().transform->getWorldScale();
+						auto _pos = bs.position + modelRenderer.obj.get().mTransform->getWorldPosition();
+						auto scale = modelRenderer.obj.get().mTransform->getWorldScale();
 						auto _r = bs.radius * std::max(scale.x, std::max(scale.y, scale.z));
 						if (IMGUI::RaySphereIntersection(origin, lRayDir_world, _pos, _r, hits)) {
 							objs.push_back(modelRenderer.obj);

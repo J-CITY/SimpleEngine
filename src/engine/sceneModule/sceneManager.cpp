@@ -85,7 +85,7 @@ void addComponent(const std::string& typeNameStr, std::shared_ptr<ECS::Object> o
 //----------------------------
 
 template<typename T>
-void saveComponentImpl(const std::string& typeNameStr, UTILS::WeakPtr<ECS::Component> component, nlohmann::json& data) {
+void saveComponentImpl(const std::string& typeNameStr, UTILS::WeakPtr<ECS::ComponentBase> component, nlohmann::json& data) {
 	if (typeNameStr == ECS::GetType<T>()) {
 		auto _p = std::static_pointer_cast<T>(component);
 		//data = IKIGAI::UTILS::ToJson(*_p);
@@ -94,11 +94,11 @@ void saveComponentImpl(const std::string& typeNameStr, UTILS::WeakPtr<ECS::Compo
 }
 
 template<template<typename...> class Container, typename...ComponentType>
-void saveComponent(const std::string& typeNameStr, UTILS::WeakPtr<ECS::Component> component, nlohmann::json& data, Container<ComponentType...> opt) {
+void saveComponent(const std::string& typeNameStr, UTILS::WeakPtr<ECS::ComponentBase> component, nlohmann::json& data, Container<ComponentType...> opt) {
 	(saveComponentImpl<ComponentType>(typeNameStr, component, data), ...);
 }
 
-void saveComponent(UTILS::WeakPtr<ECS::Component> component, nlohmann::json& data) {
+void saveComponent(UTILS::WeakPtr<ECS::ComponentBase> component, nlohmann::json& data) {
 	saveComponent(component->getTypeidName(), component, data, ECS::ComponentsTypeProviderType{});
 }
 

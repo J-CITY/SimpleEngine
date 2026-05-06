@@ -11,7 +11,7 @@ namespace IKIGAI::ECS {
 		IKI_GENERATED_BODY(AmbientLight)
 	public:
 		IKI_CLASS(Name=AmbientLight::Descriptor)
-		struct Descriptor: public Component::Descriptor {
+		struct Descriptor: public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(AmbientLight::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="AmbientLightType"))
 			std::string Type;
@@ -25,7 +25,7 @@ namespace IKIGAI::ECS {
 
 		AmbientLight(UTILS::Ref<ECS::Object> _obj);
 		AmbientLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor);
-		AmbientLight(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		AmbientLight(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			AmbientLight(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		MATH::Vector3f getSize() const;

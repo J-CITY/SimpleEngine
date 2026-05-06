@@ -63,12 +63,12 @@ namespace Example {
 			mName = "MovementSystem";
 		}
 
-		void onUpdate(IKIGAI::ECS2::World& world, IKIGAI::ECS2::CommandBuffer&, double dt) override {
+		void onUpdate(IKIGAI::ECS2::World& world, IKIGAI::ECS2::CommandBuffer&, std::chrono::duration<double> dt) override {
 			// Iterate over all entities with Position and Velocity
 			world.getComponentManager()->forEach<Position, Velocity>(
 				[&](IKIGAI::ECS2::Entity e, Position& pos, Velocity& vel) {
-					pos.x += vel.dx * static_cast<float>(dt);
-					pos.y += vel.dy * static_cast<float>(dt);
+					pos.x += vel.dx * static_cast<float>(dt.count());
+					pos.y += vel.dy * static_cast<float>(dt.count());
 					// std::cout << "Entity " << e.getUniqueId() << " moved to " << pos.x << ", " << pos.y << "\n";
 				}
 			);
@@ -148,7 +148,7 @@ namespace Example {
 			// We can iterate entities and check relations manually or use special queries if supported.
 			// Here is a manual example:
 			world.system<Position, Velocity>("FollowerSystem")
-				.onUpdate([&](Entity e, Position& pos, Velocity& vel, double dt) {
+				.onUpdate([&](Entity e, Position& pos, Velocity& vel, std::chrono::duration<double> dt) {
 					auto& relMgr = world.getComponentManager()->getRelationManager();
 					// Get targets for 'Follows' relation
 					auto targets = relMgr.getTargets(e, world.getComponentManager()->getComponentType<Follows>());
@@ -167,7 +167,7 @@ namespace Example {
 
 
 			// G. Simulation Loop
-			double dt = 0.016; // 60 FPS
+			std::chrono::duration<double> dt = std::chrono::duration<double>(16); // 60 FPS
 			for (int i = 0; i < 5; ++i) {
 				std::cout << "--- Frame " << i << " ---\n";
 				sysMgr->runUpdate(dt);

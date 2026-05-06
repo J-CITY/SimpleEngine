@@ -35,15 +35,15 @@ namespace IKIGAI::RESOURCES {
 			Action action;
 			std::string path;
 			std::function<void(FileStatus)> cb;
-			std::function<void(EVENT::Event<FileStatus>::id)> retCb;
-			std::optional<EVENT::Event<FileStatus>::id> id;
+			std::function<void(EVENT::Event<FileStatus>::ID)> retCb;
+			std::optional<EVENT::Event<FileStatus>::ID> id;
 		};
 		std::queue<QueueEvent> deferredEvents;
 
 		std::chrono::duration<int, std::milli> m_delay = std::chrono::milliseconds(DELAY_UPDATE);
 
-		EVENT::Event<FileStatus>::id _add(const std::string& path, std::function<void(FileStatus)> cb);
-		void _remove(const std::string& path, EVENT::Event<FileStatus>::id id);
+		EVENT::Event<FileStatus>::ID _add(const std::string& path, std::function<void(FileStatus)> cb);
+		void _remove(const std::string& path, EVENT::Event<FileStatus>::ID id);
 
 	public:
 		inline static FileWatcher* m_instance = nullptr;
@@ -54,11 +54,11 @@ namespace IKIGAI::RESOURCES {
 			return m_instance;
 		}
 
-		EVENT::Event<FileStatus>::id add(const Path& path, std::function<void(FileStatus)> cb);
-		void remove(const Path& path, EVENT::Event<FileStatus>::id id);
+		EVENT::Event<FileStatus>::ID add(const Path& path, std::function<void(FileStatus)> cb);
+		void remove(const Path& path, EVENT::Event<FileStatus>::ID id);
 
-		void addDeferred(const Path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::id)> retCb);
-		void removeDeferred(const Path& path, EVENT::Event<FileStatus>::id id);
+		void addDeferred(const Path& path, std::function<void(FileStatus)> cb, std::function<void(EVENT::Event<FileStatus>::ID)> retCb);
+		void removeDeferred(const Path& path, EVENT::Event<FileStatus>::ID id);
 
 		void start();
 		void stop();

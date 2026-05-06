@@ -9,7 +9,7 @@ namespace IKIGAI::ECS2 {
 
 	void SystemManager::rebuildBatches() {
 		mBatches.clear();
-		for (const auto& sys : mSystems) {
+		for (const auto& [name, sys] : mSystems) {
 			bool added = false;
 			// Try to add to the last batch if exists
 			if (!mBatches.empty()) {
@@ -116,7 +116,7 @@ namespace IKIGAI::ECS2 {
 
 	// Template helper for update phases (with dt and CommandBuffer)
 	template<typename PhaseFunc>
-	void runUpdatePhaseImpl(std::vector<SystemManager::Batch>& batches, World& world, double dt, PhaseFunc&& phaseFunc) {
+	void runUpdatePhaseImpl(std::vector<SystemManager::Batch>& batches, World& world, std::chrono::duration<double> dt, PhaseFunc&& phaseFunc) {
 		if (IKIGAI::RESOURCES::ServiceManager::Check<IKIGAI::TASK::TaskSystem>()) {
 			auto& ts = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::TASK::TaskSystem>();
 			
@@ -162,26 +162,26 @@ namespace IKIGAI::ECS2 {
 		}
 	}
 
-	void SystemManager::runUpdate(double dt) {
+	void SystemManager::runUpdate(std::chrono::duration<double> dt) {
 		if (mIsDirty) rebuildBatches();
 		
-		runUpdatePhaseImpl(mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, double dt) {
+		runUpdatePhaseImpl(mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, std::chrono::duration<double> dt) {
 			s->onUpdate(w, cb, dt);
 		});
 	}
 
-	void SystemManager::runFixedUpdate(double dt) {
+	void SystemManager::runFixedUpdate(std::chrono::duration<double> dt) {
 		if (mIsDirty) rebuildBatches();
 		
-		runUpdatePhaseImpl(mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, double dt) {
+		runUpdatePhaseImpl(mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, std::chrono::duration<double> dt) {
 			s->onFixedUpdate(w, cb, dt);
 		});
 	}
 
-	void SystemManager::runLateUpdate(double dt) {
+	void SystemManager::runLateUpdate(std::chrono::duration<double> dt) {
 		if (mIsDirty) rebuildBatches();
 		
-		runUpdatePhaseImpl(mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, double dt) {
+		runUpdatePhaseImpl(mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, std::chrono::duration<double> dt) {
 			s->onLateUpdate(w, cb, dt);
 		});
 	}

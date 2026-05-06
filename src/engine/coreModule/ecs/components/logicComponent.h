@@ -9,11 +9,11 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	IKI_CLASS()
-	class LogicComponent : public Component {
+	class LogicComponent : public ComponentBase {
 		IKI_GENERATED_BODY(LogicComponent)
 	public:
 		IKI_CLASS(Name=LogicComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(LogicComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="LogicComponentType"))
 			std::string Type;
@@ -27,10 +27,10 @@ namespace IKIGAI::ECS {
 		std::function<void(std::chrono::duration<double>)> _onFixedUpdate = [](std::chrono::duration<double>) {};
 		std::function<void(std::chrono::duration<double>)> _onLateUpdate = [](std::chrono::duration<double>) {};
 	public:
-		LogicComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
+		LogicComponent(UTILS::Ref<ECS::Object> obj) : ComponentBase(obj) {
 			__NAME__ = "LogicComponent";
 		};
-		LogicComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		LogicComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			LogicComponent(obj) {
 		};
 

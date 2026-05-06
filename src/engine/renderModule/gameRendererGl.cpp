@@ -1,4 +1,4 @@
-﻿#include "gameRendererGl.h"
+#include "gameRendererGl.h"
 
 #include "backends/gl/shaderGl.h"
 #include "backends/gl/uniformBufferGl.h"
@@ -124,8 +124,6 @@ namespace IKIGAI::RENDER {
 	}
 
 	void GameRendererGl::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::CameraComponent& cameraComponent) {
-		auto& render = mContext.render;
-
 		uboData.View = MATH::Matrix4f::Transpose(cameraComponent.getCamera().getViewMatrix());
 		uboData.Projection = MATH::Matrix4f::Transpose(cameraComponent.getCamera().getProjectionMatrix());
 		uboData.ViewPos = cameraComponent.obj->getTransform()->getWorldPosition();
@@ -138,69 +136,76 @@ namespace IKIGAI::RENDER {
 
 		if (cameraComponent.isFrustumLightCulling()) {
 			updateLightsInFrustum(scene, cameraComponent.getCamera().getFrustum());
-		} else {
+		}
+		else {
 			updateLights(scene);
 		}
 
 		const auto& cameraPosition = cameraComponent.obj->getTransform()->getWorldPosition();
-		auto [mOpaqueMeshesForward, 
-			mTransparentMeshesForward, 
-			mOpaqueMeshesDeferred, 
-			mTransparentMeshesDeferred] = scene.findDrawables(cameraPosition, cameraComponent.getCamera(), nullptr, mEmptyMaterial);
+		auto chunks = scene.findDrawables(cameraPosition, cameraComponent.getCamera(), nullptr, mEmptyMaterial);
 
 
 		auto runStage = [&](std::unique_ptr<PipelineStage>& stage) {
 			auto& render = RESOURCES::ServiceManager::Get<RENDER::Renderer>();
-			if (stage->mFrameBuffer) {
-				render.setFrameBuffer(stage->mFrameBuffer);
-			}
-
-			render.setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-			render.clear(true, true, false);
-
-			if (stage->mMaterial) {
-				stage->mMaterial->bind(mEmptyTexture, true);
-				//fillUniforms(stage);
-			}
-
-			switch (stage->mDrawContent) {
-			case DrawContent::FORWARD:
-			{
-				for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
-					drawDrawable(drawable);
+			
+			for (auto& chunk : chunks) {
+				if (chunk.frameBuffer) {
+					render.setFrameBuffer(chunk.frameBuffer);
 				}
-				for (const auto& [distance, drawable] : mTransparentMeshesForward) {
-					drawDrawable(drawable);
+				else if (stage->mFrameBuffer) {
+					render.setFrameBuffer(stage->mFrameBuffer);
 				}
-			}
-			break;
-			case DrawContent::DEFERRED:
-			{
-				for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
-					drawDrawable(drawable);
+				else {
+					render.setFrameBuffer(nullptr);
 				}
-				for (const auto& [distance, drawable] : mTransparentMeshesDeferred) {
-					drawDrawable(drawable);
-				}
-			}
-			break;
-			case DrawContent::GUI: break; //TODO:
-			case DrawContent::QUAD:
-			{
-				//mDriver->draw(*quad->getMeshes()[0], PrimitiveMode::TRIANGLES, 1);
-			}
-			break;
-			default: break;
-			}
 
-			if (stage->mMaterial) {
-				stage->mMaterial->unbind();
-			}
+				render.setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+				render.clear(true, true, false);
 
-			if (stage->mFrameBuffer) {
-				render.setFrameBuffer(nullptr);
-			}
-			};
+				if (stage->mMaterial) {
+					stage->mMaterial->bind(mEmptyTexture, true);
+					//fillUniforms(stage);
+				}
+
+				switch (stage->mDrawContent) {
+					case DrawContent::FORWARD:
+					{
+						for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward) {
+							drawDrawable(drawable);
+						}
+						for (const auto& [distance, drawable] : chunk.transparentDrawablesForward) {
+							drawDrawable(drawable);
+						}
+					}
+					break;
+					case DrawContent::DEFERRED:
+					{
+						for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred) {
+							drawDrawable(drawable);
+						}
+						for (const auto& [distance, drawable] : chunk.transparentDrawablesDeferred) {
+							drawDrawable(drawable);
+						}
+					}
+					break;
+					case DrawContent::GUI: break; //TODO:
+					case DrawContent::QUAD:
+					{
+						//mDriver->draw(*quad->getMeshes()[0], PrimitiveMode::TRIANGLES, 1);
+					}
+					break;
+					default: break;
+				}
+
+				if (stage->mMaterial) {
+					stage->mMaterial->unbind();
+				}
+
+				if (chunk.frameBuffer || stage->mFrameBuffer) {
+					render.setFrameBuffer(nullptr);
+				}
+			} // end for chunk
+		};
 
 		if (!mRenderPipeline->mIsInitialized) {
 			for (auto& stage : mRenderPipeline->mStartStages) {
@@ -222,6 +227,13 @@ namespace IKIGAI::RENDER {
 	void GameRendererGl::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum) {
 		auto lightMatrices = scene.findLightDataInFrustum(frustum);
 		mLightSSBO->setData(lightMatrices);
+	}
+
+	const RenderGraphPipeline& GameRendererGl::getCurrentPipeline() const {
+		if (!mRenderPipeline) {
+			throw;
+		}
+		return *mRenderPipeline;
 	}
 
 	void GameRendererGl::setPipeline(std::unique_ptr<RenderGraphPipeline>&& renderPipeline) {

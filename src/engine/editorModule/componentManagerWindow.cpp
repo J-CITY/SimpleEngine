@@ -400,7 +400,7 @@ void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 //};
 
 template<typename T>
-void getPropsImpl(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp) {
+void getPropsImpl(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
 	if (comp->getName() == IKIGAI::ECS::GetComponentName<T>()) {
 		auto props = T::GetMembers();
 		std::apply([&comp]<typename... Args> (Args&... tpl) {
@@ -452,11 +452,11 @@ void getPropsImpl(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp) {
 }
 
 template<template<typename...> class Container, typename...ComponentType>
-void getProps(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp, Container<ComponentType...> opt) {
+void getProps(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp, Container<ComponentType...> opt) {
 	(getPropsImpl<ComponentType>(comp), ...);
 }
 
-void getProps(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::Component> comp) {
+void getProps(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
 	getProps(comp, IKIGAI::ECS::ComponentsTypeProviderType{});
 }
 
@@ -490,7 +490,7 @@ void ComponentManagerWindow::draw() {
 	};
 
 
-	ImGui::Text(("Id: " + std::to_string(static_cast<int>(selectObject->getID()))).c_str());
+	ImGui::Text(("Id: " + std::to_string(static_cast<int>(selectObject->getID().getUniqueId()))).c_str());
 
 	auto name = selectObject->getName();
 	if (IMGUI::InputText("Name:", "##object_name", name)) {
@@ -512,8 +512,9 @@ void ComponentManagerWindow::draw() {
 	}
 
 	//Object components
-	auto components = ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
-	for (auto& component : components) {
+	//auto components = ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
+	auto components = selectObject->getComponents();
+	for (auto& [_, component] : components) {
 		auto title = iconComp[component->getName()] + std::string(" ") + component->getName();
 		bool needDelComponent = true;
 		if (ImGui::CollapsingHeader(title.c_str(), &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {

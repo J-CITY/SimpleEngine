@@ -10,7 +10,7 @@ namespace IKIGAI::ECS{
 		IKI_GENERATED_BODY(PointLight)
 	public:
 		IKI_CLASS(Name=PointLight::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(PointLight::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="PointLightType"))
 			std::string Type;
@@ -27,7 +27,7 @@ namespace IKIGAI::ECS{
 		};
 		PointLight(UTILS::Ref<ECS::Object> _obj);
 		PointLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor);
-		PointLight(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		PointLight(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			PointLight(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		float getConstant() const;

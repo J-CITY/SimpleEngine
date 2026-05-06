@@ -8,18 +8,18 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, std::string& path): Component(_obj) {
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, std::string& path): ComponentBase(_obj) {
 	__NAME__ = "AudioComponent";
 	res = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().CreateFromFile(path);
 }
 
-AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor) : Component(_obj)
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor) : ComponentBase(_obj)
 {
 	__NAME__ = "AudioComponent";
 	res = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().CreateFromFile(descriptor.AudioPath);
 }
 
-AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj) : Component(_obj) {
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj) : ComponentBase(_obj) {
 	__NAME__ = "AudioComponent";
 }
 
@@ -102,7 +102,7 @@ AudioComponent::Descriptor AudioComponent::getDescriptor() const {
 	return descriptor;
 }
 
-AudioListenerComponent::AudioListenerComponent(UTILS::Ref<ECS::Object> obj): Component(obj) {
+AudioListenerComponent::AudioListenerComponent(UTILS::Ref<ECS::Object> obj): ComponentBase(obj) {
 	__NAME__ = "AudioListenerComponent";
 }
 

@@ -46,7 +46,7 @@ namespace IKIGAI {
 			static void UnsubscribeFileWatch(const std::string& path);
 			RENDER::ModelDeleter createCacheDeleter(const std::string& path);
 
-			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::id>> fwSubscribersIds;
+			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
 			inline static std::unordered_map<std::string, RENDER::ModelResource> sResourceCache;
 		};
 	

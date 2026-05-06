@@ -52,16 +52,16 @@ namespace IKIGAI::SCENE_SYSTEM {
 
 		std::shared_ptr<ECS::Object> createObject();
 		std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");
-		std::shared_ptr<ECS::Object> createObjectAfter(ECS::Object::Id_ parentId, const std::string& p_name, const std::string& p_tag = "");
-		std::shared_ptr<ECS::Object> createObjectBefore(ECS::Object::Id_ parentId, const std::string& p_name, const std::string& p_tag = "");
+		std::shared_ptr<ECS::Object> createObjectAfter(ECS2::Entity parentId, const std::string& p_name, const std::string& p_tag = "");
+		std::shared_ptr<ECS::Object> createObjectBefore(ECS2::Entity parentId, const std::string& p_name, const std::string& p_tag = "");
 		//std::shared_ptr<ECS::Object> _createObject(const std::string& p_name, const std::string& p_tag = "");
-		std::shared_ptr<ECS::Object> createObject(Id<ECS::Object> actorID, const std::string& name, const std::string& tag = "");
+		std::shared_ptr<ECS::Object> createObject(ECS2::Entity actorID, const std::string& name, const std::string& tag = "");
 		std::shared_ptr<ECS::Object> createObject(const ECS::Object::Descriptor& data);
 		bool destroyObject(std::shared_ptr<ECS::Object> p_target);
 
 		std::shared_ptr<ECS::Object> findObjectByName(const std::string& p_name);
 		std::shared_ptr<ECS::Object> findObjectByTag(const std::string& p_tag);
-		std::shared_ptr<ECS::Object> findObjectByID(Id<ECS::Object> p_id);
+		std::shared_ptr<ECS::Object> findObjectByID(ECS2::Entity p_id);
 
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByName(const std::string& p_name);
 		std::vector<std::shared_ptr<ECS::Object>> findObjectsByTag(const std::string& p_tag);
@@ -96,37 +96,25 @@ namespace IKIGAI::SCENE_SYSTEM {
 			RENDER::CullingOptions cullingOptions
 		);
 
-		std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables,
-			IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables>  findDrawables(const MATH::Vector3f& p_cameraPosition,
+		std::vector<IKIGAI::RENDER::RenderChunk> findDrawables(const MATH::Vector3f& p_cameraPosition,
 			const RENDER::Camera& p_camera,
 			const RENDER::Frustum* p_customFrustum,
 			std::shared_ptr<RENDER::MaterialInterface> p_defaultMaterial
 		);
 
-		std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables,
-			IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables>  findAndSortFrustumCulledBVHDrawables(
+		std::vector<IKIGAI::RENDER::RenderChunk> findAndSortFrustumCulledBVHDrawables(
 				const MATH::Vector3f& cameraPosition,
 				const RENDER::Frustum& frustum,
 				std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 			);
 
-		std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables,
-			IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables>  findAndSortFrustumCulledDrawables(
+		std::vector<IKIGAI::RENDER::RenderChunk> findAndSortFrustumCulledDrawables(
 			const MATH::Vector3f& cameraPosition,
 			const RENDER::Frustum& frustum,
 			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
 
-		std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables,
-			IKIGAI::RENDER::OpaqueDrawables,
-			IKIGAI::RENDER::TransparentDrawables>  findAndSortDrawables(
+		std::vector<IKIGAI::RENDER::RenderChunk> findAndSortDrawables(
 			const MATH::Vector3f& cameraPosition,
 			std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 		);
@@ -139,15 +127,14 @@ namespace IKIGAI::SCENE_SYSTEM {
 		std::vector<std::shared_ptr<IKIGAI::GUI::GuiObject>> guiObjs;
 
 
-		void addToBVH(UTILS::WeakPtr<ECS::Component> component);
-		void removeFromBVH(UTILS::WeakPtr<ECS::Component> component);
-		void updateInBVH(UTILS::WeakPtr<ECS::Component> component);
+		void addToBVH(UTILS::WeakPtr<ECS::ComponentBase> component);
+		void removeFromBVH(UTILS::WeakPtr<ECS::ComponentBase> component);
+		void updateInBVH(UTILS::WeakPtr<ECS::ComponentBase> component);
 
 		bool isSceneReady = false;
 		void postLoad();
+
 	private:
-		IdGenerator_ idGenerator;
-		
 		bool isExecute = false;
 		std::vector<std::shared_ptr<ECS::Object>> objects;
 

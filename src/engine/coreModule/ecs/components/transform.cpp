@@ -31,7 +31,7 @@ bool TransformNotifier::removeNotificationHandler(const NotificationHandlerID& p
 //Transform Component
 
 TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, Vector3f localPosition,
-	QuaternionF localRotation, Vector3f localScale): Component(obj) {
+	QuaternionF localRotation, Vector3f localScale): ComponentBase(obj) {
 	__NAME__ = "TransformComponent";
 	transform = std::make_shared<Transform>();
 	transform->generateMatrices(localPosition, localRotation, localScale);

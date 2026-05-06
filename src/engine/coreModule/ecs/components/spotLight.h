@@ -12,7 +12,7 @@ namespace IKIGAI::ECS {
 		IKI_GENERATED_BODY(SpotLight)
 	public:
 		IKI_CLASS(Name=SpotLight::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(SpotLight::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="SpotLightType"))
 			std::string Type = "class IKIGAI::ECS::SpotLight";
@@ -33,7 +33,7 @@ namespace IKIGAI::ECS {
 		};
 		SpotLight(UTILS::Ref<ECS::Object> obj);
 		SpotLight(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
-		SpotLight(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		SpotLight(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			SpotLight(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		float getConstant() const;

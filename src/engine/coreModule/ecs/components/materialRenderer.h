@@ -13,11 +13,11 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	IKI_CLASS()
-	class MaterialRenderer : public Component {
+	class MaterialRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(MaterialRenderer)
 	public:
 		IKI_CLASS(Name=MaterialRenderer::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(MaterialRenderer::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="MaterialRendererType"))
 			std::string Type;
@@ -32,7 +32,7 @@ namespace IKIGAI::ECS {
 		
 		MaterialRenderer(UTILS::Ref<ECS::Object> obj);
 		MaterialRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor);
-		MaterialRenderer(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		MaterialRenderer(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			MaterialRenderer(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		~MaterialRenderer() override;

@@ -179,7 +179,10 @@ void PhysicWorld::runPhysics(float dt) {
         // Same as above, solve cloth constraints
         for (int i = 0, size = cloths.size(); i < size; ++i) {
             std::vector<OBB> constraints;
-            for (auto& e : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PhysicsComponent>()) {
+            auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+            auto componentManager = world.getComponentManager();
+            for (auto& e : componentManager->getComponentsArray<ECS::PhysicsComponent>()) {
+            //for (auto& e : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PhysicsComponent>()) {
                 auto _e = ((IKIGAI::PHYSICS::CollisionBox*)(e.collider.get()));
         
             	OBB obb;

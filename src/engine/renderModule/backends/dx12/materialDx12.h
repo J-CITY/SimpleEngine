@@ -44,14 +44,13 @@ namespace IKIGAI::RENDER {
 			return mShader;
 		}
 
-		void create(const MaterialResource& res) override
-		{
-			//TODO
-		};
+		void create(const MaterialResource& res) override;
 
 		void setExternalBuffer(const std::string& name, std::shared_ptr<UniformBufferInterface> buffer);
 		void setExternalBuffer(const std::string& name, std::shared_ptr<StorageBufferInterface> buffer);
 
+		void set(const std::string& name, const UniformData& data) override;
+		UniformData& get(const std::string& name) override;
 		
 		MaterialResource getDescriptor() override;
 	};

@@ -2,6 +2,7 @@
 
 #include <utilsModule/idGenerator.h>
 
+#include "ecsModule/entityManager.h"
 #include "mathModule/math.h"
 
 namespace IKIGAI
@@ -36,7 +37,7 @@ namespace IKIGAI {
 		struct Light {
 			enum class Type { NONE, POINT, DIRECTIONAL, SPOT, AMBIENT_BOX, AMBIENT_SPHERE, INPUT };
 
-			Light(Id<ECS::Object> objId, Type p_type = Type::NONE);
+			Light(ECS2::Entity objId, Type p_type = Type::NONE);
 			[[nodiscard]] LightOGL generateOGLStruct() const;
 			[[nodiscard]] float getEffectRange() const;
 			[[nodiscard]] const ECS::Transform& getTransform() const;
@@ -51,7 +52,7 @@ namespace IKIGAI {
 			Type type = Type::NONE;
 
 		protected:
-			Id<ECS::Object> objId;
+			ECS2::Entity objId;
 		};
 		
 	}

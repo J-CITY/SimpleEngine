@@ -27,6 +27,6 @@ namespace IKIGAI::RESOURCES {
 		static void UnsubscribeFileWatch(const std::string& path);
 
 		inline static std::unordered_map<std::string, AUDIO::SoundConfig> sResourceCache;
-		inline static std::unordered_map<std::string, std::vector<IdGenerator<EVENT::Event<>>::id>> fwSubscribersIds;
+		inline static std::unordered_map<std::string, std::vector<IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
 	};
 }

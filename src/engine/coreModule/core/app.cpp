@@ -289,17 +289,23 @@ void App::update(std::chrono::duration<double> dt) {
 		//PROFILER_EVENT();
 		auto& currentScene = core.sceneManager->getCurrentScene();
 		currentScene.fixedUpdate(dt);
-		for (auto& system : ECS::ComponentManager::GetInstance().getSystemManager().getSystems()) {
-			system.second->onFixedUpdate(dt);
-		}
-		currentScene.update(dt);
-		for (auto& system : ECS::ComponentManager::GetInstance().getSystemManager().getSystems()) {
-			system.second->onUpdate(dt);
-		}
-		currentScene.lateUpdate(dt);
-		for (auto& system : ECS::ComponentManager::GetInstance().getSystemManager().getSystems()) {
-			system.second->onLateUpdate(dt);
-		}
+
+		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+		auto systemManager = world.getSystemManager();
+		systemManager->runFixedUpdate(dt);
+		systemManager->runUpdate(dt);
+		systemManager->runLateUpdate(dt);
+		//for (auto& system : ECS::ComponentManager::GetInstance().getSystemManager().getSystems()) {
+		//	system.second->onFixedUpdate(dt);
+		//}
+		//currentScene.update(dt);
+		//for (auto& system : ECS::ComponentManager::GetInstance().getSystemManager().getSystems()) {
+		//	system.second->onUpdate(dt);
+		//}
+		//currentScene.lateUpdate(dt);
+		//for (auto& system : ECS::ComponentManager::GetInstance().getSystemManager().getSystems()) {
+		//	system.second->onLateUpdate(dt);
+		//}
 #ifndef OCULUS
 		core.window->update();
 		core.renderer->renderScene();

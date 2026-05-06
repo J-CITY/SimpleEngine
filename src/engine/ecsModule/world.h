@@ -24,6 +24,8 @@ namespace IKIGAI::ECS2
 		SystemBuilder<T...> system(std::string name);
 
 		Entity createEntity() const;
+		void registerEntity(Entity newEntity) const;
+		void destroyEntity(Entity newEntity) const;
 
 	private:
 		std::unique_ptr<SystemManager> mSystemsManager;

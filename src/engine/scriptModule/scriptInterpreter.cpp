@@ -8,6 +8,7 @@
 #include <coreModule/ecs/componentManager.h>
 #include <coreModule/ecs/systems/scriptSystem.h>
 
+#include "ecsModule/world.h"
 #include "utilsModule/log/loggerDefine.h"
 
 
@@ -34,7 +35,10 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 		checkOk = true;
 		
 		for (const auto& s : scripts) {
-			if (!ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
+			auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+			auto systemManager = world.getSystemManager();
+			if (!systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
+				//if (!ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
 				checkOk = false;
 			}
 		}
@@ -48,7 +52,10 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 void ScriptInterpreter::destroyLuaContext() {
 	if (luaState) {
 		for (const auto& s : scripts) {
-			ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*s);
+			auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+			auto systemManager = world.getSystemManager();
+			systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->unregisterFromLuaContext(*s);
+			//ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*s);
 		}
 
 		luaState.reset();
@@ -63,7 +70,10 @@ void ScriptInterpreter::consider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> s)
 	if (luaState) {
 		scripts.push_back(s);
 
-		if (!ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
+		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+		auto systemManager = world.getSystemManager();
+		if (!systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
+		//if (!ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
 			checkOk = false;
 		}
 	}
@@ -71,7 +81,10 @@ void ScriptInterpreter::consider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> s)
 
 void ScriptInterpreter::unconsider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> p_toUnconsider) {
 	if (luaState) {
-		ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*p_toUnconsider);
+		//ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*p_toUnconsider);
+		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+		auto systemManager = world.getSystemManager();
+		systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->unregisterFromLuaContext(*p_toUnconsider);
 	}
 	scripts.erase(std::remove_if(scripts.begin(), scripts.end(), [p_toUnconsider](const UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> s) {
 		return p_toUnconsider == s;

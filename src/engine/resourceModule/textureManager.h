@@ -110,7 +110,7 @@ private:
   // FW ids
   inline static std::unordered_map<
       std::string, std::vector<std::pair<
-                       std::string, IKIGAI::IdGenerator<EVENT::Event<>>::id>>>
+                       std::string, IKIGAI::IdGenerator<EVENT::Event<>>::ID>>>
       sFWSubscribersIds;
 };
 

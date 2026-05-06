@@ -9,16 +9,16 @@ using namespace IKIGAI::ECS;
 EVENT::Event<UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent>> ScriptComponentEvents::destroyedEvent;
 EVENT::Event<UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent>> ScriptComponentEvents::createdEvent;
 
-ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> obj) : Component(obj) {
+ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> obj) : ComponentBase(obj) {
 	__NAME__ = "ScriptComponent";
 }
 
 ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> _obj, const std::string& _name) :
-	name(_name), Component(_obj) {
+	name(_name), ComponentBase(_obj) {
 	__NAME__ = "ScriptComponent";
 }
 
-ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : Component(_obj), name(_descriptor.Path) {
+ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : ComponentBase(_obj), name(_descriptor.Path) {
 	__NAME__ = "ScriptComponent";
 }
 

@@ -15,19 +15,21 @@
 #include <serdepp/attribute/default.hpp>
 #include <serdepp/serializer.hpp>
 
+#include "ecsModule/componentManager.h"
+
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 
-	class Component: public RESOURCES::Serializable, public UTILS::ControlBlockHandler {
+	class ComponentBase: public RESOURCES::Serializable, public ECS2::Component {
 		template<class T>
 		friend UTILS::Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
 	public:
 
 		struct Descriptor {};
 		//Component();
-		Component(UTILS::Ref<ECS::Object> obj);
-		~Component() override;
+		ComponentBase(UTILS::Ref<ECS::Object> obj);
+		~ComponentBase() override;
 
 		virtual void onAwake() {}
 		virtual void onStart() {}
@@ -55,10 +57,10 @@ namespace IKIGAI::ECS {
 		virtual void onSerialize(nlohmann::json& j) override {;
 		}
 
-		template<class T>
-		UTILS::WeakPtr<T> getWeak() {
-			return UTILS::WeakPtr<T>(*this);
-		}
+		//template<class T>
+		//UTILS::WeakPtr<T> getWeak() {
+		//	return UTILS::WeakPtr<T>(*this);
+		//}
 	protected:
 		std::string __NAME__;
 	};

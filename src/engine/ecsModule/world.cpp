@@ -21,6 +21,14 @@ namespace IKIGAI::ECS2
 		return newEntity;
 	}
 
+	void World::registerEntity(Entity newEntity) const {
+		mComponentsManager->registerEntity(newEntity);
+	}
+
+	void World::destroyEntity(Entity newEntity) const {
+		mComponentsManager->destroyEntity(newEntity);
+	}
+
 	SystemManager* World::getSystemManager() const noexcept {
 		return mSystemsManager.get();
 	}

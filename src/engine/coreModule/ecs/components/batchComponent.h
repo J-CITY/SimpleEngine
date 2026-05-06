@@ -8,18 +8,18 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	IKI_CLASS()
-	class BatchComponent : public Component {
+	class BatchComponent : public ComponentBase {
 		IKI_GENERATED_BODY(BatchComponent)
 	public:
 		IKI_CLASS(Name=BatchComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(BatchComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="BatchComponentType"))
 			std::string Type;
 		};
 		inline static std::vector<unsigned> ids;
 		BatchComponent(UTILS::Ref<ECS::Object> obj);
-		BatchComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		BatchComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			BatchComponent(obj) {
 		};
 

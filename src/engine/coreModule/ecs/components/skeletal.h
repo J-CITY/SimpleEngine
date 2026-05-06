@@ -14,11 +14,11 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	IKI_CLASS()
-	class Skeletal : public Component {
+	class Skeletal : public ComponentBase {
 		IKI_GENERATED_BODY(Skeletal)
 	public:
 		IKI_CLASS(Name=Skeletal::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(Skeletal::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="SkeletalType"))
 			std::string Type;
@@ -30,7 +30,7 @@ namespace IKIGAI::ECS {
 		Skeletal(UTILS::Ref<ECS::Object> _obj);
 		Skeletal(UTILS::Ref<ECS::Object> _obj, const std::string& _path, const std::optional<std::string>& _startAnimation=std::nullopt);
 		Skeletal(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor);
-		Skeletal(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		Skeletal(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			Skeletal(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		void onUpdate(std::chrono::duration<double> dt) override;

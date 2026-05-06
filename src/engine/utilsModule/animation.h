@@ -459,7 +459,7 @@ namespace IKIGAI::ANIMATION {
 
 	class NodableAnimationNodePos : public NodableAnimationNode {
 	public:
-		ECS::Object::Id_ id;
+		ECS::Object::Id id;
 		MATH::Vector3f toPos{};
 
 		MATH::Vector3f fromPos{};
@@ -469,7 +469,7 @@ namespace IKIGAI::ANIMATION {
 		Curve curve;
 		AnimationProperty prop;
 	public:
-		NodableAnimationNodePos(ECS::Object::Id_ id, MATH::Vector3f toPos, float time, InterpolationType interpolation = InterpolationType::LINEAR):
+		NodableAnimationNodePos(ECS::Object::Id id, MATH::Vector3f toPos, float time, InterpolationType interpolation = InterpolationType::LINEAR):
 			id(id), toPos(toPos), time(time) {
 
 			auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
@@ -526,7 +526,7 @@ namespace IKIGAI::ANIMATION {
 
 	class NodableAnimationNodeScale : public NodableAnimationNode {
 	public:
-		ECS::Object::Id_ id;
+		ECS::Object::Id id;
 		MATH::Vector3f to{};
 
 		MATH::Vector3f from{};
@@ -536,7 +536,7 @@ namespace IKIGAI::ANIMATION {
 		Curve curve;
 		AnimationProperty prop;
 	public:
-		NodableAnimationNodeScale(ECS::Object::Id_ id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
+		NodableAnimationNodeScale(ECS::Object::Id id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
 			NodableAnimationNode(), id(id), to(to), time(time) {
 
 			auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
@@ -594,7 +594,7 @@ namespace IKIGAI::ANIMATION {
 
 	class NodableAnimationNodeRotate : public NodableAnimationNode {
 	public:
-		ECS::Object::Id_ id;
+		ECS::Object::Id id;
 		MATH::Vector3f to{};
 
 		MATH::Vector3f from{};
@@ -604,7 +604,7 @@ namespace IKIGAI::ANIMATION {
 		Curve curve;
 		AnimationProperty prop;
 	public:
-		NodableAnimationNodeRotate(ECS::Object::Id_ id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
+		NodableAnimationNodeRotate(ECS::Object::Id id, MATH::Vector3f to, float time, InterpolationType interpolation = InterpolationType::LINEAR) :
 			NodableAnimationNode(), id(id), to(to), time(time) {
 
 			auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();

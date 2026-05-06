@@ -16,11 +16,11 @@ namespace IKIGAI::ECS{
 		CULL_CUSTOM = 3
 	};
 	IKI_CLASS()
-	class  ModelRenderer : public Component {
+	class  ModelRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(ModelRenderer)
 	public:
 		IKI_CLASS(Name=ModelRenderer::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(ModelRenderer::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="ModelRendererType"))
 			std::string Type;
@@ -29,7 +29,7 @@ namespace IKIGAI::ECS{
 		};
 		ModelRenderer(UTILS::Ref<ECS::Object> obj);
 		ModelRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor);
-		ModelRenderer(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		ModelRenderer(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			ModelRenderer(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		void setModel(std::shared_ptr<RENDER::ModelInterface> model);
@@ -54,7 +54,7 @@ namespace IKIGAI::ECS{
 	};
 
 	IKI_CLASS()
-	class ModelLODRenderer : public Component {
+	class ModelLODRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(ModelLODRenderer)
 	public:
 		IKI_CLASS(Name=ModelLODRenderer::ModelLodRefl)
@@ -66,7 +66,7 @@ namespace IKIGAI::ECS{
 			std::string Path;
 		};
 		IKI_CLASS(Name=ModelLODRenderer::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(ModelLODRenderer::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="ModelLODRendererType"))
 			std::string Type;
@@ -81,7 +81,7 @@ namespace IKIGAI::ECS{
 
 		ModelLODRenderer(UTILS::Ref<ECS::Object> obj);
 		ModelLODRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor _descriptor);
-		ModelLODRenderer(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		ModelLODRenderer(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			ModelLODRenderer(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		void setModel(const ModelLod& model);
@@ -130,11 +130,11 @@ namespace IKIGAI::ECS{
 
 
 	IKI_CLASS()
-	class ChunkModelRenderer : public Component {
+	class ChunkModelRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(ChunkModelRenderer)
 	public:
 		IKI_CLASS(Name=ChunkModelRenderer::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(ChunkModelRenderer::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="ChunkModelRendererType"))
 			std::string Type;
@@ -143,7 +143,7 @@ namespace IKIGAI::ECS{
 		};
 		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj);
 		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor);
-		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		ChunkModelRenderer(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			ChunkModelRenderer(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		//void setModel(std::shared_ptr<RENDER::ModelInterface> model);

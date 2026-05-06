@@ -8,7 +8,7 @@ namespace IKIGAI::ECS2 {
 	public:
 		// Function types for different phases
 		using InitFunc = std::function<void(Entity, RawType<Components>&...)>;
-		using UpdateFunc = std::function<void(Entity, RawType<Components>&..., double)>;
+		using UpdateFunc = std::function<void(Entity, RawType<Components>&..., std::chrono::duration<double>)>;
 
 	private:
 		InitFunc mOnAwake;
@@ -50,7 +50,7 @@ namespace IKIGAI::ECS2 {
 			}
 		}
 
-		void onUpdate(World& world, CommandBuffer& cb, double dt) override {
+		void onUpdate(World& world, CommandBuffer& cb, std::chrono::duration<double> dt) override {
 			if (mOnUpdate) {
 				// Wrap the user function to inject dt
 				world.getComponentManager()->forEach<Components...>(
@@ -61,7 +61,7 @@ namespace IKIGAI::ECS2 {
 			}
 		}
 
-		void onFixedUpdate(World& world, CommandBuffer& cb, double dt) override {
+		void onFixedUpdate(World& world, CommandBuffer& cb, std::chrono::duration<double> dt) override {
 			if (mOnFixedUpdate) {
 				world.getComponentManager()->forEach<Components...>(
 					[&](Entity e, RawType<Components>&... comps) {
@@ -71,7 +71,7 @@ namespace IKIGAI::ECS2 {
 			}
 		}
 
-		void onLateUpdate(World& world, CommandBuffer& cb, double dt) override {
+		void onLateUpdate(World& world, CommandBuffer& cb, std::chrono::duration<double> dt) override {
 			if (mOnLateUpdate) {
 				world.getComponentManager()->forEach<Components...>(
 					[&](Entity e, RawType<Components>&... comps) {

@@ -8,9 +8,12 @@
 #include <renderModule/backends/interface/renderEnums.h>
 
 #include "coreModule/ecs/object.h"
+#include "coreModule/ecs/components/renderTargetComponent.h"
+#include "coreModule/ecs/components/cameraComponent.h"
 #include "physicsModule/broadPhase.h"
 #include "renderModule/backends/interface/meshInterface.h"
 #include "utilsModule/log/loggerDefine.h"
+#include <unordered_map>
 
 namespace IKIGAI
 {
@@ -128,7 +131,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject() {
 //	return instance;
 //}
 
-std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(Id<ECS::Object> actorID, const std::string& name, const std::string& tag) {
+std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ECS2::Entity actorID, const std::string& name, const std::string& tag) {
 	objects.push_back(std::make_shared<ECS::Object>(actorID, name, tag));
 	auto& instance = objects.back();
 	if (isExecute) {
@@ -158,7 +161,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::Object::Desc
 		}
 	}
 	if (data.ParentId > 0) {
-		auto p = findObjectByID(ECS::Object::Id_(data.ParentId));
+		auto p = findObjectByID(ECS2::Entity(ECS2::Entity::ID(data.ParentId)));
 		if (!p) {
 			LOG_ERROR << "Object::setParentId: can not find actor with id: " + std::to_string(data.ParentId);
 		}
@@ -171,7 +174,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::Object::Desc
 
 
 std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const std::string& name, const std::string& tag) {
-	objects.push_back(std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag));
+	objects.push_back(std::make_shared<ECS::Object>(RESOURCES::ServiceManager::Get<ECS2::World>().createEntity(), name, tag));
 	auto& instance = objects.back();
 	if (isExecute) {
 		instance->setActive(true);
@@ -194,12 +197,12 @@ struct BVHData {
 		//if (!obj) {
 		//	return MATHGL::Matrix4::Identity;
 		//}
-		return obj->transform->getTransform();
+		return obj->mTransform->getTransform();
 	}
 };
 
 PHYSICS::BVHTree<RENDER::BoundingSphere, std::shared_ptr<BVHData>> meshesTree;
-std::unordered_map<ECS::Object::Id_, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
+std::unordered_map<ECS::Object::Id, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
 
 //TODO: move to utils
 RENDER::BoundingSphere getGlobalBoundingSphere(const RENDER::BoundingSphere& boundingSphere, const ECS::Transform& transform) {
@@ -216,7 +219,7 @@ RENDER::BoundingSphere getGlobalBoundingSphere(const RENDER::BoundingSphere& bou
 	return RENDER::BoundingSphere{ worldCenter, scaledRadius };
 }
 
-void Scene::addToBVH(UTILS::WeakPtr<ECS::Component> component) {
+void Scene::addToBVH(UTILS::WeakPtr<ECS::ComponentBase> component) {
 	if (component->getName() != "ModelRenderer") {
 		return;
 	}
@@ -236,7 +239,7 @@ void Scene::addToBVH(UTILS::WeakPtr<ECS::Component> component) {
 		const auto& modelBoundingSphere = modelRenderer->getFrustumBehaviour() == ECS::EFrustumBehaviour::CULL_CUSTOM ? modelRenderer->getCustomBoundingSphere() : model->getBoundingSphere();
 		//TODO: add support RENDER::CullingOptions::FRUSTUM_PER_MESH
 		//TODO: add event for change CullingOptions
-		auto gbs = getGlobalBoundingSphere(modelBoundingSphere, modelRenderer->obj->transform->getTransform());
+		auto gbs = getGlobalBoundingSphere(modelBoundingSphere, modelRenderer->obj->mTransform->getTransform());
 		for (auto mesh : model->getMeshes()) {
 			auto node = std::make_shared<BVHData>(component->obj, mesh);
 			meshesTree.Insert(node, gbs);
@@ -245,7 +248,7 @@ void Scene::addToBVH(UTILS::WeakPtr<ECS::Component> component) {
 	}
 }
 
-void Scene::removeFromBVH(UTILS::WeakPtr<ECS::Component> component) {
+void Scene::removeFromBVH(UTILS::WeakPtr<ECS::ComponentBase> component) {
 	if (component->getName() != "ModelRenderer" || component->getName() != "TransformComponent") {
 		return;
 	}
@@ -262,7 +265,7 @@ void Scene::removeFromBVH(UTILS::WeakPtr<ECS::Component> component) {
 }
 
 //TODO: add subscribe for it
-void Scene::updateInBVH(UTILS::WeakPtr<ECS::Component> component) {
+void Scene::updateInBVH(UTILS::WeakPtr<ECS::ComponentBase> component) {
 	if (component->getName() != "ModelRenderer") {
 		return;
 	}
@@ -283,19 +286,19 @@ void Scene::postLoad() {
 	isSceneReady = true;
 }
 
-std::shared_ptr<ECS::Object> Scene::createObjectAfter(ECS::Object::Id_ parentId, const std::string& name, const std::string& tag) {
+std::shared_ptr<ECS::Object> Scene::createObjectAfter(ECS::Object::Id parentId, const std::string& name, const std::string& tag) {
 	const auto iter = std::ranges::find_if(objects, [parentId](auto& e) {
 		return e->getID() == parentId;
 	});
-	auto resIt = objects.insert(iter+1, std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag));
+	auto resIt = objects.insert(iter+1, std::make_shared<ECS::Object>(RESOURCES::ServiceManager::Get<ECS2::World>().createEntity(), name, tag));
 	return *resIt;
 }
 
-std::shared_ptr<ECS::Object> Scene::createObjectBefore(ECS::Object::Id_ parentId, const std::string& name, const std::string& tag) {
+std::shared_ptr<ECS::Object> Scene::createObjectBefore(ECS::Object::Id parentId, const std::string& name, const std::string& tag) {
 	const auto iter = std::ranges::find_if(objects, [parentId](auto& e) {
 		return e->getID() == parentId;
 	});
-	auto resIt = objects.insert(iter, std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag));
+	auto resIt = objects.insert(iter, std::make_shared<ECS::Object>(RESOURCES::ServiceManager::Get<ECS2::World>().createEntity(), name, tag));
 	return *resIt;
 }
 
@@ -339,7 +342,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByTag(const std::string& p
 	}
 }
 
-std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByID(Id<ECS::Object> p_id) {
+std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByID(ECS2::Entity p_id) {
 	auto result = std::ranges::find_if(objects.begin(), objects.end(), [p_id](std::shared_ptr<ECS::Object>& element) {
 		return element->getID() == p_id;
 	});
@@ -380,7 +383,9 @@ std::span<std::shared_ptr<IKIGAI::ECS::Object>> Scene::getObjects() {
 
 
 IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
-	for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::CameraComponent>()) {
+	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	for (auto& camera : cm->getComponentsArray<ECS::CameraComponent>()) {
+		//for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::CameraComponent>()) {
 		if (camera.obj->getIsActive()) {
 			if (camera.obj->getName().rfind("__", 0) == 0) { //TODO: refactor VR component and remove it
 				continue;
@@ -388,7 +393,8 @@ IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
 			return camera.getWeak<ECS::CameraComponent>();;
 		}
 	}
-	for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::VrCameraComponent>()) {
+	for (auto& camera : cm->getComponentsArray<ECS::VrCameraComponent>()) {
+		//for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::VrCameraComponent>()) {
 		if (camera.obj->getIsActive()) {
 			return camera.getWeak<ECS::CameraComponent>();
 		}
@@ -399,32 +405,38 @@ IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
 
 std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
 	std::vector<RENDER::LightOGL> result;
-	
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
+
+	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::DirectionalLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PointLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::PointLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PointLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::AmbientLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientSphereLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::AmbientSphereLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientSphereLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
@@ -441,8 +453,10 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
 
 std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::Frustum& p_frustum) {
 	std::vector<RENDER::LightOGL> result;
-	
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
+
+	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -454,7 +468,8 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			}
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::DirectionalLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -466,7 +481,8 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			}
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PointLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::PointLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PointLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -478,7 +494,8 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			}
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::AmbientLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -490,7 +507,8 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			}
 		}
 	}
-	for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientSphereLight>()) {
+	for (auto& light : cm->getComponentsArray<ECS::AmbientSphereLight>()) {
+		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientSphereLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -551,19 +569,67 @@ std::vector<std::shared_ptr<RENDER::MeshInterface>> Scene::getMeshesInFrustum(
 	return {};
 }
 
-std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-	IKIGAI::RENDER::TransparentDrawables,
-	IKIGAI::RENDER::OpaqueDrawables,
-	IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledBVHDrawables
+namespace {
+	void MapChildrenToChunk(IKIGAI::ECS::Object* obj, size_t chunkIdx, std::unordered_map<IKIGAI::ECS2::Entity, size_t>& map, const std::unordered_map<IKIGAI::ECS2::Entity, size_t>& rtMap) {
+		for (auto child : obj->getChildren()) {
+			if (rtMap.contains(child->getID())) {
+				continue; // child has its own RenderTargetComponent, skip it and its children
+			}
+			map[child->getID()] = chunkIdx;
+			MapChildrenToChunk(child.get(), chunkIdx, map, rtMap);
+		}
+	}
+
+	struct ChunkContext {
+		std::vector<IKIGAI::RENDER::RenderChunk> chunks;
+		std::unordered_map<IKIGAI::ECS2::Entity, size_t> objToChunk;
+
+		void init() {
+			chunks.push_back({nullptr, nullptr}); // Main chunk (index 0)
+
+			auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+			std::unordered_map<IKIGAI::ECS2::Entity, size_t> rtMap;
+
+			for (auto& rt : cm->getComponentsArray<IKIGAI::ECS::RenderTargetComponent>()) {
+				if (!rt.obj->getIsActive()) continue;
+
+				chunks.push_back({rt.getFrameBuffer(), rt.getCamera()});
+				size_t chunkIdx = chunks.size() - 1;
+
+				rtMap[rt.obj->getID()] = chunkIdx;
+				objToChunk[rt.obj->getID()] = chunkIdx;
+			}
+
+			for (auto& rt : cm->getComponentsArray<IKIGAI::ECS::RenderTargetComponent>()) {
+				if (!rt.obj->getIsActive()) continue;
+				if (rt.getType() == IKIGAI::ECS::RenderFlowType::NODE_AND_CHILD) {
+					MapChildrenToChunk(&rt.obj.get(), rtMap[rt.obj->getID()], objToChunk, rtMap);
+				}
+			}
+		}
+
+		size_t getChunkIdxForObj(IKIGAI::ECS2::Entity id) const {
+			auto it = objToChunk.find(id);
+			if (it != objToChunk.end()) {
+				return it->second;
+			}
+			return 0;
+		}
+
+		IKIGAI::RENDER::RenderChunk& getChunk(size_t idx) {
+			return chunks[idx];
+		}
+	};
+}
+
+std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledBVHDrawables
 	(
 		const MATH::Vector3f& cameraPosition,
 		const RENDER::Frustum& frustum,
 		std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 	) {
-	RENDER::OpaqueDrawables opaqueDrawablesForward;
-	RENDER::TransparentDrawables transparentDrawablesForward;
-	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
-	RENDER::TransparentDrawables transparentDrawablesDeferred;
+	ChunkContext ctx;
+	ctx.init();
 
 	std::vector<std::shared_ptr<BVHData>> toDraw;
 	meshesTree.GetNodeToDraw(toDraw, frustum);
@@ -576,8 +642,15 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 				auto& transform = owner->getTransform()->getTransform();
 				auto animator = owner->getComponent<ECS::Skeletal>();
 
+				size_t chunkIdx = ctx.getChunkIdxForObj(owner->getID());
+				auto& chunk = ctx.getChunk(chunkIdx);
 				
-				float distanceToActor = MATH::Vector3f::Distance(transform.getWorldPosition(), cameraPosition);
+				MATH::Vector3f localCameraPos = cameraPosition;
+				if (chunk.camera) {
+					localCameraPos = chunk.camera->obj->mTransform->getWorldPosition();
+				}
+
+				float distanceToActor = MATH::Vector3f::Distance(transform.getWorldPosition(), localCameraPos);
 				const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
 					
 				std::shared_ptr<RENDER::MaterialInterface> material;
@@ -593,18 +666,18 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 					transform.setPrevWorldMatrix(transform.getWorldMatrix());
 					if (material->isBlendable()) {
 						if (!material->isDeferred()) {
-							transparentDrawablesForward.emplace(distanceToActor, element);
+							chunk.transparentDrawablesForward.emplace(distanceToActor, element);
 						}
 						else {
-							transparentDrawablesDeferred.emplace(distanceToActor, element);
+							chunk.transparentDrawablesDeferred.emplace(distanceToActor, element);
 						}
 					}
 					else {
 						if (!material->isDeferred()) {
-							opaqueDrawablesForward.emplace(distanceToActor, element);
+							chunk.opaqueDrawablesForward.emplace(distanceToActor, element);
 						}
 						else {
-							opaqueDrawablesDeferred.emplace(distanceToActor, element);
+							chunk.opaqueDrawablesDeferred.emplace(distanceToActor, element);
 						}
 					}
 				}
@@ -612,24 +685,20 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 		}
 	}
 
-	return { opaqueDrawablesForward, transparentDrawablesForward, opaqueDrawablesDeferred, transparentDrawablesDeferred };
+	return std::move(ctx.chunks);
 }
 
-std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-IKIGAI::RENDER::TransparentDrawables,
-IKIGAI::RENDER::OpaqueDrawables,
-IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
+std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledDrawables
 (
 	const MATH::Vector3f& cameraPosition,
 	const RENDER::Frustum& frustum,
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
-	RENDER::OpaqueDrawables opaqueDrawablesForward;
-	RENDER::TransparentDrawables transparentDrawablesForward;
-	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
-	RENDER::TransparentDrawables transparentDrawablesDeferred;
+	ChunkContext ctx;
+	ctx.init();
 
-	for (const auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelRenderer>()) {
+	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	for (const auto& modelRenderer : cm->getComponentsArray<ECS::ModelRenderer>()) {
 		auto owner = modelRenderer.obj;
 
 		if (owner->getIsActive()) {
@@ -653,7 +722,15 @@ IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 					auto meshes = getMeshesInFrustum(*model, modelBoundingSphere, transform, frustum, cullingOptions);
 
 					if (!meshes.empty()) {
-						float distanceToActor = MATH::Vector3f::Distance(transform.getWorldPosition(), cameraPosition);
+						size_t chunkIdx = ctx.getChunkIdxForObj(owner->getID());
+						auto& chunk = ctx.getChunk(chunkIdx);
+						
+						MATH::Vector3f localCameraPos = cameraPosition;
+						if (chunk.camera) {
+							localCameraPos = chunk.camera->obj->mTransform->getWorldPosition();
+						}
+
+						float distanceToActor = MATH::Vector3f::Distance(transform.getWorldPosition(), localCameraPos);
 						const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
 
 						for (const auto mesh : meshes) {
@@ -670,18 +747,18 @@ IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 								transform.setPrevWorldMatrix(transform.getWorldMatrix());
 								if (material->isBlendable()) {
 									if (!material->isDeferred()) {
-										transparentDrawablesForward.emplace(distanceToActor, element);
+										chunk.transparentDrawablesForward.emplace(distanceToActor, element);
 									}
 									else {
-										transparentDrawablesDeferred.emplace(distanceToActor, element);
+										chunk.transparentDrawablesDeferred.emplace(distanceToActor, element);
 									}
 								}
 								else {
 									if (!material->isDeferred()) {
-										opaqueDrawablesForward.emplace(distanceToActor, element);
+										chunk.opaqueDrawablesForward.emplace(distanceToActor, element);
 									}
 									else {
-										opaqueDrawablesDeferred.emplace(distanceToActor, element);
+										chunk.opaqueDrawablesDeferred.emplace(distanceToActor, element);
 									}
 								}
 							}
@@ -692,30 +769,34 @@ IKIGAI::RENDER::TransparentDrawables> Scene::findAndSortFrustumCulledDrawables
 		}
 	}
 
-	return {opaqueDrawablesForward, transparentDrawablesForward, opaqueDrawablesDeferred, transparentDrawablesDeferred};
+	return std::move(ctx.chunks);
 }
 
-std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-	IKIGAI::RENDER::TransparentDrawables,
-	IKIGAI::RENDER::OpaqueDrawables,
-	IKIGAI::RENDER::TransparentDrawables>  Scene::findAndSortDrawables
+std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortDrawables
 (
 	const MATH::Vector3f& cameraPosition,
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
-	RENDER::OpaqueDrawables opaqueDrawablesForward;
-	RENDER::TransparentDrawables transparentDrawablesForward;
-	RENDER::OpaqueDrawables opaqueDrawablesDeferred;
-	RENDER::TransparentDrawables transparentDrawablesDeferred;
+	ChunkContext ctx;
+	ctx.init();
 
-	for (auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelRenderer>()) {
+	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	for (auto& modelRenderer : cm->getComponentsArray<ECS::ModelRenderer>()) {
 		if (modelRenderer.obj->getIsActive() && modelRenderer.obj->getName() != "Skybox") {
 			if (auto model = modelRenderer.getModel()) {
-				float distanceToActor = MATH::Vector3f::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
-
 				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = modelRenderer.obj->getTransform()->getTransform();
 					auto animator = modelRenderer.obj->getComponent<ECS::Skeletal>();
+
+					size_t chunkIdx = ctx.getChunkIdxForObj(modelRenderer.obj->getID());
+					auto& chunk = ctx.getChunk(chunkIdx);
+					
+					MATH::Vector3f localCameraPos = cameraPosition;
+					if (chunk.camera) {
+						localCameraPos = chunk.camera->obj->mTransform->getWorldPosition();
+					}
+
+					float distanceToActor = MATH::Vector3f::Distance(transform.getWorldPosition(), localCameraPos);
 
 					const ECS::MaterialRenderer::MaterialList& materials = materialRenderer->getMaterials();
 
@@ -724,7 +805,6 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 						if (mesh->getMaterialIndex() < MAX_MATERIAL_COUNT) {
 							material = materials.at(mesh->getMaterialIndex());
 							if (!material || (!material->getShader() && !material->isDeferred())) {
-								//material = defaultMaterial;
 								material = materials.at(0);
 							}
 						}
@@ -734,18 +814,18 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 							transform.setPrevWorldMatrix(transform.getWorldMatrix());
 							if (material->isBlendable()) {
 								if (!material->isDeferred()) {
-									transparentDrawablesForward.emplace(distanceToActor, element);
+									chunk.transparentDrawablesForward.emplace(distanceToActor, element);
 								}
 								else {
-									transparentDrawablesDeferred.emplace(distanceToActor, element);
+									chunk.transparentDrawablesDeferred.emplace(distanceToActor, element);
 								}
 							}
 							else {
 								if (!material->isDeferred()) {
-									opaqueDrawablesForward.emplace(distanceToActor, element);
+									chunk.opaqueDrawablesForward.emplace(distanceToActor, element);
 								}
 								else {
-									opaqueDrawablesDeferred.emplace(distanceToActor, element);
+									chunk.opaqueDrawablesDeferred.emplace(distanceToActor, element);
 								}
 							}
 						}
@@ -756,9 +836,17 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 	}
 
 	//TODO: refactor it
-	for (auto& modelRenderer : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::ModelLODRenderer>()) {
+	for (auto& modelRenderer : cm->getComponentsArray<ECS::ModelLODRenderer>()) {
 		if (modelRenderer.obj->getIsActive()) {
-			float distanceToActor = MATH::Vector3f::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), cameraPosition);
+			size_t chunkIdx = ctx.getChunkIdxForObj(modelRenderer.obj->getID());
+			auto& chunk = ctx.getChunk(chunkIdx);
+			
+			MATH::Vector3f localCameraPos = cameraPosition;
+			if (chunk.camera) {
+				localCameraPos = chunk.camera->obj->mTransform->getWorldPosition();
+			}
+
+			float distanceToActor = MATH::Vector3f::Distance(modelRenderer.obj->getTransform()->getWorldPosition(), localCameraPos);
 			if (auto model = modelRenderer.getModelByDistance(distanceToActor)) {
 				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = modelRenderer.obj->getTransform()->getTransform();
@@ -772,7 +860,6 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 							material = materials.at(mesh->getMaterialIndex());
 							if (!material || (!material->getShader() && !material->isDeferred())) {
 								material = defaultMaterial;
-								//material = materials.at(0);
 							}
 						}
 
@@ -781,18 +868,18 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 							transform.setPrevWorldMatrix(transform.getWorldMatrix());
 							if (material->isBlendable()) {
 								if (!material->isDeferred()) {
-									transparentDrawablesForward.emplace(distanceToActor, element);
+									chunk.transparentDrawablesForward.emplace(distanceToActor, element);
 								}
 								else {
-									transparentDrawablesDeferred.emplace(distanceToActor, element);
+									chunk.transparentDrawablesDeferred.emplace(distanceToActor, element);
 								}
 							}
 							else {
 								if (!material->isDeferred()) {
-									opaqueDrawablesForward.emplace(distanceToActor, element);
+									chunk.opaqueDrawablesForward.emplace(distanceToActor, element);
 								}
 								else {
-									opaqueDrawablesDeferred.emplace(distanceToActor, element);
+									chunk.opaqueDrawablesDeferred.emplace(distanceToActor, element);
 								}
 							}
 						}
@@ -802,14 +889,11 @@ std::tuple<IKIGAI::RENDER::OpaqueDrawables,
 		}
 	}
 
-	return {opaqueDrawablesForward, transparentDrawablesForward, opaqueDrawablesDeferred, transparentDrawablesDeferred};
+	return std::move(ctx.chunks);
 }
 
 
-std::tuple<IKIGAI::RENDER::OpaqueDrawables,
-	IKIGAI::RENDER::TransparentDrawables,
-	IKIGAI::RENDER::OpaqueDrawables,
-	IKIGAI::RENDER::TransparentDrawables> Scene::findDrawables(
+std::vector<IKIGAI::RENDER::RenderChunk> Scene::findDrawables(
 	const MATH::Vector3f& cameraPosition,
 	const RENDER::Camera& camera,
 	const RENDER::Frustum* customFrustum,

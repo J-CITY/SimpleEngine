@@ -365,18 +365,18 @@ namespace IKIGAI::INPUT_SYSTEM {
 
 		WINDOW::Window& mWindow;
 
-		EVENT::Event<>::id mKeyPressedListener = EVENT::Event<>::id(0);
-		EVENT::Event<>::id mKeyReleasedListener = EVENT::Event<>::id(0);
-		EVENT::Event<>::id mMouseButtonPressedListener = EVENT::Event<>::id(0);
-		EVENT::Event<>::id mMouseButtonReleasedListener = EVENT::Event<>::id(0);
+		EVENT::Event<>::ID mKeyPressedListener = EVENT::Event<>::ID(0);
+		EVENT::Event<>::ID mKeyReleasedListener = EVENT::Event<>::ID(0);
+		EVENT::Event<>::ID mMouseButtonPressedListener = EVENT::Event<>::ID(0);
+		EVENT::Event<>::ID mMouseButtonReleasedListener = EVENT::Event<>::ID(0);
 
-		EVENT::Event<>::id mGamepadButtonPressedListener = EVENT::Event<>::id(0);
-		EVENT::Event<>::id mGamepadButtonReleasedListener = EVENT::Event<>::id(0);
-		EVENT::Event<>::id mGamepadAxisListener = EVENT::Event<>::id(0);
-		EVENT::Event<>::id mGamepadTriggerListener = EVENT::Event<>::id(0);
+		EVENT::Event<>::ID mGamepadButtonPressedListener = EVENT::Event<>::ID(0);
+		EVENT::Event<>::ID mGamepadButtonReleasedListener = EVENT::Event<>::ID(0);
+		EVENT::Event<>::ID mGamepadAxisListener = EVENT::Event<>::ID(0);
+		EVENT::Event<>::ID mGamepadTriggerListener = EVENT::Event<>::ID(0);
 
-		EVENT::Event<>::id mGamepadAddListener = EVENT::Event<>::id(0);
-		EVENT::Event<>::id mGamepadRemoveListener = EVENT::Event<>::id(0);
+		EVENT::Event<>::ID mGamepadAddListener = EVENT::Event<>::ID(0);
+		EVENT::Event<>::ID mGamepadRemoveListener = EVENT::Event<>::ID(0);
 
 		
 		std::unordered_map<EKey, EKeyState> mKeyEvents;

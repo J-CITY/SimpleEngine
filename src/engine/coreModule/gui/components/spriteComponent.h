@@ -88,11 +88,11 @@ namespace IKIGAI {
 			//unsigned m_screenTransformUniform = 0;
 		};
 		
-		class RootGuiComponent: public Component {
+		class RootGuiComponent: public ComponentBase {
 		public:
-			RootGuiComponent(Object& obj) : Component(obj) {}
+			RootGuiComponent(Object& obj) : ComponentBase(obj) {}
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				template<class Context>
 				constexpr static auto serde(Context& context, Descriptor& value) {
@@ -106,7 +106,7 @@ namespace IKIGAI {
 
 			RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			RootGuiComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);
 			static auto GetMembers() {
 				return std::tuple{};
 			}
@@ -123,13 +123,13 @@ namespace IKIGAI {
 			return "RootGuiComponent";
 		}
 
-		class ColorComponent : public Component {
+		class ColorComponent : public ComponentBase {
 		public:
-			ColorComponent(Object& obj) : Component(obj) {}
+			ColorComponent(Object& obj) : ComponentBase(obj) {}
 
 			MATH::Vector4f mColor = { 1, 1, 1, 1 };
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				MATH::Vector4f Color;
 				template<class Context>
@@ -144,7 +144,7 @@ namespace IKIGAI {
 			[[nodiscard]] Descriptor getDescriptor() const;
 			ColorComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			ColorComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			ColorComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Color", &ColorComponent::mColor,
@@ -168,7 +168,7 @@ namespace IKIGAI {
 			return "ColorComponent";
 		}
 
-		class SpriteComponent : public Component {
+		class SpriteComponent : public ComponentBase {
 		public:
 			SpriteComponent(Object& obj);
 			SpriteComponent(Object& obj, const std::string& path);
@@ -188,7 +188,7 @@ namespace IKIGAI {
 			//move to component
 			bool mIs3D = false;
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				//MATH::Vector4f Color;
 				std::string TexturePath;
@@ -211,7 +211,7 @@ namespace IKIGAI {
 
 			SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			SpriteComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			SpriteComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpriteComponent::mIs3D,
@@ -268,7 +268,7 @@ namespace IKIGAI {
 			float mTimeScale = 200.0f;
 			RENDER::AtlasRect mUVRect;
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				//MATH::Vector4f Color;
 				std::string TexturePath;
@@ -295,7 +295,7 @@ namespace IKIGAI {
 
 			SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					//IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpriteAnimateComponent::mIs3D,
@@ -407,7 +407,7 @@ namespace IKIGAI {
 
 			std::vector<Emmiter> emmiters;
 			
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				std::string TexturePath;
 				std::string TextureAtlasPath;
@@ -431,7 +431,7 @@ namespace IKIGAI {
 
 			SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					//IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpriteParticleComponent::mIs3D,
@@ -460,7 +460,7 @@ namespace IKIGAI {
 			return "SpriteParticleComponent";
 		}
 
-		class LabelComponent : public Component {
+		class LabelComponent : public ComponentBase {
 		public:
 			LabelComponent(Object& obj);
 			LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font);
@@ -471,7 +471,7 @@ namespace IKIGAI {
 			//move to component
 			bool mIs3D = false;
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				std::string Label;
 				std::string Font;
@@ -491,7 +491,7 @@ namespace IKIGAI {
 
 			LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			LabelComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);
+			LabelComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Is3D", &LabelComponent::mIs3D,
@@ -525,7 +525,7 @@ namespace IKIGAI {
 			std::string skelPath;
 			std::string atlasPath;
 		};
-		class SpineComponent : public Component {
+		class SpineComponent : public ComponentBase {
 
 			void setSpine(SpineRefl data);
 
@@ -542,7 +542,7 @@ namespace IKIGAI {
 			//move to component TODO:add support 3d in shader
 			bool mIs3D = false;
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				std::string SkelPath;
 				std::string AtlasPath;
@@ -562,7 +562,7 @@ namespace IKIGAI {
 
 			SpineComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			SpineComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			SpineComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Is3D", &SpineComponent::mIs3D,
@@ -603,7 +603,7 @@ namespace IKIGAI {
 			RELEASE,
 			UNCOVER
 		};
-		class InteractionComponent : public Component {
+		class InteractionComponent : public ComponentBase {
 		public:
 			GuiEventType mCurEvent = GuiEventType::NONE;
 
@@ -621,7 +621,7 @@ namespace IKIGAI {
 			InteractionComponent(Object& obj);
 			InteractionComponent(Object& obj, float w, float h);
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				float Height;
 				float Width;
@@ -639,7 +639,7 @@ namespace IKIGAI {
 
 			InteractionComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			InteractionComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			InteractionComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Width", &InteractionComponent::mWidth,
@@ -671,7 +671,7 @@ namespace IKIGAI {
 			return "InteractionComponent";
 		}
 
-		class ClipComponent : public Component {
+		class ClipComponent : public ComponentBase {
 		public:
 			float mGlobalX = 0.0f;
 			float mGlobalY = 0.0f;
@@ -681,7 +681,7 @@ namespace IKIGAI {
 			ClipComponent(Object& obj);
 			ClipComponent(Object& obj, float w, float h);
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				float Height;
 				float Width;
@@ -699,7 +699,7 @@ namespace IKIGAI {
 
 			ClipComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			ClipComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			ClipComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Width", &ClipComponent::mWidth,
@@ -728,7 +728,7 @@ namespace IKIGAI {
 			return "ClipComponent";
 		}
 
-		class ScrollComponent : public Component {
+		class ScrollComponent : public ComponentBase {
 		public:
 			bool mIsScrollHorizontal = true;
 			bool mIsScrollVertical = false;
@@ -746,7 +746,7 @@ namespace IKIGAI {
 			ScrollComponent(Object& obj);
 			ScrollComponent(Object& obj, float w, float h);
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				float Height;
 				float Width;
@@ -764,7 +764,7 @@ namespace IKIGAI {
 
 			ScrollComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			ScrollComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			ScrollComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Width", &ScrollComponent::mWidth,
@@ -793,7 +793,7 @@ namespace IKIGAI {
 			return "ScrollComponent";
 		}
 		
-		class LayoutComponent : public Component {
+		class LayoutComponent : public ComponentBase {
 		public:
 			enum class Type {
 				HORIZONTAL,
@@ -804,11 +804,11 @@ namespace IKIGAI {
 			float mHorizontalOffset = 0.0f;
 			float mVerticalOffset = 0.0f;
 
-			LayoutComponent(Object& obj) : Component(obj) {}
-			LayoutComponent(Object& obj, Type type) : Component(obj), mType(type) {}
+			LayoutComponent(Object& obj) : ComponentBase(obj) {}
+			LayoutComponent(Object& obj, Type type) : ComponentBase(obj), mType(type) {}
 
 
-			struct Descriptor : public Component::Descriptor {
+			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;
 				LayoutComponent::Type Layout;
 				template<class Context>
@@ -824,7 +824,7 @@ namespace IKIGAI {
 
 			LayoutComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor);
 
-			LayoutComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor);;
+			LayoutComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor);;
 			static auto GetMembers() {
 				return std::tuple{
 					IKIGAI::UTILS::MakeMemberInfo("Layout", &LayoutComponent::mType,

@@ -3126,7 +3126,7 @@ void DebugRender::drawScene() {
 				lRayDir_world = (lRayDir_world);
 				//lRayDir_world = MATHGL::Vector3::Normalize(lRayDir_world);
 
-				auto origin = camera->obj->transform->getWorldPosition();
+				auto origin = camera->obj->mTransform->getWorldPosition();
 				//MATHGL::Vector3 out_end = origin + lRayDir_world * 1000.0f;
 
 				std::vector<UTILS::Ref<ECS::Object>> objs;

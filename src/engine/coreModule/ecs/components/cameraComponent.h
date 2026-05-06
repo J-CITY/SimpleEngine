@@ -18,11 +18,11 @@ namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
 	IKI_CLASS()
-	class CameraComponent : public Component {
+	class CameraComponent : public ComponentBase {
 		IKI_GENERATED_BODY(CameraComponent)
 	public:
 		IKI_CLASS(Name=CameraComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(CameraComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="CameraComponentType"))
 			std::string Type;
@@ -48,7 +48,7 @@ namespace IKIGAI::ECS {
 		
 		CameraComponent(UTILS::Ref<ECS::Object> _obj);
 		CameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor);
-		CameraComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		CameraComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			CameraComponent(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 		~CameraComponent() override = default;
@@ -139,7 +139,7 @@ namespace IKIGAI::ECS {
 		IKI_GENERATED_BODY(VrCameraComponent)
 	public:
 		IKI_CLASS(Name=VrCameraComponent::Descriptor)
-		struct Descriptor : public Component::Descriptor {
+		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(VrCameraComponent::Descriptor)
 			IKI_PROPERTY(SEREALIZE(name="VrCameraComponentType"))
 			std::string Type;
@@ -168,7 +168,7 @@ namespace IKIGAI::ECS {
 
 		VrCameraComponent(UTILS::Ref<ECS::Object> obj);
 		VrCameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor);
-		VrCameraComponent(UTILS::Ref<ECS::Object> obj, const Component::Descriptor& descriptor) :
+		VrCameraComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor) :
 			VrCameraComponent(obj, static_cast<const Descriptor&>(descriptor)) {
 		};
 
