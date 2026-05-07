@@ -49,7 +49,8 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		sol::meta_function::unary_minus, sol::resolve<Vector3f() const>(&Vector3f::operator-),
 		sol::meta_function::multiplication, sol::resolve<Vector3f(const Vector3f&) const>(&Vector3f::operator*),
 		sol::meta_function::multiplication, sol::resolve<Vector3f(float) const>(&Vector3f::operator*),
-		sol::meta_function::division, &Vector3f::operator/,
+		sol::meta_function::division, sol::resolve<Vector3f(const Vector3f&) const>(&Vector3f::operator/),
+		sol::meta_function::division, sol::resolve<Vector3f(float) const>(&Vector3f::operator/),
 		sol::meta_function::to_string, [](const Vector3f& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + "," + std::to_string(target.z) + ")"; },
 
 		/* Variables */
@@ -148,8 +149,8 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		"Inverse", &Matrix3f::Inverse,
 		//"Translation", &Matrix3f::Translation,
 		//"Translate", &Matrix3f::Translate,
-		"Rotation", &Matrix3f::Rotation,
-		"Rotate", &Matrix3f::Rotate,
+		"Rotation", sol::resolve<Matrix3f(float)>(&Matrix3f::Rotation),
+		"Rotation", sol::resolve<Matrix3f(const Matrix3f& matrix, float rotation)>(&Matrix3f::Rotation),
 		//"Scaling", &Matrix3f::Scaling,
 		//"Scale", &Matrix3f::Scale,
 		"GetRow", &Matrix3f::GetRow,

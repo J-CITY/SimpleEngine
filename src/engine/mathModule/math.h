@@ -39,6 +39,8 @@ namespace serde {
 }
 
 namespace IKIGAI::MATH {
+	template<class T> struct Quaternion;
+
 	constexpr float PI = 3.14159265359f;
 	constexpr float EPSILON = 10e-7;
 	constexpr float SLEEP_EPS = 0.3f;
@@ -359,6 +361,10 @@ namespace IKIGAI::MATH {
 			return Divide(*this, scalar);
 		}
 
+		Vector3 operator/(const Vector3& right) const {
+			return Divide(*this, right);
+		}
+
 		Vector3& operator/=(float scalar) {
 			*this = Divide(*this, scalar);
 			return *this;
@@ -400,6 +406,19 @@ namespace IKIGAI::MATH {
 			result.x /= scalar;
 			result.y /= scalar;
 			result.z /= scalar;
+
+			return result;
+		}
+
+		static Vector3 Divide(const Vector3& left, const Vector3& right) {
+			Vector3 result(left);
+
+			if (CMP(right.x, 0.0f) || CMP(right.y, 0.0f) || CMP(right.z, 0.0f)) {
+				throw std::logic_error("Division by 0");
+			}
+			result.x /= right.x;
+			result.y /= right.y;
+			result.z /= right.z;
 
 			return result;
 		}
@@ -1779,7 +1798,7 @@ namespace IKIGAI::MATH {
 				0, 0, 1);
 		}
 
-		static Matrix3 Rotate(const Matrix3& matrix, float rotation) {
+		static Matrix3 Rotation(const Matrix3& matrix, float rotation) {
 			return matrix * Rotation(rotation);
 		}
 
@@ -1947,9 +1966,11 @@ namespace IKIGAI::MATH {
 				vector.z * data[10]
 			);
 		}
+
 		Vector3<T> getAxisVector(int i) const {
 			return Vector3(data[i], data[i + 4], data[i + 8]);
 		}
+
 		Vector3<T> operator*(const Vector3<T>& vector) const {
 			return Vector3(
 				vector.x * data[0] +
@@ -2102,6 +2123,39 @@ namespace IKIGAI::MATH {
 				0, 1, 0, translation.y,
 				0, 0, 1, translation.z,
 				0, 0, 0, 1);
+		}
+
+		static Matrix4 Rotation(T angle, const Vector3<T>& v) {
+			const T c = cos(angle);
+			const T s = sin(angle);
+
+			const Vector3<T> axis = Vector3<T>::Normalize(v);
+			const Vector3<T> temp((T(1) - c) * axis);
+
+			// Матрица вращения по формуле Родрига (row-major, data[4*row + col])
+			// Строка 0
+			const T r00 = c + temp.x * axis.x;
+			const T r01 = temp.x * axis.y + s * axis.z;
+			const T r02 = temp.x * axis.z - s * axis.y;
+			// Строка 1
+			const T r10 = temp.y * axis.x - s * axis.z;
+			const T r11 = c + temp.y * axis.y;
+			const T r12 = temp.y * axis.z + s * axis.x;
+			// Строка 2
+			const T r20 = temp.z * axis.x + s * axis.y;
+			const T r21 = temp.z * axis.y - s * axis.x;
+			const T r22 = c + temp.z * axis.z;
+
+			// Результат = Identity * rotate → просто заполняем верхний левый 3x3 блок
+			Matrix4<T> res = Identity;
+			res(0, 0) = r00; res(0, 1) = r01; res(0, 2) = r02;
+			res(1, 0) = r10; res(1, 1) = r11; res(1, 2) = r12;
+			res(2, 0) = r20; res(2, 1) = r21; res(2, 2) = r22;
+			return res;
+		}
+
+		static Matrix4 Rotation(const Matrix4& matrix, float rotation, const Vector3<T>& axis) {
+			return matrix * Rotation(rotation, axis);
 		}
 
 		static bool AreEquals(const Matrix4& left, const Matrix4& right) {
@@ -2705,6 +2759,9 @@ namespace IKIGAI::MATH {
 			return target.x * target.x + target.y * target.y + target.z * target.z + target.w * target.w;
 		}
 
+		static Quaternion Conjugate(const Quaternion& q) {
+			return Quaternion(-q.x, -q.y, -q.z, q.w);
+		}
 
 		bool operator==(const Quaternion& otherQuat) const {
 			return x == otherQuat.x && y == otherQuat.x && z == otherQuat.z && w == otherQuat.w;
