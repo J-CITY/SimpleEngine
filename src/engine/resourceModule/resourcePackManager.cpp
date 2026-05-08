@@ -62,19 +62,33 @@ namespace IKIGAI::RESOURCES {
 		auto packDef = res.unwrap();
 
 		std::vector<LoadedResource> loadedResources;
-		std::vector<std::future<void>> asyncTasks; // To keep futures if we do local async
+		std::vector<std::future<void>> asyncTasks;
 
 		for (const auto& pPath : packDef.packs) {
 			loadPack(pPath, policy);
 			loadedResources.push_back({"pack", pPath});
 		}
 
+		// Sort resource sections by loader priority (lower = earlier)
+		using SortItem = std::tuple<int, std::string, std::vector<ResourcePackItem>>;
+		std::vector<SortItem> sorted;
+		sorted.reserve(packDef.resources.size());
 		for (const auto& [type, items] : packDef.resources) {
+			int prio = 999;
+			if (auto it = mLoaders.find(type); it != mLoaders.end()) {
+				prio = it->second.priority;
+			}
+			sorted.emplace_back(prio, type, items);
+		}
+		std::sort(sorted.begin(), sorted.end(),
+			[](const SortItem& a, const SortItem& b) { return std::get<0>(a) < std::get<0>(b); });
+
+		for (const auto& [prio, type, items] : sorted) {
 			if (!mLoaders.contains(type)) {
 				ASSERT(std::string("ResourcePackManager: Unknown resource type: " + type).c_str());
 				continue;
 			}
-			auto& loader = mLoaders[type];
+			auto& entry = mLoaders[type];
 
 			for (const auto& item : items) {
 				if (item.path.empty()) continue;
@@ -83,7 +97,7 @@ namespace IKIGAI::RESOURCES {
 				if (item.method == "file") method = ELoadingType::FILE;
 				else if (item.method == "memory") method = ELoadingType::MEMORY;
 
-				auto resLoad = loader(item.path, method, policy);
+				auto resLoad = entry.loader(item.path, method, policy);
 				if (policy == ELoadingPolicy::Asynchronous && resLoad.has_value()) {
 					mAsyncFutures.push_back(std::move(resLoad));
 				}
@@ -103,8 +117,8 @@ namespace IKIGAI::RESOURCES {
 			if (it->type == "pack") {
 				unloadPack(it->path);
 			} else {
-				if (mUnloaders.contains(it->type)) {
-					mUnloaders[it->type](it->path);
+				if (auto loaderIt = mLoaders.find(it->type); loaderIt != mLoaders.end()) {
+					loaderIt->second.unloader(it->path);
 				}
 			}
 		}

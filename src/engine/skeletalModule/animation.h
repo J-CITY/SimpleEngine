@@ -48,8 +48,6 @@ namespace IKIGAI::SKELETON {
 	class Skeleton;
 
 	struct Animation {
-		static Animation* load(const std::string& name, Skeleton* skeleton, bool additive = false, Animation* additiveReference = nullptr);
-
 		std::string					  name;
 		uint32_t					  keyframeCount;
 		std::vector<AnimationChannel> channels;

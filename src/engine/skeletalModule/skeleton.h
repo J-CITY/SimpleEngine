@@ -4,10 +4,6 @@
 #include <unordered_set>
 #include "mathModule/math.h"
 
-struct aiNode;
-struct aiBone;
-struct aiScene;
-
 namespace IKIGAI::SKELETON {
 	struct Joint {
 		std::string name;
@@ -17,19 +13,17 @@ namespace IKIGAI::SKELETON {
 
 	class Skeleton {
 	public:
-		static Skeleton* create(const aiScene* scene);
-
 		Skeleton();
 		~Skeleton();
 		int32_t findJointIndex(const std::string& channelName) const;
 
 		int32_t getNumJolts() const { return mNumJoints; }
 		const std::vector<Joint>& joints() const { return mJoints; }
+		std::vector<Joint>& joints() { return mJoints; }  // non-const for AssimpParser
+
+		void setNumJoints(uint32_t num) { mNumJoints = num; }
 
 	private:
-		void buildBoneList(aiNode* node, const aiScene* scene, std::vector<aiBone*>& tempBoneList, std::unordered_set<std::string>& boneMap);
-		void buildSkeleton(aiNode* node, int boneIndex, const aiScene* scene, std::vector<aiBone*>& tempBoneList);
-
 		uint32_t mNumJoints;
 		std::vector<Joint> mJoints;
 	};

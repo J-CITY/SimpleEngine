@@ -3,10 +3,14 @@
 #include <cassert>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include <assimp/matrix4x4.h>
-//#include <deprecated/stb.h>
 #include "../resource/bone.h"
 #include <renderModule/vertex.h>
+#include "skeletalModule/skeleton.h"
+#include "skeletalModule/animation.h"
+
+//#include <deprecated/stb.h>
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/meshGl.h>
 #include <renderModule/backends/gl/modelGl.h>
@@ -346,11 +350,248 @@ void AssimpParser::setVertexBoneData(Vertex& vertex, int boneID, float weight) {
 	for (int i = 0; i < MAX_BONE_WEIGHTS; ++i) {
 		if (vertex.m_BoneIDs[i] < 0) {
 			vertex.m_Weights[i] = weight;
-			//std::cout << vertex.m_Weights[i] << " = " << weight << std::endl;
 			vertex.m_BoneIDs[i] = boneID;
 			break;
 		}
 	}
+}
+
+// ============================================================
+// Skeleton loading
+// ============================================================
+
+namespace {
+	void buildBoneListImpl(aiNode* node, const aiScene* scene, std::vector<aiBone*>& tempBoneList, std::unordered_set<std::string>& boneMap, uint32_t& numJoints) {
+		for (unsigned int i = 0; i < node->mNumMeshes; i++) {
+			aiMesh* currentMesh = scene->mMeshes[node->mMeshes[i]];
+
+			for (unsigned int j = 0; j < currentMesh->mNumBones; j++) {
+				std::string boneName = std::string(currentMesh->mBones[j]->mName.C_Str());
+				if (boneMap.find(boneName) == boneMap.end()) {
+					if (numJoints < tempBoneList.size()) {
+						tempBoneList[numJoints] = currentMesh->mBones[j];
+					} else {
+						tempBoneList.push_back(currentMesh->mBones[j]);
+					}
+					numJoints++;
+					boneMap.insert(boneName);
+				}
+			}
+		}
+
+		for (unsigned int i = 0; i < node->mNumChildren; i++) {
+			buildBoneListImpl(node->mChildren[i], scene, tempBoneList, boneMap, numJoints);
+		}
+	}
+
+	void buildSkeletonImpl(aiNode* node, const aiScene* scene, std::vector<aiBone*>& tempBoneList, uint32_t numJoints, IKIGAI::SKELETON::Skeleton& outSkeleton) {
+		std::string nodeName = IKIGAI::SKELETON::trimmedName(node->mName.C_Str());
+
+		for (uint32_t i = 0; i < numJoints; i++) {
+			std::string boneName = IKIGAI::SKELETON::trimmedName(tempBoneList[i]->mName.C_Str());
+
+			if (boneName == nodeName) {
+				IKIGAI::SKELETON::Joint joint;
+
+				joint.name = boneName;
+				auto& m = tempBoneList[i]->mOffsetMatrix;
+				joint.offsetTransform = IKIGAI::MATH::Matrix4f(
+					m.a1, m.a2, m.a3, m.a4,
+					m.b1, m.b2, m.b3, m.b4,
+					m.c1, m.c2, m.c3, m.c4,
+					m.d1, m.d2, m.d3, m.d4
+				);
+
+				aiNode* parent = node->mParent;
+				int index = -1;
+
+				while (parent) {
+					index = outSkeleton.findJointIndex(IKIGAI::SKELETON::trimmedName(parent->mName.C_Str()));
+
+					if (index == -1) {
+						parent = parent->mParent;
+					} else {
+						break;
+					}
+				}
+
+				joint.parentIndex = index;
+				outSkeleton.joints().push_back(joint);
+				break;
+			}
+		}
+
+		for (unsigned int i = 0; i < node->mNumChildren; i++) {
+			buildSkeletonImpl(node->mChildren[i], scene, tempBoneList, numJoints, outSkeleton);
+		}
+	}
+}
+
+bool AssimpParser::buildSkeleton(const aiScene* scene, SKELETON::Skeleton& outSkeleton) {
+	if (!scene || !scene->mRootNode) {
+		return false;
+	}
+	std::vector<aiBone*> tempBoneList(256);
+	std::unordered_set<std::string> boneMap;
+	
+	uint32_t numJoints = 0;
+	buildBoneListImpl(scene->mRootNode, scene, tempBoneList, boneMap, numJoints);
+	
+	outSkeleton.setNumJoints(numJoints);
+	outSkeleton.joints().reserve(numJoints);
+	
+	buildSkeletonImpl(scene->mRootNode, scene, tempBoneList, numJoints, outSkeleton);
+	return true;
+}
+
+bool AssimpParser::LoadSkeleton(const std::string& fileName, SKELETON::Skeleton& outSkeleton) {
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(
+		fileName,
+		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
+	if (!scene) {
+		return false;
+	}
+	return buildSkeleton(scene, outSkeleton);
+}
+
+bool AssimpParser::LoadSkeleton(const std::string& fileName, const std::vector<uint8_t>& data,
+	SKELETON::Skeleton& outSkeleton) {
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFileFromMemory(
+		data.data(), data.size(),
+		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs,
+		fileName.c_str());
+	if (!scene) {
+		return false;
+	}
+	return buildSkeleton(scene, outSkeleton);
+}
+
+// ============================================================
+// Animation loading
+// ============================================================
+
+bool AssimpParser::fillAnimation(const aiScene* scene, SKELETON::Skeleton& skeleton,
+	SKELETON::Animation& outAnimation,
+	bool additive, SKELETON::Animation* additiveReference) {
+	if (!scene || !scene->mAnimations || scene->mNumAnimations == 0) {
+		return false;
+	}
+
+	aiAnimation* anim = scene->mAnimations[0];
+
+	outAnimation.channels.resize(skeleton.getNumJolts());
+	outAnimation.name            = std::string(anim->mName.C_Str());
+	outAnimation.duration        = anim->mDuration / anim->mTicksPerSecond;
+	outAnimation.durationInTicks = anim->mDuration;
+	outAnimation.ticksPerSecond  = anim->mTicksPerSecond;
+	outAnimation.keyframeCount   = anim->mChannels[0]->mNumPositionKeys;
+
+	for (unsigned int i = 0; i < anim->mNumChannels; ++i) {
+		aiNodeAnim* channel = anim->mChannels[i];
+		std::string channelName = SKELETON::trimmedName(channel->mNodeName.C_Str());
+
+		int jointIndex = skeleton.findJointIndex(channelName);
+		if (jointIndex == -1) continue;
+
+		outAnimation.channels[jointIndex].jointName = channelName;
+
+		// --- Translation ---
+		outAnimation.channels[jointIndex].translationKeyframes.resize(channel->mNumPositionKeys);
+		MATH::Vector3f refTrans;
+		if (channel->mNumPositionKeys > 0) {
+			if (additiveReference && additiveReference->channels[jointIndex].translationKeyframes.size() > 0)
+				refTrans = additiveReference->channels[jointIndex].translationKeyframes[0].translation;
+			else
+				refTrans = MATH::Vector3f(channel->mPositionKeys[0].mValue.x,
+					channel->mPositionKeys[0].mValue.y,
+					channel->mPositionKeys[0].mValue.z);
+		}
+		for (unsigned int j = 0; j < channel->mNumPositionKeys; ++j) {
+			outAnimation.channels[jointIndex].translationKeyframes[j].time = channel->mPositionKeys[j].mTime;
+			outAnimation.channels[jointIndex].translationKeyframes[j].translation = MATH::Vector3f(
+				channel->mPositionKeys[j].mValue.x,
+				channel->mPositionKeys[j].mValue.y,
+				channel->mPositionKeys[j].mValue.z);
+			if (additive)
+				outAnimation.channels[jointIndex].translationKeyframes[j].translation =
+					SKELETON::translationDelta(refTrans, outAnimation.channels[jointIndex].translationKeyframes[j].translation);
+		}
+
+		// --- Rotation ---
+		outAnimation.channels[jointIndex].rotationKeyframes.resize(channel->mNumRotationKeys);
+		MATH::QuaternionF refRot;
+		if (channel->mNumRotationKeys > 0) {
+			if (additiveReference && additiveReference->channels[jointIndex].rotationKeyframes.size() > 0)
+				refRot = additiveReference->channels[jointIndex].rotationKeyframes[0].rotation;
+			else
+				refRot = MATH::QuaternionF(channel->mRotationKeys[0].mValue.w,
+					channel->mRotationKeys[0].mValue.x,
+					channel->mRotationKeys[0].mValue.y,
+					channel->mRotationKeys[0].mValue.z);
+		}
+		for (unsigned int j = 0; j < channel->mNumRotationKeys; ++j) {
+			outAnimation.channels[jointIndex].rotationKeyframes[j].time = channel->mRotationKeys[j].mTime;
+			outAnimation.channels[jointIndex].rotationKeyframes[j].rotation = MATH::QuaternionF(
+				channel->mRotationKeys[j].mValue.w,
+				channel->mRotationKeys[j].mValue.x,
+				channel->mRotationKeys[j].mValue.y,
+				channel->mRotationKeys[j].mValue.z);
+			if (additive)
+				outAnimation.channels[jointIndex].rotationKeyframes[j].rotation =
+					SKELETON::rotationDelta(refRot, outAnimation.channels[jointIndex].rotationKeyframes[j].rotation);
+		}
+
+		// --- Scale ---
+		outAnimation.channels[jointIndex].scaleKeyframes.resize(channel->mNumScalingKeys);
+		MATH::Vector3f refScale;
+		if (channel->mNumScalingKeys > 0) {
+			if (additiveReference && additiveReference->channels[jointIndex].scaleKeyframes.size() > 0)
+				refScale = additiveReference->channels[jointIndex].scaleKeyframes[0].scale;
+			else
+				refScale = MATH::Vector3f(channel->mScalingKeys[0].mValue.x,
+					channel->mScalingKeys[0].mValue.y,
+					channel->mScalingKeys[0].mValue.z);
+		}
+		for (unsigned int j = 0; j < channel->mNumScalingKeys; ++j) {
+			outAnimation.channels[jointIndex].scaleKeyframes[j].time = channel->mScalingKeys[j].mTime;
+			outAnimation.channels[jointIndex].scaleKeyframes[j].scale = MATH::Vector3f(
+				channel->mScalingKeys[j].mValue.x,
+				channel->mScalingKeys[j].mValue.y,
+				channel->mScalingKeys[j].mValue.z);
+			if (additive)
+				outAnimation.channels[jointIndex].scaleKeyframes[j].scale =
+					SKELETON::scaleDelta(refScale, outAnimation.channels[jointIndex].scaleKeyframes[j].scale);
+		}
+	}
+	return true;
+}
+
+bool AssimpParser::LoadAnimation(const std::string& fileName,
+	SKELETON::Skeleton& skeleton,
+	SKELETON::Animation& outAnimation,
+	bool additive, SKELETON::Animation* additiveReference) {
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(
+		fileName,
+		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
+	if (!scene) return false;
+	return fillAnimation(scene, skeleton, outAnimation, additive, additiveReference);
+}
+
+bool AssimpParser::LoadAnimation(const std::string& fileName,
+	const std::vector<uint8_t>& data,
+	SKELETON::Skeleton& skeleton,
+	SKELETON::Animation& outAnimation,
+	bool additive, SKELETON::Animation* additiveReference) {
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFileFromMemory(
+		data.data(), data.size(),
+		aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs,
+		fileName.c_str());
+	if (!scene) return false;
+	return fillAnimation(scene, skeleton, outAnimation, additive, additiveReference);
 }
 
 void AssimpParser::processMesh(void* transform, aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices) {

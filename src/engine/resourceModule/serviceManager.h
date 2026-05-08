@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <any>
 #include <map>
 #include <variant>
@@ -36,6 +36,9 @@ namespace IKIGAI {
 		class ShaderLoader;
 		class TextureLoader;
 		class ModelLoader;
+		class SkeletonLoader;
+		class SkeletonAnimationLoader;
+		class SkeletonBlendspaceLoader;
 		
 		using ServiceType = std::any;
 

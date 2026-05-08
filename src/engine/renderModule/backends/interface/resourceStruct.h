@@ -14,7 +14,11 @@
 // #include "coreModule/resourceManager/parser/assimpParser.h"
 
 namespace IKIGAI::RENDER {
-enum class ResourceType { SHADER, TEXTURE, MODEL, AUDIO, MATERIAL };
+enum class ResourceType {
+  SHADER, TEXTURE, MODEL,
+  AUDIO, MATERIAL, SKELETON_ANIMATION,
+  SKELETON, SKELETON_BLENDSPACE_1D, SKELETON_BLENDSPACE_2D
+};
 
 struct ResourceBase {
     std::string parentPath;
@@ -150,7 +154,7 @@ struct ShaderResource : public ResourceBase {
     using namespace serde::attribute;
     serde::serde_struct(context, value)
         .field(&Self::useBinary, "UseBinary", default_{false})
-  	.field(&Self::parentPath, "##parent", default_{std::string()})
+  	    .field(&Self::parentPath, "##parent", default_{std::string()})
         .field(&Self::paths, "Paths");
   }
 
@@ -187,6 +191,119 @@ struct ModelResource : public ResourceBase {
                                       &ModelResource::needFileWatch),
         IKIGAI::UTILS::MakeMemberInfo("PathModel", &ModelResource::pathModel),
         IKIGAI::UTILS::MakeMemberInfo("Flags", &ModelResource::flags),
+    };
+  }
+};
+
+struct SkeletonResource : public ResourceBase {
+  ResourceType type = ResourceType::SKELETON;
+  std::string path;
+
+  std::string pathSkeleton;
+
+  template <class Context>
+  constexpr static auto serde(Context &context, SkeletonResource &value) {
+    using Self = SkeletonResource;
+    using namespace serde::attribute;
+    serde::serde_struct(context, value)
+        .field(&Self::pathSkeleton, "PathSkeleton")
+        .field(&Self::parentPath, "##parent", default_{std::string()});
+  }
+  static auto GetMembers() {
+    return std::tuple{
+        IKIGAI::UTILS::MakeMemberInfo("PathSkeleton", &SkeletonResource::pathSkeleton),
+    };
+  }
+};
+
+struct AnimationResource : public ResourceBase {
+  ResourceType type = ResourceType::SKELETON_ANIMATION;
+  std::string path;
+
+  std::string pathAnimation;
+  bool additive = false;
+  std::string additiveReference;
+
+  template <class Context>
+  constexpr static auto serde(Context &context, AnimationResource &value) {
+    using Self = AnimationResource;
+    using namespace serde::attribute;
+    serde::serde_struct(context, value)
+        .field(&Self::pathAnimation, "PathAnimation")
+        .field(&Self::parentPath, "##parent", default_{std::string()})
+        .field(&Self::additive, "Additive", default_{false})
+        .field(&Self::additiveReference, "AdditiveReference", default_{std::string()});
+  }
+  static auto GetMembers() {
+    return std::tuple{
+        IKIGAI::UTILS::MakeMemberInfo("PathAnimation", &AnimationResource::pathAnimation),
+        IKIGAI::UTILS::MakeMemberInfo("Additive", &AnimationResource::additive),
+        IKIGAI::UTILS::MakeMemberInfo("AdditiveReference", &AnimationResource::additiveReference),
+    };
+  }
+};
+
+struct SkeletonBlendspace1D : public ResourceBase {
+  ResourceType type = ResourceType::SKELETON_BLENDSPACE_1D;
+  std::string path;
+
+  std::string skeletonPath;
+
+  using AnimationPath = std::string;
+  using Value = float;
+  std::vector<std::pair<Value, AnimationPath>> nodes;
+  template <class Context>
+  constexpr static auto serde(Context &context, SkeletonBlendspace1D &value) {
+    using Self = SkeletonBlendspace1D;
+    using namespace serde::attribute;
+    serde::serde_struct(context, value)
+        .field(&Self::skeletonPath, "SkeletonPath")
+        .field(&Self::parentPath, "##parent", default_{std::string()})
+        .field(&Self::nodes, "Nodes");
+  }
+  static auto GetMembers() {
+    return std::tuple{
+        IKIGAI::UTILS::MakeMemberInfo("SkeletonPath", &SkeletonBlendspace1D::skeletonPath),
+        IKIGAI::UTILS::MakeMemberInfo("Nodes", &SkeletonBlendspace1D::nodes),
+    };
+  }
+};
+
+struct SkeletonBlendspace2D : public ResourceBase {
+  ResourceType type = ResourceType::SKELETON_BLENDSPACE_2D;
+  std::string path;
+
+  std::string skeletonPath;
+
+  using AnimationPath = std::string;
+  using Value = float;
+  struct Row {
+    Value value;
+    std::vector<std::pair<Value, AnimationPath>> nodes;
+
+    template <class Context>
+    constexpr static auto serde(Context &context, Row &v) {
+      using namespace serde::attribute;
+      serde::serde_struct(context, v)
+          .field(&Row::value, "Value")
+          .field(&Row::nodes, "Nodes");
+    }
+  };
+  std::vector<Row> nodes;
+
+  template <class Context>
+  constexpr static auto serde(Context &context, SkeletonBlendspace2D &value) {
+    using Self = SkeletonBlendspace2D;
+    using namespace serde::attribute;
+    serde::serde_struct(context, value)
+        .field(&Self::skeletonPath, "SkeletonPath")
+        .field(&Self::parentPath, "##parent", default_{std::string()})
+        .field(&Self::nodes, "Nodes");
+  }
+  static auto GetMembers() {
+    return std::tuple{
+        IKIGAI::UTILS::MakeMemberInfo("SkeletonPath", &SkeletonBlendspace2D::skeletonPath),
+        IKIGAI::UTILS::MakeMemberInfo("Nodes", &SkeletonBlendspace2D::nodes),
     };
   }
 };

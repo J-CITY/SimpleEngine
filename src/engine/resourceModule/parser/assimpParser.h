@@ -4,7 +4,11 @@
 #include <renderModule/backends/interface/modelInterface.h>
 
 #include "parseFlags.h"
-//#include "../resourceManager.h"
+
+namespace IKIGAI::SKELETON {
+	class Skeleton;
+	struct Animation;
+}
 
 namespace IKIGAI::RESOURCES
 {
@@ -22,6 +26,7 @@ namespace IKIGAI {
 	namespace RESOURCES {
 		class AssimpParser {
 		public:
+			// --- Model loading ---
 			bool LoadModel(const std::string& fileName, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags);
 			bool LoadModel(const std::string& fileName, const std::vector<uint8_t>& data, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags);
 			bool LoadVertexes(const std::string& fileName, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, ModelParserFlags parserFlags,
@@ -31,6 +36,23 @@ namespace IKIGAI {
 				std::vector<std::vector<Vertex>>& globalVerticesPerMesh,
 				std::vector< std::vector<uint32_t>>& globalIndicesPerMesh);
 
+			// --- Skeleton loading ---
+			bool LoadSkeleton(const std::string& fileName, SKELETON::Skeleton& outSkeleton);
+			bool LoadSkeleton(const std::string& fileName, const std::vector<uint8_t>& data, SKELETON::Skeleton& outSkeleton);
+
+			// --- Animation loading ---
+			bool LoadAnimation(const std::string& fileName,
+				SKELETON::Skeleton& skeleton,
+				SKELETON::Animation& outAnimation,
+				bool additive = false,
+				SKELETON::Animation* additiveReference = nullptr);
+			bool LoadAnimation(const std::string& fileName,
+				const std::vector<uint8_t>& data,
+				SKELETON::Skeleton& skeleton,
+				SKELETON::Animation& outAnimation,
+				bool additive = false,
+				SKELETON::Animation* additiveReference = nullptr);
+
 		private:
 			const unsigned int MAX_BONE_WEIGHTS = 4;
 			void processMaterials(const struct aiScene* scene, std::vector<std::string>& materials);;
@@ -38,6 +60,13 @@ namespace IKIGAI {
 			void processMesh(void* transform, struct aiMesh* mesh, const struct aiScene* scene, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 			void loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, RESOURCES::ResourcePtr<RENDER::ModelInterface> model);
 			void setVertexBoneData(Vertex& vertex, int boneID, float weight);
+
+			// Skeleton internal helpers (delegates to Skeleton methods)
+			bool buildSkeleton(const aiScene* scene, SKELETON::Skeleton& outSkeleton);
+			// Animation internal helpers
+			bool fillAnimation(const aiScene* scene, SKELETON::Skeleton& skeleton,
+				SKELETON::Animation& outAnimation,
+				bool additive, SKELETON::Animation* additiveReference);
 		};
 	}
 }
