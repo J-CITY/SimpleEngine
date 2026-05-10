@@ -2,12 +2,17 @@
 
 #include "skeleton.h"
 
+#include "iAnimationPlayable.h"
+
 namespace IKIGAI::SKELETON {
-	class AnimSample {
+	class AnimSample : public IAnimationPlayable {
 	public:
 		AnimSample(Skeleton* skeleton, Animation* animation);
-		~AnimSample();
-		Pose* sample(double dt);
+		~AnimSample() override;
+		void update(float dt) override;
+		Pose* getPose() override;
+		std::unique_ptr<IAnimationPlayable> clone() const override;
+		
 		void setPlaybackRate(float rate);
 		float playbackRate();
 

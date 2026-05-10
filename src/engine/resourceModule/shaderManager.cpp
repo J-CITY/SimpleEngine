@@ -135,9 +135,7 @@ namespace IKIGAI::RESOURCES {
 				UpdateFileWatchResource(filePath, weakShader);
 				break;
 			}
-			case RESOURCES::FileWatcher::FileStatus::DEL: {
-				break;
-			}
+			case RESOURCES::FileWatcher::FileStatus::DEL:
 			case RESOURCES::FileWatcher::FileStatus::CREATE: {
 				break;
 			}

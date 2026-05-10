@@ -69,18 +69,15 @@ ResourcePtr<SKELETON::Animation> SkeletonAnimationLoader::CreateFromResource(
 		}
 	}
 
-	auto animation = CreateFromFile(res.animationPath, skeleton, res.additive, additiveRef);
+	auto animation = CreateFromFile(res.pathAnimation, skeleton, res.additive, additiveRef);
 	if (animation) {
-		AddFileWatchSubscribe(path, res.animationPath, animation, skeleton);
+		AddFileWatchSubscribe(path, res.pathAnimation, animation, skeleton);
 	}
 	return animation;
 }
 
 ResourcePtr<SKELETON::Animation> SkeletonAnimationLoader::createResource(const std::string& path) {
-	// Without a skeleton context we can't load an animation
-	// Caller must use createResource(path, type, data) with AnimationLoadContext
-	ASSERT("SkeletonAnimationLoader::createResource: skeleton context required, use loadResource with AnimationLoadContext");
-	return nullptr;
+	return createResource(path, ELoadingType::RESOURCE, std::any());
 }
 
 ResourcePtr<SKELETON::Animation> SkeletonAnimationLoader::createResource(
@@ -155,7 +152,7 @@ void SkeletonAnimationLoader::UpdateFileWatchResource(const std::string& configP
 				auto _res = resRes.unwrap();
 				_res.path = configPath;
 				sResourceCache[configPath] = _res;
-				loadPath = _res.animationPath;
+				loadPath = _res.pathAnimation;
 				additive = _res.additive;
 
 				if (!_res.additiveReference.empty()) {

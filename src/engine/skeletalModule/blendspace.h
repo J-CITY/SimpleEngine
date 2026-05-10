@@ -1,41 +1,26 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "animation.h"
 #include "animationBlend.h"
 #include "animationInstance.h"
+#include "iAnimationPlayable.h"
 
 namespace IKIGAI::SKELETON {
+	
+	// --- RESOURCES (Stateless) ---
+
 	class Blendspace1D {
 	public:
 		struct Node {
 			float value;
 			Animation* anim;
-			std::unique_ptr<AnimSample> sampler;
-
-			Node(Skeleton* Skeleton, Animation* Anim, float Value) {
-				anim = Anim;
-				sampler = std::make_unique<AnimSample>(Skeleton, Anim);
-				value = Value;
-			}
 		};
 
-	public:
-		Blendspace1D(Skeleton* Skeleton, std::vector<Node*> Nodes);
-		~Blendspace1D();
-		void setValue(float value);
-		float max();
-		float min();
-		float value();
-		Pose* evaluate(float dt);
-
-	private:
-		float mValue = 0.0f;
-		float mMin = 0.0f;
-		float mMax = 0.0f;
-		std::vector<Node*> mNodes;
-		std::unique_ptr<AnimBlend> mBlend;
+		Skeleton* mSkeleton;
+		std::vector<Node> mNodes;
 	};
 
 	class Blendspace2D {
@@ -43,46 +28,92 @@ namespace IKIGAI::SKELETON {
 		struct Node {
 			float value;
 			Animation* anim;
-			std::unique_ptr<AnimSample> sampler;
-
-			Node(Skeleton* skeleton, Animation* anim, float value) {
-				anim = anim;
-				sampler = std::make_unique<AnimSample>(skeleton, anim);
-				value = value;
-			}
 		};
-
 		struct Row {
 			float value;
-			std::vector<Node*> nodes;
+			std::vector<Node> nodes;
+		};
+
+		Skeleton* mSkeleton;
+		std::vector<Row> mRows;
+	};
+
+	// --- INSTANCES (Stateful) ---
+
+	class Blendspace1DInstance : public IAnimationPlayable {
+	public:
+		struct NodeState {
+			float value;
+			std::unique_ptr<AnimSample> sampler;
 		};
 
 	public:
-		Blendspace2D(Skeleton* skeleton, const std::vector<Row>& rows);
-		~Blendspace2D();
-		void setXValue(float value);
-		float maxX();
-		float minX();
-		float valueX();
-		void setYValue(float value);
-		float maxY();
-		float minY();
-		float valueY();
-		Pose* evaluate(float dt);
+		Blendspace1DInstance(std::shared_ptr<Blendspace1D> resource);
+		~Blendspace1DInstance() override;
+		
+		void setValue(float value);
+		float max() const;
+		float min() const;
+		float value() const;
+		
+		void update(float dt) override;
+		Pose* getPose() override;
+		std::unique_ptr<IAnimationPlayable> clone() const override;
 
 	private:
-		Pose* blendedPoseFromRow(const Row& row, AnimBlend* blend, float dt);
-		Pose* blendedPoseFromNodes(Node* low, Node* high, AnimBlend* blend, float dt);
+		Pose* mLastPose = nullptr;
+		float mValue = 0.0f;
+		float mMin = 0.0f;
+		float mMax = 0.0f;
+		std::vector<NodeState> mNodes;
+		std::unique_ptr<AnimBlend> mBlend;
+		std::shared_ptr<Blendspace1D> mResource;
+	};
 
-		float mXMax;
-		float mXMin;
-		float mYMax;
-		float mYMin;
-		float mXValue;
-		float mYValue;
-		std::vector<Row> mRows;
+	class Blendspace2DInstance : public IAnimationPlayable {
+	public:
+		struct NodeState {
+			float value;
+			std::unique_ptr<AnimSample> sampler;
+		};
+		struct RowState {
+			float value;
+			std::vector<NodeState> nodes;
+		};
+
+	public:
+		Blendspace2DInstance(std::shared_ptr<Blendspace2D> resource);
+		~Blendspace2DInstance() override;
+		
+		void setXValue(float value);
+		float maxX() const;
+		float minX() const;
+		float valueX() const;
+		
+		void setYValue(float value);
+		float maxY() const;
+		float minY() const;
+		float valueY() const;
+		
+		void update(float dt) override;
+		Pose* getPose() override;
+		std::unique_ptr<IAnimationPlayable> clone() const override;
+
+	private:
+		Pose* blendedPoseFromRow(const RowState& row, AnimBlend* blend, float dt);
+		Pose* blendedPoseFromNodes(NodeState& low, NodeState& high, AnimBlend* blend, float dt);
+
+		Pose* mLastPose = nullptr;
+		float mXMax = 0.0f;
+		float mXMin = 0.0f;
+		float mYMax = 0.0f;
+		float mYMin = 0.0f;
+		float mXValue = 0.0f;
+		float mYValue = 0.0f;
+		std::vector<RowState> mRows;
 		std::unique_ptr<AnimBlend> mBlend1;
 		std::unique_ptr<AnimBlend> mBlend2;
 		std::unique_ptr<AnimBlend> mBlend3;
+		std::shared_ptr<Blendspace2D> mResource;
 	};
 }

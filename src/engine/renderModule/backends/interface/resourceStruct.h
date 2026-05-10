@@ -17,7 +17,8 @@ namespace IKIGAI::RENDER {
 enum class ResourceType {
   SHADER, TEXTURE, MODEL,
   AUDIO, MATERIAL, SKELETON_ANIMATION,
-  SKELETON, SKELETON_BLENDSPACE_1D, SKELETON_BLENDSPACE_2D
+  SKELETON, SKELETON_BLENDSPACE_1D, SKELETON_BLENDSPACE_2D,
+  SKELETON_STATE_GRAPH
 };
 
 struct ResourceBase {
@@ -306,6 +307,109 @@ struct SkeletonBlendspace2D : public ResourceBase {
         IKIGAI::UTILS::MakeMemberInfo("Nodes", &SkeletonBlendspace2D::nodes),
     };
   }
+};
+
+enum class ConditionOp { EQUAL, NOT_EQUAL, LESS, GREATER, LESS_EQUAL, GREATER_EQUAL };
+
+enum class ConditionType { COMPARE, LOGICAL_AND, LOGICAL_OR, LOGICAL_NOT, SCRIPT };
+
+struct ConditionVar {
+    ConditionType type = ConditionType::COMPARE;
+
+    // For COMPARE
+    std::string varLeft;
+    ConditionOp op = ConditionOp::EQUAL;
+    bool isRightVar = false;
+    std::string varRight;
+    float constRight = 0.0f;
+
+    // For LOGICAL (AND, OR, NOT)
+    std::vector<ConditionVar> children;
+
+    // For SCRIPT
+    std::string scriptFunc;
+
+    template <class Context>
+    constexpr static auto serde(Context &context, ConditionVar &v) {
+        using namespace serde::attribute;
+        serde::serde_struct(context, v)
+            .field(&ConditionVar::type, "Type", default_{ConditionType::COMPARE})
+            .field(&ConditionVar::varLeft, "VarLeft", default_{std::string()})
+            .field(&ConditionVar::op, "Op", default_{ConditionOp::EQUAL})
+            .field(&ConditionVar::isRightVar, "IsRightVar", default_{false})
+            .field(&ConditionVar::varRight, "VarRight", default_{std::string()})
+            .field(&ConditionVar::constRight, "ConstRight", default_{0.0f})
+            .field(&ConditionVar::children, "Children", default_{std::vector<ConditionVar>()})
+            .field(&ConditionVar::scriptFunc, "ScriptFunc", default_{std::string()});
+    }
+};
+
+struct AnimTransitionResource {
+    std::string targetState;
+    std::vector<ConditionVar> conditions;
+    float blendTime;
+
+    template <class Context>
+    constexpr static auto serde(Context &context, AnimTransitionResource &v) {
+        using namespace serde::attribute;
+        serde::serde_struct(context, v)
+            .field(&AnimTransitionResource::targetState, "TargetState")
+            .field(&AnimTransitionResource::conditions, "Conditions", default_{std::vector<ConditionVar>()})
+            .field(&AnimTransitionResource::blendTime, "BlendTime", default_{0.0f});
+    }
+};
+
+enum class AnimStateType { ANIMATION, BLENDSPACE_1D, BLENDSPACE_2D };
+
+struct AnimStateResource {
+    std::string name;
+    AnimStateType type;
+    std::string resourcePath;
+    
+    std::string blendXVariable;
+    std::string blendYVariable;
+
+    std::vector<AnimTransitionResource> transitions;
+
+    template <class Context>
+    constexpr static auto serde(Context &context, AnimStateResource &v) {
+        using namespace serde::attribute;
+        serde::serde_struct(context, v)
+            .field(&AnimStateResource::name, "Name")
+            .field(&AnimStateResource::type, "Type")
+            .field(&AnimStateResource::resourcePath, "ResourcePath")
+            .field(&AnimStateResource::blendXVariable, "BlendXVariable", default_{std::string()})
+            .field(&AnimStateResource::blendYVariable, "BlendYVariable", default_{std::string()})
+            .field(&AnimStateResource::transitions, "Transitions", default_{std::vector<AnimTransitionResource>()});
+    }
+};
+
+struct SkeletonStateGraphResource : public ResourceBase {
+    ResourceType type = ResourceType::SKELETON_STATE_GRAPH;
+    std::string path;
+
+    std::string skeletonPath;
+    std::string initialState;
+    std::vector<AnimStateResource> states;
+
+    template <class Context>
+    constexpr static auto serde(Context &context, SkeletonStateGraphResource &value) {
+        using Self = SkeletonStateGraphResource;
+        using namespace serde::attribute;
+        serde::serde_struct(context, value)
+            .field(&Self::skeletonPath, "SkeletonPath")
+            .field(&Self::initialState, "InitialState")
+            .field(&Self::states, "States")
+            .field(&Self::parentPath, "##parent", default_{std::string()});
+    }
+
+    static auto GetMembers() {
+        return std::tuple{
+            IKIGAI::UTILS::MakeMemberInfo("SkeletonPath", &SkeletonStateGraphResource::skeletonPath),
+            IKIGAI::UTILS::MakeMemberInfo("InitialState", &SkeletonStateGraphResource::initialState),
+            IKIGAI::UTILS::MakeMemberInfo("States", &SkeletonStateGraphResource::states),
+        };
+    }
 };
 
 struct MaterialResource : public ResourceBase {

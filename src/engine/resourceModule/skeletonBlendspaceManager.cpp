@@ -25,8 +25,9 @@ ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace1D(
 		return nullptr;
 	}
 
-	std::vector<SKELETON::Blendspace1D::Node*> nodes;
-	nodes.reserve(desc.nodes.size());
+	auto bs = std::make_shared<SKELETON::Blendspace1D>();
+	bs->mSkeleton = skeleton.get();
+	bs->mNodes.reserve(desc.nodes.size());
 
 	for (const auto& [value, animPath] : desc.nodes) {
 		AnimationLoadContext ctx;
@@ -37,10 +38,9 @@ ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace1D(
 			ASSERT(std::string("SkeletonBlendspaceLoader: failed to load animation: " + animPath).c_str());
 			return nullptr;
 		}
-		nodes.push_back(new SKELETON::Blendspace1D::Node(skeleton.get(), anim.get(), value));
+		bs->mNodes.push_back(SKELETON::Blendspace1D::Node{value, anim.get()});
 	}
 
-	auto bs = std::make_shared<SKELETON::Blendspace1D>(skeleton.get(), nodes);
 	return std::make_shared<BlendspaceVariant>(bs);
 }
 
@@ -53,8 +53,9 @@ ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace2D(
 		return nullptr;
 	}
 
-	std::vector<SKELETON::Blendspace2D::Row> rows;
-	rows.reserve(desc.nodes.size());
+	auto bs = std::make_shared<SKELETON::Blendspace2D>();
+	bs->mSkeleton = skeleton.get();
+	bs->mRows.reserve(desc.nodes.size());
 
 	for (const auto& descRow : desc.nodes) {
 		SKELETON::Blendspace2D::Row row;
@@ -68,12 +69,11 @@ ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace2D(
 				ASSERT(std::string("SkeletonBlendspaceLoader: failed to load animation: " + animPath).c_str());
 				return nullptr;
 			}
-			row.nodes.push_back(new SKELETON::Blendspace2D::Node(skeleton.get(), anim.get(), nodeValue));
+			row.nodes.push_back(SKELETON::Blendspace2D::Node{nodeValue, anim.get()});
 		}
-		rows.push_back(row);
+		bs->mRows.push_back(std::move(row));
 	}
 
-	auto bs = std::make_shared<SKELETON::Blendspace2D>(skeleton.get(), rows);
 	return std::make_shared<BlendspaceVariant>(bs);
 }
 

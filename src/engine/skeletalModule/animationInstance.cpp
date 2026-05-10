@@ -7,7 +7,7 @@ namespace IKIGAI::SKELETON {
 
 	AnimSample::~AnimSample() = default;
 
-	Pose* AnimSample::sample(double dt) {
+	void AnimSample::update(float dt) {
 		mGlobalTime += (dt * mPlaybackRate); // dt is Delta Time in seconds.
 
 		float ticksPerSecond = (float)(mAnimation->ticksPerSecond != 0 ? mAnimation->ticksPerSecond : 25.0f);
@@ -81,7 +81,9 @@ namespace IKIGAI::SKELETON {
 
 			mPose.keyframes[i] = result;
 		}
+	}
 
+	Pose* AnimSample::getPose() {
 		return &mPose;
 	}
 
@@ -146,5 +148,9 @@ namespace IKIGAI::SKELETON {
 		}
 
 		return idx;
+	}
+
+	std::unique_ptr<IAnimationPlayable> AnimSample::clone() const {
+		return std::make_unique<AnimSample>(mSkeleton, mAnimation);
 	}
 }

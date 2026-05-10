@@ -6,6 +6,8 @@
 
 #include "resourceManager.h"
 #include "renderModule/backends/interface/resourceStruct.h"
+#include "utilsModule/event.h"
+#include "utilsModule/idGenerator.h"
 
 namespace IKIGAI::SKELETON {
 	class Blendspace1D;
@@ -22,9 +24,6 @@ namespace IKIGAI::RESOURCES {
 
 	class SkeletonBlendspaceLoader : public ResourceManager<BlendspaceVariant> {
 	public:
-		/// Load via JSON descriptor (.blendspace1d / .blendspace2d file)
-		/// The skeleton and animations referenced inside the descriptor are
-		/// automatically resolved through ServiceManager.
 		static ResourcePtr<BlendspaceVariant> CreateFromResource(const std::string& path);
 
 	private:
@@ -34,7 +33,7 @@ namespace IKIGAI::RESOURCES {
 		static void AddFileWatchSubscribe(const std::string& path, std::weak_ptr<BlendspaceVariant> weakRes);
 		static void UnsubscribeFileWatch(const std::string& path);
 
-		inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
+		inline static std::unordered_map<std::string, std::vector<IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
 
 		inline static std::unordered_map<std::string, RENDER::SkeletonBlendspace1D> sResourceCache1D;
 		inline static std::unordered_map<std::string, RENDER::SkeletonBlendspace2D> sResourceCache2D;

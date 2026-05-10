@@ -34,8 +34,6 @@ namespace IKIGAI {
 		public:
 			virtual ~ResourceManager() = default;
 
-			//TODO: думаю можно сделать ресурс для текстуры с её описанием и грузить его
-			//template<typename T>
 			ResourcePtr<T> loadResource(const std::string& path) {
 				return loadResource(path, ELoadingType::RESOURCE);
 			}

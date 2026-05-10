@@ -1,6 +1,5 @@
 #include "skeleton.h"
 namespace IKIGAI::SKELETON {
-	//TODO: skeletal, animation component
 	Skeleton::Skeleton() {
 		mNumJoints = 0;
 	}

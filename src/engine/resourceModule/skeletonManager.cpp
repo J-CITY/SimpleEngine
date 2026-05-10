@@ -43,9 +43,9 @@ ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromResource(const std::st
 		sResourceCache[path] = res;
 	}
 	
-	auto skeleton = CreateFromFile(res.skeletonPath);
+	auto skeleton = CreateFromFile(res.pathSkeleton);
 	if (skeleton) {
-		AddFileWatchSubscribe(path, res.skeletonPath, skeleton);
+		AddFileWatchSubscribe(path, res.pathSkeleton, skeleton);
 	}
 	return skeleton;
 }
@@ -99,7 +99,7 @@ void SkeletonLoader::UpdateFileWatchResource(const std::string& configPath, cons
 				auto _res = resRes.unwrap();
 				_res.path = configPath;
 				sResourceCache[configPath] = _res;
-				loadPath = _res.skeletonPath;
+				loadPath = _res.pathSkeleton;
 			}
 		}
 

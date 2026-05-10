@@ -5,6 +5,8 @@
 #include "resourceManager.h"
 #include "parser/assimpParser.h"
 #include "renderModule/backends/interface/resourceStruct.h"
+#include "utilsModule/event.h"
+#include "utilsModule/idGenerator.h"
 #include "utilsModule/memoryAlloc.h"
 
 namespace IKIGAI::SKELETON {
@@ -27,7 +29,7 @@ namespace IKIGAI::RESOURCES {
 		static void AddFileWatchSubscribe(const std::string& configPath, const std::string& actualPath, std::weak_ptr<SKELETON::Skeleton> weakRes);
 		static void UnsubscribeFileWatch(const std::string& path);
 
-		inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
+		inline static std::unordered_map<std::string, std::vector<IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
 
 		static AssimpParser _ASSIMP;
 		inline static std::unordered_map<std::string, RENDER::SkeletonResource> sResourceCache;
