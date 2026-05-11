@@ -9,59 +9,28 @@ namespace IKIGAI::RESOURCES {
 	//TODO: universal work with filewatch
 	//TODO: fix work with sResourceCache
 
-	ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::CreateFromResource(const std::string& path) {
-		if (!sResourceCache.contains(path)) {
-			auto res = UTILS::FromJson<RENDER::SkeletonStateGraphResource>(path);
-			if (res.isOk()) {
-				sResourceCache[path] = res.unwrap();
-			} else {
-				LOG_ERROR << "Failed to parse SkeletonStateGraphResource: " << path;
-				return nullptr;
-			}
-		}
-		return std::make_shared<SKELETON::SkeletalStateGraph>(sResourceCache[path]);
+	ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::CreateFromResource(const std::string& path, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+		auto config = LoadConfig(path);
+		return CreateFromResource(config, allocator, deleter);
 	}
 
-	void SkeletonStateGraphLoader::Reload(SKELETON::SkeletalStateGraph& graph, const std::string& path) {
-		auto res = UTILS::FromJson<RENDER::SkeletonStateGraphResource>(path);
-		if (res.isOk()) {
-			sResourceCache[path] = res.unwrap();
-			graph.resource = res.unwrap();
-		}
+	ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::CreateFromResource(const RENDER::SkeletonStateGraphResource& config, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+		return  AllocateResource<SKELETON::SkeletalStateGraph>(allocator, deleter, config);
 	}
 
-	void SkeletonStateGraphLoader::UpdateFileWatchResource(const std::string& path, std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes) {
+	bool SkeletonStateGraphLoader::reloadResource(std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes, const std::string& path) {
 		if (auto res = weakRes.lock()) {
-			Reload(*res, path);
+			auto config = LoadConfig(path);
+			AddConfigToCache(path, config);
+			res->resource = config;
+			addFileWatchSubscribe(path, {path}, weakRes);
+			return true;
 		}
-	}
-
-	void SkeletonStateGraphLoader::AddFileWatchSubscribe(const std::string& path, std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes) {
-		auto id = ServiceManager::Get<FileWatcher>().add(path, [path, weakRes](RESOURCES::FileWatcher::FileStatus status) {
-			switch (status) {
-			case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-				UpdateFileWatchResource(path, weakRes);
-				break;
-			}
-			case RESOURCES::FileWatcher::FileStatus::DEL:
-			case RESOURCES::FileWatcher::FileStatus::CREATE:
-				break;
-			}
-		});
-		fwSubscribersIds[path].push_back(id);
-	}
-
-	void SkeletonStateGraphLoader::UnsubscribeFileWatch(const std::string& path) {
-		if (fwSubscribersIds.contains(path)) {
-			for (auto id : fwSubscribersIds[path]) {
-				ServiceManager::Get<FileWatcher>().remove(path, id);
-			}
-			fwSubscribersIds.erase(path);
-		}
+		return false;
 	}
 
 	ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::createResource(const std::string& path) {
-		return createResource(path, ELoadingType::RESOURCE, std::any());
+		return createResource(path, ELoadingType::RESOURCE);
 	}
 
 	ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::createResource(const std::string& path, ELoadingType type) {
@@ -70,8 +39,15 @@ namespace IKIGAI::RESOURCES {
 
 	ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
 		if (type == ELoadingType::RESOURCE) {
-			auto graph = CreateFromResource(path);
-			AddFileWatchSubscribe(path, graph);
+			RENDER::SkeletonStateGraphResource config;
+			if (HasConfig(path)) {
+				config = *GetConfig(path);
+			} else {
+				config = LoadConfig(path);
+				AddConfigToCache(path, config);
+			}
+			auto graph = CreateFromResource(config);
+			addFileWatchSubscribe(path, {path}, graph);
 			return graph;
 		}
 		return nullptr;

@@ -1427,22 +1427,22 @@ void DriverVk::resetStencil() {
 	mStencilMode = std::nullopt;
 }
 
-std::shared_ptr<TextureInterface> DriverVk::createTexture(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverVk::createTexture(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureVk::Create(path, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverVk::createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverVk::createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureAtlasVk::CreateAtlas(path, generateMipmap, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverVk::createTexture(const TextureResource& res, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverVk::createTexture(const TextureResource& res, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureVk::Create(res, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverVk::createTexture(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverVk::createTexture(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureVk::Create(res, fileData, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverVk::createTextureAtlas(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverVk::createTextureAtlas(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureAtlasVk::CreateAtlasFromResource(res, fileData, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverVk::createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverVk::createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return nullptr; // not implemented
 }
 

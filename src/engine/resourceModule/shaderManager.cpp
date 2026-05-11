@@ -86,7 +86,7 @@ void main() {
 
 namespace IKIGAI::RESOURCES {
 	ResourcePtr<RENDER::ShaderInterface> ShaderLoader::createResource(const std::string& path) {
-		return Create(path);
+		return createResource(path, ELoadingType::RESOURCE);
 	}
 
 	std::shared_ptr<RENDER::ShaderInterface> ShaderLoader::createResource(const std::string& path, ELoadingType type) {
@@ -94,111 +94,59 @@ namespace IKIGAI::RESOURCES {
 	}
 
 	ResourcePtr<RENDER::ShaderInterface> ShaderLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+		RENDER::ShaderResource config;
+		if (HasConfig(path)) {
+			config = *GetConfig(path);
+		}
+		else {
+			config = LoadConfig(path);
+			AddConfigToCache(path, config);
+		}
+
+		ResourcePtr<RENDER::ShaderInterface> res;
 		if (type == ELoadingType::RESOURCE) {
-			return Create(path);
+			res = CreateFromResource(config, nullptr, createCacheDeleter(path));
 		}
 		else if (type == ELoadingType::FILE || type == ELoadingType::MEMORY) {
 			//NOT SUPPORT
 		}
-		return createResource(path);
+		res = CreateFromResource(config, nullptr, createCacheDeleter(path));
+
+		{
+			std::unordered_set<std::string> paths = {path};
+			for (auto& [type, shaderPath] : config.paths) {
+				paths.insert(shaderPath);
+			}
+			addFileWatchSubscribe(path, paths, res);
+		}
+
+		return res;
 	}
 
-	void ShaderLoader::UpdateFileWatchResource(const std::string& filePath, std::weak_ptr<RENDER::ShaderInterface> weakShader) {
-		for (auto& [path, e] : fwSubscribersIds[filePath]) {
-			RESOURCES::FileWatcher::getInstance()->removeDeferred(path, e);
-		}
-		fwSubscribersIds[filePath].clear();
+	bool ShaderLoader::reloadResource(std::weak_ptr<RENDER::ShaderInterface> weakRes, const std::string& path) {
+		if (auto shader = weakRes.lock()) {
+			std::unordered_set<std::string> paths = {path};
+			auto config = LoadConfig(path);
+			AddConfigToCache(path, config);
 
-		if (auto shader = weakShader.lock()) {
-			auto res = UTILS::FromJson<RENDER::ShaderResource>(filePath);
-			if (res.isOk()) {
-				auto _res = res.unwrap();
-				_res.path = filePath;
-
-				for (auto type : {RENDER::ShaderType::VERTEX, RENDER::ShaderType::FRAGMENT, RENDER::ShaderType::GEOMETRY,
-					RENDER::ShaderType::TESSELLATION_CONTROL, RENDER::ShaderType::TESSELLATION_EVALUATION, RENDER::ShaderType::COMPUTE}) {
-					if (_res.hasShader(type)) {
-						_res.sources[type] = readFileWithInclude(_res.getShaderPath(type));
-					}
-				}
-				sResourceCache[filePath] = _res;
-				shader->recompile(_res);
-				AddFileWatchSubscribe(filePath, weakShader);
-			}
-		}
-	}
-
-	void ShaderLoader::AddFileWatchSubscribe(const std::string& filePath, std::weak_ptr<RENDER::ShaderInterface> weakShader) {
-		auto fwCb = [filePath, weakShader](RESOURCES::FileWatcher::FileStatus status) {
-			switch (status) {
-			case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-				UpdateFileWatchResource(filePath, weakShader);
-				break;
-			}
-			case RESOURCES::FileWatcher::FileStatus::DEL:
-			case RESOURCES::FileWatcher::FileStatus::CREATE: {
-				break;
-			}
-			}
-		};
-
-		auto saveCb = [filePath](const std::string& watchedPath) {
-			return [filePath, watchedPath](auto e) {
-				ShaderLoader::fwSubscribersIds[filePath].push_back({watchedPath, e});
-			};
-		};
-		auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-		RESOURCES::FileWatcher::getInstance()->addDeferred(filePath, fwCb, saveCb(filePath));
-		
-		if (sResourceCache.contains(filePath)) {
-			auto& _res = sResourceCache[filePath];
 			for (auto type : {RENDER::ShaderType::VERTEX, RENDER::ShaderType::FRAGMENT, RENDER::ShaderType::GEOMETRY,
 				RENDER::ShaderType::TESSELLATION_CONTROL, RENDER::ShaderType::TESSELLATION_EVALUATION, RENDER::ShaderType::COMPUTE}) {
-				if (_res.hasShader(type)) {
-					RESOURCES::FileWatcher::getInstance()->addDeferred(_res.getShaderPath(type), fwCb, saveCb(_res.getShaderPath(type)));
+				if (config.hasShader(type)) {
+					auto p = config.getShaderPath(type);
+					config.sources[type] = readFileWithInclude(p);
+					paths.insert(p);
 				}
 			}
+			shader->recompile(config);
+			addFileWatchSubscribe(path, paths, weakRes);
+			return true;
 		}
+		return false;
 	}
 
 	ResourcePtr<RENDER::ShaderInterface> ShaderLoader::Create(const std::string& _filePath, UTILS::IAllocator* allocator, RENDER::ShaderDeleter deleter) {
-		const std::string filePath = _filePath;
-
-		RENDER::ShaderResource _res;
-		if (auto it = sResourceCache.find(filePath); it != sResourceCache.end()) {
-			_res = it->second;
-		} else {
-			auto res = UTILS::FromJson<RENDER::ShaderResource>(filePath);
-			if (res.isErr()) {
-				ASSERT("Failed to parse shader resource json");
-				return GetDefaultPinkShader();
-			}
-			_res = res.unwrap();
-			_res.path = filePath;
-
-			for (auto type : {RENDER::ShaderType::VERTEX, RENDER::ShaderType::FRAGMENT, RENDER::ShaderType::GEOMETRY,
-				RENDER::ShaderType::TESSELLATION_CONTROL, RENDER::ShaderType::TESSELLATION_EVALUATION, RENDER::ShaderType::COMPUTE}) {
-				if (_res.hasShader(type)) {
-					_res.sources[type] = readFileWithInclude(_res.getShaderPath(type));
-				}
-			}
-			sResourceCache[filePath] = _res;
-		}
-
-		auto& render = ServiceManager::Get<RENDER::Renderer>();
-		RENDER::ShaderDeleter finalDeleter = [filePath, deleter](RENDER::ShaderInterface* m) {
-			ServiceManager::Get<ShaderLoader>().unloadResource(filePath);
-			if (deleter) deleter(m);
-		};
-		auto shader = render.createShader(_res, allocator, finalDeleter);
-		if (!shader) {
-			ASSERT("Failed to compile shader");
-			return GetDefaultPinkShader();
-		}
-		shader->mPath = filePath;
-
-		AddFileWatchSubscribe(filePath, shader);
-		return shader;
+		RENDER::ShaderResource config = LoadConfig(_filePath);
+		return CreateFromResource(config, allocator, deleter);
 	}
 
 	ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromResource(const RENDER::ShaderResource& res, UTILS::IAllocator* allocator, RENDER::ShaderDeleter deleter) {
@@ -215,18 +163,11 @@ namespace IKIGAI::RESOURCES {
 			}
 		}
 
-		RENDER::ShaderDeleter finalDeleter = [path, deleter](RENDER::ShaderInterface* m) {
-			ServiceManager::Get<ShaderLoader>().unloadResource(path);
-			if (deleter) deleter(m);
-		};
-		auto shader = render.createShader(resCopy, allocator, finalDeleter);
+		auto shader = render.createShader(resCopy, allocator, deleter);
 		if (!shader) {
 			ASSERT("Failed to compile shader from resource");
 			return GetDefaultPinkShader();
 		}
-		
-		sResourceCache[path] = res;
-		AddFileWatchSubscribe(path, shader);
 		return shader;
 	}
 

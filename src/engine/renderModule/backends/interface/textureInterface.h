@@ -34,6 +34,8 @@ namespace IKIGAI::RENDER {
 		WrapFilter mWrapT = WrapFilter::CLAMP_TO_EDGE;
 		WrapFilter mWrapR = WrapFilter::CLAMP_TO_EDGE;
 
+		bool mUseMipMap = false;
+
 	public:
 		TextureType getType() const { return mType; }
 		PixelFormat getFormat() const { return mFormat; }
@@ -42,6 +44,7 @@ namespace IKIGAI::RENDER {
 		size_t getHeight() const { return mHeight; }
 		size_t getDepth() const { return mDepth; }
 		size_t getChannels() const { return mChannels; }
+		bool getUseMipMap() const { return mUseMipMap; }
 
 		virtual ~TextureInterface() = default;
 		virtual void* getImguiId() = 0;

@@ -627,22 +627,22 @@ void DriverDx12::clearForDestroy() {
 	mDestroyDeffered.clear();
 }
 
-std::shared_ptr<TextureInterface> DriverDx12::createTexture(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverDx12::createTexture(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureDx12::Create(path, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverDx12::createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverDx12::createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureAtlasDx12::CreateAtlas(path, generateMipmap, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverDx12::createTexture(const TextureResource& res, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverDx12::createTexture(const TextureResource& res, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureDx12::Create(res, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverDx12::createTexture(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverDx12::createTexture(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureDx12::Create(res, fileData, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverDx12::createTextureAtlas(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverDx12::createTextureAtlas(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureAtlasDx12::CreateAtlasFromResource(res, fileData, allocator, deleter);
 }
-std::shared_ptr<TextureInterface> DriverDx12::createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureInterface> DriverDx12::createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return nullptr; // not implemented
 }
 

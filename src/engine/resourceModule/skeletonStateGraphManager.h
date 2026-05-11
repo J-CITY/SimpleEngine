@@ -1,27 +1,23 @@
 #pragma once
 
 #include "resourceManager.h"
+#include "renderModule/backends/interface/driverInterface.h"
 #include "skeletalModule/skeletalStateGraph.h"
 #include "utilsModule/event.h"
 #include "utilsModule/idGenerator.h"
 
 namespace IKIGAI::RESOURCES {
-	class SkeletonStateGraphLoader : public ResourceManager<SKELETON::SkeletalStateGraph> {
+	class SkeletonStateGraphLoader : public ResourceManager<SKELETON::SkeletalStateGraph, RENDER::SkeletonStateGraphResource> {
 	public:
-		static ResourcePtr<SKELETON::SkeletalStateGraph> CreateFromResource(const std::string& path);
+		using ResourceDeleter = std::function<void(SKELETON::SkeletalStateGraph*)>;
+		static ResourcePtr<SKELETON::SkeletalStateGraph> CreateFromResource(const std::string& path, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static ResourcePtr<SKELETON::SkeletalStateGraph> CreateFromResource(const RENDER::SkeletonStateGraphResource& config, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 
 	private:
-		// File watching
-		static void Reload(SKELETON::SkeletalStateGraph& graph, const std::string& path);
-		static void UpdateFileWatchResource(const std::string& path, std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes);
-		static void AddFileWatchSubscribe(const std::string& path, std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes);
-		static void UnsubscribeFileWatch(const std::string& path);
-
-		inline static std::unordered_map<std::string, std::vector<IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
-		inline static std::unordered_map<std::string, RENDER::SkeletonStateGraphResource> sResourceCache;
-
 		ResourcePtr<SKELETON::SkeletalStateGraph> createResource(const std::string& path) override;
 		ResourcePtr<SKELETON::SkeletalStateGraph> createResource(const std::string& path, ELoadingType type) override;
 		ResourcePtr<SKELETON::SkeletalStateGraph> createResource(const std::string& path, ELoadingType type, std::any data) override;
+
+		bool reloadResource(std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes, const std::string& path) override;
 	};
 }

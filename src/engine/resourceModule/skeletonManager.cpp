@@ -10,8 +10,8 @@ namespace IKIGAI::RESOURCES {
 
 AssimpParser SkeletonLoader::_ASSIMP;
 
-ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromFile(const std::string& path) {
-	auto skeleton = std::make_shared<SKELETON::Skeleton>();
+ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromFile(const std::string& path, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	auto skeleton = UTILS::AllocateResource<SKELETON::Skeleton>(allocator, deleter);
 	auto data = ServiceManager::Get<FileSystem>().getFile(path)->read();
 	if (data.empty()) {
 		ASSERT(std::string("SkeletonLoader::CreateFromFile: empty file: " + path).c_str());
@@ -22,39 +22,23 @@ ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromFile(const std::string
 		return nullptr;
 	}
 	
-	// Default call without config
-	AddFileWatchSubscribe(path, path, skeleton);
 	return skeleton;
 }
 
-ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromResource(const std::string& path) {
-	RENDER::SkeletonResource res;
-	if (auto it = sResourceCache.find(path); it != sResourceCache.end()) {
-		res = it->second;
-	} else {
-		auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
-		auto parsed = UTILS::FromJsonStr<RENDER::SkeletonResource>(content);
-		if (parsed.isErr()) {
-			ASSERT(std::string("SkeletonLoader::CreateFromResource: can't parse: " + path).c_str());
-			return nullptr;
-		}
-		res = parsed.unwrap();
-		res.path = path;
-		sResourceCache[path] = res;
-	}
-	
-	auto skeleton = CreateFromFile(res.pathSkeleton);
-	if (skeleton) {
-		AddFileWatchSubscribe(path, res.pathSkeleton, skeleton);
-	}
-	return skeleton;
+ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromResource(const std::string& path, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	RENDER::SkeletonResource res = LoadConfig(path);
+	return CreateFromResource(res, allocator, deleter);
+}
+
+ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromResource(const RENDER::SkeletonResource& res, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+	return CreateFromFile(res.pathSkeleton, allocator, deleter);
 }
 
 ResourcePtr<SKELETON::Skeleton> SkeletonLoader::createResource(const std::string& path) {
 	if (path.ends_with(".skeleton")) {
-		return CreateFromResource(path);
+		return createResource(path, ELoadingType::RESOURCE);
 	}
-	return CreateFromFile(path);
+	return createResource(path, ELoadingType::FILE);
 }
 
 ResourcePtr<SKELETON::Skeleton> SkeletonLoader::createResource(const std::string& path, ELoadingType type) {
@@ -62,77 +46,49 @@ ResourcePtr<SKELETON::Skeleton> SkeletonLoader::createResource(const std::string
 }
 
 ResourcePtr<SKELETON::Skeleton> SkeletonLoader::createResource(const std::string& path, ELoadingType type, std::any /*data*/) {
+	ResourcePtr<SKELETON::Skeleton> res;
 	if (type == ELoadingType::FILE) {
-		return CreateFromFile(path);
+		res = CreateFromFile(path);
+		addFileWatchSubscribe(path, {path}, res);
 	}
-	if (type == ELoadingType::RESOURCE) {
-		return CreateFromResource(path);
+	else if (type == ELoadingType::RESOURCE) {
+		RENDER::SkeletonResource config;
+		if (HasConfig(path)) {
+			config = *GetConfig(path);
+		} else {
+			config = LoadConfig(path);
+			AddConfigToCache(path, config);
+		}
+		res = CreateFromResource(config);
+		addFileWatchSubscribe(path, {path, config.pathSkeleton}, res);
 	}
-	return createResource(path);
+	return res;
 }
 
-void SkeletonLoader::Reload(SKELETON::Skeleton& skeleton, const std::string& path) {
-	auto newSkeleton = CreateFromFile(path);
-	if (newSkeleton) {
-		skeleton.setNumJoints(newSkeleton->getNumJolts());
-		skeleton.joints() = newSkeleton->joints();
-	}
-}
-
-void SkeletonLoader::UnsubscribeFileWatch(const std::string& path) {
-	if (fwSubscribersIds.contains(path)) {
-		for (auto& e : fwSubscribersIds[path]) {
-			RESOURCES::FileWatcher::getInstance()->removeDeferred(path, e);
+bool SkeletonLoader::reloadResource(std::weak_ptr<SKELETON::Skeleton> weakRes, const std::string& path) {
+	if (auto res = weakRes.lock()) {
+		std::unordered_set<std::string> paths = {path};
+		RENDER::SkeletonResource config;
+		if (path.ends_with(".skeleton")) {
+			config = LoadConfig(path);
+			AddConfigToCache(path, config);
+			paths.insert(config.pathSkeleton);
 		}
-		fwSubscribersIds.erase(path);
-	}
-}
-
-void SkeletonLoader::UpdateFileWatchResource(const std::string& configPath, const std::string& actualPath, std::weak_ptr<SKELETON::Skeleton> weakRes) {
-	if (auto skeleton = weakRes.lock()) {
-		std::string loadPath = actualPath;
-
-		if (!configPath.empty() && configPath != actualPath) {
-			auto content = ServiceManager::Get<FileSystem>().getFile(configPath)->readStr();
-			auto resRes = UTILS::FromJsonStr<RENDER::SkeletonResource>(content);
-			if (resRes.isOk()) {
-				auto _res = resRes.unwrap();
-				_res.path = configPath;
-				sResourceCache[configPath] = _res;
-				loadPath = _res.pathSkeleton;
-			}
+		else {
+			config.path = path;
+			config.pathSkeleton = path;
 		}
 
-		Reload(*skeleton, loadPath);
-	}
-}
-
-void SkeletonLoader::AddFileWatchSubscribe(const std::string& configPath, const std::string& actualPath, std::weak_ptr<SKELETON::Skeleton> weakRes) {
-	auto fwCb = [configPath, actualPath, weakRes](RESOURCES::FileWatcher::FileStatus status) {
-		switch (status) {
-		case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-			UnsubscribeFileWatch(configPath);
-			UpdateFileWatchResource(configPath, actualPath, weakRes);
-			break;
+		auto newSkeleton = CreateFromFile(config.pathSkeleton);
+		if (newSkeleton) {
+			res->setNumJoints(newSkeleton->getNumJolts());
+			res->joints() = newSkeleton->joints();
 		}
-		case RESOURCES::FileWatcher::FileStatus::DEL:
-		case RESOURCES::FileWatcher::FileStatus::CREATE:
-			break;
-		}
-	};
 
-	auto saveCb = [configPath](auto e) {
-		fwSubscribersIds[configPath].push_back(e);
-	};
-
-	if (!configPath.empty() && configPath != actualPath) {
-		RESOURCES::FileWatcher::getInstance()->addDeferred(configPath, fwCb, saveCb);
+		addFileWatchSubscribe(path, paths, res);
+		return true;
 	}
-
-	auto meshSaveCb = [actualPath](auto e) {
-		fwSubscribersIds[actualPath].push_back(e);
-	};
-	RESOURCES::FileWatcher::getInstance()->addDeferred(actualPath, fwCb, meshSaveCb);
+	return false;
 }
 
 } // namespace IKIGAI::RESOURCES

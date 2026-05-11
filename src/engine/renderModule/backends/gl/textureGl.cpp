@@ -236,6 +236,7 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 	id = texId;
 	mPath = descriptor.path;
 	mType = descriptor.texType;
+	mUseMipMap = descriptor.useMipmap;
 }
 
 TextureGl::~TextureGl() {
@@ -296,8 +297,7 @@ TextureGl::~TextureGl() {
 //	return tex;
 //}
 
-std::shared_ptr<TextureGl>
-TextureGl::Create(const TextureResource &descriptor, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	auto &_descriptor = const_cast<TextureResource &>(descriptor);
 	// Load data
 	std::vector<void *> textureData;
@@ -343,7 +343,7 @@ TextureGl::Create(const TextureResource &descriptor, UTILS::IAllocator* allocato
 	return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	auto &_descriptor = const_cast<TextureResource &>(descriptor);
 	
 	std::vector<void *> textureData;
@@ -379,7 +379,7 @@ std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, 
 	return tex;
 }
 
-std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	//int width = 0, height = 0, nrComponents = 0;
 	//IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
 	//unsigned char* data = IKIGAI::UTILS::STBiLoad(UTILS::GetRealPath(path).c_str(), &width, &height, &nrComponents, 4);
@@ -390,7 +390,7 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMi
 	return Create(res, allocator, deleter);
 }
 
-std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	int width = 0, height = 0, nrComponents = 0;
 	IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
 	
@@ -574,14 +574,14 @@ AtlasRect TextureAtlasGl::getPieceUV(const std::string& name) const {
 	return AtlasRect();
 }
 
-std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	TextureResource res;
 	res.useMipmap = generateMipmap;
 	res.pathTexture.push_back(path);
 	return CreateAtlasFromResource(res, allocator, deleter);
 }
 
-std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const TextureResource& descriptor, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const TextureResource& descriptor, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	auto& _d = const_cast<TextureResource&>(descriptor);
 
 	// Загружаем текстурные данные
@@ -619,7 +619,7 @@ std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const Te
 	return tex;
 }
 
-std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	auto& _d = const_cast<TextureResource&>(descriptor);
 
 	std::vector<void*> textureData;

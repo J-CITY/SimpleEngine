@@ -149,14 +149,11 @@ namespace IKIGAI::SKELETON {
 		} else if (stateRes.type == RENDER::AnimStateType::BLENDSPACE_1D || stateRes.type == RENDER::AnimStateType::BLENDSPACE_2D) {
 			auto bsRes = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonBlendspaceLoader>().loadResource(stateRes.resourcePath);
 			if (bsRes) {
-				if (std::holds_alternative<std::shared_ptr<Blendspace1D>>(*bsRes)) {
-					if (auto bs1d = std::get<std::shared_ptr<Blendspace1D>>(*bsRes)) {
-						return std::make_unique<Blendspace1DInstance>(bs1d);
-					}
-				} else if (std::holds_alternative<std::shared_ptr<Blendspace2D>>(*bsRes)) {
-					if (auto bs2d = std::get<std::shared_ptr<Blendspace2D>>(*bsRes)) {
-						return std::make_unique<Blendspace2DInstance>(bs2d);
-					}
+				if (stateRes.type == RENDER::AnimStateType::BLENDSPACE_1D) {
+					return std::make_unique<Blendspace1DInstance>(std::static_pointer_cast<Blendspace1D>(bsRes));
+				}
+				else {
+					return std::make_unique<Blendspace2DInstance>(std::static_pointer_cast<Blendspace2D>(bsRes));
 				}
 			}
 		}

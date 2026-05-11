@@ -18,10 +18,11 @@ namespace IKIGAI
 
 namespace IKIGAI {
 	namespace RESOURCES {
-		class ModelLoader : public ResourceManager<RENDER::ModelInterface> {
+		class ModelLoader : public ResourceManager<RENDER::ModelInterface, RENDER::ModelResource> {
 		public:
-			static void Reload(RENDER::ModelInterface& model, const std::string& filePath, ModelParserFlags parserFlags = ModelParserFlags::NONE);
+			static void Reload(RENDER::ModelInterface& model, const RENDER::ModelResource& config);
 			static ResourcePtr<RENDER::ModelInterface> CreateFromResource(const std::string& path, UTILS::IAllocator* allocator = nullptr, RENDER::ModelDeleter deleter = nullptr);
+			static ResourcePtr<RENDER::ModelInterface> CreateFromResource(const RENDER::ModelResource& config, UTILS::IAllocator* allocator = nullptr, RENDER::ModelDeleter deleter = nullptr);
 			static ResourcePtr<RENDER::ModelInterface> CreateFromFile(const std::string& path, ModelParserFlags parserFlags, UTILS::IAllocator* allocator = nullptr, RENDER::ModelDeleter deleter = nullptr);
 			//move to private
 			static ResourcePtr<RENDER::ModelInterface> Create(const std::string& filepath, ModelParserFlags parserFlags = ModelParserFlags::NONE, UTILS::IAllocator* allocator = nullptr, RENDER::ModelDeleter deleter = nullptr);
@@ -40,14 +41,7 @@ namespace IKIGAI {
 			ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type) override;
 			ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 
-			// File watching
-			static void UpdateFileWatchResource(const std::string& configPath, const std::string& meshPath, std::weak_ptr<RENDER::ModelInterface> weakModel, ModelParserFlags flags);
-			static void AddFileWatchSubscribe(const std::string& configPath, const std::string& meshPath, std::weak_ptr<RENDER::ModelInterface> weakModel, ModelParserFlags flags);
-			static void UnsubscribeFileWatch(const std::string& path);
-			RENDER::ModelDeleter createCacheDeleter(const std::string& path);
-
-			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
-			inline static std::unordered_map<std::string, RENDER::ModelResource> sResourceCache;
+			bool reloadResource(std::weak_ptr<RENDER::ModelInterface> weakRes, const std::string& path) override;
 		};
 	
 	}

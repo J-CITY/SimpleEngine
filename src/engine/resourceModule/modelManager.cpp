@@ -27,8 +27,12 @@ namespace IKIGAI::RESOURCES {
 
 	AssimpParser ModelLoader::_ASSIMP;
 
-	void ModelLoader::Reload(RENDER::ModelInterface& model, const std::string& filePath, ModelParserFlags parserFlags) {
-		std::shared_ptr<RENDER::ModelInterface> newModel = Create(filePath, parserFlags);
+	void ModelLoader::Reload(RENDER::ModelInterface& model, const RENDER::ModelResource& config) {
+		auto usedFlags = ModelParserFlags::NONE;
+		for (auto e : config.flags) {
+			usedFlags |= e;
+		}
+		std::shared_ptr<RENDER::ModelInterface> newModel = Create(config.pathModel, usedFlags);
 
 		if (newModel) {
 			model.setMeshes(newModel->getMeshes());
@@ -49,33 +53,21 @@ namespace IKIGAI::RESOURCES {
 	}
 
 	ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromResource(const std::string& path, UTILS::IAllocator* allocator, RENDER::ModelDeleter deleter) {
-		RENDER::ModelResource _res;
-		if (auto it = sResourceCache.find(path); it != sResourceCache.end()) {
-			_res = it->second;
-		} else {
-			auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
-			auto res = UTILS::FromJsonStr<RENDER::ModelResource>(content);
-			if (res.isErr()) {
-				ASSERT(std::string("Can`t parse resource: " + path).c_str());
-				return nullptr;
-			}
-			_res = res.unwrap();
-			_res.path = path;
-			sResourceCache[path] = _res;
-		}
+		auto config = LoadConfig(path);
+		return CreateFromResource(config, allocator, deleter);
+	}
 
+	ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromResource(const RENDER::ModelResource& config, UTILS::IAllocator* allocator, RENDER::ModelDeleter deleter) {
 		ModelParserFlags parserFlags = ModelParserFlags::NONE;
-		for (auto e : _res.flags) {
+		for (auto e : config.flags) {
 			parserFlags |= e;
 		}
 		// Грузим сам файл модели
-		auto model = CreateFromFile(_res.pathModel, parserFlags, allocator, deleter);
-		if (model) {
-			// Подписываемся на изменения .model-конфига и mesh-файла
-			AddFileWatchSubscribe(path, _res.pathModel, model, parserFlags);
-		}
+		auto model = CreateFromFile(config.pathModel, parserFlags, allocator, deleter);
 		return model;
 	}
+
+
 
 	ResourcePtr<RENDER::ModelInterface> ModelLoader::Create(const std::string& filepath, ModelParserFlags parserFlags, UTILS::IAllocator* allocator, RENDER::ModelDeleter deleter) {
 		auto& render = ServiceManager::Get<RENDER::Renderer>();
@@ -93,8 +85,6 @@ namespace IKIGAI::RESOURCES {
 
 		if (_ASSIMP.LoadModel(filepath, data, result, parserFlags)) {
 			result->computeBoundingSphere();
-			// Подписываемся на изменения mesh-файла (configPath == meshPath — без конфига)
-			AddFileWatchSubscribe(filepath, filepath, result, parserFlags);
 			return result;
 		}
 		ASSERT("Can`t create model");
@@ -143,15 +133,12 @@ namespace IKIGAI::RESOURCES {
 
 	ResourcePtr<RENDER::ModelInterface> ModelLoader::createResource(const std::string& path) {
 		// Если файл .model — грузим через дескриптор-ресурс
+		ResourcePtr<RENDER::ModelInterface> res;
 		if (path.ends_with(".model")) {
-			return CreateFromResource(path);
+			return createResource(path, ELoadingType::RESOURCE);
 		}
 		// Иначе грузим напрямую через файл
-		auto model = Create(path, getDefaultFlag(), nullptr, createCacheDeleter(path));
-		if (model) {
-			model->setPath(path);
-		}
-		return model;
+		return createResource(path, ELoadingType::FILE);
 	}
 
 	ResourcePtr<RENDER::ModelInterface> ModelLoader::createResource(const std::string& path, ELoadingType type) {
@@ -159,83 +146,52 @@ namespace IKIGAI::RESOURCES {
 	}
 
 	ResourcePtr<RENDER::ModelInterface> ModelLoader::createResource(const std::string& path, ELoadingType type, std::any data) {
+		ResourcePtr<RENDER::ModelInterface> res;
+		std::unordered_set<std::string> paths = {path};
 		if (type == ELoadingType::FILE) {
-			return CreateFromFile(path, ModelParserFlags::NONE);
+			res = CreateFromFile(path, ModelParserFlags::NONE, nullptr, createCacheDeleter(path));
 		}
-		if (type == ELoadingType::RESOURCE) {
-			return CreateFromResource(path);
-		}
-		// TODO: MEMORY/DESCRIPTOR if needed
-		return createResource(path);
-	}
-	void ModelLoader::UnsubscribeFileWatch(const std::string& path) {
-		if (fwSubscribersIds.contains(path)) {
-			for (auto& e : fwSubscribersIds[path]) {
-				RESOURCES::FileWatcher::getInstance()->removeDeferred(path, e);
+		else if (type == ELoadingType::RESOURCE) {
+			RENDER::ModelResource config;
+			if (HasConfig(path)) {
+				config = *GetConfig(path);
 			}
-			fwSubscribersIds.erase(path);
-		}
-	}
-
-	void ModelLoader::UpdateFileWatchResource(const std::string& configPath, const std::string& meshPath, std::weak_ptr<RENDER::ModelInterface> weakModel, ModelParserFlags flags) {
-		if (auto model = weakModel.lock()) {
-			ModelParserFlags usedFlags = flags;
-			std::string actualMeshPath = meshPath;
-
-			if (!configPath.empty() && configPath != meshPath) {
-				auto content = ServiceManager::Get<FileSystem>().getFile(configPath)->readStr();
-				auto resRes = UTILS::FromJsonStr<RENDER::ModelResource>(content);
-				if (resRes.isOk()) {
-					auto _res = resRes.unwrap();
-					_res.path = configPath;
-					sResourceCache[configPath] = _res;
-
-					usedFlags = ModelParserFlags::NONE;
-					for (auto e : _res.flags) {
-						usedFlags |= e;
-					}
-					actualMeshPath = _res.pathModel;
-				}
+			else {
+				config = LoadConfig(path);
+				AddConfigToCache(path, config);
 			}
-
-			ModelLoader::Reload(*model, actualMeshPath, usedFlags);
+			paths.insert(config.pathModel);
+			res = CreateFromResource(config, nullptr, createCacheDeleter(path));
 		}
+		else {
+			// TODO: MEMORY/DESCRIPTOR if needed
+			res = CreateFromFile(path, ModelParserFlags::NONE, nullptr, createCacheDeleter(path));
+		}
+
+		{
+			addFileWatchSubscribe(path, paths, res);
+		}
+
+		return res;
 	}
 
-	void ModelLoader::AddFileWatchSubscribe(const std::string& configPath, const std::string& meshPath,
-		std::weak_ptr<RENDER::ModelInterface> weakModel, ModelParserFlags flags) {
-
-		auto fwCb = [configPath, meshPath, weakModel, flags](RESOURCES::FileWatcher::FileStatus status) {
-			switch (status) {
-			case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-				UnsubscribeFileWatch(configPath);
-				UpdateFileWatchResource(configPath, meshPath, weakModel, flags);
-				break;
+	bool ModelLoader::reloadResource(std::weak_ptr<RENDER::ModelInterface> weakRes, const std::string& path) {
+		if (auto res = weakRes.lock()) {
+			std::unordered_set<std::string> paths = {path};
+			RENDER::ModelResource config;
+			if (path.ends_with(".model")) {
+				config = LoadConfig(path);
+				AddConfigToCache(path, config);
+				paths.insert(config.pathModel);
+			} else {
+				config.path = path;
+				config.pathModel = path;
 			}
-			case RESOURCES::FileWatcher::FileStatus::DEL:
-			case RESOURCES::FileWatcher::FileStatus::CREATE:
-				break;
-			}
-		};
 
-		auto saveCb = [configPath](auto e) {
-			ModelLoader::fwSubscribersIds[configPath].push_back(e);
-		};
-
-		// Следим за .model конфигом (если он есть и не пустой)
-		if (!configPath.empty() && configPath != meshPath) {
-			RESOURCES::FileWatcher::getInstance()->addDeferred(configPath, fwCb, saveCb);
+			Reload(*res, config);
+			addFileWatchSubscribe(path, paths, weakRes);
+			return true;
 		}
-		// Следим за самим файлом меша
-		auto meshSaveCb = [meshPath](auto e) {
-			ModelLoader::fwSubscribersIds[meshPath].push_back(e);
-		};
-		RESOURCES::FileWatcher::getInstance()->addDeferred(meshPath, fwCb, meshSaveCb);
-	}
-
-	RENDER::ModelDeleter ModelLoader::createCacheDeleter(const std::string& path) {
-		return [this, path](RENDER::ModelInterface* ptr) {
-			this->unloadResource(path);
-		};
+		return false;
 	}
 }

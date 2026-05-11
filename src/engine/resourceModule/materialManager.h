@@ -12,7 +12,7 @@ namespace IKIGAI::RENDER {
 
 namespace IKIGAI {
 	namespace RESOURCES {
-		class MaterialLoader : public ResourceManager<RENDER::MaterialInterface> {
+		class MaterialLoader : public ResourceManager<RENDER::MaterialInterface, RENDER::MaterialResource> {
 		public:
 			// Публичный API: только Create через путь к .material файлу
 			static ResourcePtr<RENDER::MaterialInterface> Create(
@@ -28,16 +28,7 @@ namespace IKIGAI {
 			ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type) override;
 			ResourcePtr<RENDER::MaterialInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 
-			static void AddToFileWatch(
-				const std::string& watchPath,
-				std::weak_ptr<RENDER::MaterialInterface> weakMat);
-
-			RENDER::MaterialDeleter createCacheDeleter(const std::string& path);
-
-			// Кэш разобранных дескрипторов материалов
-			inline static std::unordered_map<std::string, RENDER::MaterialResource> sResourceCache;
-			// FW subscription ids: path -> list of watch ids
-			inline static std::unordered_map<std::string, std::vector<IKIGAI::IdGenerator<EVENT::Event<>>::ID>> sFWSubscribersIds;
+			virtual bool reloadResource(std::weak_ptr<RENDER::MaterialInterface> weakRes, const std::string& config) override;
 		};
 	}
 }

@@ -406,27 +406,27 @@ IKIGAI::RENDER::DriverGl::createStorageBuffer(const void *data, size_t size,
   return std::make_shared<StorageBufferGl>(data, size, stride);
 }
 
-std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const std::string &path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const std::string &path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
 	return TextureGl::Create(path, generateMipmap, allocator, deleter);
 }
 
-std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
     return TextureAtlasGl::CreateAtlas(path, generateMipmap, allocator, deleter);
 }
 
-std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {
     return TextureGl::CreateFromMemory(name, data, generateMipmap, allocator, deleter);
 }
 
-std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const TextureResource &res, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const TextureResource &res, UTILS::IAllocator* allocator, TextureDeleter deleter) {
   return TextureGl::Create(res, allocator, deleter);
 }
 
-std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const TextureResource &res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTexture(const TextureResource &res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
     return TextureGl::Create(res, fileData, allocator, deleter);
 }
 
-std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTextureAtlas(const TextureResource &res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+std::shared_ptr<IKIGAI::RENDER::TextureInterface> IKIGAI::RENDER::DriverGl::createTextureAtlas(const TextureResource &res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator, TextureDeleter deleter) {
     return TextureAtlasGl::CreateAtlasFromResource(res, fileData, allocator, deleter);
 }
 

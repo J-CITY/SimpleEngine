@@ -16,20 +16,18 @@ namespace IKIGAI::RESOURCES {
 // Internal helpers
 // ---------------------------------------------------------------
 
-ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace1D(
-	const RENDER::SkeletonBlendspace1D& desc) {
-
+ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::CreateBlendspace1D(const RENDER::SkeletonBlendspace& desc, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	auto skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(desc.skeletonPath);
 	if (!skeleton) {
 		ASSERT(std::string("SkeletonBlendspaceLoader: failed to load skeleton: " + desc.skeletonPath).c_str());
 		return nullptr;
 	}
 
-	auto bs = std::make_shared<SKELETON::Blendspace1D>();
+	auto bs = UTILS::AllocateResource<SKELETON::Blendspace1D>(allocator, deleter);
 	bs->mSkeleton = skeleton.get();
-	bs->mNodes.reserve(desc.nodes.size());
+	bs->mNodes.reserve(desc.nodes[0].nodes.size());
 
-	for (const auto& [value, animPath] : desc.nodes) {
+	for (const auto& [value, animPath] : desc.nodes[0].nodes) {
 		AnimationLoadContext ctx;
 		ctx.skeleton = skeleton;
 		auto anim = ServiceManager::Get<SkeletonAnimationLoader>().loadResource(
@@ -41,19 +39,17 @@ ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace1D(
 		bs->mNodes.push_back(SKELETON::Blendspace1D::Node{value, anim.get()});
 	}
 
-	return std::make_shared<BlendspaceVariant>(bs);
+	return bs;
 }
 
-ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace2D(
-	const RENDER::SkeletonBlendspace2D& desc) {
-
+ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::CreateBlendspace2D(const RENDER::SkeletonBlendspace& desc, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	auto skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(desc.skeletonPath);
 	if (!skeleton) {
 		ASSERT(std::string("SkeletonBlendspaceLoader: failed to load skeleton: " + desc.skeletonPath).c_str());
 		return nullptr;
 	}
 
-	auto bs = std::make_shared<SKELETON::Blendspace2D>();
+	auto bs = UTILS::AllocateResource<SKELETON::Blendspace2D>(allocator, deleter);
 	bs->mSkeleton = skeleton.get();
 	bs->mRows.reserve(desc.nodes.size());
 
@@ -74,61 +70,27 @@ ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateBlendspace2D(
 		bs->mRows.push_back(std::move(row));
 	}
 
-	return std::make_shared<BlendspaceVariant>(bs);
+	return bs;
 }
 
 // ---------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------
 
-ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateFromResource(const std::string& path) {
+ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::CreateFromResource(const std::string& path, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	// Distinguish 1D vs 2D by file extension
-	const bool is1D = path.ends_with(".blendspace1d") || path.ends_with(".blendspace");
+	const bool is1D = path.ends_with(".blendspace1d");
 	const bool is2D = path.ends_with(".blendspace2d");
 
 	if (is1D) {
-		RENDER::SkeletonBlendspace1D res;
-		if (auto it = sResourceCache1D.find(path); it != sResourceCache1D.end()) {
-			res = it->second;
-		} else {
-			auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
-			auto parsed = UTILS::FromJsonStr<RENDER::SkeletonBlendspace1D>(content);
-			if (parsed.isErr()) {
-				ASSERT(std::string("SkeletonBlendspaceLoader: can't parse 1D: " + path).c_str());
-				return nullptr;
-			}
-			res = parsed.unwrap();
-			res.path = path;
-			sResourceCache1D[path] = res;
-		}
-		
-		auto variant = CreateBlendspace1D(res);
-		if (variant) {
-			AddFileWatchSubscribe(path, variant);
-		}
+		auto res = LoadConfig(path);
+		auto variant = CreateBlendspace1D(res, allocator, deleter);
 		return variant;
 	}
 
 	if (is2D) {
-		RENDER::SkeletonBlendspace2D res;
-		if (auto it = sResourceCache2D.find(path); it != sResourceCache2D.end()) {
-			res = it->second;
-		} else {
-			auto content = ServiceManager::Get<FileSystem>().getFile(path)->readStr();
-			auto parsed = UTILS::FromJsonStr<RENDER::SkeletonBlendspace2D>(content);
-			if (parsed.isErr()) {
-				ASSERT(std::string("SkeletonBlendspaceLoader: can't parse 2D: " + path).c_str());
-				return nullptr;
-			}
-			res = parsed.unwrap();
-			res.path = path;
-			sResourceCache2D[path] = res;
-		}
-		
-		auto variant = CreateBlendspace2D(res);
-		if (variant) {
-			AddFileWatchSubscribe(path, variant);
-		}
+		auto res = LoadConfig(path);
+		auto variant = CreateBlendspace2D(res, allocator, deleter);
 		return variant;
 	}
 
@@ -136,64 +98,48 @@ ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::CreateFromResource(cons
 	return nullptr;
 }
 
-ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::createResource(const std::string& path) {
-	return CreateFromResource(path);
+ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::createResource(const std::string& path) {
+	return createResource(path, ELoadingType::RESOURCE);
 }
 
-ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::createResource(
-	const std::string& path, ELoadingType /*type*/) {
-	return CreateFromResource(path);
+ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::createResource(const std::string& path, ELoadingType /*type*/) {
+	return createResource(path, ELoadingType::RESOURCE, std::any{});
 }
 
-ResourcePtr<BlendspaceVariant> SkeletonBlendspaceLoader::createResource(
-	const std::string& path, ELoadingType /*type*/, std::any /*data*/) {
-	return CreateFromResource(path);
-}
+ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::createResource(const std::string& path, ELoadingType type, std::any /*data*/) {
+	auto res = CreateFromResource(path);
 
-void SkeletonBlendspaceLoader::Reload(BlendspaceVariant& variant, const std::string& path) {
-	// Temporarily disable add to file watcher to prevent loop or duplicate since we already subscribed
-	auto newVariant = CreateFromResource(path);
-	if (newVariant) {
-		variant = *newVariant; // Update variant in-place
-	}
-}
-
-void SkeletonBlendspaceLoader::UnsubscribeFileWatch(const std::string& path) {
-	if (fwSubscribersIds.contains(path)) {
-		for (auto& e : fwSubscribersIds[path]) {
-			RESOURCES::FileWatcher::getInstance()->removeDeferred(path, e);
+	if (type == ELoadingType::RESOURCE) {
+		RENDER::SkeletonBlendspace config;
+		if (HasConfig(path)) {
+			config = *GetConfig(path);
+		} else {
+			config = LoadConfig(path);
+			AddConfigToCache(path, config);
 		}
-		fwSubscribersIds.erase(path);
-	}
-}
 
-void SkeletonBlendspaceLoader::UpdateFileWatchResource(const std::string& path, std::weak_ptr<BlendspaceVariant> weakRes) {
-	if (auto variant = weakRes.lock()) {
-		Reload(*variant, path);
-	}
-}
-
-void SkeletonBlendspaceLoader::AddFileWatchSubscribe(const std::string& path, std::weak_ptr<BlendspaceVariant> weakRes) {
-	auto fwCb = [path, weakRes](RESOURCES::FileWatcher::FileStatus status) {
-		switch (status) {
-		case RESOURCES::FileWatcher::FileStatus::MODIFIED: {
-			UnsubscribeFileWatch(path);
-			UpdateFileWatchResource(path, weakRes);
-			break;
+		ResourcePtr<SKELETON::BlendspaceInterface> res;
+		if (path.ends_with(".blendspace1d")) {
+			res = CreateBlendspace1D(config, nullptr, createCacheDeleter(path));
 		}
-		case RESOURCES::FileWatcher::FileStatus::DEL:
-		case RESOURCES::FileWatcher::FileStatus::CREATE:
-			break;
+		else {
+			res = CreateBlendspace2D(config, nullptr, createCacheDeleter(path));
 		}
-	};
-
-	auto saveCb = [path](auto e) {
-		fwSubscribersIds[path].push_back(e);
-	};
-
-	// We only watch the config file for blendspaces
-	UnsubscribeFileWatch(path);
-	RESOURCES::FileWatcher::getInstance()->addDeferred(path, fwCb, saveCb);
+		addFileWatchSubscribe(path, {path}, res);
+		return res;
+	}
+	return nullptr;
 }
 
+bool SkeletonBlendspaceLoader::reloadResource(std::weak_ptr<SKELETON::BlendspaceInterface> weakRes, const std::string& path) {
+	if (auto res = weakRes.lock()) {
+		auto config = LoadConfig(path);
+		AddConfigToCache(path, config);
+		auto newVariant = CreateFromResource(path);
+		*res = *newVariant;
+		addFileWatchSubscribe(path, {path}, weakRes);
+		return true;
+	}
+	return false;
+}
 } // namespace IKIGAI::RESOURCES

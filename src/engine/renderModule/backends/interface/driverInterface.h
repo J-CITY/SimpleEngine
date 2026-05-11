@@ -21,17 +21,17 @@ namespace IKIGAI::RENDER {
 	class VertexBufferInterface;
 	class ShaderInterface;
 
-	using ResourceDeleter = std::function<void(TextureInterface*)>;
+	using TextureDeleter = std::function<void(TextureInterface*)>;
 	using ModelDeleter = std::function<void(ModelInterface*)>;
 	using ShaderDeleter = std::function<void(ShaderInterface*)>;
 	using MaterialDeleter = std::function<void(MaterialInterface*)>;
 
 	template <typename T, typename... Args>
-	std::shared_ptr<T> AllocateTexture(UTILS::IAllocator* allocator, ResourceDeleter customDeleter, Args&&... args) {
+	std::shared_ptr<T> AllocateTexture(UTILS::IAllocator* allocator, TextureDeleter customDeleter, Args&&... args) {
 		void* rawTex = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
 		auto* texObj = new(rawTex) T(std::forward<Args>(args)...);
 
-		ResourceDeleter finalDeleter = [allocator, customDeleter](TextureInterface* p) {
+		TextureDeleter finalDeleter = [allocator, customDeleter](TextureInterface* p) {
 			if (customDeleter) {
 				customDeleter(p); // This acts like a generic callback (e.g. unloadResource)
 			}
@@ -191,12 +191,12 @@ namespace IKIGAI::RENDER {
 			createUniformBuffer(const void* data, size_t size) = 0;
 		virtual std::shared_ptr<StorageBufferInterface>
 			createStorageBuffer(const void* data, size_t size, size_t stride) = 0;
-		virtual std::shared_ptr<TextureInterface> createTexture(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr) = 0;
-		virtual std::shared_ptr<TextureInterface> createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr) = 0;
-		virtual std::shared_ptr<TextureInterface> createTexture(const TextureResource& res, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr) = 0;
-		virtual std::shared_ptr<TextureInterface> createTexture(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr) = 0;
-		virtual std::shared_ptr<TextureInterface> createTextureAtlas(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr) = 0;
-		virtual std::shared_ptr<TextureInterface> createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<TextureInterface> createTexture(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<TextureInterface> createTextureAtlas(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<TextureInterface> createTexture(const TextureResource& res, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<TextureInterface> createTexture(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<TextureInterface> createTextureAtlas(const TextureResource& res, const std::vector<std::vector<uint8_t>>& fileData, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr) = 0;
+		virtual std::shared_ptr<TextureInterface> createTexture(const std::string& name, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr) = 0;
 		virtual std::shared_ptr<ShaderInterface>
 			createShader(const std::string& vertexPath,
 			const std::string& fragmentPath) = 0;

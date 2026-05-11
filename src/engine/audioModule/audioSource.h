@@ -19,6 +19,8 @@ namespace IKIGAI::AUDIO {
 
 	struct SoundConfig {
 		SoundType type = SoundType::SOUND;
+		std::string path;
+
 		float volume = -1.0f;
 		SoundStatus state = SoundStatus::STOP;
 		float pan = 0.0f;
@@ -58,11 +60,9 @@ namespace IKIGAI::AUDIO {
 	class SoundResource {
 	public:
 		
-		SoundResource(const std::string& path, SoundConfig& data) : path(path), data(data) {}
+		SoundResource(const std::string& path, const SoundConfig& data) : path(path), data(data) {}
 
 		unsigned int getBusId();
-
-		
 
 	//private:
 		std::optional<SoLoud::handle> id;

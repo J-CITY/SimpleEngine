@@ -6,8 +6,10 @@
 
 #include "resourceManager.h"
 #include "renderModule/backends/interface/resourceStruct.h"
+#include "skeletalModule/blendspace.h"
 #include "utilsModule/event.h"
 #include "utilsModule/idGenerator.h"
+#include "utilsModule/memoryAlloc.h"
 
 namespace IKIGAI::SKELETON {
 	class Blendspace1D;
@@ -15,34 +17,20 @@ namespace IKIGAI::SKELETON {
 }
 
 namespace IKIGAI::RESOURCES {
-
-	/// Universal handle for any blendspace type (1D or 2D)
-	using BlendspaceVariant = std::variant<
-		std::shared_ptr<SKELETON::Blendspace1D>,
-		std::shared_ptr<SKELETON::Blendspace2D>
-	>;
-
-	class SkeletonBlendspaceLoader : public ResourceManager<BlendspaceVariant> {
+	class SkeletonBlendspaceLoader : public ResourceManager<SKELETON::BlendspaceInterface, RENDER::SkeletonBlendspace> {
 	public:
-		static ResourcePtr<BlendspaceVariant> CreateFromResource(const std::string& path);
+		static ResourcePtr<SKELETON::BlendspaceInterface> CreateFromResource(const std::string& path, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 
 	private:
-		// File watching
-		static void Reload(BlendspaceVariant& variant, const std::string& path);
-		static void UpdateFileWatchResource(const std::string& path, std::weak_ptr<BlendspaceVariant> weakRes);
-		static void AddFileWatchSubscribe(const std::string& path, std::weak_ptr<BlendspaceVariant> weakRes);
-		static void UnsubscribeFileWatch(const std::string& path);
 
-		inline static std::unordered_map<std::string, std::vector<IdGenerator<EVENT::Event<>>::ID>> fwSubscribersIds;
+		static ResourcePtr<SKELETON::BlendspaceInterface> CreateBlendspace1D(const RENDER::SkeletonBlendspace& desc, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
+		static ResourcePtr<SKELETON::BlendspaceInterface> CreateBlendspace2D(const RENDER::SkeletonBlendspace& desc, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 
-		inline static std::unordered_map<std::string, RENDER::SkeletonBlendspace1D> sResourceCache1D;
-		inline static std::unordered_map<std::string, RENDER::SkeletonBlendspace2D> sResourceCache2D;
+		ResourcePtr<SKELETON::BlendspaceInterface> createResource(const std::string& path) override;
+		ResourcePtr<SKELETON::BlendspaceInterface> createResource(const std::string& path, ELoadingType type) override;
+		ResourcePtr<SKELETON::BlendspaceInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;
 
-		static ResourcePtr<BlendspaceVariant> CreateBlendspace1D(const RENDER::SkeletonBlendspace1D& desc);
-		static ResourcePtr<BlendspaceVariant> CreateBlendspace2D(const RENDER::SkeletonBlendspace2D& desc);
 
-		ResourcePtr<BlendspaceVariant> createResource(const std::string& path) override;
-		ResourcePtr<BlendspaceVariant> createResource(const std::string& path, ELoadingType type) override;
-		ResourcePtr<BlendspaceVariant> createResource(const std::string& path, ELoadingType type, std::any data) override;
+		bool reloadResource(std::weak_ptr<SKELETON::BlendspaceInterface> weakRes, const std::string& path) override;
 	};
 }

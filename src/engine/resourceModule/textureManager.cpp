@@ -49,7 +49,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::GetDefaultTexture() {
 	return sDefaultTexture;
 }
 
-ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFile(const std::string& filepath, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::ResourceDeleter deleter) {
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFile(const std::string& filepath, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
 	auto loaded = LoadFileData(filepath, generateMipmap, false);
 	if (!loaded.valid()) {
 		ASSERT("TextureLoader::CreateFromFile — failed to read file");
@@ -60,7 +60,12 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFile(const std::s
 	return render.createTexture(filepath, loaded.fileData, generateMipmap, allocator, deleter);
 }
 
-ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const RENDER::TextureResource& res, UTILS::IAllocator* allocator, RENDER::ResourceDeleter deleter) {
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const std::string& resPath, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
+	auto config = LoadConfig(resPath);
+	return CreateFromResource(config, allocator, deleter);
+}
+
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const RENDER::TextureResource& res, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
 	if (!res.pathTexture.empty() || !res.colorData.empty()) {
 		auto& render = ServiceManager::Get<RENDER::Renderer>();
 		std::vector<std::vector<uint8_t>> fileData;
@@ -80,7 +85,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const RE
 	return GetDefaultTexture();
 }
 
-ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateAtlasFromFile(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::ResourceDeleter deleter) {
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateAtlasFromFile(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
 	auto loaded = LoadFileData(path, generateMipmap, false);
 	if (!loaded.valid()) {
 		ASSERT("TextureLoader::CreateAtlasFromFile — failed to read file");
@@ -94,7 +99,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateAtlasFromFile(const s
 	return render.createTextureAtlas(res, {loaded.fileData}, allocator, deleter);
 }
 
-ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileHDR(const std::string& filepath, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::ResourceDeleter deleter) {
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileHDR(const std::string& filepath, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
 	auto loaded = LoadFileData(filepath, generateMipmap, true);
 	if (!loaded.valid()) {
 		ASSERT("TextureLoader::CreateFromFileHDR — failed to read file");
@@ -109,7 +114,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromFileHDR(const std
 	return render.createTexture(res, {loaded.fileData}, allocator, deleter);
 }
 
-ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::ResourceDeleter deleter) {
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
 	RENDER::TextureResource res;
 	res.colorData  = { r, g, b, a };
 	res.width = res.height = 1;
@@ -120,7 +125,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint8_t r, uint
 	return render.createTexture(res, allocator, deleter);
 }
 
-ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::ResourceDeleter deleter) {
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
 	return CreateColor(
 		(data >> 24) & 0xFF,
 		(data >> 16) & 0xFF,
@@ -129,7 +134,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateColor(uint32_t data, 
 		generateMipmap, allocator, deleter);
 }
 
-ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemory(const std::string& path, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::ResourceDeleter deleter) {
+ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromMemory(const std::string& path, const std::vector<uint8_t>& data, bool generateMipmap, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
 	auto& render = ServiceManager::Get<RENDER::Renderer>();
 	return render.createTexture(path, data, generateMipmap, allocator, deleter);
 }
@@ -207,32 +212,21 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromResource(const st
 
 	if (auto newResource = CreateFromResource(cachedDescriptor, nullptr, createCacheDeleter(path))) {
 		auto& fs = ServiceManager::Get<FileSystem>();
-
-		auto reloadResFn = [path]() -> RENDER::TextureResource {
-			auto& fs = ServiceManager::Get<FileSystem>();
-			auto f = fs.getFile(path, FileMode::READ);
-			if (!f || !f->isValid()) {
-				return {};
-			}
-			auto pr = UTILS::FromJsonStr<RENDER::TextureResource>(f->readStr());
-			if (pr.isErr()) {
-				return {};
-			}
-			auto r = pr.unwrap();
-			r.path = path;
-			sResourceCache[path] = r; // обновляем кэш (без пикселей)
-			return r;
-		};
 		auto basePathOpt = fs.getFilePath(path);
-		if (basePathOpt) {
-			AddToFileWatch(*basePathOpt, *basePathOpt, reloadResFn, newResource);
+		if (!basePathOpt) {
+			ASSERT("Path not found");
 		}
-		// FileWatch на каждый image-файл
-		for (const auto& imgPath : cachedDescriptor.pathTexture) {
-			auto pathOpt = fs.getFilePath(imgPath);
-			if (pathOpt) {
-				AddToFileWatch(*basePathOpt, *pathOpt, reloadResFn, newResource);
+
+		{// FileWatch
+			std::unordered_set<std::string> paths;
+			paths.insert(*basePathOpt);
+			for (const auto& imgPath : cachedDescriptor.pathTexture) {
+				auto pathOpt = fs.getFilePath(imgPath);
+				if (pathOpt) {
+					paths.insert(*pathOpt);
+				}
 			}
+			addFileWatchSubscribe(*basePathOpt, paths, newResource);
 		}
 
 		return registerResource(path, newResource);
@@ -245,15 +239,11 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromFile(const std::s
 		return resource;
 	}
 	if (auto newResource = CreateFromFile(path, generateMipmap, nullptr, createCacheDeleter(path))) {
-		auto reloadFn = [path, generateMipmap]() -> RENDER::TextureResource {
-			RENDER::TextureResource r;
-			r.path       = path;
-			r.pathTexture = {path};
-			r.useMipmap  = generateMipmap;
-			return r;
-		};
-		auto& fs = ServiceManager::Get<FileSystem>();
-		AddToFileWatch(path, path, reloadFn, newResource);
+
+		{// FileWatch
+			auto& fs = ServiceManager::Get<FileSystem>();
+			addFileWatchSubscribe(path, {path}, newResource);
+		}
 		return registerResource(path, newResource);
 	}
 	return GetDefaultTexture();
@@ -264,17 +254,11 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromFileHDR(const std
 		return resource;
 	}
 	if (auto newResource = CreateFromFileHDR(path, generateMipmap, nullptr, createCacheDeleter(path))) {
-		auto reloadFn = [path, generateMipmap]() -> RENDER::TextureResource {
-			RENDER::TextureResource r;
-			r.path        = path;
-			r.pathTexture  = { path };
-			r.useMipmap   = generateMipmap;
-			r.isFloat     = true;
-			return r;
-		};
-		auto& fs = ServiceManager::Get<FileSystem>();
-		if (auto basePathOpt = fs.getFilePath(path)) {
-			AddToFileWatch(*basePathOpt, *basePathOpt, reloadFn, newResource);
+		{// FileWatch
+			auto& fs = ServiceManager::Get<FileSystem>();
+			if (auto basePathOpt = fs.getFilePath(path)) {
+				addFileWatchSubscribe(*basePathOpt, {*basePathOpt}, newResource);
+			}
 		}
 		return registerResource(path, newResource);
 	}
@@ -325,41 +309,38 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createAtlasFromFile(const s
 	return GetDefaultTexture();
 }
 
-void TextureLoader::AddToFileWatch(const std::string& basePath, const std::string& watchPath, std::function<RENDER::TextureResource()> reloadFn, std::weak_ptr<RENDER::TextureInterface> weakTex) {
-	auto fwCb = [watchPath, reloadFn, weakTex, basePath](RESOURCES::FileWatcher::FileStatus status) {
-		if (status == RESOURCES::FileWatcher::FileStatus::MODIFIED) {
-			if (auto tex = weakTex.lock()) {
-				for (auto& e : sFWSubscribersIds[basePath]) {
-					RESOURCES::FileWatcher::getInstance()->removeDeferred(e.first, e.second);
-				}
-				auto newDescriptor = reloadFn();
-				// recreate только если есть данные для загрузки
-				if (!newDescriptor.pathTexture.empty() || !newDescriptor.colorData.empty()) {
-					std::vector<std::vector<uint8_t>> fileData;
-					for (const auto& p : newDescriptor.pathTexture) {
-						auto file = ServiceManager::Get<FileSystem>().getFile(p, FileMode::READ);
-						if (file && file->isValid()) {
-							fileData.push_back(file->read());
-						}
-						file->close();
-					}
-					tex->recreate(newDescriptor, fileData);
-					AddToFileWatch(basePath, watchPath, reloadFn, weakTex);
-				}
-			}
+bool TextureLoader::reloadResource(std::weak_ptr<RENDER::TextureInterface> weakRes, const std::string& path) {
+	if (auto res = weakRes.lock()) {
+		RENDER::TextureResource config;
+		if (path.ends_with(".texture")) {
+			config = LoadConfig(path);
+			AddConfigToCache(path, config);
+		} else if (path.ends_with(".hdr")) {
+			auto generateMipmap = weakRes.lock()->getUseMipMap();
+			config.path = path;
+			config.pathTexture = {path};
+			config.useMipmap = generateMipmap;
+			config.isFloat = true;
+		} else {
+			auto generateMipmap = weakRes.lock()->getUseMipMap();
+			config.path = path;
+			config.pathTexture = {path};
+			config.useMipmap = generateMipmap;
 		}
-	};
-
-	auto saveCb = [basePath, watchPath](auto e) {
-		TextureLoader::sFWSubscribersIds[basePath].emplace_back(watchPath, e);
-	};
-
-	RESOURCES::FileWatcher::getInstance()->addDeferred(watchPath, fwCb, saveCb);
+		if (!config.pathTexture.empty() || !config.colorData.empty()) {
+			std::vector<std::vector<uint8_t>> fileData;
+			for (const auto& p : config.pathTexture) {
+				auto file = ServiceManager::Get<FileSystem>().getFile(p, FileMode::READ);
+				if (file && file->isValid()) {
+					fileData.push_back(file->read());
+				}
+				file->close();
+			}
+			res->recreate(config, fileData);
+		}
+		return true;
+	}
+	return false;
 }
 
-RENDER::ResourceDeleter TextureLoader::createCacheDeleter(const std::string& path) {
-	return [this, path](RENDER::TextureInterface* ptr) {
-		this->unloadResource(path);
-	};
-}
 } // namespace IKIGAI::RESOURCES

@@ -12,8 +12,14 @@ namespace IKIGAI::SKELETON {
 	
 	// --- RESOURCES (Stateless) ---
 
-	class Blendspace1D {
+	class BlendspaceInterface {
 	public:
+		virtual ~BlendspaceInterface() {}
+	};
+
+	class Blendspace1D: public BlendspaceInterface {
+	public:
+		virtual ~Blendspace1D() override {}
 		struct Node {
 			float value;
 			Animation* anim;
@@ -23,8 +29,9 @@ namespace IKIGAI::SKELETON {
 		std::vector<Node> mNodes;
 	};
 
-	class Blendspace2D {
+	class Blendspace2D : public BlendspaceInterface {
 	public:
+		virtual ~Blendspace2D() override {}
 		struct Node {
 			float value;
 			Animation* anim;
