@@ -11,8 +11,15 @@
 #include <coreModule/ecs/components/skeletal.h>
 #include <coreModule/ecs/components/cameraComponent.h>
 
-
-
+namespace IKIGAI {
+	namespace SKELETON {
+		class Skeleton;
+		class IAnimationPlayable;
+		class AnimOffset;
+		class AnimLocalTransform;
+		class AnimGlobalTransform;
+	}
+}
 namespace IKIGAI {
 	namespace RENDER {
 		class MeshInterface;
@@ -24,6 +31,11 @@ namespace IKIGAI {
 			std::shared_ptr<MeshInterface> mesh;
 			std::shared_ptr<MaterialInterface> material;
 			UTILS::WeakPtr<ECS::Skeletal> animator;
+			std::shared_ptr<SKELETON::Skeleton> skeleton;
+			SKELETON::IAnimationPlayable* animationPlayable;
+			SKELETON::AnimOffset* mAnimOffset;
+			SKELETON::AnimLocalTransform* mAnimLocalTransform;
+			SKELETON::AnimGlobalTransform* mAnimGlobalTransform;
 		};
 		
 		using OpaqueDrawables = std::multimap<float, Drawable, std::less<float>>;

@@ -7,15 +7,38 @@ namespace IKIGAI::ECS {
 		__NAME__ = "SkeletalComponent";
 	}
 
+	SkeletalComponent::SkeletalComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor) : ComponentBase(obj) {
+		__NAME__ = "SkeletalComponent";
+		setSkeleton(_descriptor.SkeletalPath);
+	}
+
 	SkeletalComponent::~SkeletalComponent() = default;
 
 	void SkeletalComponent::setSkeleton(const std::string& path) {
 		mSkeletonPath = path;
 		if (!path.empty()) {
-			mSkeleton = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonLoader>().loadResource(path);
+			//TODO: calculate res file or resource
+			mSkeleton = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonLoader>().loadResource(path, RESOURCES::ELoadingType::FILE);
 		} else {
 			mSkeleton = nullptr;
 		}
+		
+		if (mSkeleton) {
+			mAnimOffset = std::make_shared<SKELETON::AnimOffset>(mSkeleton.get());
+			mAnimLocalTransform = std::make_shared<SKELETON::AnimLocalTransform>(mSkeleton.get());
+			mAnimGlobalTransform = std::make_shared<SKELETON::AnimGlobalTransform>(mSkeleton.get());
+		} else {
+			mAnimOffset = nullptr;
+			mAnimLocalTransform = nullptr;
+			mAnimGlobalTransform = nullptr;
+		}
+	}
+	
+	SkeletalComponent::Descriptor SkeletalComponent::getDescriptor() const {
+		Descriptor desc;
+		desc.Type = GetComponentName<SkeletalComponent>();
+		desc.SkeletalPath = mSkeletonPath;
+		return desc;
 	}
 
 	void SkeletalComponent::onDeserialize(nlohmann::json& j) {

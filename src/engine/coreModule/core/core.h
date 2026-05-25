@@ -42,6 +42,10 @@ namespace IKIGAI
 {
 	namespace RESOURCES
 	{
+		class SkeletonAnimationLoader;
+		class SkeletonBlendspaceLoader;
+		class SkeletonStateGraphLoader;
+		class SkeletonLoader;
 		class ModelLoader;
 		class TextureLoader;
 		class MaterialLoader;
@@ -158,6 +162,12 @@ namespace IKIGAI {
 			std::unique_ptr<RESOURCES::ShaderLoader>   shaderManager;
 			std::unique_ptr<RESOURCES::MaterialLoader> materialManager;
 			std::unique_ptr<RESOURCES::FileSystem>     fileSystem;
+
+			std::unique_ptr<RESOURCES::SkeletonLoader> skeletonLoader;
+			std::unique_ptr<RESOURCES::SkeletonStateGraphLoader> skeletalStateGraphLoader;
+			std::unique_ptr<RESOURCES::SkeletonBlendspaceLoader> skeletonBlendspaceLoader;
+			std::unique_ptr<RESOURCES::SkeletonAnimationLoader> skeletonAnimationLoader;
+
 		};
 	}
 }

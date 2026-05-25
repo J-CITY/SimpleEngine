@@ -17,7 +17,7 @@ namespace IKIGAI {
 
 		//bone indexes which will influence this vertex
 #if defined(USING_GLES) || defined(OPENGL_SIMPLE_RENDER)
-		std::array<float, 4> m_BoneIDs = {-1,-1,-1,-1};
+		std::array<float, 4> m_BoneIDs = {-1, -1, -1, -1};
 #else
 		std::array<int, 4> m_BoneIDs = {-1, -1, -1, -1};
 #endif

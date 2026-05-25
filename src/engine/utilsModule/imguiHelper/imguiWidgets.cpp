@@ -199,6 +199,54 @@ bool IKIGAI::IMGUI::CombineVecEdit::draw(float* vec) {
 	return res;
 }
 
+int IKIGAI::IMGUI::DrawCombineVecEdit(const std::string& name, int size, float* vec, float mn, float mx, float step, bool allowColorMode) {
+	ImGui::Columns(2);
+	ImGui::SetColumnWidth(1, 200.0f);
+	ImGui::Text(name.c_str());
+	ImGui::NextColumn();
+
+	float width = (size == 2) ? 200.0f : 150.0f;
+	ImGui::SetNextItemWidth(width);
+
+	int res = 0;
+	auto _nameId = "##" + name;
+	ImGuiID id = ImGui::GetID(_nameId.c_str());
+	ImGuiStorage* storage = ImGui::GetStateStorage();
+	bool isColorMode = storage->GetBool(id, false);
+
+	if (isColorMode && allowColorMode && (size == 3 || size == 4)) {
+		if (IKIGAI::IMGUI::drawColorN(_nameId, size, vec)) {
+			res |= 1;
+		}
+	} else {
+		if (IKIGAI::IMGUI::drawFloatN(_nameId, size, vec, step, mn, mx)) {
+			res |= 1;
+		}
+	}
+
+	if (ImGui::IsItemActivated()) res |= 2;
+	if (ImGui::IsItemDeactivatedAfterEdit()) res |= 4;
+
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(50);
+	std::string btnLbl;
+	if (isColorMode) {
+		btnLbl = (size == 3) ? "RGB" : ((size == 4) ? "RGBA" : "RG");
+	} else {
+		btnLbl = (size == 2) ? "XY" : ((size == 3) ? "XYZ" : "XYZW");
+	}
+
+	if (ImGui::SmallButton((btnLbl + _nameId).c_str())) {
+		if (allowColorMode && (size == 3 || size == 4)) {
+			storage->SetBool(id, !isColorMode);
+		}
+	}
+
+	ImGui::NextColumn();
+	ImGui::Columns(1);
+	return res;
+}
+
 inline float BezierValue(float dt01, float P[4]) {
 	enum { STEPS = 256 };
 	ImVec2 Q[4] = {{0, 0}, {P[0], P[1]}, {P[2], P[3]}, {1, 1}};

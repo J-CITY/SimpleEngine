@@ -9,7 +9,7 @@
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class AudioComponent : public ComponentBase {
 		IKI_GENERATED_BODY(AudioComponent)
 	public:
@@ -100,7 +100,7 @@ namespace IKIGAI::ECS {
 		}
 	};
 
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class AudioListenerComponent : public ComponentBase {
 		IKI_GENERATED_BODY(AudioListenerComponent)
 	public:

@@ -25,7 +25,7 @@ namespace IKIGAI::ECS {
 		OBB,
 		COUNT,
 	};
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class PhysicsComponent : public ComponentBase {
 		IKI_GENERATED_BODY(PhysicsComponent)
 	public:

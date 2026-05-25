@@ -5,7 +5,7 @@
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS{
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class PointLight : public LightComponent {
 		IKI_GENERATED_BODY(PointLight)
 	public:

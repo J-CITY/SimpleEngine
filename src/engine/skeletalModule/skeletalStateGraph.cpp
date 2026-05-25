@@ -9,7 +9,7 @@
 
 namespace IKIGAI::SKELETON {
 
-	SkeletalStateGraphInstance::SkeletalStateGraphInstance(Skeleton* skeleton, std::shared_ptr<SkeletalStateGraph> graph, std::shared_ptr<UTILS::Environment> env)
+	SkeletalStateGraphInstance::SkeletalStateGraphInstance(std::shared_ptr<Skeleton> skeleton, std::shared_ptr<SkeletalStateGraph> graph, std::shared_ptr<UTILS::Environment> env)
 		: mSkeleton(skeleton), mGraph(graph), mEnvironment(env) {
 		mTransitionBlend = std::make_unique<AnimBlend>(skeleton);
 
@@ -144,7 +144,7 @@ namespace IKIGAI::SKELETON {
 		if (stateRes.type == RENDER::AnimStateType::ANIMATION) {
 			auto animRes = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonAnimationLoader>().loadResource(stateRes.resourcePath);
 			if (animRes) {
-				return std::make_unique<AnimSample>(mSkeleton, animRes.get());
+				return std::make_unique<AnimSample>(mSkeleton, animRes);
 			}
 		} else if (stateRes.type == RENDER::AnimStateType::BLENDSPACE_1D || stateRes.type == RENDER::AnimStateType::BLENDSPACE_2D) {
 			auto bsRes = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonBlendspaceLoader>().loadResource(stateRes.resourcePath);

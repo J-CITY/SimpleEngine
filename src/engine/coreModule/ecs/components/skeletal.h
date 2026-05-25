@@ -13,7 +13,7 @@ namespace IKIGAI::RESOURCES {
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class Skeletal : public ComponentBase {
 		IKI_GENERATED_BODY(Skeletal)
 	public:

@@ -129,4 +129,6 @@ namespace ImGui {
 	int Bezier(const char* label, float P[]);
 }
 
-
+namespace IKIGAI::IMGUI {
+	int DrawCombineVecEdit(const std::string& name, int size, float* vec, float mn = 0.0f, float mx = 0.0f, float step = 0.1f, bool allowColorMode = true);
+}

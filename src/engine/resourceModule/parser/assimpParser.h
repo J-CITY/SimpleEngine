@@ -2,8 +2,8 @@
 #include <vector>
 #include <assimp/scene.h>
 #include <renderModule/backends/interface/modelInterface.h>
-
 #include "parseFlags.h"
+#include <unordered_map>
 
 namespace IKIGAI::SKELETON {
 	class Skeleton;
@@ -56,9 +56,9 @@ namespace IKIGAI {
 		private:
 			const unsigned int MAX_BONE_WEIGHTS = 4;
 			void processMaterials(const struct aiScene* scene, std::vector<std::string>& materials);;
-			void processNode(void* transform, struct aiNode* node, const struct aiScene* scene, RESOURCES::ResourcePtr<RENDER::ModelInterface> model);
+			void processNode(void* transform, struct aiNode* node, const struct aiScene* scene, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, const std::unordered_map<std::string, int>& boneMapping);
 			void processMesh(void* transform, struct aiMesh* mesh, const struct aiScene* scene, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
-			void loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, RESOURCES::ResourcePtr<RENDER::ModelInterface> model);
+			void loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, RESOURCES::ResourcePtr<RENDER::ModelInterface> model, const std::unordered_map<std::string, int>& boneMapping);
 			void setVertexBoneData(Vertex& vertex, int boneID, float weight);
 
 			// Skeleton internal helpers (delegates to Skeleton methods)

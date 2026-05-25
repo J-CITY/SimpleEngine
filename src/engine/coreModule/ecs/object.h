@@ -119,7 +119,11 @@ namespace IKIGAI::ECS {
 		template<typename T>
 		inline bool removeComponent() {
 			static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
-			static_assert(!std::is_same_v<TransformComponent, T>, "You can't remove a Transform from an actor");
+			//create method in rteflection genereted file
+			//static_assert(!std::is_same_v<TransformComponent, T>, "You can't remove a Transform from an actor");
+			if constexpr (std::is_same<T, TransformComponent>::value) {
+				return false;
+			}
 
 			auto result = getComponent<T>();
 			if (!result) {

@@ -175,6 +175,7 @@ namespace IKIGAI {
 						if (weakRes.lock()) {
 							unsubscribeFileWatch(mainPath);
 							reloadResource(weakRes, mainPath);
+							addFileWatchSubscribe(mainPath, watchPaths, weakRes);
 						}
 					}
 				};

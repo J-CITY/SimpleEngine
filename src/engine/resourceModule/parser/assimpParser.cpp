@@ -9,6 +9,7 @@
 #include <renderModule/vertex.h>
 #include "skeletalModule/skeleton.h"
 #include "skeletalModule/animation.h"
+#include <unordered_map>
 
 //#include <deprecated/stb.h>
 #ifdef OPENGL_BACKEND
@@ -45,7 +46,14 @@ bool AssimpParser::LoadModel(const std::string& fileName,
 	globalVertices.clear();
 	globalIndices.clear();
 	//if (scene->HasAnimations()) {
-	processNode(&identity, scene->mRootNode, scene, model);
+	std::unordered_map<std::string, int> boneMapping;
+	SKELETON::Skeleton tempSkeleton;
+	if (buildSkeleton(scene, tempSkeleton)) {
+		for (int i = 0; i < tempSkeleton.getNumJolts(); ++i) {
+			boneMapping[tempSkeleton.joints()[i].name] = i;
+		}
+	}
+	processNode(&identity, scene->mRootNode, scene, model, boneMapping);
 	//}
 	if (model->getUseBatching()) {
 #ifdef OPENGL_BACKEND
@@ -78,7 +86,15 @@ bool AssimpParser::LoadModel(const std::string& fileName, const std::vector<uint
 	globalVertices.clear();
 	globalIndices.clear();
 	//if (scene->HasAnimations()) {
-		processNode(&identity, scene->mRootNode, scene, model);
+		std::unordered_map<std::string, int> boneMapping;
+		SKELETON::Skeleton tempSkeleton;
+		if (buildSkeleton(scene, tempSkeleton)) {
+			for (int i = 0; i < tempSkeleton.getNumJolts(); ++i) {
+				boneMapping[tempSkeleton.joints()[i].name] = i;
+			}
+		}
+
+		processNode(&identity, scene->mRootNode, scene, model, boneMapping);
 	//}
 	if (model->getUseBatching()) {
 #ifdef OPENGL_BACKEND
@@ -117,7 +133,16 @@ bool AssimpParser::LoadVertexes(const std::string& fileName,
 	globalVertices.clear();
 	globalIndices.clear();
 	//if (scene->HasAnimations()) {
-	processNode(&identity, scene->mRootNode, scene, model);
+	std::unordered_map<std::string, int> boneMapping;
+	SKELETON::Skeleton tempSkeleton;
+	if (buildSkeleton(scene, tempSkeleton)) {
+		for (int i = 0; i < tempSkeleton.getNumJolts(); ++i) {
+			boneMapping[tempSkeleton.joints()[i].name] = i;
+		}
+	}
+
+	//if (scene->HasAnimations()) {
+	processNode(&identity, scene->mRootNode, scene, model, boneMapping);
 	//}
 
 
@@ -154,7 +179,16 @@ bool AssimpParser::LoadVertexes(const std::string& fileName, const std::vector<u
 	globalVertices.clear();
 	globalIndices.clear();
 	//if (scene->HasAnimations()) {
-	processNode(&identity, scene->mRootNode, scene, model);
+	std::unordered_map<std::string, int> boneMapping;
+	SKELETON::Skeleton tempSkeleton;
+	if (buildSkeleton(scene, tempSkeleton)) {
+		for (int i = 0; i < tempSkeleton.getNumJolts(); ++i) {
+			boneMapping[tempSkeleton.joints()[i].name] = i;
+		}
+	}
+
+	//if (scene->HasAnimations()) {
+	processNode(&identity, scene->mRootNode, scene, model, boneMapping);
 	//}
 
 
@@ -190,7 +224,7 @@ void AssimpParser::processMaterials(const aiScene* scene, std::vector<std::strin
 #include <renderModule/backends/dx12/modelDx12.h>
 #endif
 
-void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model) {
+void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model, const std::unordered_map<std::string, int>& boneMapping) {
 	aiMatrix4x4 nodeTransformation = *reinterpret_cast<aiMatrix4x4*>(transform) * node->mTransformation;
 
 	auto boneSz = 0;
@@ -226,7 +260,7 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 		processMesh(&nodeTransformation, mesh, scene, vertices, indices);
 
-		loadBones(vertices, mesh, scene, model);
+		loadBones(vertices, mesh, scene, model, boneMapping);
 		//loadBones(NumVertices, mesh, bones, m_BoneMapping, m_NumBones, m_BoneInfo);'
 		std::shared_ptr<RENDER::MeshInterface> newMash;
 #ifdef OPENGL_BACKEND
@@ -315,25 +349,28 @@ void AssimpParser::processNode(void* transform, aiNode* node, const aiScene* sce
 
 	// Then do the same for each of its children
 	for (uint32_t i = 0; i < node->mNumChildren; ++i) {
-		processNode(&nodeTransformation, node->mChildren[i], scene, model);
+		processNode(&nodeTransformation, node->mChildren[i], scene, model, boneMapping);
 	}
 }
 
-void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model) {
+void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const aiScene* scene, ResourcePtr<RENDER::ModelInterface> model, const std::unordered_map<std::string, int>& boneMapping) {
 	for (int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
+		std::string boneName = IKIGAI::SKELETON::trimmedName(mesh->mBones[boneIndex]->mName.C_Str());
+		
 		int boneID = -1;
-		std::string boneName = mesh->mBones[boneIndex]->mName.C_Str();
+		if (boneMapping.find(boneName) != boneMapping.end()) {
+			boneID = boneMapping.at(boneName);
+		} else {
+			continue; // If bone is not in skeleton, skip
+		}
+
 		if (!model->isBoneExist(boneName)) {
 			RENDER::BoneInfo newBoneInfo;
-			newBoneInfo.mId = model->getBoneCounter();
+			newBoneInfo.mId = boneID;
 			newBoneInfo.mOffset = ConvertMatrix4x4(mesh->mBones[boneIndex]->mOffsetMatrix);
-			boneID = model->getBoneCounter();
 			model->addBone(boneName, newBoneInfo);
 		}
-		else {
-			boneID = model->getBoneId(boneName);
-		}
-		assert(boneID != -1);
+		
 		auto weights = mesh->mBones[boneIndex]->mWeights;
 		int numWeights = mesh->mBones[boneIndex]->mNumWeights;
 
@@ -526,18 +563,19 @@ bool AssimpParser::fillAnimation(const aiScene* scene, SKELETON::Skeleton& skele
 			if (additiveReference && additiveReference->channels[jointIndex].rotationKeyframes.size() > 0)
 				refRot = additiveReference->channels[jointIndex].rotationKeyframes[0].rotation;
 			else
-				refRot = MATH::QuaternionF(channel->mRotationKeys[0].mValue.w,
+				refRot = MATH::QuaternionF(
 					channel->mRotationKeys[0].mValue.x,
 					channel->mRotationKeys[0].mValue.y,
-					channel->mRotationKeys[0].mValue.z);
+					channel->mRotationKeys[0].mValue.z,
+					channel->mRotationKeys[0].mValue.w);
 		}
 		for (unsigned int j = 0; j < channel->mNumRotationKeys; ++j) {
 			outAnimation.channels[jointIndex].rotationKeyframes[j].time = channel->mRotationKeys[j].mTime;
 			outAnimation.channels[jointIndex].rotationKeyframes[j].rotation = MATH::QuaternionF(
-				channel->mRotationKeys[j].mValue.w,
 				channel->mRotationKeys[j].mValue.x,
 				channel->mRotationKeys[j].mValue.y,
-				channel->mRotationKeys[j].mValue.z);
+				channel->mRotationKeys[j].mValue.z,
+				channel->mRotationKeys[j].mValue.w);
 			if (additive)
 				outAnimation.channels[jointIndex].rotationKeyframes[j].rotation =
 					SKELETON::rotationDelta(refRot, outAnimation.channels[jointIndex].rotationKeyframes[j].rotation);

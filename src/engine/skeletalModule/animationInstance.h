@@ -7,7 +7,7 @@
 namespace IKIGAI::SKELETON {
 	class AnimSample : public IAnimationPlayable {
 	public:
-		AnimSample(Skeleton* skeleton, Animation* animation);
+		AnimSample(std::shared_ptr<Skeleton> skeleton, std::shared_ptr<Animation> animation);
 		~AnimSample() override;
 		void update(float dt) override;
 		Pose* getPose() override;
@@ -28,8 +28,8 @@ namespace IKIGAI::SKELETON {
 		double mGlobalTime;
 		double mLocalTime;
 		float mLocalTimeNormalized;
-		Skeleton* mSkeleton;
-		Animation* mAnimation;
+		std::shared_ptr<Skeleton> mSkeleton;
+		std::shared_ptr<Animation> mAnimation;
 		float mPlaybackRate;
 		Pose mPose;
 	};

@@ -17,7 +17,7 @@ namespace IKIGAI::ECS { class Object; }
 
 
 namespace IKIGAI::ECS {
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class CameraComponent : public ComponentBase {
 		IKI_GENERATED_BODY(CameraComponent)
 	public:
@@ -134,7 +134,7 @@ namespace IKIGAI::ECS {
 		RENDER::Camera camera;
 	};
 
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class VrCameraComponent : public CameraComponent {
 		IKI_GENERATED_BODY(VrCameraComponent)
 	public:

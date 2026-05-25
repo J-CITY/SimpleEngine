@@ -12,6 +12,8 @@
 #include "components/modelRenderer.h"
 #include "components/pointLight.h"
 #include "components/skeletal.h"
+#include "components/skeletalComponent.h"
+#include "components/skeletalAnimationComponent.h"
 #include "components/scriptComponent.h"
 #include "components/spotLight.h"
 #include "components/physicsComponent.h"
@@ -34,6 +36,8 @@ namespace IKIGAI::ECS {
 		PointLight,\
 		ScriptComponent,\
 		Skeletal,\
+		SkeletalComponent,\
+		SkeletalAnimationComponent,\
 		SpotLight,\
 		PhysicsComponent,\
 		AudioListenerComponent,\
@@ -65,6 +69,8 @@ namespace IKIGAI::ECS {
 		PointLight::Descriptor,\
 		ScriptComponent::Descriptor,\
 		Skeletal::Descriptor,\
+		SkeletalComponent::Descriptor,\
+		SkeletalAnimationComponent::Descriptor,\
 		SpotLight::Descriptor,\
 		PhysicsComponent::Descriptor,\
 		AudioListenerComponent::Descriptor,\
@@ -98,6 +104,8 @@ namespace IKIGAI::ECS {
 		PointLight,\
 		ScriptComponent,\
 		Skeletal,\
+		SkeletalComponent,\
+		SkeletalAnimationComponent,\
 		SpotLight,\
 		PhysicsComponent,\
 		AudioListenerComponent,\
@@ -118,6 +126,8 @@ namespace IKIGAI::ECS {
 		PointLight::Descriptor,\
 		ScriptComponent::Descriptor,\
 		Skeletal::Descriptor,\
+		SkeletalComponent::Descriptor,\
+		SkeletalAnimationComponent::Descriptor,\
 		SpotLight::Descriptor,\
 		PhysicsComponent::Descriptor,\
 		AudioListenerComponent::Descriptor,\

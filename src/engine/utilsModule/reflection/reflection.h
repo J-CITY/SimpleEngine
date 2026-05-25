@@ -260,8 +260,7 @@ public:
 	bool isStatic = false;
 	bool isConst = false;
 
-	using Invoker =
-			std::function<Any(void *instance, const std::vector<Any> &args)>;
+	using Invoker = std::function<Any(void *instance, const std::vector<Any> &args)>;
 	Invoker invoke;
 };
 
@@ -361,6 +360,8 @@ Any invoke_member_const(R (C::*func)(Args...) const, void *instance,
 class ReflectionManager {
 	std::unordered_map<TypeId, TypeInfo> mTypes;
 	std::unordered_map<TypeId, EnumInfo> mEnums;
+	std::unordered_map<TypeId, TypeId> mTypeAliases;
+	std::unordered_map<std::string, std::vector<TypeInfo*>> mTypeGroups;
 	TypeInfo mGlobalScope;
 	std::unordered_map<std::string, Any> mInternalProperties;
 	std::unordered_map<std::string, FieldInfo> mGlobalProperties;
@@ -375,6 +376,30 @@ public:
 			return mGlobalProperties;
 	}
 
+	const std::unordered_map<TypeId, TypeInfo>& getTypes() const {
+		return mTypes;
+	}
+
+	void addTypeToGroup(TypeId id, const std::string& groupName) {
+		if (auto* typeInfo = getType(id)) {
+			mTypeGroups[groupName].push_back(typeInfo);
+		}
+	}
+
+	template<class CLASS> 
+	void addTypeToGroup(const std::string& groupName) {
+		addTypeToGroup(GetTypeId<CLASS>(), groupName);
+	}
+
+	const std::vector<TypeInfo*>& getTypesInGroup(const std::string& groupName) const {
+		static std::vector<TypeInfo*> empty;
+		auto it = mTypeGroups.find(groupName);
+		if (it != mTypeGroups.end()) {
+			return it->second;
+		}
+		return empty;
+	}
+
 	template <typename T> static constexpr TypeId GetTypeId() {
 		return string_hash(NAMEOF_TYPE(T));
 	}
@@ -384,6 +409,23 @@ public:
 		auto newId = string_hash(newType);
 		if (mTypes.find(newId) == mTypes.end()) {
 			mTypes[newId] = TypeInfo{std::string(newType), newId};
+		}
+
+		// RTTI alias
+		std::string_view rttiName = typeid(CLASS).name();
+		auto rttiId = string_hash(rttiName);
+		if (rttiId != newId) {
+			mTypeAliases[rttiId] = newId;
+		}
+
+		// Short name alias
+		auto lastColon = std::string_view(newType).find_last_of(':');
+		if (lastColon != std::string_view::npos) {
+			auto shortName = std::string_view(newType).substr(lastColon + 1);
+			auto shortId = string_hash(shortName);
+			if (shortId != newId) {
+				mTypeAliases[shortId] = newId;
+			}
 		}
 	}
 
@@ -400,6 +442,10 @@ public:
 	TypeInfo *getType(TypeId id) {
 		auto target = mTypes.find(id);
 		if (target == mTypes.end()) {
+			auto aliasIt = mTypeAliases.find(id);
+			if (aliasIt != mTypeAliases.end()) {
+				return getType(aliasIt->second);
+			}
 			return nullptr;
 		}
 		return &target->second;
@@ -779,6 +825,7 @@ enum class MetaInfo {
 };
 
 enum class WidgetType : uint32_t {
+	NONE,
 	DRAG_INT,
 	DRAG_FLOAT,
 	DRAG_FLOAT_3,

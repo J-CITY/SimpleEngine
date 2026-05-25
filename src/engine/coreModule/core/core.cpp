@@ -33,6 +33,10 @@
 #include "editorModule/editorRender.h"
 #include "renderModule/gameRendererGl.h"
 #include "renderModule/render.h"
+#include "resourceModule/skeletonAnimationManager.h"
+#include "resourceModule/skeletonBlendspaceManager.h"
+#include "resourceModule/skeletonManager.h"
+#include "resourceModule/skeletonStateGraphManager.h"
 #ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/driverGl.h>
 #include <renderModule/gameRendererGl.h>
@@ -189,6 +193,9 @@ Core:: Core(
 		compMgr->registerComponent<ECS::ModelLODRenderer>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::BatchComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::RenderTargetComponent>(IKIGAI::ECS2::StorageType::Sparse);
+
+		compMgr->registerComponent<ECS::SkeletalComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SkeletalAnimationComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		//GUI
 #ifdef OPENGL_BACKEND
 		compMgr->registerComponent<ECS::RootGuiComponent>(IKIGAI::ECS2::StorageType::Sparse);
@@ -264,6 +271,17 @@ Core:: Core(
 	RESOURCES::ServiceManager::Set<TASK::TaskSystem>(taskManger.get());
 	RESOURCES::ServiceManager::Set<EVENT::EventBroadcaster>(eventBroadcaster.get());
 	RESOURCES::ServiceManager::Set<RENDER::Renderer>(render.get());
+
+	skeletonLoader = std::make_unique<RESOURCES::SkeletonLoader>();
+	skeletalStateGraphLoader = std::make_unique<RESOURCES::SkeletonStateGraphLoader>();
+	skeletonBlendspaceLoader = std::make_unique<RESOURCES::SkeletonBlendspaceLoader>();
+	skeletonAnimationLoader = std::make_unique<RESOURCES::SkeletonAnimationLoader>();
+
+	RESOURCES::ServiceManager::Set<RESOURCES::SkeletonLoader>(skeletonLoader.get());
+	RESOURCES::ServiceManager::Set<RESOURCES::SkeletonStateGraphLoader>(skeletalStateGraphLoader.get());
+	RESOURCES::ServiceManager::Set<RESOURCES::SkeletonBlendspaceLoader>(skeletonBlendspaceLoader.get());
+	RESOURCES::ServiceManager::Set<RESOURCES::SkeletonAnimationLoader>(skeletonAnimationLoader.get());
+
 //#ifdef OPENGL_BACKEND
 //	if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::OPENGL) {
 		renderer = std::make_unique<RENDER::GameRendererGl>(*this);

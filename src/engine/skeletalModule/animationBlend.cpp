@@ -1,7 +1,7 @@
 #include "animationBlend.h"
 
 namespace IKIGAI::SKELETON {
-	AnimBlend::AnimBlend(Skeleton* skeleton) : mSkeleton(skeleton) {
+	AnimBlend::AnimBlend(std::shared_ptr<Skeleton> skeleton) : mSkeleton(skeleton) {
 
 	}
 

@@ -18,7 +18,11 @@
 #include "renderModule/backends/interface/uniformBufferInterface.h"
 
 #include "renderModule/render.h"
+#include "skeletalModule/animationOffset.h"
+#include "skeletalModule/animationTransform.h"
+#include "skeletalModule/iAnimationPlayable.h"
 #include "utilsModule/jsonLoader.h"
+#include "utilsModule/time/time.h"
 #include "windowModule/window/window.h"
 
 #ifdef OCULUS
@@ -45,6 +49,7 @@ namespace IKIGAI::RENDER {
 		mEmptyTexture = render->createTexture("/textures/empty.png");
 
 		mEngineUbo = render->createUniformBuffer<EngineUBO>({});
+		mBoneUbo = render->createUniformBuffer<BonesUBO>({});
 
 
 		RenderGraphPipeline::Descriptor desc;
@@ -99,9 +104,28 @@ namespace IKIGAI::RENDER {
 			
 			//TODO: use render for it
 			std::static_pointer_cast<ShaderGl>(drawable.material->getShader())->setMat4("engine_Model.model", drawable.world);
+
+			BonesUBO data;
+			if (drawable.skeleton && drawable.animationPlayable) {
+				data.use = 1;
+				{
+					drawable.animationPlayable->update(0.0016f);
+					auto final_pose = drawable.animationPlayable->getPose();
+					auto* local_transforms = drawable.mAnimLocalTransform->generateTransforms(final_pose);
+					auto* global_transforms = drawable.mAnimGlobalTransform->generateTransforms(local_transforms);
+					auto* final_transforms = drawable.mAnimOffset->offset(global_transforms);
+					std::memcpy(data.bones, final_transforms->transforms, sizeof(MATH::Matrix4f) * 128);
+					for (int i = 0; i < 128; ++i) {
+						data.bones[i] = MATH::Matrix4f::Transpose(data.bones[i]);
+					}
+				}
+			}
+			mBoneUbo->setData(data);
+
 			//std::static_pointer_cast<ShaderGl>(drawable.material->getShader())->setMat4("engine_Model.Projection", MATH::Matrix4f::Transpose(uboData.Projection));
 			//std::static_pointer_cast<ShaderGl>(drawable.material->getShader())->setMat4("engine_Model.View", MATH::Matrix4f::Transpose(uboData.View));
 			render->setUniformBuffer("engine_UBO", mEngineUbo);
+			render->setUniformBuffer("engine_Bones", mBoneUbo);
 			render->setStorageBuffer("engine_Lights", mLightSSBO);
 
 			//glBindBufferBase(GL_UNIFORM_BUFFER, 0, std::static_pointer_cast<UniformBufferGl>(mEngineUbo)->getId());

@@ -188,6 +188,7 @@ namespace IKIGAI::RENDER {
 		std::shared_ptr<RENDER::MaterialInterface> mEmptyMaterial;
 		std::shared_ptr<RENDER::TextureInterface> mEmptyTexture;
 		std::shared_ptr<UniformBufferInterface> mEngineUbo;
+		std::shared_ptr<UniformBufferInterface> mBoneUbo;
 
 		EngineUBO uboData;
 

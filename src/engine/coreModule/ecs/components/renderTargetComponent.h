@@ -15,7 +15,7 @@ IKIGAI_ENUM_NS(IKIGAI::ECS, RenderFlowType,
 )
 
 namespace IKIGAI::ECS {
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class RenderTargetComponent : public ComponentBase {
 		IKI_GENERATED_BODY(RenderTargetComponent)
 	public:

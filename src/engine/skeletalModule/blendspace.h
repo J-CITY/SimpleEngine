@@ -22,10 +22,10 @@ namespace IKIGAI::SKELETON {
 		virtual ~Blendspace1D() override {}
 		struct Node {
 			float value;
-			Animation* anim;
+			std::shared_ptr<Animation> anim;
 		};
 
-		Skeleton* mSkeleton;
+		std::shared_ptr<Skeleton> mSkeleton;
 		std::vector<Node> mNodes;
 	};
 
@@ -34,14 +34,14 @@ namespace IKIGAI::SKELETON {
 		virtual ~Blendspace2D() override {}
 		struct Node {
 			float value;
-			Animation* anim;
+			std::shared_ptr<Animation> anim;
 		};
 		struct Row {
 			float value;
 			std::vector<Node> nodes;
 		};
 
-		Skeleton* mSkeleton;
+		std::shared_ptr<Skeleton> mSkeleton;
 		std::vector<Row> mRows;
 	};
 

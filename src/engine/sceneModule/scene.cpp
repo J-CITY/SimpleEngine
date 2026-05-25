@@ -10,6 +10,8 @@
 #include "coreModule/ecs/object.h"
 #include "coreModule/ecs/components/renderTargetComponent.h"
 #include "coreModule/ecs/components/cameraComponent.h"
+#include "coreModule/ecs/components/skeletalComponent.h"
+#include "coreModule/ecs/components/skeletalAnimationComponent.h"
 #include "physicsModule/broadPhase.h"
 #include "renderModule/backends/interface/meshInterface.h"
 #include "utilsModule/log/loggerDefine.h"
@@ -641,6 +643,13 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledBVHDrawa
 			if (auto materialRenderer = owner->getComponent<ECS::MaterialRenderer>()) {
 				auto& transform = owner->getTransform()->getTransform();
 				auto animator = owner->getComponent<ECS::Skeletal>();
+				auto skeletonComp = owner->getComponent<ECS::SkeletalComponent>();
+				auto animComp = owner->getComponent<ECS::SkeletalAnimationComponent>();
+				std::shared_ptr<SKELETON::Skeleton> skeleton = skeletonComp ? skeletonComp->getSkeleton() : nullptr;
+				SKELETON::IAnimationPlayable* animationPlayable = animComp ? animComp->getPlayable() : nullptr;
+				SKELETON::AnimOffset* animOffset = skeletonComp ? skeletonComp->mAnimOffset.get() : nullptr;
+				SKELETON::AnimLocalTransform* animLocalTransform = skeletonComp ? skeletonComp->mAnimLocalTransform.get() : nullptr;
+				SKELETON::AnimGlobalTransform* animGlobalTransform = skeletonComp ? skeletonComp->mAnimGlobalTransform.get() : nullptr;
 
 				size_t chunkIdx = ctx.getChunkIdxForObj(owner->getID());
 				auto& chunk = ctx.getChunk(chunkIdx);
@@ -662,7 +671,7 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledBVHDrawa
 				}
 
 				if (material) {
-					RENDER::Drawable element = { transform.getPrevWorldMatrix(), transform.getWorldMatrix(), meshData->mesh, material, animator };
+					RENDER::Drawable element = { transform.getPrevWorldMatrix(), transform.getWorldMatrix(), meshData->mesh, material, animator, skeleton, animationPlayable, animOffset, animLocalTransform, animGlobalTransform };
 					transform.setPrevWorldMatrix(transform.getWorldMatrix());
 					if (material->isBlendable()) {
 						if (!material->isDeferred()) {
@@ -706,6 +715,13 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledDrawable
 				if (auto materialRenderer = modelRenderer.obj.get().getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = owner->getTransform()->getTransform();
 					auto animator = modelRenderer.obj.get().getComponent<ECS::Skeletal>();
+					auto skeletonComp = modelRenderer.obj.get().getComponent<ECS::SkeletalComponent>();
+					auto animComp = modelRenderer.obj.get().getComponent<ECS::SkeletalAnimationComponent>();
+					std::shared_ptr<SKELETON::Skeleton> skeleton = skeletonComp ? skeletonComp->getSkeleton() : nullptr;
+					SKELETON::IAnimationPlayable* animationPlayable = animComp ? animComp->getPlayable() : nullptr;
+					SKELETON::AnimOffset* animOffset = skeletonComp ? skeletonComp->mAnimOffset.get() : nullptr;
+					SKELETON::AnimLocalTransform* animLocalTransform = skeletonComp ? skeletonComp->mAnimLocalTransform.get() : nullptr;
+					SKELETON::AnimGlobalTransform* animGlobalTransform = skeletonComp ? skeletonComp->mAnimGlobalTransform.get() : nullptr;
 
 					RENDER::CullingOptions cullingOptions = RENDER::CullingOptions::NONE;
 
@@ -743,7 +759,7 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledDrawable
 							}
 
 							if (material) {
-								RENDER::Drawable element = { transform.getPrevWorldMatrix(), transform.getWorldMatrix(), mesh, material, animator};
+								RENDER::Drawable element = { transform.getPrevWorldMatrix(), transform.getWorldMatrix(), mesh, material, animator, skeleton, animationPlayable, animOffset, animLocalTransform, animGlobalTransform };
 								transform.setPrevWorldMatrix(transform.getWorldMatrix());
 								if (material->isBlendable()) {
 									if (!material->isDeferred()) {
@@ -787,6 +803,13 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortDrawables
 				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = modelRenderer.obj->getTransform()->getTransform();
 					auto animator = modelRenderer.obj->getComponent<ECS::Skeletal>();
+					auto skeletonComp = modelRenderer.obj->getComponent<ECS::SkeletalComponent>();
+					auto animComp = modelRenderer.obj->getComponent<ECS::SkeletalAnimationComponent>();
+					std::shared_ptr<SKELETON::Skeleton> skeleton = skeletonComp ? skeletonComp->getSkeleton() : nullptr;
+					SKELETON::IAnimationPlayable* animationPlayable = animComp ? animComp->getPlayable() : nullptr;
+					SKELETON::AnimOffset* animOffset = skeletonComp ? skeletonComp->mAnimOffset.get() : nullptr;
+					SKELETON::AnimLocalTransform* animLocalTransform = skeletonComp ? skeletonComp->mAnimLocalTransform.get() : nullptr;
+					SKELETON::AnimGlobalTransform* animGlobalTransform = skeletonComp ? skeletonComp->mAnimGlobalTransform.get() : nullptr;
 
 					size_t chunkIdx = ctx.getChunkIdxForObj(modelRenderer.obj->getID());
 					auto& chunk = ctx.getChunk(chunkIdx);
@@ -810,7 +833,7 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortDrawables
 						}
 
 						if (material) {
-							RENDER::Drawable element = { transform.getPrevWorldMatrix(),transform.getWorldMatrix(), mesh, material, animator};
+							RENDER::Drawable element = { transform.getPrevWorldMatrix(),transform.getWorldMatrix(), mesh, material, animator, skeleton, animationPlayable, animOffset, animLocalTransform, animGlobalTransform };
 							transform.setPrevWorldMatrix(transform.getWorldMatrix());
 							if (material->isBlendable()) {
 								if (!material->isDeferred()) {

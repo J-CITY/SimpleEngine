@@ -15,7 +15,7 @@ namespace IKIGAI::ECS{
 		CULL_MESHES = 2,
 		CULL_CUSTOM = 3
 	};
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class  ModelRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(ModelRenderer)
 	public:
@@ -53,7 +53,7 @@ namespace IKIGAI::ECS{
 		}
 	};
 
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class ModelLODRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(ModelLODRenderer)
 	public:
@@ -129,7 +129,7 @@ namespace IKIGAI::ECS{
 	}
 
 
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class ChunkModelRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(ChunkModelRenderer)
 	public:

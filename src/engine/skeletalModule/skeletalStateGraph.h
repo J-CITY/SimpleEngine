@@ -19,7 +19,7 @@ namespace IKIGAI::SKELETON {
 
 	class SkeletalStateGraphInstance : public IAnimationPlayable {
 	public:
-		SkeletalStateGraphInstance(Skeleton* skeleton, std::shared_ptr<SkeletalStateGraph> graph, std::shared_ptr<UTILS::Environment> env);
+		SkeletalStateGraphInstance(std::shared_ptr<Skeleton> skeleton, std::shared_ptr<SkeletalStateGraph> graph, std::shared_ptr<UTILS::Environment> env);
 		~SkeletalStateGraphInstance() override;
 
 		void update(float dt) override;
@@ -31,7 +31,7 @@ namespace IKIGAI::SKELETON {
 		void changeState(const std::string& stateName, float blendTime);
 		std::unique_ptr<IAnimationPlayable> instantiateStatePlayable(const RENDER::AnimStateResource& stateRes);
 
-		Skeleton* mSkeleton;
+		std::shared_ptr<Skeleton> mSkeleton;
 		std::shared_ptr<SkeletalStateGraph> mGraph;
 		std::shared_ptr<UTILS::Environment> mEnvironment;
 

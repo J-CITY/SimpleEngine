@@ -13,7 +13,7 @@ Vertex::Vertex(const MATH::Vector3f& position, const MATH::Vector2f& texCoord, c
 #if defined(USING_GLES) || defined(OPENGL_SIMPLE_RENDER)
 	m_BoneIDs = { (float)boneIDs[0], (float)boneIDs[1], (float)boneIDs[2], (float)boneIDs[3]};
 #else
-	m_BoneIDs = std::move(boneIDs);
+	m_BoneIDs = boneIDs;
 #endif
 	m_Weights = weights;
 }

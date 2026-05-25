@@ -16,7 +16,9 @@ def parse_balanced_args(text, start_index):
                 return text[start_index+1:i], i+1
     return None, -1
 
-def infer_cpp_type_and_val(val):
+def infer_cpp_type_and_val(val, key=None):
+    if key == "EditWidget":
+        return "IKIGAI::UTILS::WidgetType", f"IKIGAI::UTILS::WidgetType::{val}"
     val = val.strip()
     if val in ("true", "false"): return "bool", val
     if val.startswith('"') and val.endswith('"'): return "std::string", f"std::string({val})"
@@ -55,8 +57,8 @@ def infer_cpp_type_and_val(val):
                 curr += c
         if curr: items.append(curr.strip())
         
-        c_type, c_val = infer_cpp_type_and_val(items[0])
-        val_list = [infer_cpp_type_and_val(i)[1] for i in items]
+        c_type, c_val = infer_cpp_type_and_val(items[0], key)
+        val_list = [infer_cpp_type_and_val(i, key)[1] for i in items]
         ctype = f"std::set<{c_type}>" if is_set else f"std::vector<{c_type}>"
         return ctype, f"{ctype}{{{', '.join(val_list)}}}"
         
@@ -390,17 +392,22 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
         out_filename = f"{name_no_ext}.generated.h"
         out_filepath = os.path.join(output_dir_base, out_filename)
         
-        cpp_content = f"// AUTO GENERATED FILE. DO NOT MODIFY.\n"
-        cpp_content += f"// Generated from {base_name}\n"
-        cpp_content += f"#pragma once\n"
-        cpp_content += f"#include <set>\n"
-        cpp_content += f"#include <vector>\n"
-        cpp_content += f"#include <map>\n"
-        cpp_content += f"#include <string>\n"
-        cpp_content += f"#include \"utilsModule/reflection/reflection.h\"\n"
-        cpp_content += f"#include \"{rel_path}\"\n\n"
+        cpp_h_content = f"// AUTO GENERATED FILE. DO NOT MODIFY.\n"
+        cpp_h_content += f"// Generated from {base_name}\n"
+        cpp_h_content += f"#pragma once\n"
+        cpp_h_content += f"#include <set>\n"
+        cpp_h_content += f"#include <vector>\n"
+        cpp_h_content += f"#include <map>\n"
+        cpp_h_content += f"#include <string>\n"
+        cpp_h_content += f"#include \"utilsModule/reflection/reflection.h\"\n"
+        cpp_h_content += f"#include \"{rel_path}\"\n\n"
 
-        # Generate serde functions first (for ADL)
+        cpp_c_content = f"// AUTO GENERATED FILE. DO NOT MODIFY.\n"
+        cpp_c_content += f"// Generated from {base_name}\n"
+        cpp_c_content += f"#include \"{out_filename}\"\n"
+        cpp_c_content += f"#include \"coreModule/ecs/object.h\"\n\n"
+
+        # Generate serde functions first (for ADL) in header
         for c in classes:
             cname = c["args"].get("Name", c["name"])
             namespace = c["namespace"]
@@ -414,46 +421,45 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
                     
             if serde_fields:
                 if namespace:
-                    cpp_content += f"namespace {namespace} {{\n"
+                    cpp_h_content += f"namespace {namespace} {{\n"
                 
-                cpp_content += f"    template<class Context>\n"
-                cpp_content += f"    constexpr auto ikigai_serde(Context& context, {cname}& value) {{\n"
-                cpp_content += f"        using namespace serde::attribute;\n"
-                cpp_content += f"        serde::serde_struct(context, value)\n"
+                cpp_h_content += f"    template<class Context>\n"
+                cpp_h_content += f"    constexpr auto ikigai_serde(Context& context, {cname}& value) {{\n"
+                cpp_h_content += f"        using namespace serde::attribute;\n"
+                cpp_h_content += f"        serde::serde_struct(context, value)\n"
                 
                 for i, (s_name, s_args) in enumerate(serde_fields):
                     s_name_attr = s_args.get('name', f'"{s_name}"')
                     if 'default' in s_args:
                         def_val = s_args['default']
-                        cpp_content += f"            .field(&{cname}::{s_name}, {s_name_attr}, default_{{{def_val}}})"
+                        cpp_h_content += f"            .field(&{cname}::{s_name}, {s_name_attr}, default_{{{def_val}}})"
                     else:
-                        cpp_content += f"            .field(&{cname}::{s_name}, {s_name_attr})"
+                        cpp_h_content += f"            .field(&{cname}::{s_name}, {s_name_attr})"
                     
                     if i < len(serde_fields) - 1:
-                        cpp_content += "\n"
+                        cpp_h_content += "\n"
                     else:
-                        cpp_content += ";\n"
+                        cpp_h_content += ";\n"
                         
-                cpp_content += f"    }}\n"
+                cpp_h_content += f"    }}\n"
                 
                 if namespace:
-                    cpp_content += f"}}\n"
-                cpp_content += "\n"
+                    cpp_h_content += f"}}\n"
+                cpp_h_content += "\n"
             else:
                 if namespace:
-                    cpp_content += f"namespace {namespace} {{\n"
+                    cpp_h_content += f"namespace {namespace} {{\n"
 
-                cpp_content += f"    template<class Context>\n"
-                cpp_content += f"    constexpr auto ikigai_serde(Context& context, {cname}& value) {{\n"
-                cpp_content += f"        using namespace serde::attribute;\n"
-                cpp_content += f"        serde::serde_struct(context, value);\n"
-                cpp_content += f"    }}\n"
-
+                cpp_h_content += f"    template<class Context>\n"
+                cpp_h_content += f"    constexpr auto ikigai_serde(Context& context, {cname}& value) {{\n"
+                cpp_h_content += f"        using namespace serde::attribute;\n"
+                cpp_h_content += f"        serde::serde_struct(context, value);\n"
+                cpp_h_content += f"    }}\n"
                 if namespace:
-                    cpp_content += f"}}\n"
-                cpp_content += "\n"
+                    cpp_h_content += f"}}\n"
+                cpp_h_content += "\n"
 
-        cpp_content += f"namespace IKIGAI::UTILS {{\n"
+        cpp_c_content += f"namespace IKIGAI::UTILS {{\n"
 
         for c in classes:
             cname = c["args"].get("Name", c["name"])
@@ -472,8 +478,37 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
             registry_code.append(f'            m.registerStaticField<{full_name}, std::string>("TypeName", [](){{ return std::string({type_name}); }}, nullptr);')
             registry_code.append(f'            m.registerStaticField<{full_name}, std::string>("ClassName", [](){{ return std::string({comp_name}); }}, nullptr);')
             
+            groups_val = c_args.pop("Groups", None)
+            is_component = False
+            if groups_val:
+                groups_val = groups_val.strip()
+                if groups_val.startswith('[') and groups_val.endswith(']'):
+                    groups_content = groups_val[1:-1]
+                    for group_name in groups_content.split(','):
+                        group_name = group_name.strip()
+                        if group_name:
+                            registry_code.append(f'            m.addTypeToGroup<{full_name}>("{group_name}");')
+                            if group_name == "Component":
+                                is_component = True
+                else:
+                    registry_code.append(f'            m.addTypeToGroup<{full_name}>("{groups_val}");')
+                    if groups_val == "Component":
+                        is_component = True
+
+            if is_component:
+                registry_code.append(f'            m.registerStaticMethod<{full_name}>("AddComponent", static_cast<void(*)(std::shared_ptr<IKIGAI::ECS::Object>)>(')
+                registry_code.append(f'                [](std::shared_ptr<IKIGAI::ECS::Object> obj) {{')
+                registry_code.append(f'                    obj->addComponent<{full_name}>();')
+                registry_code.append(f'                }}')
+                registry_code.append(f'            ));')
+                registry_code.append(f'            m.registerStaticMethod<{full_name}>("RemoveComponent", static_cast<void(*)(std::shared_ptr<IKIGAI::ECS::Object>)>(')
+                registry_code.append(f'                [](std::shared_ptr<IKIGAI::ECS::Object> obj) {{')
+                registry_code.append(f'                    obj->removeComponent<{full_name}>();')
+                registry_code.append(f'                }}')
+                registry_code.append(f'            ));')
+
             for key, val in c_args.items():
-                ctype, val_expr = infer_cpp_type_and_val(val)
+                ctype, val_expr = infer_cpp_type_and_val(val, key)
                 registry_code.append(f'            m.registerStaticField<{full_name}, {ctype}>("{key}", [](){{ return {val_expr}; }}, nullptr);')
             
             for p in c['props']:
@@ -482,7 +517,7 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
                 
                 meta_entries = []
                 for k, v in p['args'].items():
-                    m_type, m_val_expr = infer_cpp_type_and_val(v)
+                    m_type, m_val_expr = infer_cpp_type_and_val(v, k)
                     meta_entries.append(f'{{"{k}", {m_val_expr}}}')
                         
                 meta_str = "IKIGAI::UTILS::Metadata{ " + ", ".join(meta_entries) + " }"
@@ -504,19 +539,19 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
             for f in c['funcs']:
                 meta_entries = []
                 for k, v in f['args'].items():
-                    m_type, m_val_expr = infer_cpp_type_and_val(v)
+                    m_type, m_val_expr = infer_cpp_type_and_val(v, k)
                     meta_entries.append(f'{{"{k}", {m_val_expr}}}')
                 meta_str = "IKIGAI::UTILS::Metadata{ " + ", ".join(meta_entries) + " }"
                 registry_code.append(f'            m.registerMethod("{f["name"]}", &{full_name}::{f["name"]}, {meta_str});')
 
-            cpp_content += f"    template<>\n"
-            cpp_content += f"    struct ReflectionReg<{full_name}> {{\n"
-            cpp_content += f"        ReflectionReg() {{\n"
-            cpp_content += " \n".join(registry_code) + "\n"
-            cpp_content += f"        }}\n"
-            cpp_content += f"    }};\n"
+            cpp_c_content += f"    template<>\n"
+            cpp_c_content += f"    struct ReflectionReg<{full_name}> {{\n"
+            cpp_c_content += f"        ReflectionReg() {{\n"
+            cpp_c_content += " \n".join(registry_code) + "\n"
+            cpp_c_content += f"        }}\n"
+            cpp_c_content += f"    }};\n"
             cnamef = cname.replace("::", "__")
-            cpp_content += f"    static inline ReflectionReg<{full_name}> _is_registered_{cnamef};\n\n"
+            cpp_c_content += f"    static ReflectionReg<{full_name}> _is_registered_{cnamef};\n\n"
 
         for e in enums:
             ename = e["name"]
@@ -524,19 +559,23 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
             full_name = f"{namespace}::{ename}" if namespace else ename
             pairs_str = ", ".join([f'{{"{v}", static_cast<int>({full_name}::{v})}}' for v in e['values']])
             
-            cpp_content += f"    struct ReflectionReg_Enum_{ename} {{\n"
-            cpp_content += f"        ReflectionReg_Enum_{ename}() {{\n"
-            cpp_content += f"            auto& m = IKIGAI::UTILS::ReflectionManager::Instance();\n"
-            cpp_content += f'            m.registerEnum<{full_name}>("{ename}", {{ {pairs_str} }});\n'
-            cpp_content += f"        }}\n"
-            cpp_content += f"    }};\n"
+            cpp_c_content += f"    struct ReflectionReg_Enum_{ename} {{\n"
+            cpp_c_content += f"        ReflectionReg_Enum_{ename}() {{\n"
+            cpp_c_content += f"            auto& m = IKIGAI::UTILS::ReflectionManager::Instance();\n"
+            cpp_c_content += f'            m.registerEnum<{full_name}>("{ename}", {{ {pairs_str} }});\n'
+            cpp_c_content += f"        }}\n"
+            cpp_c_content += f"    }};\n"
             cnamef = ename.replace("::", "__")
-            cpp_content += f"    static inline ReflectionReg_Enum_{ename} _is_registered_Enum_{cnamef};\n\n"
+            cpp_c_content += f"    static ReflectionReg_Enum_{ename} _is_registered_Enum_{cnamef};\n\n"
 
-        cpp_content += f"}}\n\n"
+        cpp_c_content += f"}}\n\n"
 
         with open(out_filepath, 'w', encoding='utf-8') as f:
-            f.write(cpp_content)
+            f.write(cpp_h_content)
+
+        out_cpp_filepath = os.path.join(output_dir_base, f"{name_no_ext}.generated.cpp")
+        with open(out_cpp_filepath, 'w', encoding='utf-8') as f:
+            f.write(cpp_c_content)
 
 def main():
     if len(sys.argv) < 3:

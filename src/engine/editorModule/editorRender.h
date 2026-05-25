@@ -5,6 +5,7 @@
 #include <map>
 
 #include "editorWindow.h"
+#include "commandHistory.h"
 #include <memory>
 #include <string>
 
@@ -43,6 +44,7 @@ namespace IKIGAI::EDITOR {
 
 			std::string mResPath;
 			File::FileType mResType = File::FileType::TEXT;//??
+			CommandHistory mCommandHistory;
 		};
 		inline static GlobalState GlobalState;
 

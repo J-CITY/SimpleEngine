@@ -12,7 +12,7 @@
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class MaterialRenderer : public ComponentBase {
 		IKI_GENERATED_BODY(MaterialRenderer)
 	public:
@@ -56,6 +56,14 @@ namespace IKIGAI::ECS {
 
 		MaterialList materials;
 		MaterialNames materialNames;
+
+		IKI_PROPERTY(
+			Name = Mterials,
+			Type = IKIGAI::ECS::MaterialRenderer:: MaterialList,
+			Getter = getMaterials,
+			Flags = [USE_IN_EDITOR_COMPONENT_INSPECTOR],
+			EditWidget=MATERIAL
+		)
 
 		std::shared_ptr<EVENT::EventListener> setMaterialEventId;
 

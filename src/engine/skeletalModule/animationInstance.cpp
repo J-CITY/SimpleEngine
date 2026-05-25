@@ -1,7 +1,7 @@
 #include "animationInstance.h"
 
 namespace IKIGAI::SKELETON {
-	AnimSample::AnimSample(Skeleton* skeleton, Animation* animation) : mSkeleton(skeleton), mAnimation(animation), mPlaybackRate(1.0f), mGlobalTime(0.0) {
+	AnimSample::AnimSample(std::shared_ptr<Skeleton> skeleton, std::shared_ptr<Animation> animation) : mSkeleton(skeleton), mAnimation(animation), mPlaybackRate(1.0f), mGlobalTime(0.0) {
 
 	}
 
@@ -10,7 +10,7 @@ namespace IKIGAI::SKELETON {
 	void AnimSample::update(float dt) {
 		mGlobalTime += (dt * mPlaybackRate); // dt is Delta Time in seconds.
 
-		float ticksPerSecond = (float)(mAnimation->ticksPerSecond != 0 ? mAnimation->ticksPerSecond : 25.0f);
+		float ticksPerSecond = (float)(mAnimation->ticksPerSecond != 0.0 ? mAnimation->ticksPerSecond : 25.0f);
 		float timeInTicks = ticksPerSecond * mGlobalTime;
 		mLocalTime = fmod(timeInTicks, mAnimation->durationInTicks);
 		mLocalTimeNormalized = static_cast<float>(mLocalTime) / static_cast<float>(mAnimation->durationInTicks);

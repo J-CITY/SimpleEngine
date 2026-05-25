@@ -15,6 +15,12 @@ namespace IKIGAI::RENDER {
 		int FrameCount = 0;
 	};
 
+	constexpr size_t MAX_BONES = 128;
+	struct BonesUBO {
+		int use = 0;
+		alignas(16) MATH::Matrix4f bones[MAX_BONES];
+	};
+
 	struct EngineModel {
 		MATH::Matrix4f    Model;
 	};

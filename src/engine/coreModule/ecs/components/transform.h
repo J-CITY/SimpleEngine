@@ -104,7 +104,7 @@ namespace IKIGAI::ECS {
 		MATH::Vector2f mSize;
 	};
 	
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class TransformComponent : public ComponentBase {
         IKI_GENERATED_BODY(TransformComponent)
 	public:

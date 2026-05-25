@@ -5,7 +5,7 @@
 namespace IKIGAI::SKELETON {
 	class AnimBlend {
 	public:
-		AnimBlend(Skeleton* skeleton);
+		AnimBlend(std::shared_ptr<Skeleton> skeleton);
 		~AnimBlend();
 
 		Pose* blend(Pose* base, Pose* secondary, float t);
@@ -16,7 +16,7 @@ namespace IKIGAI::SKELETON {
 		Pose* blendPartialAdditiveWithReference(Pose* reference, Pose* secondary, float t, const std::string& rootJoint);
 
 	private:
-		Skeleton* mSkeleton;
+		std::shared_ptr<Skeleton> mSkeleton;
 		Pose mPose;
 	};
 }

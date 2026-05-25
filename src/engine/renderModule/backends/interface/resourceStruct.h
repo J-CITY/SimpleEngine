@@ -234,7 +234,8 @@ struct AnimationResource : public ResourceBase {
         .field(&Self::pathAnimation, "PathAnimation")
         .field(&Self::parentPath, "##parent", default_{std::string()})
         .field(&Self::additive, "Additive", default_{false})
-        .field(&Self::additiveReference, "AdditiveReference", default_{std::string()});
+        .field(&Self::additiveReference, "AdditiveReference", default_{std::string()})
+		.field(&Self::skeletonPath, "SkeletonPath", default_{std::string()});
   }
   static auto GetMembers() {
     return std::tuple{

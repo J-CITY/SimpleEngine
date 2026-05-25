@@ -45,6 +45,7 @@ struct EditorRender::Internal {
 
 		mWindows.push_back(std::make_unique<CameraControlWindow>());
 		mWindows.push_back(std::make_unique<ComponentManagerWindow>());
+		mWindows.push_back(std::make_unique<ComponentInspectorWindow>());
 		mWindows.push_back(std::make_unique<TreeWindow>());
 		mWindows.push_back(std::make_unique<StatWindow>());
 		mWindows.push_back(std::make_unique<TimelineAnimationWindow>());
@@ -90,6 +91,14 @@ EditorRender::EditorRender() {
 }
 
 void EditorRender::draw() {
+	if (ImGui::IsKeyPressed(ImGuiKey_Z, false) && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift) {
+		GlobalState.mCommandHistory.undo();
+	}
+	if ((ImGui::IsKeyPressed(ImGuiKey_Y, false) && ImGui::GetIO().KeyCtrl) ||
+		(ImGui::IsKeyPressed(ImGuiKey_Z, false) && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift)) {
+		GlobalState.mCommandHistory.redo();
+	}
+
 	mData->mMenu->draw();
 	for (auto& win : mData->mWindows) {
 		win->draw();

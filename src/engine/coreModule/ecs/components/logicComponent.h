@@ -8,7 +8,7 @@
 namespace IKIGAI::ECS { class Object; }
 
 namespace IKIGAI::ECS {
-	IKI_CLASS()
+	IKI_CLASS(Groups=[Component])
 	class LogicComponent : public ComponentBase {
 		IKI_GENERATED_BODY(LogicComponent)
 	public:
