@@ -43,7 +43,7 @@ namespace IKIGAI::ECS {
 		virtual void onFixedUpdate(std::chrono::duration<double> dt) {}
 		virtual void onLateUpdate(std::chrono::duration<double> dt) {}
 
-		virtual std::string getName();
+		virtual const std::string& getName() const;
 		virtual std::string getTypeidName();
 
 		const ECS::Object& getObject();

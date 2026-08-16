@@ -257,6 +257,13 @@ namespace IKIGAI::UTILS {
 			return static_cast<T*>(mCb->mPtr);
 		}
 
+		const T* get() const {
+			if (!isAlive()) {
+				throw;
+			}
+			return static_cast<T*>(mCb->mPtr);
+		}
+
 
 	private:
 		void cleanup() const {

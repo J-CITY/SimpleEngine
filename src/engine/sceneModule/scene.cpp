@@ -639,7 +639,7 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledBVHDrawa
 	for (const auto& meshData : toDraw) {
 		auto owner = meshData->obj;
 
-		if (owner->getIsActive()) {
+		if (owner->getIsVisible() && owner->getIsActive()) {
 			if (auto materialRenderer = owner->getComponent<ECS::MaterialRenderer>()) {
 				auto& transform = owner->getTransform()->getTransform();
 				auto animator = owner->getComponent<ECS::Skeletal>();
@@ -710,7 +710,7 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledDrawable
 	for (const auto& modelRenderer : cm->getComponentsArray<ECS::ModelRenderer>()) {
 		auto owner = modelRenderer.obj;
 
-		if (owner->getIsActive()) {
+		if (owner->getIsVisible() && owner->getIsActive()) {
 			if (auto model = modelRenderer.getModel()) {
 				if (auto materialRenderer = modelRenderer.obj.get().getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = owner->getTransform()->getTransform();
@@ -798,7 +798,7 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortDrawables
 
 	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
 	for (auto& modelRenderer : cm->getComponentsArray<ECS::ModelRenderer>()) {
-		if (modelRenderer.obj->getIsActive() && modelRenderer.obj->getName() != "Skybox") {
+		if (modelRenderer.obj->getIsVisible() && modelRenderer.obj->getIsActive() && modelRenderer.obj->getName() != "Skybox") {
 			if (auto model = modelRenderer.getModel()) {
 				if (auto materialRenderer = modelRenderer.obj->getComponent<ECS::MaterialRenderer>()) {
 					auto& transform = modelRenderer.obj->getTransform()->getTransform();

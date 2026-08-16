@@ -25,6 +25,7 @@ namespace IKIGAI::ECS {
 			int Id;
 			int ParentId;
 			bool IsActive = false;
+			bool IsVisible = true;
 			std::vector<ComponentsDescriptorType> Components;
 
 			template<class Context>
@@ -37,6 +38,7 @@ namespace IKIGAI::ECS {
 					.field(&Self::Id, "Id")
 					.field(&Self::ParentId, "ParentId", default_{-1})
 					.field(&Self::IsActive, "IsActive", default_{true})
+					.field(&Self::IsVisible, "IsVisible", default_{true})
 					.field(&Self::Components, "Components");
 			}
 		};
@@ -57,9 +59,13 @@ namespace IKIGAI::ECS {
 		void setName(const std::string& name);
 		void setTag(const std::string& tag);
 		void setActive(bool val);
+		void setVisible(bool val);
 
 		[[nodiscard]] bool getIsSelfActive() const;
 		[[nodiscard]] bool getIsActive() const;
+
+		[[nodiscard]] bool getIsSelfVisible() const;
+		[[nodiscard]] bool getIsVisible() const;
 
 		void setID(ECS2::Entity id);
 		[[nodiscard]] ECS2::Entity getID() const;
@@ -206,6 +212,7 @@ namespace IKIGAI::ECS {
 		std::string mTag;
 		
 		bool	mIsActive = true;
+		bool	mIsVisible = true;
 		bool	mIsDestroyed = false;
 		bool	mIsReady = false;
 

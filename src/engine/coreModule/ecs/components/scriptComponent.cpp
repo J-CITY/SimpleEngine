@@ -28,15 +28,11 @@ sol::table& ScriptComponent::getTable() {
 	return object;
 }
 
-const std::string& ScriptComponent::getName() const {
+const std::string& ScriptComponent::getScriptName() const {
 	return name;
 }
 
-std::string ScriptComponent::getScriptName() const {
-	return name;
-}
-
-void ScriptComponent::setScript(std::string _name) {
+void ScriptComponent::setScript(const std::string& _name) {
 	name = _name;
 	ScriptComponentEvents::createdEvent.run(getWeak<ScriptComponent>());
 }

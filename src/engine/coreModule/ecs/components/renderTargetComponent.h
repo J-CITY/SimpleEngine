@@ -37,7 +37,7 @@ namespace IKIGAI::ECS {
 		}
 
 		void setName(const std::string& name);
-		const std::string& getName() const;
+		const std::string& getTargetName() const;
 		IKIGAI::ECS::RenderFlowType getType() const;
 		std::shared_ptr<RENDER::FrameBufferInterface> getFrameBuffer();
 		UTILS::WeakPtr<CameraComponent> getCamera();

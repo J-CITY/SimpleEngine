@@ -30,12 +30,11 @@ namespace IKIGAI::ECS {
 		~ScriptComponent() override;
 		sol::table& getTable();
 
-		[[nodiscard]] const std::string& getName() const;
+		[[nodiscard]] const std::string& getScriptName() const;
 
 		[[nodiscard]] Descriptor getDescriptor() const;
 	private:
-		void setScript(std::string name);
-		std::string getScriptName() const;
+		void setScript(const std::string& name);
 
 		std::string name;
 		sol::table object = sol::nil;

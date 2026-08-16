@@ -54,6 +54,7 @@ Object::Descriptor Object::getDescriptor() const {
 	d.Id = getIDInt();
 	d.ParentId = getParentId();
 	d.IsActive = mIsActive;
+	d.IsVisible = mIsVisible;
 	WriteComponentDescriptor(d.Components, this);
 	return d;
 }
@@ -86,6 +87,7 @@ void AddComponent(const Desc& data, ECS::Object* obj) {
 //TODO: set mParent? when call this
 Object::Object(const Descriptor& _descriptor): mEntity(ECS2::Entity::ID(_descriptor.Id)), mName(_descriptor.Name), mTag(_descriptor.Tag) {
 	setActive(_descriptor.IsActive);
+	setVisible(_descriptor.IsVisible);
 	RESOURCES::ServiceManager::Get<ECS2::World>().registerEntity(mEntity);
 	for (auto& component : _descriptor.Components) {
 		std::visit(overloaded{[this](auto& arg) {AddComponent(arg, this);}}, component);
@@ -149,6 +151,19 @@ bool Object::getIsSelfActive() const {
 bool Object::getIsActive() const {
 	auto p = mParent.lock();
 	return mIsActive && (p ? p->getIsActive() : true);
+}
+
+void Object::setVisible(bool val) {
+	mIsVisible = val;
+}
+
+bool Object::getIsSelfVisible() const {
+	return mIsVisible;
+}
+
+bool Object::getIsVisible() const {
+	auto p = mParent.lock();
+	return mIsVisible && (p ? p->getIsVisible() : true);
 }
 
 void Object::setID(ECS2::Entity val) {

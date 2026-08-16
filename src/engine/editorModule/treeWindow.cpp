@@ -19,6 +19,8 @@ std::set<IKIGAI::ECS::Object::Id::ID> searchedObjectsIds;
 
 std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& activeScene, std::shared_ptr<IKIGAI::ECS::Object> parentEntity) {
 	std::shared_ptr<IKIGAI::ECS::Object> selectedNode;
+	static std::optional<IKIGAI::ECS::Object::Id::ID> editNodeId;
+	static std::string editBuffer;
 
 	std::span<std::shared_ptr<IKIGAI::ECS::Object>> nodeList;
 	if (parentEntity) {
@@ -29,6 +31,7 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 
 	unsigned i = 0u;
 	for (auto node : nodeList) {
+		if (!parentEntity && node->getParent()) continue;
 		ImGui::PushID(("node_" + std::to_string(i)).c_str());
 		ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_Selected | ImGuiTreeNodeFlags_OpenOnArrow;
 
@@ -42,16 +45,46 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 		const auto name = node->getName();
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0.0f, 0.0f});
 
-		//Visable button
-		if (ImGui::Button(node->getIsActive() ? ICON_FA_EYE : ICON_FA_EYE_SLASH)) {
-			node->setActive(!node->getIsActive());
+		bool isActive = node->getIsActive();
+		if (ImGui::Checkbox("##active", &isActive)) {
+			node->setActive(isActive);
 		}
 		ImGui::SameLine();
+
+		//Visible button
+		if (ImGui::Button(node->getIsVisible() ? ICON_FA_EYE : ICON_FA_EYE_SLASH)) {
+			node->setVisible(!node->getIsVisible());
+		}
+		ImGui::SameLine();
+		
 		bool inSearch = searchedObjectsIds.contains(node->getID().getUniqueId());
 		if (inSearch) {
 			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
 		}
-		const bool nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID().getUniqueId()), nodeFlags, name.c_str());
+		
+		bool isEditing = editNodeId && *editNodeId == node->getID().getUniqueId();
+		bool nodeIsOpen = false;
+		
+		if (isEditing) {
+			nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID().getUniqueId()), nodeFlags, "###hiddenNodeName");
+			ImGui::SameLine();
+			ImGui::PushItemWidth(-1);
+			if (ImGui::InputText("##rename", &editBuffer, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll)) {
+				node->setName(editBuffer);
+				editNodeId.reset();
+			}
+			ImGui::PopItemWidth();
+			if (!ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) {
+				editNodeId.reset();
+			}
+		} else {
+			nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID().getUniqueId()), nodeFlags, name.c_str());
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+				editNodeId = node->getID().getUniqueId();
+				editBuffer = name;
+			}
+		}
+
 		if (inSearch) {
 			ImGui::PopStyleColor();
 		}
@@ -102,9 +135,10 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 		if (ImGui::BeginDragDropTarget()) {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG_TREE_WIN__")) {
 				auto other = *static_cast<IKIGAI::ECS::Object**>(payload->Data);
-
-				//change node parent
-				other->setParent(node);
+				if (node.get() != other) {
+					//change node parent
+					other->setParent(node);
+				}
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -117,10 +151,10 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 		ImGui::PopStyleVar();
 
 		if (ImGui::BeginDragDropTarget()) {
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__NODE_ORDER_SET_TREE_WIN__")) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG_TREE_WIN__")) {
 				auto other = *static_cast<IKIGAI::ECS::Object**>(payload->Data);
 				if (node.get() != other && node->getParent()) {
-					other->setParentInPos(node, i + 1);
+					other->setParentInPos(node->getParent(), i + 1);
 				}
 			}
 			ImGui::EndDragDropTarget();
@@ -149,17 +183,53 @@ void TreeWindow::drawNodeTree() {
 	if (ImGui::Begin("Scene Hierarchy", &mIsOpen)) {
 		ImGui::Text("Search: ");
 		ImGui::SameLine();
+		
+		static int searchType = 0;
+		const char* searchTypes[] = { "Name", "ID", "Tag", "Component" };
+		ImGui::SetNextItemWidth(100.0f);
+		ImGui::Combo("##searchType", &searchType, searchTypes, IM_ARRAYSIZE(searchTypes));
+		ImGui::SameLine();
+		
 		static std::string searchInActors;
-		if (ImGui::InputText("##search_in_actors", &searchInActors)) {
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 65.0f);
+		bool searchChanged = ImGui::InputText("##search_in_actors", &searchInActors);
+		ImGui::SameLine();
+		if (ImGui::Button(ICON_FA_SYNC)) {
+			searchChanged = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(ICON_FA_TIMES)) {
+			searchInActors.clear();
+			searchChanged = true;
+		}
+
+		if (searchChanged) {
 			searchedObjectsIds.clear();
 			if (!searchInActors.empty()) {
 				for (auto obj : scene.getObjects()) {
 					ImGui::TreeNodeSetOpen(static_cast<int>(obj->getID().getUniqueId()), false);
 				}
+				const auto lowerSearch = IKIGAI::UTILS::ToLower(searchInActors);
 				for (auto obj : scene.getObjects()) {
-					const auto foundInName = IKIGAI::UTILS::ToLower(obj->getName()).find(IKIGAI::UTILS::ToLower(searchInActors)) != std::string::npos;
-					const auto foundInTag = IKIGAI::UTILS::ToLower(obj->getTag()).find(IKIGAI::UTILS::ToLower(searchInActors)) != std::string::npos;
-					if (foundInName || foundInTag) {
+					bool found = false;
+					if (searchType == 0) {
+						found = IKIGAI::UTILS::ToLower(obj->getName()).find(lowerSearch) != std::string::npos;
+					} else if (searchType == 1) {
+						found = std::to_string(obj->getIDInt()).find(lowerSearch) != std::string::npos;
+					} else if (searchType == 2) {
+						found = IKIGAI::UTILS::ToLower(obj->getTag()).find(lowerSearch) != std::string::npos;
+					} else if (searchType == 3) {
+						for (const auto& [typeIndex, compWeak] : obj->getComponents()) {
+							if (auto comp = compWeak.get()) {
+								if (IKIGAI::UTILS::ToLower(comp->getName()).find(lowerSearch) != std::string::npos) {
+									found = true;
+									break;
+								}
+							}
+						}
+					}
+
+					if (found) {
 						searchedObjectsIds.insert(obj->getID().getUniqueId());
 						std::function<void(std::shared_ptr<IKIGAI::ECS::Object>)> expandAll;
 						expandAll = [&expandAll](std::shared_ptr<IKIGAI::ECS::Object> obj) {

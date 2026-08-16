@@ -10,7 +10,7 @@ IKIGAI::ECS::ComponentBase::~ComponentBase() {
 	onDestroy();
 }
 
-std::string IKIGAI::ECS::ComponentBase::getName() {
+const std::string& IKIGAI::ECS::ComponentBase::getName() const {
 	return __NAME__;
 }
 

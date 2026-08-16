@@ -22,7 +22,7 @@ namespace IKIGAI::ECS {
 		mFrameBufferName = name;
 	}
 
-	const std::string& RenderTargetComponent::getName() const {
+	const std::string& RenderTargetComponent::getTargetName() const {
 		return mFrameBufferName;
 	}
 
