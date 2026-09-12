@@ -261,7 +261,11 @@ void DriverDx12::init() {
 
 	createCommandList();
 	createDescriptorHeaps();
-	createSwapChain();
+	mCurrentWindowID = win.getId();
+	SwapchainContextDx12 ctx;
+	mSwapchains[mCurrentWindowID] = std::move(ctx);
+	
+	createSwapChain(mCurrentWindowID, mWidth, mHeight);
 
 	ThrowIfFailed(mDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence)));
 	mFenceValue = 1;
@@ -288,7 +292,7 @@ void DriverDx12::init() {
 	logAdapters();
 #endif
 
-	createDefaultFrameBuffer(mWidth, mHeight);
+	createDefaultFrameBuffer(mCurrentWindowID, mWidth, mHeight);
 	begin();
 }
 
@@ -329,12 +333,13 @@ void DriverDx12::setShader(std::shared_ptr<ShaderInterface> shader) {
 
 void DriverDx12::onResize() {
 	end();
+	auto& ctx = mSwapchains[mCurrentWindowID];
 	for (UINT i = 0; i < DEFAULT_FB_SIZE; i++) {
-		mDefaultFb[i].reset();
+		ctx.mDefaultFb[i].reset();
 	}
 	wait();
-	mSwapChain->ResizeBuffers(DEFAULT_FB_SIZE, (UINT)mWidth, (UINT)mHeight, DefaultTextureColorFormat, 0);
-	createDefaultFrameBuffer(mWidth, mHeight);
+	ctx.mSwapChain->ResizeBuffers(DEFAULT_FB_SIZE, (UINT)mWidth, (UINT)mHeight, DefaultTextureColorFormat, 0);
+	createDefaultFrameBuffer(mCurrentWindowID, mWidth, mHeight);
 	begin();
 
 	if (!mViewport) {
@@ -409,7 +414,7 @@ void DriverDx12::set4xMsaaState(bool value) {
 		m4xMsaaState = value;
 
 		// Recreate the swapchain and buffers with new multisample settings.
-		createSwapChain();
+		createSwapChain(mCurrentWindowID, mWidth, mHeight);
 		onResize();
 	}
 }
@@ -509,8 +514,8 @@ void DriverDx12::submit() {
 
 	end();
 	bool vsync = false;
-	mSwapChain->Present(vsync ? 1 : 0, 0);
-	mFrameId = mSwapChain->GetCurrentBackBufferIndex();
+	mSwapchains[mCurrentWindowID].mSwapChain->Present(vsync ? 1 : 0, 0);
+	mFrameId = mSwapchains[mCurrentWindowID].mSwapChain->GetCurrentBackBufferIndex();
 	wait();
 	begin();
 }
@@ -584,18 +589,19 @@ void DriverDx12::setStorageBuffer(const std::string& name, std::shared_ptr<Stora
 	mStorageBuffers[bind] = std::static_pointer_cast<StorageBufferDx12>(data);
 }
 
-void DriverDx12::createSwapChain() {
+void DriverDx12::createSwapChain(unsigned int windowID, unsigned width, unsigned height) {
+	auto& ctx = mSwapchains[windowID];
 	// Release the previous swapchain we will be recreating.
-	mSwapChain.Reset();
+	ctx.mSwapChain.Reset();
 
 	auto& win = RESOURCES::ServiceManager::Get<WINDOW::Window>();
-	mWidth = win.getSize().x;
-	mHeight = win.getSize().y;
+	ctx.width = width;
+	ctx.height = height;
 
 	DXGI_SWAP_CHAIN_DESC1 descriptor{};
 	descriptor.BufferCount = DEFAULT_FB_SIZE;
-	descriptor.Width = mWidth;
-	descriptor.Height = mHeight;
+	descriptor.Width = ctx.width;
+	descriptor.Height = ctx.height;
 	descriptor.Format = DefaultTextureColorFormat;
 	descriptor.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	descriptor.SampleDesc.Count = 1;
@@ -612,7 +618,7 @@ void DriverDx12::createSwapChain() {
 	mDxgiFactory->CreateSwapChainForHwnd(mCommandQueue.Get(), win.getContextDX12(),
 		&descriptor, &fsDescriptor, nullptr, swapchain.GetAddressOf());
 
-	swapchain.As(&mSwapChain);
+	swapchain.As(&ctx.mSwapChain);
 }
 
 void DriverDx12::destroyDeferred(Microsoft::WRL::ComPtr<ID3D12DeviceChild> object) {
@@ -679,18 +685,19 @@ void DriverDx12::logAdapters() {
 	}
 }
 
-void DriverDx12::createDefaultFrameBuffer(unsigned width, unsigned height) {
+void DriverDx12::createDefaultFrameBuffer(unsigned int windowID, unsigned width, unsigned height) {
+	auto& ctx = mSwapchains[windowID];
 	for (UINT i = 0; i < DEFAULT_FB_SIZE; i++) {
 		Microsoft::WRL::ComPtr<ID3D12Resource> backbuffer;
-		mSwapChain->GetBuffer(i, IID_PPV_ARGS(backbuffer.GetAddressOf()));
+		ctx.mSwapChain->GetBuffer(i, IID_PPV_ARGS(backbuffer.GetAddressOf()));
 		auto tex = std::make_shared<TextureDx12>(width, height, PixelFormat::RGBA_INT, backbuffer);
 		auto fb = std::make_shared<FrameBufferDx12>(std::vector<std::shared_ptr<TextureInterface>>{tex}, nullptr);
-		mDefaultFb[i] = fb;
+		ctx.mDefaultFb[i] = fb;
 	}
 
-	mWidth = width;
-	mHeight = height;
-	mFrameId = mSwapChain->GetCurrentBackBufferIndex();
+	ctx.width = width;
+	ctx.height = height;
+	mFrameId = ctx.mSwapChain->GetCurrentBackBufferIndex();
 }
 
 void DriverDx12::logAdapterOutputs(IDXGIAdapter* adapter) {

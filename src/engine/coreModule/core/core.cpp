@@ -2,6 +2,7 @@
 
 #include "resourceModule/serviceManager.h"
 #include "windowModule/window/window.h"
+#include "windowModule/windowManager.h"
 #include <utilsModule/log/logger.h>
 
 #include "../config.h"
@@ -101,11 +102,8 @@ Core:: Core(
 	//auto res = serde::serialize<nlohmann::json>(RENDER::DriverInterface::settings);
 	WINDOW::WindowSettings windowSettings;
 
-	window = std::make_unique<WINDOW::Window>(windowSettings
-#ifdef OCULUS
-			, app
-#endif
-			);
+	windowManager = std::make_unique<WINDOW::WindowManager>();
+	window = windowManager->createMainWindow(windowSettings);
 
 	std::cout << "Create Window\n";
 	//auto windowSettings = IKIGAI::UTILS::loadConfigFile<WINDOW_SYSTEM::WindowSettings>("Configs/window.json");

@@ -37,28 +37,32 @@ namespace IKIGAI::RENDER {
 		vk::raii::Device mDevice = nullptr;
 		uint32_t mQueueFamilyIndex = -1;
 		vk::SurfaceFormatKHR mSurfaceFormat;
-		vk::raii::SurfaceKHR mSurface = nullptr;
-		vk::raii::SwapchainKHR mSwapchain = nullptr;
+		
 		vk::raii::CommandPool mCommandPool = nullptr;
 
 		constexpr static vk::Format DefaultDepthStencilFormat = vk::Format::eD32SfloatS8Uint;
 
 		bool working = false;
 
-		uint32_t mWidth = 0;
-		uint32_t mHeight = 0;
 		bool render_pass_active = false;
 		struct Frame {
 			vk::raii::Fence fence = nullptr;
 			std::shared_ptr<FrameBufferVk> mFrameBuffer;
-			//std::shared_ptr<TextureVk> swapchain_texture;
-			//std::shared_ptr<RenderTargetVK> swapchain_target;
 			vk::raii::Semaphore mImageAcquiredSemaphore = nullptr;
 			vk::raii::Semaphore mRenderCompleteSemaphore = nullptr;
 			vk::raii::CommandBuffer mCommandBuffer = nullptr;
-			//std::vector<VulkanObject> staging_objects;
 		};
-		std::vector<Frame> mFrames;
+		
+		struct SwapchainContextVk {
+			vk::raii::SurfaceKHR surface = nullptr;
+			vk::raii::SwapchainKHR swapchain = nullptr;
+			std::vector<Frame> frames;
+			uint32_t width = 0;
+			uint32_t height = 0;
+		};
+
+		std::unordered_map<unsigned int, SwapchainContextVk> mSwapchains;
+		unsigned int mCurrentWindowID = 0;
 
 		uint32_t mSemaphoreIndex = 0;
 		uint32_t mFrameIndex = 0;
@@ -157,7 +161,8 @@ namespace IKIGAI::RENDER {
 		void EnsureGraphicsDescriptors(vk::raii::CommandBuffer& cmdlist);
 		void EnsureGraphicsState(bool draw_indexed);
 
-		Frame& getCurrentFrame() { return mFrames.at(mFrameIndex); }
+		SwapchainContextVk& getCurrentSwapchainContext() { return mSwapchains[mCurrentWindowID]; }
+		Frame& getCurrentFrame() { return getCurrentSwapchainContext().frames.at(mFrameIndex); }
 
 		void activateRenderPass();
 		void deactivateRenderPass();
@@ -249,7 +254,7 @@ namespace IKIGAI::RENDER {
 		bool checkInstanceExtensionSupport(const std::vector<const char*>& extensionsToCheck);
 
 		void wait();
-		void createSwapchain(uint32_t width, uint32_t height);
+		void createSwapchain(unsigned int windowID, uint32_t width, uint32_t height);
 		void nextFrame();
 		uint32_t getBackbufferWidth();
 		uint32_t getBackbufferHeight();

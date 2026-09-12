@@ -300,10 +300,15 @@ void DriverVk::init() {
 	mHeight = win.getSize().y;
 
 	//mSurface = vk::raii::SurfaceKHR(mInstance, surfaceInfo);
-	win.createVulkanSurface();
+	mCurrentWindowID = win.getId();
+	VkSurfaceKHR surface = win.createVulkanSurface(*mInstance);
+
+	SwapchainContextVk ctx;
+	ctx.surface = vk::raii::SurfaceKHR(mInstance, surface);
+	mSwapchains[mCurrentWindowID] = std::move(ctx);
 
 
-	auto formats = mPhysicalDevice.getSurfaceFormatsKHR(*mSurface);
+	auto formats = mPhysicalDevice.getSurfaceFormatsKHR(*mSwapchains[mCurrentWindowID].surface);
 
 	if ((formats.size() == 1) && (formats.at(0).format == vk::Format::eUndefined)) {
 		mSurfaceFormat = {
@@ -333,7 +338,7 @@ void DriverVk::init() {
 	//mCurrentState.color_attachment_formats = {mSurfaceFormat.format};
 	//mCurrentState.depth_stencil_format = ContextVK::DefaultDepthStencilFormat;
 
-	createSwapchain(mWidth, mHeight);
+	createSwapchain(mCurrentWindowID, mWidth, mHeight);
 	nextFrame();
 	begin();
 }
@@ -903,8 +908,9 @@ void DriverVk::wait() {
 	//mDestroyDeferred.clear();
 }
 
-void DriverVk::createSwapchain(uint32_t width, uint32_t height) {
-	auto surface_capabilities = mPhysicalDevice.getSurfaceCapabilitiesKHR(*mSurface);
+void DriverVk::createSwapchain(unsigned int windowID, uint32_t width, uint32_t height) {
+	auto& ctx = mSwapchains[windowID];
+	auto surface_capabilities = mPhysicalDevice.getSurfaceCapabilitiesKHR(*ctx.surface);
 
 	// https://github.com/nvpro-samples/nvpro_core/blob/f2c05e161bba9ab9a8c96c0173bf0edf7c168dfa/nvvk/swapchain_vk.cpp#L143
 	// Determine the number of VkImage's to use in the swap chain (we desire to
@@ -921,17 +927,17 @@ void DriverVk::createSwapchain(uint32_t width, uint32_t height) {
 	auto max_width = surface_capabilities.maxImageExtent.width;
 	auto max_height = surface_capabilities.maxImageExtent.height;
 
-	mWidth = glm::min(width, max_width);
-	mHeight = glm::min(height, max_height);
+	ctx.width = glm::min(width, max_width);
+	ctx.height = glm::min(height, max_height);
 
 	auto image_extent = vk::Extent2D()
-		.setWidth(mWidth)
-		.setHeight(mHeight);
+		.setWidth(ctx.width)
+		.setHeight(ctx.height);
 
 	auto format = mSurfaceFormat.format;
 
 	auto swapchain_info = vk::SwapchainCreateInfoKHR()
-		.setSurface(*mSurface)
+		.setSurface(*ctx.surface)
 		.setMinImageCount(desired_number_of_swapchain_images)
 		.setImageFormat(format)
 		.setImageColorSpace(mSurfaceFormat.colorSpace)
@@ -944,13 +950,13 @@ void DriverVk::createSwapchain(uint32_t width, uint32_t height) {
 		.setPresentMode(vk::PresentModeKHR::eFifo)
 		.setClipped(true)
 		.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
-		.setOldSwapchain(*mSwapchain);
+		.setOldSwapchain(*ctx.swapchain);
 
-	mSwapchain = mDevice.createSwapchainKHR(swapchain_info);
+	ctx.swapchain = mDevice.createSwapchainKHR(swapchain_info);
 
-	auto backbuffers = mSwapchain.getImages();
+	auto backbuffers = ctx.swapchain.getImages();
 
-	mFrames.clear();
+	ctx.frames.clear();
 
 	for (auto& backbuffer : backbuffers) {
 		Frame frame;
@@ -973,10 +979,10 @@ void DriverVk::createSwapchain(uint32_t width, uint32_t height) {
 		frame.mCommandBuffer = std::move(command_buffers.at(0));
 
 		
-		auto frameTexture = std::make_shared<TextureVk>(mWidth, mHeight, format, backbuffer);
+		auto frameTexture = std::make_shared<TextureVk>(ctx.width, ctx.height, format, backbuffer);
 		TextureResource depthRes;
-		depthRes.width = mWidth;
-		depthRes.height = mHeight;
+		depthRes.width = ctx.width;
+		depthRes.height = ctx.height;
 		depthRes.depth = 1;
 		depthRes.mipMapCount = 1;
 		depthRes.useMipmap = false;
@@ -985,10 +991,10 @@ void DriverVk::createSwapchain(uint32_t width, uint32_t height) {
 		auto frameDepth = std::make_shared<TextureVk>(depthRes, std::vector<void*>{});
 		frame.mFrameBuffer = std::make_shared<FrameBufferVk>(std::vector<std::shared_ptr<TextureInterface>>{frameTexture}, frameDepth);
 
-		//frame.swapchain_texture = std::make_shared<TextureVK>(gContext->width, gContext->height, format, backbuffer);
-		//frame.swapchain_target = std::make_shared<RenderTargetVK>(gContext->width, gContext->height, frame.swapchain_texture.get());
+		//frame.swapchain_texture = std::make_shared<TextureVk>(ctx.width, ctx.height, format, backbuffer);
+		//frame.swapchain_target = std::make_shared<RenderTargetVk>(frame.swapchain_texture);
 
-		mFrames.push_back(std::move(frame));
+		ctx.frames.push_back(std::move(frame));
 	}
 
 	mFrameIndex = 0;
@@ -998,18 +1004,18 @@ void DriverVk::createSwapchain(uint32_t width, uint32_t height) {
 void DriverVk::nextFrame() {
 	const auto& image_acquired_semaphore = mFrames.at(mSemaphoreIndex).mImageAcquiredSemaphore;
 
-	auto [result, image_index] = mSwapchain.acquireNextImage(UINT64_MAX, *image_acquired_semaphore);
+	auto [result, image_index] = getCurrentSwapchainContext().swapchain.acquireNextImage(UINT64_MAX, *image_acquired_semaphore);
 
 	mFrameIndex = image_index;
 }
 
 
 uint32_t DriverVk::getBackbufferWidth() {
-	return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getWidth() : mWidth;
+	return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getWidth() : getCurrentSwapchainContext().width;
 }
 
 uint32_t DriverVk::getBackbufferHeight() {
-	return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getHeight() : mHeight;
+	return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getHeight() : getCurrentSwapchainContext().height;
 }
 
 vk::Format DriverVk::getBackbufferFormat() {
@@ -1389,7 +1395,7 @@ void DriverVk::submit() {
 
 	vk::PresentInfoKHR presentInfo{};
 	presentInfo.setWaitSemaphores(*render_complete_semaphore);
-	presentInfo.setSwapchains(*mSwapchain);
+	presentInfo.setSwapchains(*getCurrentSwapchainContext().swapchain);
 	presentInfo.setImageIndices(mFrameIndex);
 
 	auto present_result = mQueue.presentKHR(presentInfo);

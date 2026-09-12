@@ -72,9 +72,12 @@ namespace IKIGAI::WINDOW {
 		EVENT::Event<INPUT::Gamepad> gamepadAddEvent;
 		EVENT::Event<int> gamepadRemoveEvent;
 
-		explicit Window(const WindowSettings& p_windowSettings);
+		explicit Window(const WindowSettings& p_windowSettings, bool isMain = true, Window* sharedWindow = nullptr);
 		Window() = delete;
 		~Window();
+
+		[[nodiscard]] unsigned int getId() const;
+		[[nodiscard]] bool getIsMainWindow() const;
 
 		[[nodiscard]] MATH::Vector2i getMousePos() const;
 		void setSize(unsigned int width, unsigned int height);
@@ -122,7 +125,7 @@ namespace IKIGAI::WINDOW {
 #endif
 
 #ifdef VULKAN_BACKEND
-		void createVulkanSurface();
+		VkSurfaceKHR createVulkanSurface(VkInstance instance);
 		std::vector<const char*> getSDLVulkanExtentions();
 #endif
 
@@ -132,11 +135,13 @@ namespace IKIGAI::WINDOW {
 		
 		[[nodiscard]] WindowSettings& getSetting();
 		
-		void create();
+		void create(Window* sharedWindow = nullptr);
 		WindowSettings mWindowSettings;
 		struct Internal;
 		std::unique_ptr<Internal> mContext;
 		bool mIsClose = false;
+		bool mIsMainWindow = true;
+		unsigned int mWindowID = 0;
 	};
 
 #endif

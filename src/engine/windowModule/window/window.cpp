@@ -81,9 +81,9 @@ std::vector<SDL_GameController*> findController() {
 	return res;
 }
 
-Window::Window(const WindowSettings& p_windowSettings) : mWindowSettings(p_windowSettings), mContext(std::make_unique<Internal>()) {
+Window::Window(const WindowSettings& p_windowSettings, bool isMain, Window* sharedWindow) : mWindowSettings(p_windowSettings), mContext(std::make_unique<Internal>()), mIsMainWindow(isMain) {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER);
-	create();
+	create(sharedWindow);
 
 	const auto gamepads = findController();
 	for (auto gp : gamepads) {
@@ -115,8 +115,20 @@ Window::~Window() {
 	ImGui::DestroyContext();
 #endif
 
-	SDL_DestroyWindow(mContext->mWindow);
-	SDL_Quit();
+	if (mIsMainWindow) {
+		SDL_DestroyWindow(mContext->mWindow);
+		SDL_Quit();
+	} else {
+		SDL_DestroyWindow(mContext->mWindow);
+	}
+}
+
+unsigned int Window::getId() const {
+	return mWindowID;
+}
+
+bool Window::getIsMainWindow() const {
+	return mIsMainWindow;
 }
 
 MATH::Vector2i Window::getMousePos() const {
@@ -511,14 +523,13 @@ std::pair<int, int> Window::getDrawableSize() {
 #ifdef VULKAN_BACKEND
 #include <SDL_vulkan.h>
 #include <renderModule/backends/vk/helpers.h>
-void Window::createVulkanSurface() {
+VkSurfaceKHR Window::createVulkanSurface(VkInstance instance) {
 	VkSurfaceKHR surface;
-	if (SDL_Vulkan_CreateSurface(mContext->mWindow, *RENDER::UtilityVk::GetDriver()->mInstance, &surface) == 0) {
+	if (SDL_Vulkan_CreateSurface(mContext->mWindow, instance, &surface) == 0) {
 		printf("Failed to create Vulkan surface.\n");
 		throw;
 	}
-
-	RENDER::UtilityVk::GetDriver()->mSurface = vk::raii::SurfaceKHR(RENDER::UtilityVk::GetDriver()->mInstance, surface);
+	return surface;
 }
 
 std::vector<const char*> Window::getSDLVulkanExtentions() {
@@ -665,7 +676,7 @@ bool shouldDisplayFullScreen() {
 	}
 }
 
-void Window::create() {
+void Window::create(Window* sharedWindow) {
 	auto displaySize = getSize();
 
 #ifdef OPENGL_BACKEND
@@ -731,7 +742,12 @@ void Window::create() {
 		SDL_SetWindowFullscreen(_window, SDL_TRUE);
 	}
 	mContext->mWindow = _window;
+	mWindowID = SDL_GetWindowID(_window);
 #ifdef OPENGL_BACKEND
+	if (sharedWindow) {
+		SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
+		SDL_GL_MakeCurrent(sharedWindow->mContext->mWindow, sharedWindow->mContext->mContext);
+	}
 	mContext->mContext = SDL_GL_CreateContext(mContext->mWindow);
 #endif
 	//initImGUI();

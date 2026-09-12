@@ -90,13 +90,13 @@ namespace IKIGAI::RENDER {
 		void destroyDeferred(Microsoft::WRL::ComPtr<ID3D12DeviceChild> object);
 		std::vector<Microsoft::WRL::ComPtr<ID3D12DeviceChild>>& getDestroyDeferredObjects();
 		void clear(bool clearColor, bool clearDepth, bool clearStencil) override;
-		std::shared_ptr<FrameBufferDx12>& getDefaultFrameBuffer() { return mDefaultFb[mFrameId]; }
+		std::shared_ptr<FrameBufferDx12>& getDefaultFrameBuffer() { return mSwapchains[mCurrentWindowID].mDefaultFb[mFrameId]; }
 		uint32_t getFrameBufferWidth() const {
-			return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getTextures()[0]->getWidth() : mWidth;
+			return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getTextures()[0]->getWidth() : mSwapchains.at(mCurrentWindowID).width;
 		}
 
 		uint32_t getFrameBufferHeight() const {
-			return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getTextures()[0]->getHeight() : mHeight;
+			return mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer->getTextures()[0]->getHeight() : mSwapchains.at(mCurrentWindowID).height;
 		}
 
 		PixelFormat getFrameBufferFormat() const;
@@ -157,15 +157,21 @@ namespace IKIGAI::RENDER {
 
 		std::vector<Microsoft::WRL::ComPtr<ID3D12DeviceChild>> mDestroyDeffered{};
 
-		unsigned mWidth = 0;
-		unsigned mHeight = 0;
+		struct SwapchainContextDx12 {
+			Microsoft::WRL::ComPtr<IDXGISwapChain3> mSwapChain;
+			std::array<std::shared_ptr<FrameBufferDx12>, DEFAULT_FB_SIZE> mDefaultFb;
+			unsigned width = 0;
+			unsigned height = 0;
+		};
+
+		std::unordered_map<unsigned int, SwapchainContextDx12> mSwapchains;
+		unsigned int mCurrentWindowID = 0;
 
 		std::map<size_t, std::shared_ptr<TextureDx12>> mTextures{};
 		std::map<size_t, std::shared_ptr<UniformBufferDx12>> mUniformBuffers{};
 		std::map<size_t, std::shared_ptr<StorageBufferDx12>> mStorageBuffers{};
 
 		Microsoft::WRL::ComPtr<ID3D12Device> mDevice;
-		Microsoft::WRL::ComPtr<IDXGISwapChain3> mSwapChain;
 
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> mCommandList;
 
@@ -173,8 +179,6 @@ namespace IKIGAI::RENDER {
 		Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCommandQueue;
 
 		Microsoft::WRL::ComPtr<IDXGIFactory6> mDxgiFactory;
-		
-		std::array<std::shared_ptr<FrameBufferDx12>, DEFAULT_FB_SIZE> mDefaultFb;
 
 		unsigned int mFrameId = 0;
 		HANDLE mFenceEvent = nullptr;
@@ -196,12 +200,12 @@ namespace IKIGAI::RENDER {
 		void init() override;
 		void createCommandList();
 		void createDescriptorHeaps();
-		void createSwapChain();
+		void createSwapChain(unsigned int windowID, unsigned width, unsigned height);
 		void logAdapters();
 		void logOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> createNewState(const State& state);
 		void applyState();
-		void createDefaultFrameBuffer(unsigned width, unsigned height);
+		void createDefaultFrameBuffer(unsigned int windowID, unsigned width, unsigned height);
 		void logAdapterOutputs(IDXGIAdapter* adapter);
 		void clearForDestroy();
 		void wait();

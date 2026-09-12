@@ -113,6 +113,7 @@ namespace IKIGAI
 	namespace WINDOW
 	{
 		class Window;
+		class WindowManager;
 	}
 }
 
@@ -139,7 +140,8 @@ namespace IKIGAI {
 			);
 			~Core();
 		
-			std::unique_ptr<WINDOW::Window> window;
+			std::unique_ptr<WINDOW::WindowManager> windowManager;
+			std::shared_ptr<WINDOW::Window> window;
 			std::unique_ptr<UTILS::LOGG::Logger> mLogger;
 			std::unique_ptr<INPUT_SYSTEM::InputManager>   inputManager;
 			std::unique_ptr<RENDER::DriverInterface>         driver;
