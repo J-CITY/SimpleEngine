@@ -17,6 +17,7 @@ CMakeCache.txt
 /windows/buildVk
 /windows/buildDx
 /windows/outVk
+/windows/outDx
 /windows/outGl
 assets/
 assetses/
