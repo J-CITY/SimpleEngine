@@ -120,6 +120,7 @@ namespace IKIGAI::RENDER {
 		mPath = res.path;
 		mShaderPaths = res.getPaths();
 		mReflection = ShaderReflection();
+		mSamplerBindings.clear();
 		mVertexFunction = nil;
 		mFragmentFunction = nil;
         mComputeFunction = nil;
@@ -257,6 +258,10 @@ namespace IKIGAI::RENDER {
 				result.partition = PartitionMode(entry);
 			}
 
+			std::vector<uint32_t> samplerBindings;
+			for (const auto& image : compiler.get_shader_resources().sampled_images)
+				samplerBindings.push_back(compiler.get_decoration(image.id, spv::DecorationBinding));
+			mSamplerBindings[stage] = MetalSamplerBindings(std::move(samplerBindings));
 			bool pushBound = false;
 			for (const auto& uniform : mReflection.mUniforms) {
 				if ((uniform.mShaderMask & static_cast<size_t>(stage)) == 0) {
@@ -285,7 +290,7 @@ namespace IKIGAI::RENDER {
 					binding.msl_buffer = MetalBufferIndexForBinding(static_cast<uint32_t>(uniform.mBind));
 				} else {
 					binding.msl_texture = static_cast<uint32_t>(uniform.mBind);
-					binding.msl_sampler = static_cast<uint32_t>(uniform.mBind);
+					binding.msl_sampler = samplerBinding(stage, static_cast<uint32_t>(uniform.mBind)).value_or(0);
 				}
 				compiler.add_msl_resource_binding(binding);
 			}

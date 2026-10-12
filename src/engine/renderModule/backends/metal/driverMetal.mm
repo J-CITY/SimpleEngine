@@ -207,6 +207,7 @@ namespace IKIGAI::RENDER {
 		mCurrentCommandBuffer = [mCommandQueue commandBuffer];
 		mCurrentEncoder = nil;
 		mPushBytes = 0;
+		// The one-frame semaphore above waits for completion before arena reuse.
 		mUniformStagingOffset = 0;
 	}
 
@@ -216,6 +217,61 @@ namespace IKIGAI::RENDER {
 		}
 		[mCurrentEncoder endEncoding];
 		mCurrentEncoder = nil;
+	}
+
+	std::vector<float> DriverMetal::readTexture(std::shared_ptr<TextureInterface> texture, unsigned mip, unsigned layer) {
+		auto metal = std::dynamic_pointer_cast<TextureMetal>(texture);
+		id<MTLTexture> source = metal ? metal->getTexture() : nil;
+		if (!source || mip >= source.mipmapLevelCount || source.sampleCount != 1)
+			throw std::runtime_error("Invalid Metal readback texture or mip");
+		const bool volume = source.textureType == MTLTextureType3D;
+		const NSUInteger layers = volume ? std::max<NSUInteger>(1, source.depth >> mip)
+			: source.textureType == MTLTextureTypeCube ? 6 : source.arrayLength;
+		if (layer >= layers) throw std::runtime_error("Invalid Metal readback layer");
+		NSUInteger channels = 0;
+		bool bytes = false, bgra = false;
+		switch (source.pixelFormat) {
+		case MTLPixelFormatR32Float:
+		case MTLPixelFormatDepth32Float: channels = 1; break;
+		case MTLPixelFormatRG32Float: channels = 2; break;
+		case MTLPixelFormatRGBA32Float: channels = 4; break;
+		case MTLPixelFormatRGBA8Unorm: channels = 4; bytes = true; break;
+		case MTLPixelFormatBGRA8Unorm: channels = 4; bytes = true; bgra = true; break;
+		default: throw std::runtime_error("Unsupported Metal readback pixel format");
+		}
+		const NSUInteger width = std::max<NSUInteger>(1, source.width >> mip);
+		const NSUInteger height = std::max<NSUInteger>(1, source.height >> mip);
+		const NSUInteger rowBytes = (width * channels * (bytes ? 1 : sizeof(float)) + 255) & ~NSUInteger(255);
+		id<MTLBuffer> buffer = [mDevice newBufferWithLength:rowBytes * height options:MTLResourceStorageModeShared];
+		if (!buffer) throw std::runtime_error("Metal readback allocation failed");
+		endPass();
+		const bool activeFrame = mCurrentCommandBuffer != nil;
+		id<MTLCommandBuffer> command = activeFrame ? mCurrentCommandBuffer : [mCommandQueue commandBuffer];
+		id<MTLBlitCommandEncoder> blit = [command blitCommandEncoder];
+		[blit copyFromTexture:source sourceSlice:volume ? 0 : layer sourceLevel:mip
+			sourceOrigin:MTLOriginMake(0, 0, volume ? layer : 0) sourceSize:MTLSizeMake(width, height, 1)
+			toBuffer:buffer destinationOffset:0 destinationBytesPerRow:rowBytes destinationBytesPerImage:rowBytes * height];
+		[blit endEncoding];
+		[command commit];
+		[command waitUntilCompleted];
+		if (activeFrame) mCurrentCommandBuffer = [mCommandQueue commandBuffer];
+		if (command.status == MTLCommandBufferStatusError)
+			throw std::runtime_error(std::string("Metal readback failed: ") + command.error.localizedDescription.UTF8String);
+		const bool depth = source.pixelFormat == MTLPixelFormatDepth32Float;
+		std::vector<float> values(width * height * (depth ? 1 : 4), 0.f);
+		for (NSUInteger y = 0; y < height; ++y) {
+			const auto* row = static_cast<const uint8_t*>(buffer.contents) + y * rowBytes;
+			for (NSUInteger x = 0; x < width; ++x) {
+				const NSUInteger out = (y * width + x) * (depth ? 1 : 4);
+				if (!depth) values[out + 3] = 1.f;
+				for (NSUInteger c = 0; c < channels; ++c) {
+					const NSUInteger destination = bgra && c < 3 ? 2 - c : c;
+					values[out + destination] = bytes ? row[x * channels + c] / 255.f
+						: reinterpret_cast<const float*>(row)[x * channels + c];
+				}
+			}
+		}
+		return values;
 	}
 
 	void DriverMetal::end() {
@@ -359,13 +415,13 @@ namespace IKIGAI::RENDER {
 				pass.colorAttachments[index].texture = texture->getTexture();
                 pass.colorAttachments[index].level=mCurrentState.mFrameBuffer->getMip();
                 pass.colorAttachments[index].slice=mCurrentState.mFrameBuffer->getLayer();
-				pass.colorAttachments[index].loadAction = index == 0 ? mLoadColor : MTLLoadActionLoad;
+				pass.colorAttachments[index].loadAction = mLoadColor;
 				pass.colorAttachments[index].storeAction = MTLStoreActionStore;
 				pass.colorAttachments[index].clearColor = MTLClearColorMake(mClearColor.x, mClearColor.y, mClearColor.z, mClearColor.w);
 				mColorFormats.push_back(texture->getMetalFormat());
 				mSampleCount = texture->getTexture().sampleCount;
-				mPassWidth = texture->getTexture().width;
-				mPassHeight = texture->getTexture().height;
+				mPassWidth = std::max<NSUInteger>(1, texture->getTexture().width >> framebuffer->getMip());
+				mPassHeight = std::max<NSUInteger>(1, texture->getTexture().height >> framebuffer->getMip());
 			}
 		}
 
@@ -611,8 +667,10 @@ namespace IKIGAI::RENDER {
 			[mCurrentEncoder setVertexTexture:texture->getTexture() atIndex:binding];
 			[mCurrentEncoder setFragmentTexture:texture->getTexture() atIndex:binding];
 			if (texture->getSampler()) {
-				[mCurrentEncoder setVertexSamplerState:texture->getSampler() atIndex:binding];
-				[mCurrentEncoder setFragmentSamplerState:texture->getSampler() atIndex:binding];
+				if (auto slot = mCurrentState.mShader->samplerBinding(ShaderType::VERTEX, binding))
+					[mCurrentEncoder setVertexSamplerState:texture->getSampler() atIndex:*slot];
+				if (auto slot = mCurrentState.mShader->samplerBinding(ShaderType::FRAGMENT, binding))
+					[mCurrentEncoder setFragmentSamplerState:texture->getSampler() atIndex:*slot];
 			}
 		}
 		auto bindBuffer = [&](size_t binding, id<MTLBuffer> buffer, NSUInteger offset) {
@@ -763,8 +821,10 @@ namespace IKIGAI::RENDER {
 					[mCurrentEncoder setVertexTexture:texture atIndex:uniform.mBind];
 					[mCurrentEncoder setFragmentTexture:texture atIndex:uniform.mBind];
 					if (sampler) {
-						[mCurrentEncoder setVertexSamplerState:sampler atIndex:uniform.mBind];
-						[mCurrentEncoder setFragmentSamplerState:sampler atIndex:uniform.mBind];
+						if (auto slot = shader->samplerBinding(ShaderType::VERTEX, uniform.mBind))
+							[mCurrentEncoder setVertexSamplerState:sampler atIndex:*slot];
+						if (auto slot = shader->samplerBinding(ShaderType::FRAGMENT, uniform.mBind))
+							[mCurrentEncoder setFragmentSamplerState:sampler atIndex:*slot];
 					}
 				}
 			}
@@ -838,7 +898,7 @@ namespace IKIGAI::RENDER {
 		return mComputePipelines[key];
 	}
 
-	void DriverMetal::bindComputeResources(id<MTLComputeCommandEncoder> encoder) {
+	void DriverMetal::bindComputeResources(id<MTLComputeCommandEncoder> encoder, ShaderType stage) {
 		if (!encoder) {
 			return;
 		}
@@ -848,12 +908,15 @@ namespace IKIGAI::RENDER {
 			}
 			[encoder setTexture:texture->getTexture() atIndex:binding];
 			if (texture->getSampler()) {
-				[encoder setSamplerState:texture->getSampler() atIndex:binding];
+				if (auto slot = mCurrentState.mShader->samplerBinding(stage, binding))
+					[encoder setSamplerState:texture->getSampler() atIndex:*slot];
 			}
 		}
 		for (const auto& [binding, buffer] : mUniformBuffers) {
 			if (buffer && buffer->getBuffer()) {
-				[encoder setBuffer:buffer->getBuffer() offset:0 atIndex:MetalBufferIndexForBinding(static_cast<uint32_t>(binding))];
+				NSUInteger offset = 0;
+				id<MTLBuffer> snapshot = snapshotUniform(buffer->getBuffer(), offset);
+				[encoder setBuffer:snapshot offset:offset atIndex:MetalBufferIndexForBinding(static_cast<uint32_t>(binding))];
 			}
 		}
 		for (const auto& [binding, buffer] : mStorageBuffers) {
@@ -897,7 +960,7 @@ namespace IKIGAI::RENDER {
 
 				if (auto state = computePipeline(shader->getTessellationVertexFunction(indexed))) {
 					[compute setComputePipelineState:state];
-					bindComputeResources(compute);
+					bindComputeResources(compute, ShaderType::VERTEX);
 					if (mVertexBuffer && mVertexBuffer->getBuffer()) {
 						[compute setBuffer:mVertexBuffer->getBuffer() offset:0 atIndex:kMetalShaderInputBufferIndex];
 					}
@@ -910,7 +973,7 @@ namespace IKIGAI::RENDER {
 				}
 				if (auto state = computePipeline(shader->getTessellationControlFunction())) {
 					[compute setComputePipelineState:state];
-					bindComputeResources(compute);
+					bindComputeResources(compute, ShaderType::TESSELLATION_CONTROL);
 					[compute setBuffer:mStageVertexOutput offset:0 atIndex:kMetalShaderInputBufferIndex];
 					[compute setBuffer:mStagePatchOutput offset:0 atIndex:kMetalPatchOutputBufferIndex];
 					[compute setBuffer:mStageTessFactors offset:0 atIndex:kMetalTessFactorBufferIndex];
@@ -923,7 +986,7 @@ namespace IKIGAI::RENDER {
 		if (geometryKernel) {
 			if (auto state = computePipeline(geometry)) {
 				[compute setComputePipelineState:state];
-				bindComputeResources(compute);
+				bindComputeResources(compute, ShaderType::GEOMETRY);
 				if (mVertexBuffer && mVertexBuffer->getBuffer()) {
 					[compute setBuffer:mVertexBuffer->getBuffer() offset:0 atIndex:kMetalVertexBufferIndex];
 					[compute setBuffer:mVertexBuffer->getBuffer() offset:0 atIndex:kMetalShaderInputBufferIndex];
@@ -972,6 +1035,9 @@ namespace IKIGAI::RENDER {
 	}
 
 	void DriverMetal::dispatch(uint32_t x,uint32_t y,uint32_t z) {
+        // A pipeline may start with compute, before clear/draw opens a frame.
+        if(!mCurrentCommandBuffer) begin();
+        if(!mCurrentCommandBuffer) throw std::runtime_error("Metal dispatch requires an active command buffer");
         if(mCurrentEncoder) {[mCurrentEncoder endEncoding];mCurrentEncoder=nil;}
         auto shader=mCurrentState.mShader;
         auto state=computePipeline(shader->getComputeFunction());

@@ -134,7 +134,9 @@ namespace IKIGAI::RENDER {
 		void* DecodeBytes(const uint8_t* bytes, int length, bool isFloat, int& width, int& height, int& channels) {
 			UTILS::STBiSetFlipVerticallyOnLoad(true);
 			if (isFloat) {
-				return UTILS::STBiLoadfFromMemory(bytes, length, &width, &height, &channels, 4); channels=4;
+				auto* data = UTILS::STBiLoadfFromMemory(bytes, length, &width, &height, &channels, 4);
+				if (data) channels = 4;
+				return data;
 			}
 			auto* data = UTILS::STBiLoadFromMemory(bytes, length, &width, &height, &channels, 0);
 			if (data && channels != 4) {
@@ -201,7 +203,8 @@ namespace IKIGAI::RENDER {
 			if (descriptor.useMipmap && descriptor.width > 0 && descriptor.height > 0) {
 				descriptor.mipMapCount = static_cast<int>(MipCount(static_cast<uint32_t>(descriptor.width), static_cast<uint32_t>(descriptor.height)));
 			} else {
-				descriptor.mipMapCount = 1;
+				// Pipeline passes bake explicit mip levels without auto-generation.
+				descriptor.mipMapCount = std::max(1, descriptor.mipMapCount);
 			}
 			return payload;
 		}
@@ -389,7 +392,7 @@ namespace IKIGAI::RENDER {
 				   destinationOrigin:MTLOriginMake(0, 0, 0)];
 			}
 		}
-		if (!depth && mMipCount > 1) {
+		if (!depth && mUseMipMap && mMipCount > 1) {
 			[blit generateMipmapsForTexture:mTexture];
 		}
 		[blit endEncoding];

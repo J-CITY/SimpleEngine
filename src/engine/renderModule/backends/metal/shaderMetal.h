@@ -3,6 +3,7 @@
 
 #include "../interface/shaderInterface.h"
 #include "metalBindings.h"
+#include <optional>
 #import <Metal/Metal.h>
 
 namespace IKIGAI::RENDER {
@@ -44,6 +45,12 @@ namespace IKIGAI::RENDER {
 		bool tessellationTriangles() const { return mTessTriangles; }
 		MTLTessellationPartitionMode tessellationPartition() const { return mTessPartition; }
 		size_t getGeneration() const { return mGeneration; }
+		std::optional<uint32_t> samplerBinding(ShaderType stage, uint32_t textureBinding) const {
+			auto stages = mSamplerBindings.find(stage);
+			if (stages == mSamplerBindings.end()) return {};
+			auto sampler = stages->second.find(textureBinding);
+			return sampler == stages->second.end() ? std::optional<uint32_t>{} : sampler->second;
+		}
 
 	private:
 		id<MTLFunction> mComputeFunction = nil;
@@ -58,6 +65,7 @@ namespace IKIGAI::RENDER {
 		bool mTessTriangles = true;
 		MTLTessellationPartitionMode mTessPartition = MTLTessellationPartitionModeFractionalOdd;
 		size_t mGeneration = 0;
+		std::map<ShaderType, std::map<uint32_t, uint32_t>> mSamplerBindings;
 
 		struct StageResult {
 			id<MTLFunction> function = nil;

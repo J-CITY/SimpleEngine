@@ -56,6 +56,7 @@ namespace IKIGAI::RENDER {
 
 		void draw(uint32_t count, uint32_t offset, uint32_t instance) override;
 		void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
+		std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture, unsigned mip, unsigned layer) override;
 		void drawIndexed(uint32_t count, uint32_t offset, uint32_t instance) override;
 		void draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) override;
 
@@ -115,7 +116,7 @@ namespace IKIGAI::RENDER {
 		void bindMissingShaderResources();
 		void ensureFallbackTexture();
 		id<MTLBuffer> fallbackBuffer(NSUInteger bytes);
-		void bindComputeResources(id<MTLComputeCommandEncoder> encoder);
+		void bindComputeResources(id<MTLComputeCommandEncoder> encoder, ShaderType stage = ShaderType::COMPUTE);
 		void encodePreDraw(uint32_t count, bool indexed);
 		id<MTLBuffer> ensureBuffer(id<MTLBuffer> slot, NSUInteger length);
 		id<MTLComputePipelineState> computePipeline(id<MTLFunction> function);
