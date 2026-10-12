@@ -77,7 +77,9 @@ namespace IKIGAI {
 			void clear(bool clearColor, bool clearDepth, bool clearStencil) override;
 			void draw(uint32_t vertex_count, uint32_t vertex_offset,
 				uint32_t instance_count) override;
-			void drawIndexed(uint32_t index_count, uint32_t index_offset,
+			std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) override;
+        void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
+		void drawIndexed(uint32_t index_count, uint32_t index_offset,
 				uint32_t instance_count) override;
 			void draw(const MeshInterface& mesh, PrimitiveMode primitive,
 				uint32_t instances);
@@ -117,7 +119,7 @@ namespace IKIGAI {
 				createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator = nullptr, MaterialDeleter deleter = nullptr) override;
 			std::shared_ptr<FrameBufferInterface> createFrameBuffer(
 				const std::vector<std::shared_ptr<TextureInterface>>& textures,
-				std::shared_ptr<TextureInterface> depth) override;
+				std::shared_ptr<TextureInterface> depth, unsigned mip = 0, unsigned layer = 0) override;
 
 			void applyState();
 
@@ -212,9 +214,9 @@ namespace IKIGAI {
 			void end() override {};
 			void submit() override;
 			void cleanup() override {};
-			void setBlending(const Blending& value) override {};
-			void resetBlending() override {};
-			void setTriangleOrientation(TriangleOrientation value) override {}
+			void setBlending(const Blending& value) override { mBlend=value;setDirty(Dirty::BLENDING); }
+			void resetBlending() override { mBlend=std::nullopt;setDirty(Dirty::BLENDING); }
+			void setTriangleOrientation(TriangleOrientation value) override { mTriangleOrientation=value;setDirty(Dirty::TRIANGULATION_ORDER); }
 			void setFrameBuffer(std::shared_ptr<FrameBufferInterface> frameBuffer) override;
 			void resetFrameBuffer() override;
 		};

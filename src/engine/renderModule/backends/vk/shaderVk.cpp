@@ -59,6 +59,8 @@ struct SpirvCache {
 } // namespace
 
 const static std::unordered_map<IKIGAI::RENDER::ShaderReflection::UniformType, vk::DescriptorType> ShaderTypeMap = {
+    {IKIGAI::RENDER::ShaderReflection::UniformType::IMAGE_2D,vk::DescriptorType::eStorageImage},
+    {IKIGAI::RENDER::ShaderReflection::UniformType::IMAGE_3D,vk::DescriptorType::eStorageImage},
 	{IKIGAI::RENDER::ShaderReflection::UniformType::SAMPLER_2D, vk::DescriptorType::eCombinedImageSampler},
 	{IKIGAI::RENDER::ShaderReflection::UniformType::SAMPLER_2D_ARRAY, vk::DescriptorType::eCombinedImageSampler},
 	{IKIGAI::RENDER::ShaderReflection::UniformType::SAMPLER_3D, vk::DescriptorType::eCombinedImageSampler},

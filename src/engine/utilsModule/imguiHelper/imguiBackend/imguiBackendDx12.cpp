@@ -4,6 +4,8 @@
 #include "windowModule/window/window.h"
 #include "renderModule/backends/dx12/driverDx12.h"
 #include "renderModule/backends/dx12/d3dUtil.h"
+#include "renderModule/backends/dx12/frameBufferDx12.h"
+#include "renderModule/backends/dx12/textureDx12.h"
 #include "renderModule/backends/interface/textureInterface.h"
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_dx12.h"
@@ -62,6 +64,17 @@ namespace {
 				return;
 			}
 			ImGuiIO& io = ImGui::GetIO();
+			// The last graph pass may target a float texture. Engine framebuffer
+			// state is lazy, while ImGui records commands directly into this list.
+			auto frame = driverDx12->getDefaultFrameBuffer();
+			auto command = driverDx12->getCommandList().Get();
+			for (const auto& texture : frame->getTextures()) {
+				std::static_pointer_cast<IKIGAI::RENDER::TextureDx12>(texture)->setState(command, D3D12_RESOURCE_STATE_RENDER_TARGET);
+			}
+			std::static_pointer_cast<IKIGAI::RENDER::TextureDx12>(frame->getDepth())->setState(command, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+			const auto color = frame->getTexHeap()->GetCPUDescriptorHandleForHeapStart();
+			const auto depth = frame->getDepthHeap()->GetCPUDescriptorHandleForHeapStart();
+			command->OMSetRenderTargets(1, &color, FALSE, &depth);
 			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), driverDx12->getCommandList().Get());
 			if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 				ImGui::UpdatePlatformWindows();

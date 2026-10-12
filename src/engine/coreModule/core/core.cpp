@@ -200,7 +200,6 @@ Core:: Core(
 		compMgr->registerComponent<ECS::SkeletalComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SkeletalAnimationComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		//GUI
-#ifdef OPENGL_BACKEND
 		compMgr->registerComponent<ECS::RootGuiComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpriteComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpriteAnimateComponent>(IKIGAI::ECS2::StorageType::Sparse);
@@ -212,7 +211,6 @@ Core:: Core(
 		compMgr->registerComponent<ECS::LayoutComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpineComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::ChunkModelRenderer>(IKIGAI::ECS2::StorageType::Sparse);
-#endif
 
 		sysMgr->registerSystem<ECS::ScriptSystem>();
 		sysMgr->registerSystem<ECS::LogicSystem>();
@@ -321,5 +319,13 @@ Core::~Core() {
 		window->shutdownImGUI();
 	}
 #endif
+	// GPU resources and their loader callbacks must be released while both
+	// resource managers and the active backend still exist.
+#ifdef USE_EDITOR
+	editorRender.reset();
+#endif
+	if(sceneManager) sceneManager->unloadCurrentScene();
+	world.reset();
+	renderer.reset();
 	RENDER::DriverInterface::SetActive(nullptr);
 }

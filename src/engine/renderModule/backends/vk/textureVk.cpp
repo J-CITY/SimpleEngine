@@ -73,7 +73,7 @@ void IKIGAI::RENDER::TextureVk::init(const TextureResource& descriptor, const st
 		vk::ImageUsageFlagBits::eColorAttachment |
 		vk::ImageUsageFlagBits::eStorage;
 	if (desc.texType == TextureType::DEPTH) {
-		usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+		usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
 	}
 	mType = desc.texType;
 
@@ -85,7 +85,9 @@ void IKIGAI::RENDER::TextureVk::init(const TextureResource& descriptor, const st
 		{TextureType::DEPTH, vk::ImageViewType::e2D},
 	};
 
-	const auto aspectFlag = desc.texType == TextureType::DEPTH ? (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil) : vk::ImageAspectFlagBits::eColor;
+	const auto aspectFlag = desc.texType == TextureType::DEPTH
+		? (desc.pixelType == PixelFormat::DEPTH32_FLOAT ? vk::ImageAspectFlags(vk::ImageAspectFlagBits::eDepth) : vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)
+		: vk::ImageAspectFlags(vk::ImageAspectFlagBits::eColor);
 
 	std::tie(mImage, mImageView) = UtilityVk::CreateImage(
 		desc.width, desc.height, FormatMap.at(desc.pixelType), usage,
@@ -152,7 +154,8 @@ void IKIGAI::RENDER::TextureVk::init(const TextureResource& descriptor, const st
 		.setMaxAnisotropy(1.0f);
 	mSampler = UtilityVk::GetDriver()->mDevice.createSampler(sampler_create_info);
 
-	mDepth = descriptor.depth;
+	mDepth = std::max(1,descriptor.depth);
+	TextureInterface::mDepth = mDepth;
 	mFormat = descriptor.pixelType;
 
 	if (!data.empty()) {
@@ -246,15 +249,33 @@ IKIGAI::RENDER::TextureVk::TextureVk(uint32_t width, uint32_t height, vk::Format
 }
 
 IKIGAI::RENDER::TextureVk::~TextureVk() {
-	if (mImage) UtilityVk::GetDriver()->destroyDeferred(std::move(mImage));
+	releaseResources();
+}
+
+void IKIGAI::RENDER::TextureVk::releaseResources() {
+    for(auto& [key,view]:mAttachmentViews) UtilityVk::GetDriver()->destroyDeferred(std::move(view));
+    mAttachmentViews.clear();
+	auto* driver = UtilityVk::GetDriver();
+	// Editor draw data can still reference a texture replaced during resize.
+	// Keep its descriptors, views and sampler alive until the frame fence.
+	if (mDescriptorSet && driver->mImguiPool) {
+		auto descriptor = std::shared_ptr<void>(reinterpret_cast<void*>(mDescriptorSet), [driver](void* pointer) {
+			if (!driver->mImguiPool) return; // ImGui shutdown already destroyed the pool.
+			const auto set = reinterpret_cast<VkDescriptorSet>(pointer);
+			vkFreeDescriptorSets(*driver->mDevice, driver->mImguiPool, 1, &set);
+		});
+		driver->destroyDeferred(std::move(descriptor));
+	}
+	mDescriptorSet = nullptr;
+	if (*mImageView) driver->destroyDeferred(std::move(mImageView));
+	if (*mSampler) driver->destroyDeferred(std::move(mSampler));
+	if (mImage) driver->destroyDeferred(std::move(mImage));
 }
 
 void IKIGAI::RENDER::TextureVk::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+    ++mRevision;
 	// Освобождаем старые VK-ресурсы (отложенно)
-	if (mImage) UtilityVk::GetDriver()->destroyDeferred(std::move(mImage));
-	mImageView = nullptr;
-	mSampler = nullptr;
-	mDescriptorSet = nullptr;
+	releaseResources();
 
 	auto& _d = const_cast<TextureResource&>(descriptor);
 	std::vector<void*> textureData;
@@ -265,7 +286,7 @@ void IKIGAI::RENDER::TextureVk::recreate(const TextureResource& descriptor, cons
 		for (const auto& fData : fileData) {
 			int w = 0, h = 0, c = 0;
 			if (_d.isFloat) {
-				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0));
+				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)); c=4;
 			} else {
 				auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
 				if (data && c != 4) {
@@ -283,7 +304,7 @@ void IKIGAI::RENDER::TextureVk::recreate(const TextureResource& descriptor, cons
 
 	if (_d.depth == 0) _d.depth = 1;
 	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
-	else _d.mipMapCount = 1;
+	else _d.mipMapCount = std::max(1,_d.mipMapCount);
 
 	init(descriptor, textureData);
 
@@ -301,7 +322,9 @@ void* IKIGAI::RENDER::TextureVk::getImguiId() {
 			imgui->registerGpuTexture(*this);
 		}
 	}
-	setState(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+	auto* driver=UtilityVk::GetDriver();
+	if(mCurrentState!=vk::ImageLayout::eGeneral) driver->deactivateRenderPass();
+	setState(driver->getCurrentFrame().mCommandBuffer, vk::ImageLayout::eGeneral);
 	return (void*)mDescriptorSet;
 }
 
@@ -328,7 +351,7 @@ std::shared_ptr<IKIGAI::RENDER::TextureVk> IKIGAI::RENDER::TextureVk::Create(con
 			auto fileData = file->read();
 			
 			if (_descriptor.isFloat) {
-				auto* data = IKIGAI::UTILS::STBiLoadfFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 0);
+				auto* data = IKIGAI::UTILS::STBiLoadfFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 4); channels=4;
 				if (data) textureData.push_back(data);
 			} else {
 				auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 0);
@@ -355,7 +378,7 @@ std::shared_ptr<IKIGAI::RENDER::TextureVk> IKIGAI::RENDER::TextureVk::Create(con
 		_descriptor.mipMapCount = GetMipCount(_descriptor.width, _descriptor.height);
 	}
 	else {
-		_descriptor.mipMapCount = 1;
+		_descriptor.mipMapCount = std::max(1,_descriptor.mipMapCount);
 	}
 
 	//Create texture
@@ -385,7 +408,7 @@ std::shared_ptr<IKIGAI::RENDER::TextureVk> IKIGAI::RENDER::TextureVk::Create(con
 		for (const auto& fData : fileData) {
 			int w = 0, h = 0, c = 0;
 			if (_d.isFloat) {
-				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0));
+				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)); c=4;
 			} else {
 				auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
 				if (data && c != 4) {
@@ -404,7 +427,7 @@ std::shared_ptr<IKIGAI::RENDER::TextureVk> IKIGAI::RENDER::TextureVk::Create(con
 
 	if (_d.depth == 0) _d.depth = 1;
 	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
-	else _d.mipMapCount = 1;
+	else _d.mipMapCount = std::max(1,_d.mipMapCount);
 
 	auto tex = AllocateTexture<TextureVk>(allocator, deleter, descriptor, textureData);
 
@@ -464,7 +487,7 @@ std::shared_ptr<IKIGAI::RENDER::TextureAtlasVk> IKIGAI::RENDER::TextureAtlasVk::
 	}
 	if (_d.depth == 0) _d.depth = 1;
 	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
-	else _d.mipMapCount = 1;
+	else _d.mipMapCount = std::max(1,_d.mipMapCount);
 
 	auto tex = AllocateTexture<TextureAtlasVk>(allocator, deleter, descriptor, textureData);
 
@@ -504,7 +527,7 @@ std::shared_ptr<IKIGAI::RENDER::TextureAtlasVk> IKIGAI::RENDER::TextureAtlasVk::
 	}
 	if (_d.depth == 0) _d.depth = 1;
 	if (_d.useMipmap) _d.mipMapCount = GetMipCount(_d.width, _d.height);
-	else _d.mipMapCount = 1;
+	else _d.mipMapCount = std::max(1,_d.mipMapCount);
 
 	auto tex = AllocateTexture<TextureAtlasVk>(allocator, deleter, descriptor, textureData);
 
@@ -621,11 +644,24 @@ void IKIGAI::RENDER::TextureVk::generateMips() {
 	//}
 }
 
+vk::ImageView IKIGAI::RENDER::TextureVk::attachmentView(unsigned mip,unsigned layer) {
+    auto key=std::make_pair(mip,layer);
+    if(!mAttachmentViews.contains(key)) {
+        auto range=vk::ImageSubresourceRange().setAspectMask(vk::ImageAspectFlagBits::eColor).setBaseMipLevel(mip).setLevelCount(1).setBaseArrayLayer(layer).setLayerCount(1);
+        auto info=vk::ImageViewCreateInfo().setImage(mImagePtr).setFormat(FormatMap.at(mFormat)).setViewType(vk::ImageViewType::e2D).setSubresourceRange(range);
+        mAttachmentViews.emplace(key,UtilityVk::GetDriver()->mDevice.createImageView(info));
+    }
+    return *mAttachmentViews.at(key);
+}
+
 void IKIGAI::RENDER::TextureVk::setState(const vk::raii::CommandBuffer& cmdbuf, vk::ImageLayout state) {
 	if (mCurrentState == state)
 		return;
 
-	UtilityVk::SetImageMemoryBarrier(cmdbuf, mImagePtr, vk::ImageAspectFlagBits::eColor, mCurrentState, state);
+	const auto aspect = mType == TextureType::DEPTH
+		? (getFormat() == PixelFormat::DEPTH32_FLOAT ? vk::ImageAspectFlags(vk::ImageAspectFlagBits::eDepth) : vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)
+		: vk::ImageAspectFlags(vk::ImageAspectFlagBits::eColor);
+	UtilityVk::SetImageMemoryBarrier(cmdbuf, mImagePtr, aspect, mCurrentState, state, 0, std::max(1u,mMipCount), 0, mType==TextureType::TEXTURE_CUBE ? 6 : mType==TextureType::TEXTURE_2D_ARRAY ? std::max<size_t>(1,mDepth) : 1);
 	mCurrentState = state;
 }
 

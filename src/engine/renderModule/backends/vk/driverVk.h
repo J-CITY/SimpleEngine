@@ -47,6 +47,9 @@ namespace IKIGAI::RENDER {
 		vk::raii::CommandPool mCommandPool = nullptr;
 		// Freed at the start of begin(), after the previous frame's fence has signaled.
 		vk::raii::DescriptorPool mDescriptorPool = nullptr;
+		std::vector<vk::raii::DescriptorPool> mExtraDescriptorPools;
+		size_t mDescriptorPoolIndex = 0;
+		vk::raii::DescriptorPool createDrawDescriptorPool();
 		std::vector<vk::raii::DescriptorSet> mFrameDescriptorSets;
 
 		constexpr static vk::Format DefaultDepthStencilFormat = vk::Format::eD32SfloatS8Uint;
@@ -59,6 +62,9 @@ namespace IKIGAI::RENDER {
 		using VulkanObject = std::variant<
 			VmaBuffer,
 			VmaImage,
+			vk::raii::ImageView,
+			vk::raii::Sampler,
+			std::shared_ptr<void>,
 			vk::raii::Pipeline,
 			vk::raii::AccelerationStructureKHR
 		>;
@@ -246,7 +252,7 @@ namespace IKIGAI::RENDER {
 
 		std::shared_ptr<MaterialInterface> createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator = nullptr, MaterialDeleter deleter = nullptr) override;
 
-		std::shared_ptr<FrameBufferInterface> createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth) override;
+		std::shared_ptr<FrameBufferInterface> createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip = 0, unsigned layer = 0) override;
 
 		void setBlending(const Blending& value) override;
 		void setDepth(const Depth& depth) override;
@@ -254,6 +260,8 @@ namespace IKIGAI::RENDER {
 		void setCull(CullFace cull_mode) override;
 		void setTriangleOrientation(TriangleOrientation value) override;
 		void draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) override;
+		std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) override;
+        void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 		void drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) override;
 		void draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) override;
 		std::shared_ptr<UniformBufferInterface> createUniformBuffer(const void* data, size_t size) override;

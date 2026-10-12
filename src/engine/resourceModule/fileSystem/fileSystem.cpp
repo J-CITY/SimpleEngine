@@ -238,7 +238,7 @@ std::shared_ptr<IKIGAI::RESOURCES::File> IKIGAI::RESOURCES::FileSystem::getFile(
 }
 
 std::optional<std::string> IKIGAI::RESOURCES::FileSystem::getFilePath(const std::string& path) const {
-    auto entry = mInternal->mVFS->GetEntry(path);
+    auto entry = mInternal->mVFS->GetEntry(NormalizeVirtualPath(path));
     if (entry) return entry->VirtualPath();
 	return std::nullopt;
 }

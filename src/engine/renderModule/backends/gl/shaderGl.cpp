@@ -163,7 +163,7 @@ void IKIGAI::RENDER::ShaderGl::recompile(const ShaderResource &res) {
 IKIGAI::RENDER::ShaderGl::~ShaderGl() { clear(); }
 
 void IKIGAI::RENDER::ShaderGl::clear() const {
-  glDeleteShader(static_cast<unsigned>(mId));
+  if(mId) glDeleteProgram(static_cast<unsigned>(mId));
 }
 
 void IKIGAI::RENDER::ShaderGl::create(const ShaderResource &res) {
@@ -271,9 +271,10 @@ void IKIGAI::RENDER::ShaderGl::create(const ShaderResource &res) {
 
   std::map<ShaderType, std::string> sources;
   for (auto &[type, source] : res.spirvSources) {
-    sources[type] =
+    try { sources[type] =
         CompileSpirvToGlsl(source, es, version, enable_420pack_extension,
                            force_flattened_io_blocks);
+    } catch(const std::exception& e) { throw std::runtime_error("GL cross-compile " + mPath + ": " + e.what()); }
 #ifdef __EMSCRIPTEN__
     std::cout << "[web] CompileSpirvToGlsl ok stage=" << static_cast<int>(type)
               << std::endl;
@@ -363,6 +364,10 @@ void IKIGAI::RENDER::ShaderGl::compile(
   CheckCompileErrors(static_cast<unsigned>(mId), "PROGRAM");
   GLint linked = 0;
   glGetProgramiv(static_cast<unsigned>(mId), GL_LINK_STATUS, &linked);
+  if(!linked) {
+    glDeleteProgram(static_cast<unsigned>(mId));mId=0;
+    throw std::runtime_error("OpenGL shader link failed: "+mPath);
+  }
   IKIGAI_COUT("Shader link path=" << mPath << " program=" << mId
             << " stages=" << shaderIds.size() << " ok=" << linked);
   for (auto &[type, id] : shaderIds) {

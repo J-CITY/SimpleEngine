@@ -24,7 +24,7 @@ namespace IKIGAI::RENDER {
 		void create(CD3DX12_CPU_DESCRIPTOR_HANDLE handler);
 
 	public:
-		FrameBufferDx12(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth=nullptr);
+		FrameBufferDx12(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth=nullptr, unsigned mip = 0, unsigned layer = 0);
 		const std::vector<std::shared_ptr<TextureInterface>>& getTextures() const override;
 		const std::shared_ptr<TextureInterface>& getDepth() const override;
 

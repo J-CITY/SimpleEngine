@@ -23,7 +23,7 @@ uint32_t Pack(const IKIGAI::MATH::Vector3f& vec) {
 
 
 LightOGL Light::generateOGLStruct() const {
-	LightOGL result;
+	LightOGL result{};
 	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
 	auto cm = world.getComponentManager();
 	auto transform = cm->getComponent<ECS::TransformComponent>(objId);
@@ -52,9 +52,10 @@ LightOGL Light::generateOGLStruct() const {
 	result.intensity = intensity;
 
 	//TODO: update LightOGL in vulkan and dx12
-#ifdef OPENGL_BACKEND
 	result.radius = getEffectRange();
-#endif
+	result.shadowEnabled = castShadows ? 1 : 0;
+	result.shadowNear = shadowNear;
+	result.shadowFar = shadowFar;
 
 	return result;
 }

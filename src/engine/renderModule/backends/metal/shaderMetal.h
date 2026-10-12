@@ -27,6 +27,7 @@ namespace IKIGAI::RENDER {
 		void setUniform(const std::string& name, bool value);
 		void setUniform(const std::string& name, const std::vector<MATH::Matrix4f>& values);
 
+		id<MTLFunction> getComputeFunction() const { return mComputeFunction; }
 		id<MTLFunction> getVertexFunction() const { return mVertexFunction; }
 		id<MTLFunction> getFragmentFunction() const { return mFragmentFunction; }
 		id<MTLFunction> getGeometryFunction() const { return mGeometryFunction; }
@@ -45,6 +46,7 @@ namespace IKIGAI::RENDER {
 		size_t getGeneration() const { return mGeneration; }
 
 	private:
+		id<MTLFunction> mComputeFunction = nil;
 		id<MTLFunction> mVertexFunction = nil;
 		id<MTLFunction> mFragmentFunction = nil;
 		id<MTLFunction> mGeometryFunction = nil;

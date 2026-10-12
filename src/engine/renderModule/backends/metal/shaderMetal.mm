@@ -122,6 +122,7 @@ namespace IKIGAI::RENDER {
 		mReflection = ShaderReflection();
 		mVertexFunction = nil;
 		mFragmentFunction = nil;
+        mComputeFunction = nil;
 		mGeometryFunction = nil;
 		mTessControlFunction = nil;
 		mTessEvalFunction = nil;
@@ -203,6 +204,7 @@ namespace IKIGAI::RENDER {
 		if (spirv.contains(ShaderType::GEOMETRY) && !spirv[ShaderType::GEOMETRY].empty()) {
 			mGeometryFunction = compileStage(spirv[ShaderType::GEOMETRY], ShaderType::GEOMETRY, false, false).function;
 		}
+		if (spirv.contains(ShaderType::COMPUTE)) mComputeFunction=compileStage(spirv[ShaderType::COMPUTE],ShaderType::COMPUTE,false,false).function;
 		if (spirv.contains(ShaderType::FRAGMENT) && !spirv[ShaderType::FRAGMENT].empty()) {
 			mFragmentFunction = compileStage(spirv[ShaderType::FRAGMENT], ShaderType::FRAGMENT, false, false).function;
 		}

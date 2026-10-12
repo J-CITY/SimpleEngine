@@ -98,12 +98,14 @@ namespace IKIGAI::RENDER {
 	struct RenderSettings {
 		enum class Backend { OPENGL, VULKAN, DIRECTX12, METAL };
 		Backend backend = Backend::OPENGL;
+		std::string pipeline;
 
 		template<class Context>
 		constexpr static auto serde(Context& context, RenderSettings& value) {
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
-				.field(&RenderSettings::backend, "backend", default_{Backend::OPENGL});
+				.field(&RenderSettings::backend, "backend", default_{Backend::OPENGL})
+				.field(&RenderSettings::pipeline, "pipeline", default_{std::string{}});
 		}
 	};
 
@@ -173,6 +175,11 @@ namespace IKIGAI::RENDER {
 		virtual void clear(bool clearColor, bool clearDepth, bool clearStencil) = 0;
 		virtual void setClearColor(const MATH::Vector4f& color) = 0;
 		virtual void setClearColor(float r, float g, float b, float a) = 0;
+		virtual void dispatch(uint32_t x, uint32_t y, uint32_t z) = 0;
+        // Synchronous diagnostic readback of one mip/face (or one 3D slice).
+        virtual std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture, unsigned mip, unsigned layer) {
+            throw std::runtime_error("Float texture readback is unavailable on this backend");
+        }
 		virtual void draw(uint32_t count, uint32_t offset, uint32_t instance) = 0;
 		virtual void drawIndexed(uint32_t count, uint32_t offset,
 			uint32_t instance) = 0;
@@ -219,7 +226,7 @@ namespace IKIGAI::RENDER {
 			createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator = nullptr, MaterialDeleter deleter = nullptr) = 0;
 		virtual std::shared_ptr<FrameBufferInterface> createFrameBuffer(
 			const std::vector<std::shared_ptr<TextureInterface>>& textures,
-			std::shared_ptr<TextureInterface> depth) = 0;
+			std::shared_ptr<TextureInterface> depth, unsigned mip = 0, unsigned layer = 0) = 0;
 
 		virtual void setFrameBuffer(std::shared_ptr<FrameBufferInterface> frameBuffer) = 0;
 		virtual void resetFrameBuffer() = 0;

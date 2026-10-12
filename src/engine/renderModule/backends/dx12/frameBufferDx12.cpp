@@ -7,20 +7,22 @@
 #include "renderModule/backends/interface/resourceStruct.h"
 
 
-IKIGAI::RENDER::FrameBufferDx12::FrameBufferDx12(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth): mTextures(textures), mDepth(depth) {
-	if (textures.empty()) {
-		throw;
+IKIGAI::RENDER::FrameBufferDx12::FrameBufferDx12(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip, unsigned layer): mTextures(textures), mDepth(depth) {
+	mMip=mip; mLayer=layer;
+	if (textures.empty() && !depth) {
+		throw std::runtime_error("Framebuffer needs a color or depth attachment");
 	}
 	static size_t ID = 0;
 	mId = ID;
 	ID++;
-	mWidth = mTextures[0]->getWidth();
-	mHeight = mTextures[0]->getHeight();
+	auto sizeTexture = mTextures.empty() ? mDepth : mTextures.front();
+	mWidth = std::max<size_t>(1,sizeTexture->getWidth() >> mMip);
+	mHeight = std::max<size_t>(1,sizeTexture->getHeight() >> mMip);
 
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	heapDesc.NumDescriptors = textures.size();
+	heapDesc.NumDescriptors = std::max<size_t>(1, textures.size());
 	d3dUtil::GetDriver()->getDevice()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(mTexHeap.GetAddressOf()));
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE handler{};
@@ -47,8 +49,12 @@ const Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& IKIGAI::RENDER::FrameBufferD
 void IKIGAI::RENDER::FrameBufferDx12::create(CD3DX12_CPU_DESCRIPTOR_HANDLE handler) {
 	const auto incSize = d3dUtil::GetDriver()->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	for (auto& texture : mTextures) {
-		DirectX::CreateRenderTargetView(d3dUtil::GetDriver()->getDevice().Get(), 
-			std::static_pointer_cast<TextureDx12>(texture)->getResource().Get(), handler);
+        auto resource=std::static_pointer_cast<TextureDx12>(texture)->getResource().Get();
+        D3D12_RENDER_TARGET_VIEW_DESC view{}; view.Format=resource->GetDesc().Format;
+        if(texture->getType()==TextureType::TEXTURE_CUBE || texture->getType()==TextureType::TEXTURE_2D_ARRAY) {
+            view.ViewDimension=D3D12_RTV_DIMENSION_TEXTURE2DARRAY;view.Texture2DArray.MipSlice=mMip;view.Texture2DArray.FirstArraySlice=mLayer;view.Texture2DArray.ArraySize=1;
+        } else { view.ViewDimension=D3D12_RTV_DIMENSION_TEXTURE2D;view.Texture2D.MipSlice=mMip; }
+        d3dUtil::GetDriver()->getDevice()->CreateRenderTargetView(resource,&view,handler);
 		handler.Offset(1, incSize);
 	}
 
@@ -70,7 +76,7 @@ void IKIGAI::RENDER::FrameBufferDx12::create(CD3DX12_CPU_DESCRIPTOR_HANDLE handl
 	d3dUtil::GetDriver()->getDevice()->CreateDescriptorHeap(&dsv_heap_desc, IID_PPV_ARGS(mDepthHeap.GetAddressOf()));
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
-	dsv_desc.Format = d3dUtil::GetDriver()->DefaultDepthFormat;
+	dsv_desc.Format = depthTexture->getFormat() == PixelFormat::DEPTH32_FLOAT ? DXGI_FORMAT_D32_FLOAT : d3dUtil::GetDriver()->DefaultDepthFormat;
 	dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	d3dUtil::GetDriver()->getDevice() ->CreateDepthStencilView(depthTexture->getResource().Get(), &dsv_desc,
 		mDepthHeap->GetCPUDescriptorHandleForHeapStart());

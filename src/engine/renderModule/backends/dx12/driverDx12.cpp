@@ -103,13 +103,15 @@ const static std::map<StencilOperation, D3D12_STENCIL_OP> StencilOperationMap = 
 
 std::string DriverDx12::State::getId() const {
 	std::string res;
-	res += mShader->getId();
+	res += std::to_string(mShader->getId());
+	res += ':';
 	if (mFrameBuffer) {
-		res += mFrameBuffer->getId();
+		res += std::to_string(mFrameBuffer->getId());
 	}
 	else {
 		res += '-';
 	}
+	res += ':';
 	res += (char)mCullFace;
 	res += (char)mTriangleOrientation;
 	res += (char)mRasterization;
@@ -159,7 +161,7 @@ std::vector<CD3DX12_STATIC_SAMPLER_DESC> DriverDx12::GetStaticSamplers() {
 			D3D12_COMPARISON_FUNC_LESS_EQUAL,
 			D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE,
 			0.0f,
-			0.0f);
+			D3D12_FLOAT32_MAX);
 	};
 
 	std::vector<CD3DX12_STATIC_SAMPLER_DESC> samplers = {
@@ -184,7 +186,17 @@ DriverDx12::DriverDx12() {
 DriverDx12::~DriverDx12() {
 	DriverDx12::end();
 	wait();
+	mVertexBuffer.reset();
+	mIndexBuffer.reset();
+	mUniformBuffers.clear();
+	mStorageBuffers.clear();
+	mTextures.clear();
+	mCurrentState = {};
+	mStates.clear();
+	mSwapchains.clear();
+	clearForDestroy();
 	mAllocator.Reset();
+	if (mFenceEvent) CloseHandle(mFenceEvent);
 }
 
 PixelFormat DriverDx12::getFrameBufferFormat() const {
@@ -423,7 +435,7 @@ void DriverDx12::setScissor(const Scissor& param) {
 }
 
 void DriverDx12::resetScissor() {
-	mViewport = std::nullopt;
+	mScissor = std::nullopt;
 	setDirty(Dirty::SCISSOR);
 }
 
@@ -499,6 +511,7 @@ void DriverDx12::clear(bool clearColor, bool clearDepth, bool clearStencil) {
 	for (auto& texture : fb->getTextures()) {
 		std::static_pointer_cast<TextureDx12>(texture)->setState(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 	}
+	if (fb->getDepth()) std::static_pointer_cast<TextureDx12>(fb->getDepth())->setState(mCommandList.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
 	auto dsv_descriptor = fb->getDepthHeap()->GetCPUDescriptorHandleForHeapStart();
 
@@ -528,6 +541,39 @@ void DriverDx12::clear(bool clearColor, bool clearDepth, bool clearStencil) {
 void DriverDx12::draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) {
 	applyState();
 	mCommandList->DrawInstanced((UINT)vertex_count, (UINT)instance_count, (UINT)vertex_offset, 0);
+}
+
+std::vector<float> DriverDx12::readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) {
+    if(texture->getFormat()!=PixelFormat::RGBA_FLOAT && texture->getFormat()!=PixelFormat::R_FLOAT && texture->getType()!=TextureType::DEPTH) throw std::runtime_error("DX12 float readback requires RGBA_FLOAT, R_FLOAT or depth");
+    auto t=std::static_pointer_cast<TextureDx12>(texture);auto resource=t->getResource().Get();auto desc=resource->GetDesc();
+    const UINT subresource=mip+(t->getType()==TextureType::TEXTURE_CUBE?layer*t->getMipCount():0);
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};UINT rows=0;UINT64 rowSize=0,bytes=0;
+    mDevice->GetCopyableFootprints(&desc,subresource,1,0,&footprint,&rows,&rowSize,&bytes);
+    auto buffer=d3dUtil::CreateBuffer(bytes,D3D12_HEAP_TYPE_READBACK);
+    d3dUtil::OneTimeSubmit([&](ID3D12GraphicsCommandList* cmd) {
+        t->setState(cmd,D3D12_RESOURCE_STATE_COPY_SOURCE);
+        auto source=CD3DX12_TEXTURE_COPY_LOCATION(resource,subresource);
+        auto destination=CD3DX12_TEXTURE_COPY_LOCATION(buffer.Get(),footprint);
+        cmd->CopyTextureRegion(&destination,0,0,0,&source,nullptr);
+    });
+    const size_t channels=t->getType()==TextureType::DEPTH?1:4,w=std::max<size_t>(1,t->getWidth()>>mip),h=std::max<size_t>(1,t->getHeight()>>mip);
+    std::vector<float> values(w*h*channels);void* mapped=nullptr;D3D12_RANGE range{0,static_cast<SIZE_T>(bytes)};
+    ThrowIfFailed(buffer.Get()->Map(0,&range,&mapped));
+    const auto* src=static_cast<const uint8_t*>(mapped)+footprint.Offset+(t->getType()==TextureType::TEXTURE_3D?layer*h*footprint.Footprint.RowPitch:0);
+    const bool red=t->getFormat()==PixelFormat::R_FLOAT && t->getType()!=TextureType::DEPTH;
+    for(size_t y=0;y<h;++y) {
+        if(red) for(size_t x=0;x<w;++x) {
+            float r;std::memcpy(&r,src+y*footprint.Footprint.RowPitch+x*sizeof(float),sizeof(float));
+            values[(y*w+x)*4]=r;values[(y*w+x)*4+3]=1;
+        } else std::memcpy(values.data()+y*w*channels,src+y*footprint.Footprint.RowPitch,w*channels*sizeof(float));
+    }
+    D3D12_RANGE written{0,0};buffer.Get()->Unmap(0,&written);return values;
+}
+
+void DriverDx12::dispatch(uint32_t x,uint32_t y,uint32_t z) {
+    applyState(); mCommandList->Dispatch(x,y,z);
+    auto barrier=CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
+    mCommandList->ResourceBarrier(1,&barrier);
 }
 
 void DriverDx12::drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) {
@@ -870,7 +916,8 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> DriverDx12::createNewState(const Sta
 
 	auto rasterizerDescriptor = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	rasterizerDescriptor.CullMode = CullMap.at(state.mCullFace);
-	rasterizerDescriptor.FrontCounterClockwise = state.mTriangleOrientation == TriangleOrientation::CCW;
+	// Preserve the engine winding convention in the top-left D3D viewport.
+	rasterizerDescriptor.FrontCounterClockwise = state.mTriangleOrientation == TriangleOrientation::CW;
 
 	const static std::unordered_map<RasterizationMode, D3D12_PRIMITIVE_TOPOLOGY_TYPE> TopologyTypeMap = {
 		{RasterizationMode::POINT, D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT},
@@ -1011,6 +1058,7 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> DriverDx12::createNewState(const Sta
 			infoQueue->ClearStoredMessages();
 		}
 		LOG_ERROR << message;
+		throw std::runtime_error(message);
 	}
 	if (infoQueue) {
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
@@ -1056,6 +1104,7 @@ void DriverDx12::applyState() {
 	auto dsv_descriptor = fb->getDepthHeap()->GetCPUDescriptorHandleForHeapStart();
 
 	if (!isCompute) {
+		std::static_pointer_cast<TextureDx12>(fb->getDepth())->setState(mCommandList.Get(),D3D12_RESOURCE_STATE_DEPTH_WRITE);
 		mCommandList->OMSetRenderTargets((UINT)rtv_descriptors.size(), rtv_descriptors.data(),
 			FALSE, &dsv_descriptor);
 	}
@@ -1085,6 +1134,11 @@ void DriverDx12::applyState() {
 				mCommandList->SetGraphicsRootDescriptorTable(rootId, texture->getGpuDescriptorHandle());
 			}
 		}
+		else if (uniform.mType == ShaderReflection::UniformType::IMAGE_3D || uniform.mType == ShaderReflection::UniformType::IMAGE_2D) {
+            auto texture=mTextures.at(binding);
+            texture->setState(mCommandList.Get(),D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            mCommandList->SetComputeRootDescriptorTable(rootId,texture->getUavHandle());
+        }
 		else if (uniform.mType == ShaderReflection::UniformType::UNIFORM_BUFFER) {
 			auto ubo = mUniformBuffers.at(binding);
 			const auto address = ubo->getBuffer()->GetGPUVirtualAddress();
@@ -1120,6 +1174,7 @@ void DriverDx12::applyState() {
 	}
 
 	flushPushConstants(isCompute);
+    if(isCompute) return;
 
 	if (shader->mBlobs.contains(ShaderType::TESSELLATION_CONTROL) && shader->mBlobs.at(ShaderType::TESSELLATION_CONTROL)) {
 		mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
@@ -1143,7 +1198,7 @@ void DriverDx12::applyState() {
 	}
 	if (isDirty(Dirty::SCISSOR)) {
 		clearDirty(Dirty::SCISSOR);
-		const auto scissor = mScissor.value_or(Scissor{{0.0f, 0.0f}, {static_cast<float>(mWidth), static_cast<float>(mHeight)}});
+		const auto scissor = mScissor.value_or(Scissor{{0.0f, 0.0f}, {static_cast<float>(fb->getWidth()), static_cast<float>(fb->getHeight())}});
 		D3D12_RECT rect {
 			.left = static_cast<LONG>(scissor.mPosition.x),
 			.top = static_cast<LONG>(scissor.mPosition.y),
@@ -1188,7 +1243,6 @@ std::shared_ptr<ShaderInterface> DriverDx12::createShader(const ShaderResource& 
 
 std::shared_ptr<ModelInterface> DriverDx12::createModel(const std::string& path, UTILS::IAllocator* allocator, ModelDeleter deleter) {
 	ModelDeleter finalDeleter = [deleter](ModelInterface* m) {
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ModelLoader>().unloadResource(m->getPath());
 		if (deleter) deleter(m);
 	};
 	return AllocateModel<ModelDx12>(allocator, std::move(finalDeleter), path);
@@ -1196,7 +1250,6 @@ std::shared_ptr<ModelInterface> DriverDx12::createModel(const std::string& path,
 
 std::shared_ptr<MaterialInterface> DriverDx12::createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator, MaterialDeleter deleter) {
 	MaterialDeleter finalDeleter = [deleter](MaterialInterface* m) {
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::MaterialLoader>().unloadResource(m->getPath());
 		if (deleter) deleter(m);
 	};
 	return AllocateMaterial<MaterialDx12>(allocator, std::move(finalDeleter), res);
@@ -1210,8 +1263,8 @@ std::shared_ptr<StorageBufferInterface> DriverDx12::createStorageBuffer(const vo
 	return std::make_shared<StorageBufferDx12>(data, size, stride);
 }
 
-std::shared_ptr<FrameBufferInterface> DriverDx12::createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth) {
-	return std::make_shared<FrameBufferDx12>(textures, depth);
+std::shared_ptr<FrameBufferInterface> DriverDx12::createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip, unsigned layer) {
+	return std::make_shared<FrameBufferDx12>(textures, depth, mip, layer);
 }
 
 void DriverDx12::setFrameBuffer(std::shared_ptr<FrameBufferInterface> frameBuffer) {

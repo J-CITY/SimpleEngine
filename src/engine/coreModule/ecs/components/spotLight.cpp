@@ -13,6 +13,9 @@ SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj) : LightComponent(_obj) {
 SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : SpotLight(_obj) {
 	data.color = _descriptor.Color;
 	data.intensity = _descriptor.Intensity;
+    data.castShadows = _descriptor.CastShadows;
+    data.shadowNear = _descriptor.ShadowNear;
+    data.shadowFar = _descriptor.ShadowFar;
 	data.constant = _descriptor.Constant;
 	data.linear = _descriptor.Linear;
 	data.quadratic = _descriptor.Quadratic;
@@ -65,6 +68,9 @@ SpotLight::Descriptor SpotLight::getDescriptor() const {
 	descriptor.Type = GetType<SpotLight>();
 	descriptor.Color = getColor();
 	descriptor.Intensity = getIntensity();
+    descriptor.CastShadows = data.castShadows;
+    descriptor.ShadowNear = data.shadowNear;
+    descriptor.ShadowFar = data.shadowFar;
 	descriptor.Constant = getConstant();
 	descriptor.Linear = getLinear();
 	descriptor.Quadratic = getQuadratic();

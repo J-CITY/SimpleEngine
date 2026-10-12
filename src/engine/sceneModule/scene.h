@@ -120,8 +120,8 @@ namespace IKIGAI::SCENE_SYSTEM {
 		);
 
 		IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> findMainCamera();
-		std::vector<RENDER::LightOGL> findLightData() const;
-		std::vector<RENDER::LightOGL> findLightDataInFrustum(const RENDER::Frustum& frustum);
+		std::vector<RENDER::LightOGL> findLightData(std::vector<int>* objectIds = nullptr) const;
+		std::vector<RENDER::LightOGL> findLightDataInFrustum(const RENDER::Frustum& frustum, std::vector<int>* objectIds = nullptr);
 
 
 		std::vector<std::shared_ptr<IKIGAI::GUI::GuiObject>> guiObjs;

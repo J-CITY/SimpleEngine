@@ -1,17 +1,19 @@
 #pragma once
 
 #include <functional>
+#include <memory>
+#include <vector>
 #include <string>
 #include <spine/spine.h>
+#include "renderModule/backends/interface/renderEnums.h"
 //#include "GLBatchRender.h"
 
-#ifdef OPENGL_BACKEND
 
 namespace IKIGAI
 {
 	namespace RENDER
 	{
-		class TextureGl;
+		class TextureInterface;
 	}
 }
 
@@ -30,16 +32,16 @@ namespace IKIGAI::RENDER::SPINE {
         unsigned int vWrap = 0;
     };
     struct SpineRenderState {
-        unsigned int blendSrc = 0;
-        unsigned int blendDst = 0;
-        RENDER::TextureGl* texture;
+        BlendMode blendSrc = BlendMode::SRC_ALPHA;
+        BlendMode blendDst = BlendMode::ONE_MINUS_SRC_ALPHA;
+        RENDER::TextureInterface* texture = nullptr;
     };
-struct GLBlendMode {
-    GLBlendMode() = default;
-    GLBlendMode(unsigned int src, unsigned int dst) : src(src), dst(dst) {}
+struct SpineBlendMode {
+    SpineBlendMode() = default;
+    SpineBlendMode(BlendMode src, BlendMode dst) : src(src), dst(dst) {}
 
-    unsigned int src;
-    unsigned int dst;
+    BlendMode src;
+    BlendMode dst;
 };
     struct SpineVertex {
         float x = 0.0f;
@@ -152,9 +154,10 @@ public:
     spine::AnimationState *state;
     float timeScale;
     std::vector<SpineVertex> vertexArray;
+	std::function<void(const std::vector<SpineVertex>&, const SpineRenderState&)> submit;
 
     SpineRenderState _states;
-    GLBlendMode _blendMode;
+    SpineBlendMode _blendMode;
     //SpineRender::GLBatchRender *_render;
 };
 
@@ -163,7 +166,7 @@ public:
     SpineTextureLoader() = default;
     void load(spine::AtlasPage &page, const spine::String &path) override;
     void unload(void *texture) override;
+	static std::shared_ptr<RENDER::TextureInterface> getTexture(RENDER::TextureInterface* texture);
 };
 
 }
-#endif

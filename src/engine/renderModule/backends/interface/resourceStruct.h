@@ -48,6 +48,7 @@ struct TextureResource: public ResourceBase {
   WrapFilter wrapT = WrapFilter::CLAMP_TO_EDGE;
   WrapFilter wrapR = WrapFilter::CLAMP_TO_EDGE;
 
+  bool storage = false;
   bool isFloat = false;
   bool useMipmap = true;
   int mipMapCount = 0;
@@ -59,11 +60,11 @@ struct TextureResource: public ResourceBase {
     serde::serde_struct(context, value)
         //.field(&Self::needFileWatch, "NeedFileWatch", default_{true})
         .field(&Self::texType, "TexType", default_{TextureType::TEXTURE_2D})
-        .field(&Self::minFilter, "TexType", default_{MinMagFilter::LINEAR})
-        .field(&Self::magFilter, "TexType", default_{MinMagFilter::LINEAR})
-        .field(&Self::wrapS, "TexType", default_{WrapFilter::CLAMP_TO_EDGE})
-        .field(&Self::wrapT, "TexType", default_{WrapFilter::CLAMP_TO_EDGE})
-        .field(&Self::wrapR, "TexType", default_{WrapFilter::CLAMP_TO_EDGE})
+        .field(&Self::minFilter, "MinFilter", default_{MinMagFilter::LINEAR})
+        .field(&Self::magFilter, "MagFilter", default_{MinMagFilter::LINEAR})
+        .field(&Self::wrapS, "WrapS", default_{WrapFilter::CLAMP_TO_EDGE})
+        .field(&Self::wrapT, "WrapT", default_{WrapFilter::CLAMP_TO_EDGE})
+        .field(&Self::wrapR, "WrapR", default_{WrapFilter::CLAMP_TO_EDGE})
         .field(&Self::pathTexture, "PathTexture",
                default_{std::vector<std::string>()})
         .field(&Self::colorData, "ColorData", default_{std::vector<uint8_t>()})
@@ -72,9 +73,11 @@ struct TextureResource: public ResourceBase {
         .field(&Self::depth, "Depth", default_{0})
         .field(&Self::channels, "Channels", default_{0})
         .field(&Self::pixelType, "PixelType", default_{PixelFormat::RGBA_INT})
+        .field(&Self::storage, "Storage", default_{false})
         .field(&Self::isFloat, "IsFloat", default_{false})
         .field(&Self::parentPath, "##parent", default_{std::string()})
-        .field(&Self::useMipmap, "UseMipmap", default_{true});
+        .field(&Self::useMipmap, "UseMipmap", default_{true})
+        .field(&Self::mipMapCount, "MipMapCount", default_{0});
   }
   static auto GetMembers() {
     return std::tuple{

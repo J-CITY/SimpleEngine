@@ -1,4 +1,6 @@
 #include "shaderInterface.h"
+#include "renderModule/vertex.h"
+#include "driverInterface.h"
 #include <cstdint>
 
 #include "SPIRV/GlslangToSpv.h"
@@ -17,6 +19,10 @@ void IKIGAI::RENDER::ShaderInterface::GetReflection(
   ASSERT_IF(result == SPV_REFLECT_RESULT_SUCCESS,
             "spvReflectCreateShaderModule error");
 
+  if (type == ShaderType::COMPUTE && module.entry_point_count) {
+    const auto local = module.entry_points[0].local_size;
+    reflection.mLocalSize[0]=local.x; reflection.mLocalSize[1]=local.y; reflection.mLocalSize[2]=local.z;
+  }
   for (auto i = 0; i < module.descriptor_set_count; i++) {
     const auto &descr = module.descriptor_sets[i];
     for (auto j = 0; j < descr.binding_count; j++) {
@@ -42,10 +48,19 @@ void IKIGAI::RENDER::ShaderInterface::GetReflection(
         uniform.mType = ShaderReflection::UniformType::STORAGE_BUFFER;
       } else if (spvUniformInfo->descriptor_type ==
                  SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-        // TODO: set curten sempler type
         uniform.mType = ShaderReflection::UniformType::SAMPLER_2D;
+        if (spvUniformInfo->image.dim == SpvDimCube)
+          uniform.mType = ShaderReflection::UniformType::SAMPLER_CUBE;
+        else if (spvUniformInfo->image.dim == SpvDim3D)
+          uniform.mType = ShaderReflection::UniformType::SAMPLER_3D;
+        else if (spvUniformInfo->image.arrayed)
+          uniform.mType = ShaderReflection::UniformType::SAMPLER_2D_ARRAY;
+      } else if (spvUniformInfo->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+        uniform.mType = spvUniformInfo->image.dim == SpvDim3D ? ShaderReflection::UniformType::IMAGE_3D :
+          spvUniformInfo->image.dim == SpvDimCube ? ShaderReflection::UniformType::IMAGE_CUBE :
+          spvUniformInfo->image.arrayed ? ShaderReflection::UniformType::IMAGE_2D_ARRAY : ShaderReflection::UniformType::IMAGE_2D;
       } else {
-        int a = 0;
+        throw std::runtime_error("Unsupported shader descriptor: " + uniform.mName);
       }
       // TODO: support array
 
@@ -237,10 +252,18 @@ void IKIGAI::RENDER::ShaderInterface::GetReflection(
         reflection.mInputParams.begin(), reflection.mInputParams.end(),
         [](const auto &a, const auto &b) { return a.mLocation < b.mLocation; });
 
-    // Set offsets
+    // Standard mesh locations keep the CPU Vertex layout even when a shader
+    // omits normals/bones. In particular GUI color at location 6 is not the
+    // third packed field after position and UV.
+    const size_t vertexOffsets[] = {
+        offsetof(IKIGAI::Vertex,position),offsetof(IKIGAI::Vertex,texCoord),
+        offsetof(IKIGAI::Vertex,normal),offsetof(IKIGAI::Vertex,tangent),
+        offsetof(IKIGAI::Vertex,bitangent),offsetof(IKIGAI::Vertex,m_BoneIDs),offsetof(IKIGAI::Vertex,m_Weights)
+    };
+    const size_t vertexSizes[] = {12,8,12,12,12,16,16};
     int sz = 0;
     for (auto &e : reflection.mInputParams) {
-      e.mOffset = sz;
+      e.mOffset = e.mLocation<7 && e.mSize==vertexSizes[e.mLocation] ? vertexOffsets[e.mLocation] : sz;
       sz += e.mSize;
     }
   }
@@ -405,10 +428,12 @@ IKIGAI::RENDER::CompileGlslToSpirv(IKIGAI::RENDER::ShaderType stage,
   const std::string* source = &code;
 #if defined(__APPLE__)
   appleCode = code;
-  const std::string runtimeLights = "LightOGL lights[]";
-  const std::string fixedLights = "LightOGL lights[64]";
-  for (size_t pos = 0; (pos = appleCode.find(runtimeLights, pos)) != std::string::npos; pos += fixedLights.size()) {
-    appleCode.replace(pos, runtimeLights.size(), fixedLights);
+  for (const auto* lightType : {"LightOGL", "Light"}) {
+    const std::string runtimeLights = std::string(lightType) + " lights[]";
+    const std::string fixedLights = std::string(lightType) + " lights[64]";
+    for (size_t pos = 0; (pos = appleCode.find(runtimeLights, pos)) != std::string::npos; pos += fixedLights.size()) {
+      appleCode.replace(pos, runtimeLights.size(), fixedLights);
+    }
   }
   const std::string runtimeLength = "engine_Lights.lights.length()";
   const std::string fixedLength = "64";
@@ -427,7 +452,11 @@ IKIGAI::RENDER::CompileGlslToSpirv(IKIGAI::RENDER::ShaderType stage,
   }
 
   shader.setPreamble(preamble.c_str());
-  shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);
+  // The bundled SPIRV-Cross only emits SPIR-V 1.6 demote for Vulkan GLSL.
+  // GLSL discard becomes OpKill in 1.5, which is portable to desktop GL/GLES.
+  shader.setEnvTarget(glslang::EShTargetSpv,
+      DriverInterface::settings.backend == RenderSettings::Backend::OPENGL
+          ? glslang::EShTargetSpv_1_5 : glslang::EShTargetSpv_1_6);
 
   auto messages =
       EShMessages(EShMsgSpvRules | EShMsgVulkanRules | EShMsgEnhanced);
@@ -542,11 +571,11 @@ std::string IKIGAI::RENDER::CompileSpirvToGlsl(
 
     if (stage == spv::ExecutionModelFragment) {
       for (const auto &input : resources.stage_inputs) {
-        compiler.set_name(input.id, "varying");
+        compiler.set_name(input.id, "varying_" + std::to_string(compiler.get_decoration(input.id, spv::DecorationLocation)));
       }
     } else if (stage == spv::ExecutionModelVertex) {
       for (const auto &output : resources.stage_outputs) {
-        compiler.set_name(output.id, "varying");
+        compiler.set_name(output.id, "varying_" + std::to_string(compiler.get_decoration(output.id, spv::DecorationLocation)));
       }
     }
   }

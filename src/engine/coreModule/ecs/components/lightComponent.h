@@ -18,6 +18,12 @@ namespace IKIGAI::ECS {
 		float getIntensity() const;
 		void setColor(const MATH::Vector3f& color);
 		void setIntensity(float intensity);
+		bool getCastShadows() const { return data.castShadows; }
+		void setCastShadows(bool enabled) { data.castShadows = enabled; }
+		float getShadowNear() const { return data.shadowNear; }
+		float getShadowFar() const { return data.shadowFar; }
+		void setShadowNear(float value) { data.shadowNear = value; }
+		void setShadowFar(float value) { data.shadowFar = value; }
 
 		MATH::Matrix4f Transform;
 	protected:

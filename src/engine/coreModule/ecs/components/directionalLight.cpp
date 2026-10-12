@@ -12,6 +12,9 @@ DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj, const Descriptor
 	data.type = RENDER::Light::Type::DIRECTIONAL;
 	data.color = descriptor.Color;
 	data.intensity = descriptor.Intensity;
+    data.castShadows = descriptor.CastShadows;
+    data.shadowNear = descriptor.ShadowNear;
+    data.shadowFar = descriptor.ShadowFar;
 	distance = descriptor.Distance;
 }
 
@@ -21,6 +24,9 @@ DirectionalLight::Descriptor DirectionalLight::getDescriptor() const {
 	descriptor.Color = getColor();
 	descriptor.Distance = getDistance();
 	descriptor.Intensity = getIntensity();
+    descriptor.CastShadows = data.castShadows;
+    descriptor.ShadowNear = data.shadowNear;
+    descriptor.ShadowFar = data.shadowFar;
 	return descriptor;
 }
 //#include <rttr/registration>

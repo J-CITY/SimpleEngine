@@ -138,12 +138,12 @@ void IKIGAI::RENDER::MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> 
 		case ShaderReflection::UniformType::SAMPLER_2D_ARRAY: {
 			if (useTextures) {
 				if (auto tex = std::get<std::shared_ptr<TextureInterface>>(mUniforms.at(uniform.mName))) {
-					std::static_pointer_cast<TextureGl>(tex)->bind(textureSlot);
+					RESOURCES::ServiceManager::Get<Renderer>().setTexture(uniform.mBind,tex);
 				}
 				else if (defaultTexture) {
-					reinterpret_cast<TextureGl*>(defaultTexture.get())->bind(textureSlot);
+					RESOURCES::ServiceManager::Get<Renderer>().setTexture(uniform.mBind,defaultTexture);
 				}
-				mShader->setInt(uniform.mName, textureSlot);
+				mShader->setInt(uniform.mName, uniform.mBind);
 				textureSlot++;
 			}
 		} break;

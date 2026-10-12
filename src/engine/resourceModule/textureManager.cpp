@@ -33,7 +33,9 @@ TextureLoader::LoadedTextureData TextureLoader::LoadFileData(const std::string& 
 
 TextureLoader::TextureLoader() = default;
 
-TextureLoader::~TextureLoader() = default;
+TextureLoader::~TextureLoader() { 
+	sDefaultTexture.reset();
+}
 
 void TextureLoader::InitDefaultTexture() {
 	if (sDefaultTexture) {
@@ -66,7 +68,7 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const st
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::CreateFromResource(const RENDER::TextureResource& res, UTILS::IAllocator* allocator, RENDER::TextureDeleter deleter) {
-	if (!res.pathTexture.empty() || !res.colorData.empty()) {
+	if (!res.pathTexture.empty() || !res.colorData.empty() || (res.width > 0 && res.height > 0)) {
 		auto& render = ServiceManager::Get<RENDER::Renderer>();
 		std::vector<std::vector<uint8_t>> fileData;
 		for (const auto& p : res.pathTexture) {

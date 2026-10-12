@@ -23,6 +23,12 @@ namespace IKIGAI::ECS {
 			float Distance;
 			IKI_PROPERTY(SEREALIZE(name="Intensity"))
 			float Intensity;
+            IKI_PROPERTY(SEREALIZE(name="CastShadows", default=true))
+            bool CastShadows = true;
+            IKI_PROPERTY(SEREALIZE(name="ShadowNear", default=-1.0f))
+            float ShadowNear = -1.0f;
+            IKI_PROPERTY(SEREALIZE(name="ShadowFar", default=-1.0f))
+            float ShadowFar = -1.0f;
 		};
 		constexpr static size_t TextureCount = 3;
 		DirectionalLight(UTILS::Ref<ECS::Object> obj);

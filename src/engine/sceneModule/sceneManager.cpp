@@ -10,6 +10,9 @@
 #include "resourceModule/fileSystem/fileSystem.h"
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <utilsModule/pathGetter.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::SCENE_SYSTEM;
@@ -69,10 +72,6 @@ void SceneManager::loadDefaultScene() {
 
 	m_currentScene->postLoad();
 }
-
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include <utilsModule/pathGetter.h>
 
 template<typename T>
 void addComponentImpl(const std::string& typeNameStr, std::shared_ptr<ECS::Object> obj, nlohmann::json& data) {
@@ -190,8 +189,7 @@ void SceneManager::saveToFile(const std::string& sceneFilePath) {
 
 void SceneManager::unloadCurrentScene() {
 	if (m_currentScene) {
-		m_currentScene.release();
-		m_currentScene = nullptr;
+		m_currentScene.reset();
 		sceneUnloadEvent.run();
 	}
 }

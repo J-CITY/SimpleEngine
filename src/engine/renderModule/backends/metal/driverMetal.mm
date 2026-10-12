@@ -357,6 +357,8 @@ namespace IKIGAI::RENDER {
 					continue;
 				}
 				pass.colorAttachments[index].texture = texture->getTexture();
+                pass.colorAttachments[index].level=mCurrentState.mFrameBuffer->getMip();
+                pass.colorAttachments[index].slice=mCurrentState.mFrameBuffer->getLayer();
 				pass.colorAttachments[index].loadAction = index == 0 ? mLoadColor : MTLLoadActionLoad;
 				pass.colorAttachments[index].storeAction = MTLStoreActionStore;
 				pass.colorAttachments[index].clearColor = MTLClearColorMake(mClearColor.x, mClearColor.y, mClearColor.z, mClearColor.w);
@@ -553,7 +555,8 @@ namespace IKIGAI::RENDER {
 		}
 		[mCurrentEncoder setScissorRect:MTLScissorRect{x, y, w, h}];
 		[mCurrentEncoder setCullMode:ToCull(mCullFace)];
-		[mCurrentEncoder setFrontFacingWinding:mTriangleOrientation == TriangleOrientation::CW ? MTLWindingClockwise : MTLWindingCounterClockwise];
+		// Metal's top-left viewport reverses the OpenGL window-space winding.
+		[mCurrentEncoder setFrontFacingWinding:mTriangleOrientation == TriangleOrientation::CW ? MTLWindingCounterClockwise : MTLWindingClockwise];
 		[mCurrentEncoder setTriangleFillMode:mRasterizationMode == RasterizationMode::LINE ? MTLTriangleFillModeLines : MTLTriangleFillModeFill];
 
 		std::ostringstream depthKey;
@@ -968,6 +971,18 @@ namespace IKIGAI::RENDER {
 		[mCurrentEncoder drawPrimitives:ToPrimitive(mPrimitiveMode) vertexStart:offset vertexCount:count instanceCount:instance];
 	}
 
+	void DriverMetal::dispatch(uint32_t x,uint32_t y,uint32_t z) {
+        if(mCurrentEncoder) {[mCurrentEncoder endEncoding];mCurrentEncoder=nil;}
+        auto shader=mCurrentState.mShader;
+        auto state=computePipeline(shader->getComputeFunction());
+        if(!state) throw std::runtime_error("Missing Metal compute pipeline");
+        id<MTLComputeCommandEncoder> encoder=[mCurrentCommandBuffer computeCommandEncoder];
+        [encoder setComputePipelineState:state]; bindComputeResources(encoder);
+        const auto& ref=shader->getReflection();
+        [encoder dispatchThreadgroups:MTLSizeMake(x,y,z) threadsPerThreadgroup:MTLSizeMake(ref.mLocalSize[0],ref.mLocalSize[1],ref.mLocalSize[2])];
+        [encoder endEncoding];
+    }
+
 	void DriverMetal::drawIndexed(uint32_t count, uint32_t offset, uint32_t instance) {
 		if (count == 0 || instance == 0 || !mIndexBuffer || !mIndexBuffer->getBuffer()) {
 			return;
@@ -1187,8 +1202,8 @@ namespace IKIGAI::RENDER {
 		return AllocateMaterial<MaterialMetal>(allocator, std::move(finalDeleter), res);
 	}
 
-	std::shared_ptr<FrameBufferInterface> DriverMetal::createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth) {
-		return std::make_shared<FrameBufferMetal>(textures, depth);
+	std::shared_ptr<FrameBufferInterface> DriverMetal::createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip, unsigned layer) {
+		return std::make_shared<FrameBufferMetal>(textures, depth, mip, layer);
 	}
 
 	void DriverMetal::setFrameBuffer(std::shared_ptr<FrameBufferInterface> frameBuffer) {

@@ -32,8 +32,8 @@ namespace IKIGAI::RESOURCES {
 
 	//TODO: remove
 	ResourcePtr<IKIGAI::RENDER::ModelInterface> ModelLoader::CreateFromFile(const std::string& path, ModelParserFlags parserFlags, UTILS::IAllocator* allocator, RENDER::ModelDeleter deleter) {
-		std::string realPath = "/" + path;
-		auto model = Create("/" + path,
+		std::string realPath = path.empty() || path.front() != '/' ? "/" + path : path;
+		auto model = Create(realPath,
 			parserFlags == ModelParserFlags::NONE ? getDefaultFlag() : parserFlags, allocator, deleter);
 		if (model) {
 			model->setPath(path);

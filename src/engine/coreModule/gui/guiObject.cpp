@@ -1,4 +1,8 @@
 #include "guiObject.h"
+#include <algorithm>
+#include <cstring>
+#include <stdexcept>
+#include "renderModule/render.h"
 #include "../core/core.h"
 #include <renderModule/gameRenderer.h>
 #include "resourceModule/shaderManager.h"
@@ -14,85 +18,32 @@
 
 using namespace IKIGAI;
 using namespace IKIGAI::GUI;
-#ifdef OPENGL_BACKEND
 Font::Font(std::string fontPath, int size) {
-	FT_Library ft;
-	
-	if (FT_Init_FreeType(&ft)) {
-		std::cout << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
-		return;
-	}
-	
-	std::vector<std::array<unsigned char, 1024>> textureData(1024);
-	int curMaxHeight = 0;
-	int curX = 0, curY = 0;
-	
-	FT_Face face;
-	if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
-		std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
-		return;
-	}
-	else {
-		FT_Set_Pixel_Sizes(face, 0, 48);
-	
-		//glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	
-		for (unsigned int c = 0; c < 256; c++) {
-			if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-				std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
-				continue;
-			}
-	
-			for (int i = 0; i < face->glyph->bitmap.width; i++) {
-				Character character = {
-					glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-					glm::vec2(curX, curY),
-					glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-					static_cast<unsigned int>(face->glyph->advance.x)
-				};
-				Characters.insert(std::pair<char, Character>(c, character));
-				if (face->glyph->bitmap.rows > curMaxHeight) {
-					curMaxHeight = face->glyph->bitmap.rows;
-				}
-				if (curX + face->glyph->bitmap.width > 1024) {
-					curX = 0;
-					curY += curMaxHeight;
-				}
-				if (curY + face->glyph->bitmap.rows > 1024) {
-					auto a = 0;
-				}
-				for (int j = 0; j < face->glyph->bitmap.rows; j++) {
-					textureData[curY + j][curX + i] = face->glyph->bitmap.buffer[j * face->glyph->bitmap.width + i];
-				}
-				//curY += face->glyph->bitmap.rows;
-			}
-			curX += face->glyph->bitmap.width;
+	FT_Library ft=nullptr; FT_Face face=nullptr;
+	if(FT_Init_FreeType(&ft)) throw std::runtime_error("Cannot initialize FreeType");
+	auto file=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFile(fontPath);
+	auto fontBytes=file&&file->isValid()?file->read():std::vector<uint8_t>{};
+	const auto fontError=fontBytes.empty()?FT_New_Face(ft,fontPath.c_str(),0,&face):FT_New_Memory_Face(ft,fontBytes.data(),static_cast<FT_Long>(fontBytes.size()),0,&face);
+	if(fontError) { FT_Done_FreeType(ft); throw std::runtime_error("Cannot open font: "+fontPath); }
+	FT_Set_Pixel_Sizes(face,0,std::max(size,1));
+	std::vector<uint8_t> pixels(1024*1024,0);
+	int x=0,y=0,rowHeight=0;
+	for(unsigned c=0;c<256;++c) {
+		if(FT_Load_Char(face,c,FT_LOAD_RENDER)) continue;
+		const auto& bitmap=face->glyph->bitmap;
+		if(x+bitmap.width>1024) {x=0;y+=rowHeight+1;rowHeight=0;}
+		if(y+bitmap.rows>1024) break;
+		Characters[static_cast<char>(c)]={glm::ivec2(bitmap.width,bitmap.rows),glm::ivec2(x,y),glm::ivec2(face->glyph->bitmap_left,face->glyph->bitmap_top),static_cast<unsigned>(face->glyph->advance.x)};
+		for(unsigned row=0;row<bitmap.rows;++row) {
+			const auto source=bitmap.pitch>=0?bitmap.buffer+row*bitmap.pitch:bitmap.buffer+(bitmap.rows-1-row)*(-bitmap.pitch);
+			std::memcpy(pixels.data()+(y+row)*1024+x,source,bitmap.width);
 		}
-		texture = std::make_shared<RENDER::TextureGl>();//RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromMemory(fontPath, (uint8_t*)textureData.data(), 1024, 1024, true);
-		glGenTextures(1, &std::static_pointer_cast<RENDER::TextureGl>(texture)->id);
-		glBindTexture(GL_TEXTURE_2D, std::static_pointer_cast<RENDER::TextureGl>(texture)->id);
-		glTexImage2D(
-			GL_TEXTURE_2D,
-			0,
-            GL_ALPHA,
-			1024,
-			1024,
-			0,
-			GL_ALPHA,
-			GL_UNSIGNED_BYTE,
-			textureData.data()
-		);
-		
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
+		x+=bitmap.width+1;rowHeight=std::max(rowHeight,static_cast<int>(bitmap.rows));
 	}
-	
-	FT_Done_Face(face);
-	FT_Done_FreeType(ft);
+	RENDER::TextureResource resource;
+	resource.width=resource.height=1024;resource.channels=1;resource.pixelType=RENDER::PixelFormat::R_INT;resource.useMipmap=false;resource.colorData=std::move(pixels);
+	texture=RESOURCES::ServiceManager::Get<RENDER::Renderer>().createTexture(resource);
+	FT_Done_Face(face);FT_Done_FreeType(ft);
 }
 
 int id = 1000;
@@ -286,7 +237,6 @@ std::shared_ptr<ECS::Object> GuiHelper::CreateScroll(const std::string& name, in
 
 	return obj;
 }
-#endif
 //GuiButton::GuiButton() : Object() {
 //	//auto s = IKIGAI::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\gui\\sprite.glsl");
 //	//auto _m = IKIGAI::RESOURCES::MaterialLoader::Create("");

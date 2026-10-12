@@ -106,6 +106,8 @@ namespace {
 			if (!driverVk || !ImGui::GetDrawData()) {
 				return;
 			}
+			driverVk->resetFrameBuffer();
+			driverVk->activateRenderPass();
 			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *driverVk->getCurrentFrame().mCommandBuffer);
 			ImGuiIO& io = ImGui::GetIO();
 			if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
@@ -117,12 +119,7 @@ namespace {
 		void* registerGpuTexture(IKIGAI::RENDER::TextureInterface& texture) override {
 			auto& textureVk = static_cast<IKIGAI::RENDER::TextureVk&>(texture);
 			if (!textureVk.mDescriptorSet) {
-				VkSamplerCreateInfo samplerCreateInfo = {};
-				samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-				samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
-				samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
-				static auto sampler = IKIGAI::RENDER::UtilityVk::GetDriver()->mDevice.createSampler(samplerCreateInfo);
-				textureVk.mDescriptorSet = ImGui_ImplVulkan_AddTexture(*sampler, *textureVk.mImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				textureVk.mDescriptorSet = ImGui_ImplVulkan_AddTexture(*textureVk.mSampler, *textureVk.mImageView, VK_IMAGE_LAYOUT_GENERAL);
 			}
 			return reinterpret_cast<void*>(textureVk.mDescriptorSet);
 		}

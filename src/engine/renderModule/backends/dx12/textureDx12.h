@@ -33,6 +33,7 @@ namespace IKIGAI::RENDER {
 
 		const Dx12Resource& getResource() const;
 		CD3DX12_GPU_DESCRIPTOR_HANDLE getGpuDescriptorHandle() const;
+        CD3DX12_GPU_DESCRIPTOR_HANDLE getUavHandle() const { return mUavHandle; }
 		void setState(ID3D12GraphicsCommandList* cmdlist, D3D12_RESOURCE_STATES state);
 
 		static std::shared_ptr<TextureDx12> Create(const std::string& path, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr);
@@ -45,6 +46,7 @@ namespace IKIGAI::RENDER {
 
 		Dx12Resource mResource;
 		CD3DX12_GPU_DESCRIPTOR_HANDLE mGpuDescriptorHandle;
+        CD3DX12_GPU_DESCRIPTOR_HANDLE mUavHandle{};
 		D3D12_RESOURCE_STATES mCurrentState = D3D12_RESOURCE_STATE_COMMON;
 	};
 

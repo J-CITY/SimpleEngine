@@ -303,6 +303,10 @@ namespace IKIGAI::RENDER {
 			push<CmdLambda>(OpCode::LAMBDA, func);
 		}
 
+		void dispatch(uint32_t x, uint32_t y, uint32_t z) {
+			execute([driver=mDriver,x,y,z]() { driver->dispatch(x,y,z); });
+		}
+
 		void begin() { push<CommandHeader>(OpCode::BEGIN); }
 		void end() { push<CommandHeader>(OpCode::END); }
 		void submit() { push<CommandHeader>(OpCode::SUBMIT); }
@@ -479,8 +483,8 @@ namespace IKIGAI::RENDER {
 
 		std::shared_ptr<FrameBufferInterface> createFrameBuffer(
 			const std::vector<std::shared_ptr<TextureInterface>>& textures,
-			std::shared_ptr<TextureInterface> depth) {
-			return mDriver->createFrameBuffer(textures, depth);
+			std::shared_ptr<TextureInterface> depth, unsigned mip = 0, unsigned layer = 0) {
+			return mDriver->createFrameBuffer(textures, depth, mip, layer);
 		}
 
 		std::shared_ptr<MaterialInterface> createMaterial(

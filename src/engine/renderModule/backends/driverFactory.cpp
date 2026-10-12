@@ -23,6 +23,7 @@ namespace IKIGAI::RENDER {
 namespace IKIGAI::RENDER {
 	namespace {
 		std::optional<std::string> gCliBackend;
+		std::optional<std::string> gCliPipeline;
 		std::string ToLower(std::string value) {
 			std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
 				return static_cast<char>(std::tolower(c));
@@ -100,7 +101,12 @@ namespace IKIGAI::RENDER {
 		return true;
 	}
 
+	void SetCliRenderPipelineOverride(std::string_view path) {
+		gCliPipeline=std::string(path);
+	}
+
 	void ResolveRenderBackend(RenderSettings& settings) {
+		if(gCliPipeline) settings.pipeline=*gCliPipeline;
 		if (!ApplyCliRenderBackendOverride(settings)) {
 			throw std::runtime_error("Invalid --render-backend value");
 		}

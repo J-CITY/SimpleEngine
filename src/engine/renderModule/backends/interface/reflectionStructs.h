@@ -77,6 +77,7 @@ namespace IKIGAI::RENDER {
 	};
 
 	struct ShaderReflection {
+        uint32_t mLocalSize[3] = {1,1,1};
 		struct InputParam {
 			std::string mName;
 			size_t mIndex = 0;

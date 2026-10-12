@@ -4,6 +4,7 @@
 
 #include <coreModule/graphicsWrapper.hpp>
 #include <iostream>
+#include <stdexcept>
 #if defined(USE_SDL) && defined(__APPLE__) && TARGET_OS_IPHONE
 #include <SDL3/SDL.h>
 #endif
@@ -58,6 +59,10 @@ void checkGlError(const char* op, ...) {
 	va_end(params);
 }
 void FrameBufferGl::create() {
+	if (mTextures.empty() && !mDepth) throw std::runtime_error("Framebuffer needs a color or depth attachment");
+	auto sizeTexture = mTextures.empty() ? mDepth : mTextures.front();
+	mWidth = std::max<size_t>(1,sizeTexture->getWidth() >> mMip);
+	mHeight = std::max<size_t>(1,sizeTexture->getHeight() >> mMip);
 	GLint previousRenderbuffer = 0;
 	glGetIntegerv(GL_RENDERBUFFER_BINDING, &previousRenderbuffer);
 	glGenFramebuffers(1, &mId);
@@ -71,7 +76,8 @@ void FrameBufferGl::create() {
 	attachments.resize(mTextures.size());
 	for (auto t : mTextures) {
 		attachments[i] = GL_COLOR_ATTACHMENT0 + i;
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, std::static_pointer_cast<TextureGl>(t)->id, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i,
+            t->getType()==TextureType::TEXTURE_CUBE ? GL_TEXTURE_CUBE_MAP_POSITIVE_X+mLayer : GL_TEXTURE_2D, std::static_pointer_cast<TextureGl>(t)->id, mMip);
 		checkGlError("glFramebufferTexture2D");
 		i++;
 	}
@@ -81,18 +87,17 @@ void FrameBufferGl::create() {
 //#endif
 	}
 	if (!mDepth) {
-		const unsigned int SCR_WIDTH = mTextures[0]->getWidth();
-		const unsigned int SCR_HEIGHT = mTextures[0]->getHeight();
+		const unsigned int SCR_WIDTH = mWidth;
+		const unsigned int SCR_HEIGHT = mHeight;
 		std::cout << SCR_WIDTH << " " << SCR_HEIGHT << std::endl;
 		
-		unsigned int rboDepth;
-		glGenRenderbuffers(1, &rboDepth);
+		glGenRenderbuffers(1, &mDepthRenderbuffer);
 		checkGlError("glGenRenderbuffers");
-		glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+		glBindRenderbuffer(GL_RENDERBUFFER, mDepthRenderbuffer);
 		checkGlError("glBindRenderbuffer");
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, SCR_WIDTH, SCR_HEIGHT);
 		checkGlError("glRenderbufferStorage");
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, mDepthRenderbuffer);
 		checkGlError("glFramebufferRenderbuffer");
 
 		// finally check if framebuffer is complete
@@ -100,7 +105,7 @@ void FrameBufferGl::create() {
 			std::cout << "Framebuffer not complete!" << glCheckFramebufferStatus(GL_FRAMEBUFFER) << std::endl;
 	}
 	else {
-		if (mDepth->getType() == TextureType::TEXTURE_2D) {
+		if (mDepth->getType() == TextureType::TEXTURE_2D || mDepth->getType() == TextureType::DEPTH) {
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, std::static_pointer_cast<TextureGl>(mDepth)->id, 0);
 		}
 		else
@@ -112,8 +117,10 @@ void FrameBufferGl::create() {
 		}
 #ifndef USING_GLES
 		//I dont know why glDrawBuffer undeclared 
-		glDrawBuffer(GL_NONE);
-		glReadBuffer(GL_NONE);
+		if (mTextures.empty()) {
+			glDrawBuffer(GL_NONE);
+			glReadBuffer(GL_NONE);
+		}
 #endif
 		int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (status != GL_FRAMEBUFFER_COMPLETE) {
@@ -134,8 +141,14 @@ void FrameBufferGl::unbind() {
 	BindDefaultFramebufferGl();
 }
 
-FrameBufferGl::FrameBufferGl(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth): mTextures(textures), mDepth(depth) {
+FrameBufferGl::FrameBufferGl(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip, unsigned layer): mTextures(textures), mDepth(depth) {
+	mMip=mip; mLayer=layer;
 	create();
+}
+
+FrameBufferGl::~FrameBufferGl() {
+	if (mDepthRenderbuffer) glDeleteRenderbuffers(1, &mDepthRenderbuffer);
+	if (mId) glDeleteFramebuffers(1, &mId);
 }
 
 const std::vector<std::shared_ptr<TextureInterface>>& FrameBufferGl::getTextures() const {

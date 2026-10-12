@@ -30,6 +30,9 @@ PointLight::PointLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descript
 	data.type = RENDER::Light::Type::POINT;
 	data.color = _descriptor.Color;
 	data.intensity = _descriptor.Intensity;
+    data.castShadows = _descriptor.CastShadows;
+    data.shadowNear = _descriptor.ShadowNear;
+    data.shadowFar = _descriptor.ShadowFar;
 	data.constant = _descriptor.Constant;
 	data.linear = _descriptor.Linear;
 	data.quadratic = _descriptor.Quadratic;
@@ -64,6 +67,9 @@ PointLight::Descriptor PointLight::getDescriptor() const {
 	descriptor.Type = GetType<PointLight>();
 	descriptor.Color = getColor();
 	descriptor.Intensity = getIntensity();
+    descriptor.CastShadows = data.castShadows;
+    descriptor.ShadowNear = data.shadowNear;
+    descriptor.ShadowFar = data.shadowFar;
 	descriptor.Constant = getConstant();
 	descriptor.Linear = getLinear();
 	descriptor.Quadratic = getQuadratic();

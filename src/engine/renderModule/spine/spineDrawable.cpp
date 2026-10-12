@@ -2,7 +2,7 @@
 
 #include "utilsModule/log/loggerDefine.h"
 #include "renderModule/backends/interface/driverInterface.h"
-#ifdef OPENGL_BACKEND
+#include "renderModule/render.h"
 #include <fstream>
 #include <map>
 #include <coreModule/graphicsWrapper.hpp>
@@ -21,15 +21,15 @@ using namespace IKIGAI::RENDER::SPINE;
 #define SPINE_MESH_VERTEX_COUNT_MAX 1000
 #endif
 
-GLBlendMode blend_normal = GLBlendMode(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-GLBlendMode blend_additive = GLBlendMode(GL_SRC_ALPHA, GL_ONE);
-GLBlendMode blend_multiply = GLBlendMode(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-GLBlendMode blend_screen = GLBlendMode(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
+SpineBlendMode blend_normal = SpineBlendMode(RENDER::BlendMode::SRC_ALPHA, RENDER::BlendMode::ONE_MINUS_SRC_ALPHA);
+SpineBlendMode blend_additive = SpineBlendMode(RENDER::BlendMode::SRC_ALPHA, RENDER::BlendMode::ONE);
+SpineBlendMode blend_multiply = SpineBlendMode(RENDER::BlendMode::DST_COLOR, RENDER::BlendMode::ONE_MINUS_SRC_ALPHA);
+SpineBlendMode blend_screen = SpineBlendMode(RENDER::BlendMode::ONE, RENDER::BlendMode::ONE_MINUS_SRC_COLOR);
 
-GLBlendMode blend_normalPma = GLBlendMode(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-GLBlendMode blend_additivePma = GLBlendMode(GL_ONE, GL_ONE);
-GLBlendMode blend_multiplyPma = GLBlendMode(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-GLBlendMode blend_screenPma = GLBlendMode(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
+SpineBlendMode blend_normalPma = SpineBlendMode(RENDER::BlendMode::ONE, RENDER::BlendMode::ONE_MINUS_SRC_ALPHA);
+SpineBlendMode blend_additivePma = SpineBlendMode(RENDER::BlendMode::ONE, RENDER::BlendMode::ONE);
+SpineBlendMode blend_multiplyPma = SpineBlendMode(RENDER::BlendMode::DST_COLOR, RENDER::BlendMode::ONE_MINUS_SRC_ALPHA);
+SpineBlendMode blend_screenPma = SpineBlendMode(RENDER::BlendMode::ONE, RENDER::BlendMode::ONE_MINUS_SRC_COLOR);
 
 
 spine::SkeletonData* SpineController::spineReadSkeletonJsonData(const spine::String& filename,
@@ -45,7 +45,7 @@ spine::SkeletonData* SpineController::spineReadSkeletonJsonData(const spine::Str
     return skeletonData;
 }
 
-SpineController::SpineController(const std::string& pathSkel, const std::string& pathAtlas, float scale): path(path)
+SpineController::SpineController(const std::string& pathSkel, const std::string& pathAtlas, float scale): path(pathSkel)
 {
 	create(UTILS::GetRealPath(pathSkel), UTILS::GetRealPath(pathAtlas), scale);
 }
@@ -127,10 +127,6 @@ void SpineController::setTimeScale(float scale) {
 }
 
 bool SpineController::create(const std::string& pathSkel, const std::string& pathAtlas, float scale) {
-    if (RENDER::DriverInterface::settings.backend != RENDER::RenderSettings::Backend::OPENGL) {
-        LOG_ERROR << "Spine is currently supported only with the OpenGL backend";
-        return false;
-    }
     _textureLoader = new SpineTextureLoader();
     _atlas = new spine::Atlas(pathAtlas.c_str(), _textureLoader);
     if (_atlas->getPages().size() == 0) {
@@ -235,7 +231,7 @@ void SkeletonDrawable::draw() {
     if (skeleton->getColor().a == 0) return;
 
 	SpineVertex vertex;
-    RENDER::TextureGl* texture = nullptr;
+    RENDER::TextureInterface* texture = nullptr;
     for (unsigned i = 0; i < skeleton->getSlots().size(); ++i) {
         Slot &slot = *skeleton->getDrawOrder()[i];
         Attachment *attachment = slot.getAttachment();
@@ -270,7 +266,7 @@ void SkeletonDrawable::draw() {
             uvs = &regionAttachment->getUVs();
             indices = &quadIndices;
             indicesCount = 6;
-            texture = (RENDER::TextureGl*) ((AtlasRegion *) regionAttachment->getRegion())->page->texture;
+            texture = (RENDER::TextureInterface*) ((AtlasRegion *) regionAttachment->getRegion())->page->texture;
 
         } else if (attachment->getRTTI().isExactly(MeshAttachment::rtti)) {
             auto *mesh = (MeshAttachment *) attachment;
@@ -283,7 +279,7 @@ void SkeletonDrawable::draw() {
             }
 
             worldVertices.setSize(mesh->getWorldVerticesLength(), 0);
-            texture = (RENDER::TextureGl*) ((AtlasRegion *) mesh->getRegion())->page->texture;
+            texture = (RENDER::TextureInterface*) ((AtlasRegion *) mesh->getRegion())->page->texture;
             mesh->computeWorldVertices(slot, 0, mesh->getWorldVerticesLength(), worldVertices, 0, 2);
             verticesCount = mesh->getWorldVerticesLength() >> 1;
             uvs = &mesh->getUVs();
@@ -363,49 +359,27 @@ void SkeletonDrawable::draw() {
         for (int ii = 0; ii < indicesCount; ++ii) {
             int index = (*indices)[ii] * 2;
             vertex.x = (*vertices)[index];
-            vertex.y = (*vertices)[index + 1] + 500;
+            vertex.y = (*vertices)[index + 1];
             vertex.u = (*uvs)[index];
             vertex.v = 1.0f - (*uvs)[index + 1];
             vertexArray.push_back(vertex);
         }
+        drawOpengl();
+        vertexArray.clear();
         clipper.clipEnd(slot);
     }
     drawOpengl();
     clipper.clipEnd();
 }
 void SkeletonDrawable::drawOpengl() {
-    //_render->draw(vertexArray.buffer(), vertexArray.size(), &_states);
+    if (submit && !vertexArray.empty()) submit(vertexArray,_states);
 }
 
-static unsigned int cvtTextureFilter(TextureFilter filter) {
-    switch (filter) {
-        case TextureFilter_Nearest: return GL_NEAREST;
-        case TextureFilter_Linear: return GL_LINEAR;
-        case TextureFilter_MipMapNearestNearest: return GL_NEAREST_MIPMAP_NEAREST;
-        case TextureFilter_MipMapLinearNearest: return GL_LINEAR_MIPMAP_NEAREST;
-        case TextureFilter_MipMapNearestLinear: return GL_NEAREST_MIPMAP_LINEAR;
-        case TextureFilter_MipMapLinearLinear: return GL_LINEAR_MIPMAP_LINEAR;
-        default: return GL_LINEAR;
-    }
-
-    return GL_LINEAR;
-}
-
-static unsigned int cvtTextureWrap(TextureWrap wrap) {
-    switch (wrap) {
-        case TextureWrap_MirroredRepeat: return GL_MIRRORED_REPEAT;
-        case TextureWrap_ClampToEdge: return GL_CLAMP_TO_EDGE;
-        case TextureWrap_Repeat: return GL_REPEAT;
-    }
-
-    return GL_REPEAT;
-}
-
-std::map<RENDER::TextureGl*, std::shared_ptr<RENDER::TextureGl>> textures;
+std::map<RENDER::TextureInterface*, std::shared_ptr<RENDER::TextureInterface>> textures;
 
 void SpineTextureLoader::load(AtlasPage& page, const String& path) {
     auto pathStr = std::string(path.buffer(), path.length());
-    auto texture = RENDER::TextureGl::Create(UTILS::GetRealPath(pathStr), true);
+    auto texture = RESOURCES::ServiceManager::Get<RENDER::Renderer>().createTexture(UTILS::GetRealPath(pathStr),true);
     if (texture) {
         //texture->textureId = texture->textureId;
         //
@@ -427,11 +401,16 @@ void SpineTextureLoader::load(AtlasPage& page, const String& path) {
 
 void SpineTextureLoader::unload(void *texture) {
     if (!texture) return;
-    auto *tex = (RENDER::TextureGl*)texture;
+    auto *tex = (RENDER::TextureInterface*)texture;
 
     textures.erase(tex);
 	//SpineRender::GLBatchRender::releaseTexture(tex);
     //SAFE_DELETE(tex)
+}
+
+std::shared_ptr<RENDER::TextureInterface> SpineTextureLoader::getTexture(RENDER::TextureInterface* texture) {
+    const auto found=textures.find(texture);
+    return found==textures.end()?nullptr:found->second;
 }
 
 namespace spine
@@ -470,4 +449,3 @@ namespace spine
         return new SpineLoaderExtension();
     }
 }
-#endif

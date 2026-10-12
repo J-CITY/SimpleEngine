@@ -4,10 +4,9 @@
 #include <renderModule/spine/spineDrawable.h>
 
 #include "mathModule/math.h"
-#include "renderModule/backends/gl/textureGl.h"
+#include "renderModule/backends/interface/textureInterface.h"
 
-//TODO: add support for all backends
-#ifdef OPENGL_BACKEND
+
 namespace IKIGAI
 {
 	namespace RESOURCES
@@ -846,5 +845,3 @@ namespace IKIGAI {
 		}
 	}
 }
-
-#endif

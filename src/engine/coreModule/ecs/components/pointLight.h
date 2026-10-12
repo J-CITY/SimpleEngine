@@ -18,6 +18,12 @@ namespace IKIGAI::ECS{
 			MATH::Vector3f Color;
 			IKI_PROPERTY(SEREALIZE(name="Intensity"))
 			float Intensity = 0.0f;
+            IKI_PROPERTY(SEREALIZE(name="CastShadows", default=true))
+            bool CastShadows = true;
+            IKI_PROPERTY(SEREALIZE(name="ShadowNear", default=-1.0f))
+            float ShadowNear = -1.0f;
+            IKI_PROPERTY(SEREALIZE(name="ShadowFar", default=-1.0f))
+            float ShadowFar = -1.0f;
 			IKI_PROPERTY(SEREALIZE(name="Constant"))
 			float Constant = 0.0f;
 			IKI_PROPERTY(SEREALIZE(name="Linear"))

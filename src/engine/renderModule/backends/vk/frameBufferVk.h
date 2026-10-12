@@ -12,7 +12,7 @@ namespace IKIGAI::RENDER {
 		std::shared_ptr<TextureInterface> mDepth;
 
 	public:
-		FrameBufferVk(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth = nullptr);
+		FrameBufferVk(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth = nullptr, unsigned mip = 0, unsigned layer = 0);
 		const std::vector<std::shared_ptr<TextureInterface>>& getTextures() const override;
 		const std::shared_ptr<TextureInterface>& getDepth() const override;
 	};

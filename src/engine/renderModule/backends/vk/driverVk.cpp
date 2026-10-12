@@ -128,12 +128,13 @@ static const std::unordered_map<PixelFormat, vk::Format> FormatMap = {
 	{PixelFormat::RGBA32_INT, vk::Format::eR32G32B32A32Sint},
 	{PixelFormat::BGRA_INT, vk::Format::eB8G8R8A8Unorm},
 	{PixelFormat::DEPTH_24_UNORM_STENCIL_8_UINT, vk::Format::eD24UnormS8Uint},
+	{PixelFormat::DEPTH32_FLOAT, vk::Format::eD32Sfloat},
 	{PixelFormat::DEPTH_32_FLOAT_STENCIL_8_UINT, vk::Format::eD32SfloatS8Uint},
 };
 
 std::string DriverVk::State::getName() {
 	return std::to_string(mShader->getId()) + 
-		(mFrameBuffer ? std::to_string(mFrameBuffer->getId()) : "0");
+		":" + (mFrameBuffer ? std::to_string(mFrameBuffer->getId()) : "screen");
 }
 
 DriverVk::VolkInitializer::VolkInitializer() {
@@ -175,6 +176,7 @@ DriverVk::~DriverVk() {
 	mUniformBuffers.clear();
 	mStorageBuffers.clear();
 	mTextures.clear();
+	mCurrentState = {};
 	mStates.clear();
 	for (auto& [_, ctx] : mSwapchains) {
 		for (auto& frame : ctx.frames) {
@@ -187,6 +189,7 @@ DriverVk::~DriverVk() {
 	if (mAllocator) {
 		VmaTotalStatistics stats{};
 		vmaCalculateStatistics(mAllocator, &stats);
+		std::cerr << "VMA shutdown: allocations=" << stats.total.statistics.allocationCount << " bytes=" << stats.total.statistics.allocationBytes << std::endl;
 		LOG_INFO << "VMA shutdown: allocations=" << stats.total.statistics.allocationCount
 			<< " bytes=" << stats.total.statistics.allocationBytes;
 	}
@@ -195,6 +198,14 @@ DriverVk::~DriverVk() {
 		vmaDestroyAllocator(mAllocator);
 		mAllocator = nullptr;
 	}
+}
+
+vk::raii::DescriptorPool DriverVk::createDrawDescriptorPool() {
+    const std::array<vk::DescriptorPoolSize, 4> sizes={{{vk::DescriptorType::eUniformBuffer,2048},
+        {vk::DescriptorType::eStorageBuffer,1024},{vk::DescriptorType::eCombinedImageSampler,4096},
+        {vk::DescriptorType::eStorageImage,4096}}};
+    return mDevice.createDescriptorPool(vk::DescriptorPoolCreateInfo()
+        .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet).setMaxSets(512).setPoolSizes(sizes));
 }
 
 void DriverVk::init() {
@@ -395,18 +406,7 @@ void DriverVk::init() {
 	mDevice = mPhysicalDevice.createDevice(deviceInfo);
 	volkLoadDevice(*mDevice);
 
-	{
-		const std::array<vk::DescriptorPoolSize, 3> poolSizes = {{
-			{vk::DescriptorType::eUniformBuffer, 2048},
-			{vk::DescriptorType::eStorageBuffer, 1024},
-			{vk::DescriptorType::eCombinedImageSampler, 4096},
-		}};
-		auto poolInfo = vk::DescriptorPoolCreateInfo()
-			.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
-			.setMaxSets(512)
-			.setPoolSizes(poolSizes);
-		mDescriptorPool = mDevice.createDescriptorPool(poolInfo);
-	}
+	mDescriptorPool=createDrawDescriptorPool();
 
 	{
 		VmaVulkanFunctions vulkanFunctions{};
@@ -548,6 +548,7 @@ void DriverVk::begin() {
 	working = true;
 	// Previous frame's fence has already signaled (submit waits before begin).
 	mFrameDescriptorSets.clear();
+    mDescriptorPoolIndex=0;
 
 	setDirty(Dirty::VERTEX_BUFFER);
 	setDirty(Dirty::INDEX_BUFFER);
@@ -752,11 +753,11 @@ vk::raii::Pipeline DriverVk::createState(const State& pipeline_state) {
 	for (auto& e : fb->getTextures()) {
 		color_attachment_formats.push_back(FormatMap.at(e->getFormat()));
 	}
-	auto depth_stencil_format = FormatMap.at(fb->getDepth()->getFormat());
+	auto depth_stencil_format = fb->getDepth() ? FormatMap.at(fb->getDepth()->getFormat()) : vk::Format::eUndefined;
 	auto pipeline_rendering_create_info = vk::PipelineRenderingCreateInfo()
 		.setColorAttachmentFormats(color_attachment_formats)
 		.setDepthAttachmentFormat(depth_stencil_format)
-		.setStencilAttachmentFormat(depth_stencil_format);
+		.setStencilAttachmentFormat(fb->getDepth() && fb->getDepth()->getFormat() != PixelFormat::DEPTH32_FLOAT ? depth_stencil_format : vk::Format::eUndefined);
 
 	auto graphics_pipeline_create_info = vk::GraphicsPipelineCreateInfo()
 		.setLayout(*pipeline_state.mShader->mPipelineLayout)
@@ -864,7 +865,7 @@ void DriverVk::EnsureViewport(vk::raii::CommandBuffer& cmdlist) {
 
 	auto viewport = vk::Viewport()
 		.setX(value.mPosition.x)
-		.setY(value.mSize.y - value.mPosition.y)
+		.setY(value.mPosition.y + value.mSize.y)
 		.setWidth(value.mSize.x)
 		.setHeight(-value.mSize.y)
 		.setMinDepth(value.mMinDepth)
@@ -878,8 +879,8 @@ void DriverVk::EnsureScissor(vk::raii::CommandBuffer& cmdlist) {
 		return;
 	clearDirty(Dirty::SCISSOR);
 
-	auto width = static_cast<float>(mWidth);
-	auto height = static_cast<float>(mHeight);
+	auto width = static_cast<float>(getBackbufferWidth());
+	auto height = static_cast<float>(getBackbufferHeight());
 
 	auto value = mScissor.value_or(Scissor{{0.0f, 0.0f}, {width, height}});
 
@@ -925,9 +926,10 @@ void DriverVk::EnsureFrontFace(vk::raii::CommandBuffer& cmdlist) {
 		return;
 	clearDirty(Dirty::TRIANGULATION_ORDER);
 
+	// The negative viewport height reverses window-space winding.
 	const static std::unordered_map<TriangleOrientation, vk::FrontFace> FrontFaceMap = {
-		{TriangleOrientation::CW, vk::FrontFace::eClockwise},
-		{TriangleOrientation::CCW, vk::FrontFace::eCounterClockwise},
+		{TriangleOrientation::CW, vk::FrontFace::eCounterClockwise},
+		{TriangleOrientation::CCW, vk::FrontFace::eClockwise},
 	};
 
 	cmdlist.setFrontFace(FrontFaceMap.at(mTriangleOrientation));
@@ -999,9 +1001,11 @@ void DriverVk::EnsureBlendMode(vk::raii::CommandBuffer& cmdlist) {
 		}
 	}
 
-	cmdlist.setColorBlendEnableEXT(0, blend_enable_array);
-	cmdlist.setColorWriteMaskEXT(0, color_mask_array);
-	cmdlist.setColorBlendEquationEXT(0, color_blend_equation_array);
+	if (!blend_enable_array.empty()) {
+		cmdlist.setColorBlendEnableEXT(0, blend_enable_array);
+		cmdlist.setColorWriteMaskEXT(0, color_mask_array);
+		cmdlist.setColorBlendEquationEXT(0, color_blend_equation_array);
+	}
 }
 
 const static std::unordered_map<DepthFunction, vk::CompareOp> CompareOpMap = {
@@ -1174,6 +1178,10 @@ void DriverVk::createSwapchain(unsigned int windowID, uint32_t width, uint32_t h
 
 	auto backbuffers = ctx.swapchain.getImages();
 
+	// Texture destruction enqueues VMA images into the current frame. Keep all
+	// queues alive until every old framebuffer has released its depth image.
+	for (auto& frame : ctx.frames) frame.mFrameBuffer.reset();
+	for (auto& frame : ctx.frames) frame.destroyDeferred.clear();
 	ctx.frames.clear();
 
 	for (auto& backbuffer : backbuffers) {
@@ -1256,21 +1264,23 @@ void DriverVk::beginRenderPass() {
 	std::optional<vk::RenderingAttachmentInfo> depth_stencil_attachment;
 
 	for (auto target : targets->getTextures()) {
+		static_cast<TextureVk*>(target.get())->setState(getCurrentFrame().mCommandBuffer, vk::ImageLayout::eGeneral);
 		auto color_attachment = vk::RenderingAttachmentInfo()
-			.setImageView(*static_cast<TextureVk*>(target.get())->mImageView)
+			.setImageView(target->getType()==TextureType::TEXTURE_CUBE ? static_cast<TextureVk*>(target.get())->attachmentView(targets->getMip(),targets->getLayer()) : *static_cast<TextureVk*>(target.get())->mImageView)
 			.setImageLayout(vk::ImageLayout::eGeneral)
 			.setLoadOp(vk::AttachmentLoadOp::eLoad)
 			.setStoreOp(vk::AttachmentStoreOp::eStore);
 
 		color_attachments.push_back(color_attachment);
 
-		if (!depth_stencil_attachment.has_value()) {
+	}
+	if (targets->getDepth()) {
+		static_cast<TextureVk*>(targets->getDepth().get())->setState(getCurrentFrame().mCommandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 			depth_stencil_attachment = vk::RenderingAttachmentInfo()
 				.setImageView(*static_cast<TextureVk*>(targets->getDepth().get())->mImageView)
 				.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
 				.setLoadOp(vk::AttachmentLoadOp::eLoad)
 				.setStoreOp(vk::AttachmentStoreOp::eStore);
-		}
 	}
 
 	auto width = getBackbufferWidth();
@@ -1283,7 +1293,8 @@ void DriverVk::beginRenderPass() {
 
 	if (depth_stencil_attachment.has_value()) {
 		rendering_info.setPDepthAttachment(&depth_stencil_attachment.value());
-		rendering_info.setPStencilAttachment(&depth_stencil_attachment.value());
+		if (targets->getDepth()->getFormat() != PixelFormat::DEPTH32_FLOAT)
+			rendering_info.setPStencilAttachment(&depth_stencil_attachment.value());
 	}
 	std::cout << "beginRendering\n";
 	getCurrentFrame().mCommandBuffer.beginRendering(rendering_info);
@@ -1441,7 +1452,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 	// A new set starts empty, so every binding is written, not only the dirty ones.
 	// Image transitions are illegal inside a dynamic rendering pass.
 	for (const auto& required : required_descriptor_bindings) {
-		if (required.descriptorType != vk::DescriptorType::eCombinedImageSampler) {
+		if (required.descriptorType != vk::DescriptorType::eCombinedImageSampler && required.descriptorType != vk::DescriptorType::eStorageImage) {
 			continue;
 		}
 		auto texture = mTextures.at(required.binding);
@@ -1458,6 +1469,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 	};
 	struct ImageWrite {
 		uint32_t binding = 0;
+        vk::DescriptorType type = vk::DescriptorType::eCombinedImageSampler;
 		vk::DescriptorImageInfo info;
 	};
 	std::vector<BufferWrite> buffers;
@@ -1467,10 +1479,10 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 
 	for (const auto& required : required_descriptor_bindings) {
 		const uint32_t binding = required.binding;
-		if (required.descriptorType == vk::DescriptorType::eCombinedImageSampler) {
+		if (required.descriptorType == vk::DescriptorType::eCombinedImageSampler || required.descriptorType == vk::DescriptorType::eStorageImage) {
 			auto texture = mTextures.at(binding);
 			images.push_back(ImageWrite{
-				binding,
+				binding, required.descriptorType,
 				vk::DescriptorImageInfo()
 					.setSampler(*texture->mSampler)
 					.setImageView(*texture->mImageView)
@@ -1504,8 +1516,22 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 		.setDescriptorPool(*mDescriptorPool)
 		.setDescriptorSetCount(1)
 		.setPSetLayouts(&layout);
-	auto allocated = mDevice.allocateDescriptorSets(allocInfo);
-	mFrameDescriptorSets.push_back(std::move(allocated.front()));
+    for(;;) {
+        const auto pool=mDescriptorPoolIndex==0?*mDescriptorPool:*mExtraDescriptorPools.at(mDescriptorPoolIndex-1);
+        allocInfo.setDescriptorPool(pool);
+        try {
+            auto allocated=mDevice.allocateDescriptorSets(allocInfo);
+            mFrameDescriptorSets.push_back(std::move(allocated.front()));
+            break;
+        } catch(const vk::OutOfPoolMemoryError&) {
+            // Growing the number of lights grows draws, not shadow textures.
+        } catch(const vk::FragmentedPoolError&) {}
+        ++mDescriptorPoolIndex;
+        if(mDescriptorPoolIndex>mExtraDescriptorPools.size()) {
+            mExtraDescriptorPools.push_back(createDrawDescriptorPool());
+            std::cout << "Vulkan draw descriptor pools=" << mExtraDescriptorPools.size()+1 << std::endl;
+        }
+    }
 	const vk::DescriptorSet set = *mFrameDescriptorSets.back();
 
 	std::vector<vk::WriteDescriptorSet> writes;
@@ -1515,7 +1541,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 			.setDstSet(set)
 			.setDstBinding(image.binding)
 			.setDescriptorCount(1)
-			.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+			.setDescriptorType(image.type)
 			.setImageInfo(image.info));
 	}
 	for (const auto& buffer : buffers) {
@@ -1552,6 +1578,7 @@ void DriverVk::resize(size_t width, size_t height) {
 	}
 	end();
 	wait();
+	mDevice.waitIdle();
 	mWidth = targetWidth;
 	mHeight = targetHeight;
 	createSwapchain(mCurrentWindowID, mWidth, mHeight);
@@ -1698,12 +1725,11 @@ void DriverVk::clear(bool clearColor, bool clearDepth, bool clearStencil) {
 		auto clear_value = vk::ClearValue()
 			.setColor(clear_color_value);
 
-		auto attachment = vk::ClearAttachment()
-			.setAspectMask(vk::ImageAspectFlagBits::eColor)
-			.setColorAttachment(0) // TODO: clear all attachments
-			.setClearValue(clear_value);
-
-		getCurrentFrame().mCommandBuffer.clearAttachments({attachment}, {clear_rect});
+		const auto targets = mCurrentState.mFrameBuffer ? mCurrentState.mFrameBuffer : getCurrentFrame().mFrameBuffer;
+		std::vector<vk::ClearAttachment> attachments;
+		for (uint32_t i = 0; i < targets->getTextures().size(); ++i)
+			attachments.push_back(vk::ClearAttachment().setAspectMask(vk::ImageAspectFlagBits::eColor).setColorAttachment(i).setClearValue(clear_value));
+		if (!attachments.empty()) getCurrentFrame().mCommandBuffer.clearAttachments(attachments, {clear_rect});
 	}
 
 	if (clearDepth || clearStencil) {
@@ -1734,6 +1760,49 @@ void DriverVk::clear(bool clearColor, bool clearDepth, bool clearStencil) {
 void DriverVk::draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) {
 	EnsureGraphicsState(false);
 	getCurrentFrame().mCommandBuffer.draw(vertex_count, instance_count, vertex_offset, 0);
+}
+
+std::vector<float> DriverVk::readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) {
+    if(texture->getFormat()!=PixelFormat::RGBA_FLOAT && texture->getFormat()!=PixelFormat::R_FLOAT && texture->getType()!=TextureType::DEPTH) throw std::runtime_error("Vulkan float readback requires RGBA_FLOAT, R_FLOAT or depth");
+    auto t=std::static_pointer_cast<TextureVk>(texture);
+    const uint32_t w=std::max<size_t>(1,t->getWidth()>>mip),h=std::max<size_t>(1,t->getHeight()>>mip);
+    const bool depth=t->getType()==TextureType::DEPTH;
+    const bool red=t->getFormat()==PixelFormat::R_FLOAT && !depth;
+    std::vector<float> values(static_cast<size_t>(w)*h*((depth||red)?1:4));
+    auto buffer=UtilityVk::CreateBuffer(values.size()*sizeof(float),vk::BufferUsageFlagBits::eTransferDst,UtilityVk::MemoryUsage::Staging);
+    const auto old=t->mCurrentState;
+    UtilityVk::OneTimeSubmit([&](const auto& cmd) {
+        t->setState(cmd,vk::ImageLayout::eTransferSrcOptimal);
+        auto layers=vk::ImageSubresourceLayers().setAspectMask(depth?vk::ImageAspectFlagBits::eDepth:vk::ImageAspectFlagBits::eColor).setMipLevel(mip).setBaseArrayLayer(t->getType()==TextureType::TEXTURE_CUBE?layer:0).setLayerCount(1);
+        auto copy=vk::BufferImageCopy().setImageSubresource(layers).setImageOffset({0,0,t->getType()==TextureType::TEXTURE_3D?static_cast<int>(layer):0}).setImageExtent({w,h,1});
+        cmd.copyImageToBuffer(t->mImagePtr,vk::ImageLayout::eTransferSrcOptimal,*buffer,copy);
+        t->setState(cmd,old);
+    });
+    void* mapped=nullptr;
+    if(vmaMapMemory(mAllocator,buffer.allocation(),&mapped)!=VK_SUCCESS) throw std::runtime_error("Readback map failed");
+    vmaInvalidateAllocation(mAllocator,buffer.allocation(),0,VK_WHOLE_SIZE);
+    std::memcpy(values.data(),mapped,values.size()*sizeof(float));vmaUnmapMemory(mAllocator,buffer.allocation());
+    if(red) {std::vector<float> rgba(static_cast<size_t>(w)*h*4,0);for(size_t i=0;i<values.size();++i) {rgba[i*4]=values[i];rgba[i*4+3]=1;}return rgba;}
+    return values;
+}
+
+void DriverVk::dispatch(uint32_t x,uint32_t y,uint32_t z) {
+    deactivateRenderPass();
+    auto& cmd=getCurrentFrame().mCommandBuffer;
+    auto shader=mCurrentState.mShader;
+    if(!*shader->mComputeShaderModule) throw std::runtime_error("Dispatch requires compute shader");
+    const std::string key="compute:"+std::to_string(reinterpret_cast<uintptr_t>(shader.get()));
+    if(!mStates.contains(key)) {
+        auto stage=vk::PipelineShaderStageCreateInfo().setStage(vk::ShaderStageFlagBits::eCompute).setModule(*shader->mComputeShaderModule).setPName("main");
+        auto info=vk::ComputePipelineCreateInfo().setStage(stage).setLayout(*shader->mPipelineLayout);
+        mStates.emplace(key,mDevice.createComputePipeline(nullptr,info));
+    }
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute,*mStates.at(key));
+    std::unordered_set<uint32_t> ignored;
+    PushDescriptors(cmd,vk::PipelineBindPoint::eCompute,shader->mPipelineLayout,shader->mRequiredDescriptorBindings,ignored);
+    cmd.dispatch(x,y,z);
+    UtilityVk::SetMemoryBarrier(cmd,vk::PipelineStageFlagBits2::eComputeShader,vk::PipelineStageFlagBits2::eAllCommands);
+    mBoundPipelineName.clear(); graphics_pipeline_ignore_bindings.clear(); setDirty(Dirty::PIPELINE);
 }
 
 void DriverVk::drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) {
@@ -1836,7 +1905,6 @@ std::shared_ptr<ShaderInterface> DriverVk::createShader(const ShaderResource& re
 
 std::shared_ptr<ModelInterface> DriverVk::createModel(const std::string& path, UTILS::IAllocator* allocator, ModelDeleter deleter) {
 	ModelDeleter finalDeleter = [deleter](ModelInterface* m) {
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ModelLoader>().unloadResource(m->getPath());
 		if (deleter) deleter(m);
 	};
 	return AllocateModel<ModelVk>(allocator, std::move(finalDeleter), path);
@@ -1844,14 +1912,13 @@ std::shared_ptr<ModelInterface> DriverVk::createModel(const std::string& path, U
 
 std::shared_ptr<MaterialInterface> DriverVk::createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator, MaterialDeleter deleter) {
 	MaterialDeleter finalDeleter = [deleter](MaterialInterface* m) {
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::MaterialLoader>().unloadResource(m->getPath());
 		if (deleter) deleter(m);
 	};
 	return AllocateMaterial<MaterialVk>(allocator, std::move(finalDeleter), res);
 }
 
-std::shared_ptr<FrameBufferInterface> DriverVk::createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth) {
-	return std::make_shared<FrameBufferVk>(textures, depth);
+std::shared_ptr<FrameBufferInterface> DriverVk::createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip, unsigned layer) {
+	return std::make_shared<FrameBufferVk>(textures, depth, mip, layer);
 }
 
 void DriverVk::draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) {
@@ -1876,11 +1943,13 @@ std::shared_ptr<StorageBufferInterface> DriverVk::createStorageBuffer(const void
 }
 
 void DriverVk::setFrameBuffer(std::shared_ptr<FrameBufferInterface> frameBuffer) {
+	deactivateRenderPass();
+	UtilityVk::SetMemoryBarrier(getCurrentFrame().mCommandBuffer, vk::PipelineStageFlagBits2::eAllGraphics, vk::PipelineStageFlagBits2::eAllGraphics);
 	mCurrentState.mFrameBuffer = std::static_pointer_cast<FrameBufferVk>(frameBuffer);
 }
 
 void DriverVk::resetFrameBuffer() {
-	mCurrentState.mFrameBuffer = nullptr;
+	setFrameBuffer(nullptr);
 }
 
 #endif

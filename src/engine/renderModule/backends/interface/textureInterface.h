@@ -1,5 +1,6 @@
 #pragma once
 #include "renderEnums.h"
+#include "atlasInterface.h"
 #include <string>
 
 namespace IKIGAI::RENDER {
@@ -26,6 +27,7 @@ namespace IKIGAI::RENDER {
 		size_t mChannels = 1;
 
 		uint32_t mMipCount = 0;
+        uint64_t mRevision = 1;
 
 		MinMagFilter mMinFilter = MinMagFilter::LINEAR;
 		MinMagFilter mMagFilter = MinMagFilter::LINEAR;
@@ -44,7 +46,11 @@ namespace IKIGAI::RENDER {
 		size_t getHeight() const { return mHeight; }
 		size_t getDepth() const { return mDepth; }
 		size_t getChannels() const { return mChannels; }
+		uint32_t getMipCount() const { return mMipCount; }
+        uint64_t getRevision() const { return mRevision; }
 		bool getUseMipMap() const { return mUseMipMap; }
+		virtual AtlasRect getPieceUV(const std::string&) const { return {0,0,1,1}; }
+		virtual AtlasRect getPiece(const std::string&) const { return {0,0,static_cast<float>(mWidth),static_cast<float>(mHeight)}; }
 
 		virtual ~TextureInterface() = default;
 		virtual void* getImguiId() = 0;

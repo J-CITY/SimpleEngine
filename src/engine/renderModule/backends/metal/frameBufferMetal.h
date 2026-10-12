@@ -9,7 +9,7 @@ namespace IKIGAI::RENDER {
 
     class FrameBufferMetal : public FrameBufferInterface {
     public:
-        FrameBufferMetal(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth);
+        FrameBufferMetal(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip = 0, unsigned layer = 0);
         virtual ~FrameBufferMetal() override = default;
 
         const std::vector<std::shared_ptr<TextureInterface>>& getTextures() const override { return mTextures; }

@@ -21,7 +21,7 @@
 #include "../gui/components/spriteComponent.h"
 
 namespace IKIGAI::ECS {
-#ifdef OPENGL_BACKEND
+
 #define COMPONENTS_DEF TransformComponent,\
 		AmbientLight,\
 		AmbientSphereLight,\
@@ -87,53 +87,9 @@ namespace IKIGAI::ECS {
 		ScrollComponent::Descriptor, \
 		LayoutComponent::Descriptor, \
 		ChunkModelRenderer::Descriptor
-#endif
 
-#ifndef OPENGL_BACKEND
-#define COMPONENTS_DEF TransformComponent,\
-		AmbientLight,\
-		AmbientSphereLight,\
-		AudioComponent,\
-		CameraComponent,\
-		DirectionalLight,\
-		InputComponent,\
-		LogicComponent,\
-		MaterialRenderer,\
-		ModelRenderer,\
-		ModelLODRenderer,\
-		PointLight,\
-		ScriptComponent,\
-		Skeletal,\
-		SkeletalComponent,\
-		SkeletalAnimationComponent,\
-		SpotLight,\
-		PhysicsComponent,\
-		AudioListenerComponent,\
-		VrCameraComponent,\
-		BatchComponent
 
-#define COMPONENTS_DESCRIPTOR_DEF TransformComponent::Descriptor,\
-		AmbientLight::Descriptor,\
-		AmbientSphereLight::Descriptor,\
-		AudioComponent::Descriptor,\
-		CameraComponent::Descriptor,\
-		DirectionalLight::Descriptor,\
-		InputComponent::Descriptor,\
-		LogicComponent::Descriptor,\
-		MaterialRenderer::Descriptor,\
-		ModelRenderer::Descriptor,\
-		ModelLODRenderer::Descriptor,\
-		PointLight::Descriptor,\
-		ScriptComponent::Descriptor,\
-		Skeletal::Descriptor,\
-		SkeletalComponent::Descriptor,\
-		SkeletalAnimationComponent::Descriptor,\
-		SpotLight::Descriptor,\
-		PhysicsComponent::Descriptor,\
-		AudioListenerComponent::Descriptor,\
-		VrCameraComponent::Descriptor,\
-		BatchComponent::Descriptor
-#endif
+
 
 	//ArCameraComponent,\
 

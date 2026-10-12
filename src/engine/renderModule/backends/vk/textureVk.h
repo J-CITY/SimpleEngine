@@ -39,9 +39,12 @@ namespace IKIGAI::RENDER {
 		void setData(uint32_t width, uint32_t height, PixelFormat format, const std::vector<void*>& data, uint32_t mip_level,
 		             uint32_t offset_x, uint32_t offset_y);
 		void generateMips();
+        vk::ImageView attachmentView(unsigned mip,unsigned layer);
+        std::map<std::pair<unsigned,unsigned>,vk::raii::ImageView> mAttachmentViews;
 		void setState(const vk::raii::CommandBuffer& cmdbuf, vk::ImageLayout state);
 
 	protected:
+		void releaseResources();
 		// Загрузить данные и инициализировать VK-ресурсы (выделено из конструктора)
 		void init(const TextureResource& descriptor, const std::vector<void*>& data);
 	};

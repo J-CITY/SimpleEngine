@@ -37,36 +37,6 @@ using namespace IKIGAI;
 using namespace IKIGAI::SCENE_SYSTEM;
 
 void Scene::init() {
-	//Create Default skybox
-	
-	//skyboxObject = std::make_unique<IKIGAI::ECS::Object>(IKIGAI::ObjectId<ECS::Object>(999), "Skybox", "");
-
-	//skyboxTexture = IKIGAI::RESOURCES::TextureLoader::CreateSkybox("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\sb\\");
-	//auto mat = skyboxObject->addComponent<IKIGAI::ECS::MaterialRenderer>();
-	//auto skyboxMat = std::make_shared<IKIGAI::RENDER::Material>();
-	//auto s = IKIGAI::RESOURCES::ShaderLoader::CreateFromFile("Shaders\\skybox1.glsl");
-	//skyboxMat->setShader(s);
-	//skyboxMat->setBackfaceCulling(true);
-	//skyboxMat->setBackfaceCulling(true);
-	//skyboxMat->setDepthTest(true);
-	//skyboxMat->setDepthWriting(true);
-	//skyboxMat->setColorWriting(true);
-	//skyboxMat->setGPUInstances(1);
-	//skyboxMat->getShader()->setUniformInt("gCubemapTexture", 0);
-	//mat->fillWithMaterial(skyboxMat);
-	
-	//auto model = skyboxObject->addComponent<IKIGAI::ECS::ModelRenderer>();
-	//IKIGAI::RESOURCES::ModelParserFlags flags = IKIGAI::RESOURCES::ModelParserFlags::TRIANGULATE;
-	//auto m = IKIGAI::RESOURCES::ModelLoader::Create("C:\\Projects\\SimpleEngine\\CGCourse\\CGCourse\\Assets\\Engine\\Models\\Cube.fbx", flags);
-	//model->setModel(m);
-	//model->setFrustumBehaviour(IKIGAI::ECS::ModelRenderer::EFrustumBehaviour::CULL_MODEL);
-	//auto bs = IKIGAI::RENDER::BoundingSphere();
-	//bs.position = {0.0f, 0.0f, 0.0f};
-	//bs.radius = 1.0f;
-	//model->setCustomBoundingSphere(bs);
-	//skyboxObject->getTransform()->setLocalPosition({ 0.0f, 0.0f, 0.0f });
-	//skyboxObject->getTransform()->setLocalRotation({0.0f, 0.0f, 0.0f, 1.0f});
-	//skyboxObject->getTransform()->setLocalScale({20.0f, 20.0f, 20.0f});
 	
 }
 
@@ -77,6 +47,12 @@ Scene::Scene(const Descriptor& _descriptor) {
 }
 
 Scene::~Scene() {
+	// The spatial index owns mesh references; release them before the GPU driver.
+	for (const auto& object : objects) {
+		if (auto component = object->getComponent<ECS::ModelRenderer>()) {
+			removeFromBVH(component.get());
+		}
+	}
 	objects.clear();
 }
 
@@ -120,18 +96,6 @@ void Scene::lateUpdate(std::chrono::duration<double> dt) {
 std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject() {
 	return createObject("New Actor");
 }
-
-//std::shared_ptr<IKIGAI::ECS::Object> Scene::_createObject(const std::string& name, const std::string& tag) {
-//	auto instance = std::make_shared<ECS::Object>(idGenerator.generateId(), name, tag);
-//	if (isExecute) {
-//		instance->setActive(true);
-//		if (instance->getIsActive()) {
-//			instance->onEnable();
-//			instance->onStart();
-//		}
-//	}
-//	return instance;
-//}
 
 std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ECS2::Entity actorID, const std::string& name, const std::string& tag) {
 	objects.push_back(std::make_shared<ECS::Object>(actorID, name, tag));
@@ -196,9 +160,6 @@ struct BVHData {
 		std::shared_ptr<RENDER::MeshInterface> mesh): obj(obj), mesh(mesh) {}
 
 	const ECS::Transform& getTransform() {
-		//if (!obj) {
-		//	return MATHGL::Matrix4::Identity;
-		//}
 		return obj->mTransform->getTransform();
 	}
 };
@@ -251,7 +212,7 @@ void Scene::addToBVH(UTILS::WeakPtr<ECS::ComponentBase> component) {
 }
 
 void Scene::removeFromBVH(UTILS::WeakPtr<ECS::ComponentBase> component) {
-	if (component->getName() != "ModelRenderer" || component->getName() != "TransformComponent") {
+	if (!component || (component->getName() != "ModelRenderer" && component->getName() != "TransformComponent")) {
 		return;
 	}
 	if (!component->obj->getComponent<ECS::ModelRenderer>()) {
@@ -405,15 +366,20 @@ IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
 }
 
 
-std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
+std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData(std::vector<int>* objectIds) const {
 	std::vector<RENDER::LightOGL> result;
-
+	if(objectIds) {
+		objectIds->clear();
+	}
 	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
 	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
 		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
+			if(objectIds) {
+				objectIds->push_back(light.obj->getIDInt());
+			}
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::DirectionalLight>()) {
@@ -421,6 +387,9 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
+			if(objectIds) {
+				objectIds->push_back(light.obj->getIDInt());
+			}
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::PointLight>()) {
@@ -428,6 +397,9 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
+			if(objectIds) {
+				objectIds->push_back(light.obj->getIDInt());
+			}
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::AmbientLight>()) {
@@ -435,6 +407,9 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
+			if(objectIds) {
+				objectIds->push_back(light.obj->getIDInt());
+			}
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::AmbientSphereLight>()) {
@@ -442,19 +417,19 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData() const {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
+			if(objectIds) {
+				objectIds->push_back(light.obj->getIDInt());
+			}
 		}
 	}
-	//for (auto light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
-	//	if (light.second->obj.getIsActive()) {
-	//		auto ldata = light.second->getData().generateOGLStruct();
-	//		result.push_back(ldata);
-	//	}
-	//}
 	return result;
 }
 
-std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::Frustum& p_frustum) {
+std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER::Frustum& p_frustum, std::vector<int>* objectIds) {
 	std::vector<RENDER::LightOGL> result;
+	if(objectIds) {
+		objectIds->clear();
+	}
 
 	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
 	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
@@ -467,6 +442,9 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
 				auto ldata = lightData.generateOGLStruct();
 				result.push_back(ldata);
+			if(objectIds) {
+				objectIds->push_back(light.obj->getIDInt());
+			}
 			}
 		}
 	}
@@ -480,6 +458,9 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
 				auto ldata = lightData.generateOGLStruct();
 				result.push_back(ldata);
+				if(objectIds) {
+					objectIds->push_back(light.obj->getIDInt());
+				}
 			}
 		}
 	}
@@ -493,6 +474,9 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
 				auto ldata = lightData.generateOGLStruct();
 				result.push_back(ldata);
+				if(objectIds) {
+					objectIds->push_back(light.obj->getIDInt());
+				}
 			}
 		}
 	}
@@ -506,6 +490,9 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
 				auto ldata = lightData.generateOGLStruct();
 				result.push_back(ldata);
+				if(objectIds) {
+					objectIds->push_back(light.obj->getIDInt());
+				}
 			}
 		}
 	}
@@ -519,31 +506,14 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 			if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
 				auto ldata = lightData.generateOGLStruct();
 				result.push_back(ldata);
+				if(objectIds) {
+					objectIds->push_back(light.obj->getIDInt());
+				}
 			}
 		}
 	}
-	//for (auto& light : ECS::ComponentManager::GetInstance().lightComponents) {
-	//	if (light.second->obj.getIsActive()) {
-	//		const auto& lightData = light.second->getData();
-	//		const auto& position = lightData.getTransform().getWorldPosition();
-	//		auto effectRange = lightData.getEffectRange();
-	//		
-	//		if (std::isinf(effectRange) || p_frustum.sphereInFrustum(position.x, position.y, position.z, lightData.getEffectRange())) {
-	//			auto ldata = lightData.generateOGLStruct();
-	//			result.push_back(ldata);
-	//		}
-	//	}
-	//}
 	return result;
 }
-
-//IKIGAI::ECS::Object& Scene::getSkybox() const {
-//	return *skyboxObject;
-//}
-//
-//IKIGAI::RESOURCES::CubeMap& Scene::getSkyboxTexture() const {
-//	return *skyboxTexture;
-//}
 
 std::vector<std::shared_ptr<RENDER::MeshInterface>> Scene::getMeshesInFrustum(
 	const RENDER::ModelInterface& model,

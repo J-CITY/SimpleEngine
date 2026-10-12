@@ -49,19 +49,19 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 #ifdef USING_GLES
 			format = isFloat ? GL_R16F : GL_R8;
 #else
-			format = isFloat ? GL_R16F : GL_RED;
+			format = isFloat ? GL_R32F : GL_RED;
 #endif
 		else if (nrComponents == 3)
 #ifdef USING_GLES
 			format = isFloat ? GL_RGB16F : GL_RGB8;
 #else
-			format = isFloat ? GL_RGB16F : GL_RGB;
+			format = isFloat ? GL_RGB32F : GL_RGB;
 #endif
 		else if (nrComponents == 4)
 #ifdef USING_GLES
 			format = isFloat ? GL_RGBA16F : GL_RGBA8;
 #else
-			format = isFloat ? GL_RGBA16F : GL_RGBA;
+			format = isFloat ? GL_RGBA32F : GL_RGBA;
 #endif
 		return format;
 	};
@@ -110,7 +110,7 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 		// #ifndef USING_GLES
 		if (dataFormat == PixelFormat::R_INT ||
 			dataFormat == PixelFormat::R_FLOAT) {
-			format = isFloat ? GL_R16F : GL_RED;
+			format = isFloat ? GL_R32F : GL_RED;
 			chanels = 1;
 		}
 		//#else
@@ -120,11 +120,11 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 		//}
 		//#endif
 		else if (dataFormat == PixelFormat::RGB_INT || dataFormat == PixelFormat::RGB_FLOAT) {
-			format = isFloat ? GL_RGB16F : GL_RGB;
+			format = isFloat ? GL_RGB32F : GL_RGB;
 			chanels = 3;
 		}
 		else if (dataFormat == PixelFormat::RGBA_INT || dataFormat == PixelFormat::RGBA_FLOAT) {
-			format = isFloat ? GL_RGBA16F : GL_RGBA;
+			format = isFloat ? GL_RGBA32F : GL_RGBA;
 			chanels = 4;
 		}
 		else if (dataFormat == PixelFormat::DEPTH_24_UNORM_STENCIL_8_UINT) {
@@ -168,6 +168,7 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 	};
 	auto createTexture = [](TextureType type, int internalFormat, int format, int width, int height, int depth, bool isFloat, const std::vector<void *> &datas) {
 		switch (type) {
+		case TextureType::DEPTH:
 		case TextureType::TEXTURE_2D: {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -188,7 +189,7 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 			glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			for (unsigned int i = 0; i < 6; ++i) {
-				glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), datas[i]);
+				glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internalFormat, width, height, 0, format, (isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE), (i<datas.size() ? datas[i] : nullptr));
 		  }
 		}
 		return;
@@ -234,14 +235,28 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 		mDepth = descriptor.depth;
 	}
 
+	mMipCount = descriptor.mipMapCount > 0 ? descriptor.mipMapCount : 1;
+	// Allocate requested levels even when their contents will be baked by pipeline passes.
+	if (mMipCount>1) {
+		glGenerateMipmap(getType(descriptor.texType));
+		glTexParameteri(getType(descriptor.texType),GL_TEXTURE_MAX_LEVEL,mMipCount-1);
+	}
 	if (descriptor.useMipmap) {
 		glGenerateMipmap(getType(descriptor.texType));
 	}
+	const auto target = getType(descriptor.texType);
+	glTexParameteri(target, GL_TEXTURE_MIN_FILTER, descriptor.minFilter == MinMagFilter::NEAREST ? (mMipCount>1 ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST) : (mMipCount>1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR));
+	glTexParameteri(target, GL_TEXTURE_MAG_FILTER, descriptor.magFilter == MinMagFilter::NEAREST ? GL_NEAREST : GL_LINEAR);
+	auto wrap = [](WrapFilter value) { return value == WrapFilter::REPEAT ? GL_REPEAT : value == WrapFilter::MIRRORED_REPEAT ? GL_MIRRORED_REPEAT : GL_CLAMP_TO_EDGE; };
+	glTexParameteri(target, GL_TEXTURE_WRAP_S, wrap(descriptor.wrapS));
+	glTexParameteri(target, GL_TEXTURE_WRAP_T, wrap(descriptor.wrapT));
+	if (descriptor.texType==TextureType::TEXTURE_3D || descriptor.texType==TextureType::TEXTURE_CUBE) glTexParameteri(target, GL_TEXTURE_WRAP_R, wrap(descriptor.wrapR));
 	glBindTexture(getType(descriptor.texType), 0);
 
 	id = texId;
 	mPath = descriptor.path;
 	mType = descriptor.texType;
+	mFormat = descriptor.pixelType;
 	mUseMipMap = descriptor.useMipmap;
 }
 
@@ -320,7 +335,7 @@ std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, 
 			bool loaded = false;
 
 			if (_descriptor.isFloat) {
-				auto *data = IKIGAI::UTILS::STBiLoadfFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 0);
+				auto *data = IKIGAI::UTILS::STBiLoadfFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 4); channels=4;
 				if (data) {
 					textureData.push_back(data);
 					loaded = true;
@@ -378,8 +393,8 @@ std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, 
 		for (const auto& fData : fileData) {
 			int w = 0, h = 0, c = 0;
 			void* data = _descriptor.isFloat
-				? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0)
-				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+				? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)
+				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0); c=4;
 			if (data) {
 				textureData.push_back(data);
 				_descriptor.width = w; 
@@ -450,7 +465,7 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(const std::string& name, 
 	} else {
 		// Try float/HDR?
 		int x,y,c;
-		float* floatData = IKIGAI::UTILS::STBiLoadfFromMemory(data.data(), data.size(), &x, &y, &c, 0);
+		float* floatData = IKIGAI::UTILS::STBiLoadfFromMemory(data.data(), data.size(), &x, &y, &c, 4); c=4;
 		if (floatData) {
 			TextureResource res;
 			res.useMipmap = generateMipmap;
@@ -479,7 +494,7 @@ std::shared_ptr<TextureGl> TextureGl::CreateFromMemory(const std::string& name, 
 void TextureGl::bind(int _slot) {
   slot = _slot;
   glActiveTexture(GL_TEXTURE0 + slot);
-  if (mType == TextureType::TEXTURE_2D) {
+  if (mType == TextureType::TEXTURE_2D || mType == TextureType::DEPTH) {
 	glBindTexture(GL_TEXTURE_2D, id);
   } else if (mType == TextureType::TEXTURE_CUBE) {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, id);
@@ -534,6 +549,7 @@ void* TextureGl::getImguiId() {
 }
 
 void TextureGl::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+    ++mRevision;
 	// Удаляем старый GPU-ресурс
 	glDeleteTextures(1, &id);
 	id = 0;
@@ -548,8 +564,8 @@ void TextureGl::recreate(const TextureResource& descriptor, const std::vector<st
 		for (const auto& fData : fileData) {
 			int w = 0, h = 0, c = 0;
 			void* data = descriptor.isFloat
-				? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0)
-				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+				? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)
+				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0); c=4;
 			loadedPtrs.push_back(data);
 			_d.width = w; _d.height = h; _d.channels = c;
 		}
@@ -655,8 +671,8 @@ std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const Te
 		int w = 0, h = 0, c = 0;
 		const auto& fData = fileData[0];
 		auto* data = _d.isFloat
-			? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0)
-			: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
+			? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)
+			: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0); c=4;
 		ASSERT_IF(data, "TextureAtlasGl: failed to load image from memory");
 		if (!data) return nullptr;
 		textureData.push_back(data);

@@ -1,12 +1,15 @@
 #include "spriteComponent.h"
+#include <stdexcept>
+#include "renderModule/render.h"
+#include "renderModule/backends/meshFactory.h"
+#include "resourceModule/materialManager.h"
+#include "windowModule/window/window.h"
 #include "../guiObject.h"
 #include <renderModule/gameRenderer.h>
 #include "resourceModule/shaderManager.h"
 #include "../../core/core.h"
 #include "../../ecs/object.h"
-#ifdef OPENGL_BACKEND
 #include <renderModule/backends/gl/textureGl.h>
-#endif
 #include <utilsModule/pathGetter.h>
 
 #include "renderModule/vertex.h"
@@ -19,54 +22,18 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-#ifdef OPENGL_BACKEND
-SpriteBatcher::SpriteBatcher()
-{
-    // Get the texture uniform from the shader program.
-    //m_textureUniform = glGetUniformLocation(m_shaderProgram, "tex");
-    //m_texture = nullptr;
-
-    // Setup vertex buffer
-
-	mVertexArray = std::make_unique<RENDER::VertexArray>();
-	mVbo = std::make_shared<RENDER::VertexBufferGl>(std::vector<Vertex>{});
-	
-	uint64_t vertexSize = sizeof(Vertex);
-	mVertexArray->bindAttribute(0, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
-	mVertexArray->bindAttribute(1, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
-	mVertexArray->bindAttribute(2, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
-	mVertexArray->bindAttribute(3, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
-	mVertexArray->bindAttribute(4, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
-	mVertexArray->bindAttribute(5, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
-	mVertexArray->bindAttribute(6, *std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo), RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
-	//mVbo = std::make_shared<RENDER::VertexBufferGl<BatchVertex>>();
-	//std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bindAttribute(0, 3, GL_FLOAT, false, sizeof(BatchVertex), (void*)offsetof(BatchVertex, position));
-	//std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bindAttribute(1, 2, GL_FLOAT, false, sizeof(BatchVertex), (void*)offsetof(BatchVertex, texCoord));
-	//std::static_pointer_cast<RENDER::VertexBufferGl<BatchVertex>>(mVbo)->bindAttribute(2, 4, GL_FLOAT, false, sizeof(BatchVertex), (void*)offsetof(BatchVertex, color));
-    //glGenBuffers(1, &m_vbo);
-    //glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    //glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex2dUVColor), (void*)0);
-    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex2dUVColor), (void*)sizeof(glm::vec2));
-    //glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex2dUVColor), (void*)sizeof(glm::vec4));
-    //glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    // Setup things related to the screen Transform
-    //m_screenTransformUniform = glGetUniformLocation(m_shaderProgram, "screenTransform");
-    //setScreenSize(screenSize);
-}
+SpriteBatcher::SpriteBatcher() = default;
 
 SpriteBatcher::~SpriteBatcher() = default;
 
-
-
 void SpriteBatcher::Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDER::AtlasRect& uv, MATH::Vector4f color, 
 	std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D) {
-    if (mTexture != texture || mShader != shader || mIs3D != is3D) {
-        Flush();
+	if (mTexture != texture || mShader != shader || mIs3D != is3D) {
+		Flush();
 		mTexture = texture;
 		mShader = shader;
 		mIs3D = is3D;
-    }
+	}
 
 	mVertexBuffer.push_back(Vertex({verts[0].x, verts[0].y, verts[0].z}, {uv.mX, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
 	mVertexBuffer.push_back(Vertex({verts[1].x, verts[1].y, verts[1].z}, {uv.mX + uv.mW, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
@@ -75,7 +42,6 @@ void SpriteBatcher::Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDE
 	mVertexBuffer.push_back(Vertex({ verts[3].x, verts[3].y, verts[3].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
 	mVertexBuffer.push_back(Vertex({ verts[4].x, verts[4].y, verts[4].z }, { uv.mX + uv.mW,1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
 	mVertexBuffer.push_back(Vertex({verts[5].x, verts[5].y, verts[5].z}, {uv.mX + uv.mW, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
-
 }
 
 
@@ -95,57 +61,33 @@ void SpriteBatcher::Draw(const std::array<Vertex, 6>& verts, std::shared_ptr<REN
 	mVertexBuffer.push_back(verts[5]);
 }
 
-void _bindAttribute(unsigned int attribute, RENDER::VertexArray::AttributeType type, int count, int stride, intptr_t offset) {
-	glEnableVertexAttribArray(attribute);
-	glVertexAttribPointer(attribute, count, static_cast<GLenum>(type), GL_FALSE, stride, reinterpret_cast<const GLvoid*>(offset));
-}
-
-void _unbindAttribute(unsigned int attribute) {
-	glDisableVertexAttribArray(attribute);
-}
-
 void SpriteBatcher::Flush() {
-    if (mVertexBuffer.empty() || !mTexture || !mShader) {
-        return;
-    }
-
-    // Set the current shader program.
-	mShader->bind();
-	std::static_pointer_cast<RENDER::TextureGl>(mTexture)->bind(0);
-	//TODO:fix it
-	//std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo)->bufferData(mVertexBuffer.size() * sizeof(Vertex), mVertexBuffer.data(), GL_STATIC_DRAW);
-
-	//TODO: get screen size
-	//TODO: check is 3D
-	MATH::Matrix4f projection = MATH::Matrix4f::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, -1, 1);
-	std::static_pointer_cast<RENDER::ShaderGl>(mShader)->setMat4("engine_Projection", projection);
-	
-#ifndef USING_GLES
-	mVertexArray->bind();
-#else
-	std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo)->bind();
-
-	const auto vertexSize = sizeof(Vertex);
-	_bindAttribute(0, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
-	_bindAttribute(1, RENDER::VertexArray::AttributeType::FLOAT, 2, vertexSize, (intptr_t)offsetof(Vertex, texCoord));
-	_bindAttribute(2, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, normal));
-	_bindAttribute(3, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, tangent));
-	_bindAttribute(4, RENDER::VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, bitangent));
-	_bindAttribute(5, RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_BoneIDs));
-	_bindAttribute(6, RENDER::VertexArray::AttributeType::FLOAT, 4, vertexSize, (intptr_t)offsetof(Vertex, m_Weights));
-#endif
-    glDrawArrays(GL_TRIANGLES, 0, mVertexBuffer.size());
-#ifndef USING_GLES
-	mVertexArray->unbind();
-#else
-	for (int i = 0; i <= 6; ++i) {
-		_unbindAttribute(i);
+	if(mVertexBuffer.empty()||!mTexture) {
+		return;
 	}
-	std::static_pointer_cast<RENDER::VertexBufferGl>(mVbo)->unbind();
-#endif
 
-	mShader->unbind();
-    mVertexBuffer.clear();
+	auto& renderer = RESOURCES::ServiceManager::Get<RENDER::Renderer>();
+	auto& loader = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>();
+	const bool text = mShader && mShader->mPath.find("text") != std::string::npos;
+
+	auto material = loader.loadResource(text?"/materials/render/portable/text.mat":"/materials/render/portable/gui.mat");
+
+	const auto size=RESOURCES::ServiceManager::Get<WINDOW::Window>().getPixelSize();
+	auto projection=MATH::Matrix4f::CreateOrthographic(0,size.x,size.y,0,-1,1);
+
+	if (RENDER::DriverInterface::settings.backend!=RENDER::RenderSettings::Backend::OPENGL) {
+		auto c = MATH::Matrix4f::Identity;
+		c(2,2) = 0.5f;
+		c(2,3) = 0.5f;
+		projection = c * projection;
+	}
+	renderer.setShader(material->getShader());material->bind(mTexture,true);
+	renderer.setUniformBuffer("engine_Gui",renderer.createUniformBuffer<MATH::Matrix4f>(MATH::Matrix4f::Transpose(projection)));
+	renderer.setTexture("Image",mTexture);renderer.setDepth({RENDER::DepthFunction::ALWAYS,false});renderer.setCull(RENDER::CullFace::NONE);
+	renderer.setBlending({RENDER::BlendMode::SRC_ALPHA,RENDER::BlendMode::ONE_MINUS_SRC_ALPHA});
+	std::vector<unsigned> indices;for(unsigned i=0;i<mVertexBuffer.size();++i) indices.push_back(i);
+	renderer.draw(RENDER::CreateMesh(mVertexBuffer,indices),RENDER::PrimitiveMode::TRIANGLES,1);
+	mVertexBuffer.clear();
 }
 
 RootGuiComponent::Descriptor RootGuiComponent::getDescriptor() const {
@@ -191,20 +133,18 @@ SpriteComponent::SpriteComponent(Object& obj, const std::string& path): Componen
 
 void SpriteComponent::setTexture(std::string path) {
 	mPath = path;
-#ifdef OPENGL_BACKEND
-	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createFromFile(path, true);
+	const auto extension = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFileExtension(path);
+	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(path,
+		extension == ".texture" ? RESOURCES::ELoadingType::RESOURCE : RESOURCES::ELoadingType::FILE);
 	obj->getTransform()->getTransform().setLocalSize(
-		{ (float)static_cast<RENDER::TextureGl*>(mTexture.get())->getWidth(), (float)static_cast<RENDER::TextureGl*>(mTexture.get())->getHeight() });
-#endif
+		{ (float)mTexture->getWidth(), (float)mTexture->getHeight() });
 }
 
 void SpriteComponent::setTextureAtlas(std::string path) {
 	mPath = path;
-#ifdef OPENGL_BACKEND
 	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createAtlasFromFile(path, true);
 	//obj->getTransform()->getTransform().setLocalSize(
 	//	{ static_cast<RENDER::TextureGl*>(mTexture.get())->width, static_cast<RENDER::TextureGl*>(mTexture.get())->height });
-#endif
 }
 
 std::string SpriteComponent::getTexture() {
@@ -216,7 +156,7 @@ void SpriteComponent::setAtlasPiece(std::string name)
 	if (name.empty()) {
 		return;
 	}
-	auto rect = static_cast<RENDER::TextureAtlasGl*>(mTexture.get())->getPiece(name);
+	auto rect = mTexture->getPiece(name);
 	obj->getTransform()->getTransform().setLocalSize({ rect.mW, rect.mH });
 	mTexturePiece = name;
 }
@@ -509,12 +449,9 @@ LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& de
 {
 	mIs3D = descriptor.Is3D;
 	mLabel = descriptor.Label;
-	//TODO: mGridSize = descriptor.Font;
 	auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-	auto path = fs.getFilePath("fonts/a_AlternaSw.TTF");
-	if (!path) {
-		//problem
-	}
+	auto path = fs.getFilePath(descriptor.Font.empty()?"/fonts/a_AlternaSw.TTF":descriptor.Font);
+	if (!path) throw std::runtime_error("Label font not found: " + descriptor.Font);
 	mFont = std::make_shared<IKIGAI::GUI::Font>(*path, 42);
 }
 
@@ -596,7 +533,7 @@ SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase:
 //		float h = ch.Size.y * obj.transform->globalScale.y;
 //
 //
-//		// Обновляем VBO для каждого символа
+//		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ VBO пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //		float vertices[6][4] = {
 //			{ xpos,     ypos + h, ch.Start.x / 1024.0,               (ch.Start.y + ch.Size.y) / 1024.0 },
 //			{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0,  ch.Start.y / 1024.0},
@@ -606,19 +543,19 @@ SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase:
 //			{ xpos + w, ypos,     (ch.Start.x + ch.Size.x) / 1024.0, ch.Start.y / 1024.0 }
 //		};
 //
-//		// Визуализируем текстуру глифа поверх прямоугольника
+//		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //		//glBindTexture(GL_TEXTURE_2D, ch.textureID);
 //
-//		// Обновляем содержимое памяти VBO
+//		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ VBO
 //		glBindBuffer(GL_ARRAY_BUFFER, VBO);
 //		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 //		glBindBuffer(GL_ARRAY_BUFFER, 0);
 //
-//		// Рендерим прямоугольник
+//		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //		glDrawArrays(GL_TRIANGLES, 0, 6);
 //
-//		// Теперь производим смещение для отображения следующего глифа (обратите внимание, что данное смещение измеряется в единицах, составляющих 1/64 пикселя)
-//		x += (ch.Advance >> 6) * obj.transform->globalScale.x; // побитовый сдвиг на 6, чтобы получить значение в пикселях (2^6 = 64)
+//		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 1/64 пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+//		x += (ch.Advance >> 6) * obj.transform->globalScale.x; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ 6, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (2^6 = 64)
 //	}
 //	glBindVertexArray(0);
 //	glBindTexture(GL_TEXTURE_2D, 0);
@@ -794,7 +731,6 @@ LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const ComponentBas
 //	obj.transform->globalModel(1, 3) = 0;
 //}
 
-#endif
 
 
 //#include <rttr/registration>

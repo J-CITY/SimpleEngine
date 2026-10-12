@@ -80,9 +80,11 @@ namespace IKIGAI::RENDER {
 		void setIndexBuffer(std::shared_ptr<IndexBufferInterface> buffer) override;
 		void setShader(std::shared_ptr<ShaderInterface> shader) override;
 		void setPushConstant(ShaderType stage, uint32_t offset, uint32_t size, const void* data) override;
-		void setTriangleOrientation(TriangleOrientation value) override {};
+		void setTriangleOrientation(TriangleOrientation value) override { mCurrentState.mTriangleOrientation=value; };
 
 		void draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) override;
+		std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) override;
+        void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 		void drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) override;
 		void draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) override;
 
@@ -134,7 +136,7 @@ namespace IKIGAI::RENDER {
 
 		std::shared_ptr<UniformBufferInterface> createUniformBuffer(const void* data, size_t size) override;
 		std::shared_ptr<StorageBufferInterface> createStorageBuffer(const void* data, size_t size, size_t stride) override;
-		std::shared_ptr<FrameBufferInterface> createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth) override;
+		std::shared_ptr<FrameBufferInterface> createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip = 0, unsigned layer = 0) override;
 
 		void setFrameBuffer(std::shared_ptr<FrameBufferInterface> frameBuffer) override;
 		void resetFrameBuffer() override;

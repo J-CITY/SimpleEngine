@@ -15,6 +15,7 @@ namespace IKIGAI::RENDER {
 	bool IsBackendCompiled(RenderSettings::Backend backend);
 	void ValidateBackendAvailable(RenderSettings::Backend backend);
 	void SetCliRenderBackendOverride(std::string_view name);
+	void SetCliRenderPipelineOverride(std::string_view path);
 	bool ApplyCliRenderBackendOverride(RenderSettings& settings);
 	// A shared asset config may target another platform. Only fall back when
 	// the binary contains exactly one backend and no explicit CLI selection.

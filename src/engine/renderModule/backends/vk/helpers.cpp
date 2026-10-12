@@ -49,11 +49,11 @@ vk::raii::ImageView UtilityVk::CreateImageView(vk::Image image, vk::Format forma
 	auto image_subresource_range = vk::ImageSubresourceRange()
 	                               .setAspectMask(aspect_flags)
 	                               .setLevelCount(mip_levels)
-	                               .setLayerCount(1);
+	                               .setLayerCount(type==vk::ImageViewType::eCube ? 6 : type==vk::ImageViewType::e2DArray ? std::max<size_t>(1,layers) : 1);
 
 	auto image_view_create_info = vk::ImageViewCreateInfo()
 	                              .setImage(image)
-	                              .setViewType(vk::ImageViewType::e2D)
+	                              .setViewType(type)
 	                              .setFormat(format)
 	                              .setSubresourceRange(image_subresource_range);
 
@@ -65,11 +65,12 @@ std::tuple<VmaImage, vk::raii::ImageView> UtilityVk::CreateImage(uint32_t width,
 	uint32_t mip_levels)
 {
 	auto image_create_info = vk::ImageCreateInfo()
-	                         .setImageType(vk::ImageType::e2D)
+	                         .setFlags(type==vk::ImageViewType::eCube ? vk::ImageCreateFlagBits::eCubeCompatible : vk::ImageCreateFlags{})
+                             .setImageType(type==vk::ImageViewType::e3D ? vk::ImageType::e3D : vk::ImageType::e2D)
 	                         .setFormat(format)
-	                         .setExtent({width, height, 1})
-	                         .setMipLevels(mip_levels)
-	                         .setArrayLayers(1)
+	                         .setExtent({width, height, type==vk::ImageViewType::e3D ? static_cast<uint32_t>(std::max<size_t>(1,layers)) : 1})
+	                         .setMipLevels(std::max(1u,mip_levels))
+	                         .setArrayLayers(type==vk::ImageViewType::eCube ? 6 : type==vk::ImageViewType::e2DArray ? std::max<size_t>(1,layers) : 1)
 	                         .setSamples(vk::SampleCountFlagBits::e1)
 	                         .setTiling(vk::ImageTiling::eOptimal)
 	                         .setUsage(usage)
@@ -88,7 +89,7 @@ std::tuple<VmaImage, vk::raii::ImageView> UtilityVk::CreateImage(uint32_t width,
 	}
 
 	VmaImage vmaImage(GetDriver()->mAllocator, image, allocation);
-	auto image_view = CreateImageView(*vmaImage, format, aspect_flags, layers, type, mip_levels);
+	auto image_view = CreateImageView(*vmaImage, format, aspect_flags, layers, type, std::max(1u,mip_levels));
 
 	return {std::move(vmaImage), std::move(image_view)};
 }

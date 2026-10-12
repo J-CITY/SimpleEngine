@@ -207,13 +207,12 @@ namespace IKIGAI {
 
 			virtual bool reloadResource(std::weak_ptr<ResourceT> weakRes, const std::string& config) = 0;
 
-
-
-
-
 			virtual ResourceDeleter createCacheDeleter(const std::string& path) {
-				return [this, path](ResourceT* ptr) {
-					this->unloadResource(path);
+				return [this, path, lifetime=std::weak_ptr<int>(mLifetime)](ResourceT* ptr) {
+					// Render targets/materials may outlive the resource loader during shutdown.
+					if (!lifetime.expired()) {
+						this->unloadResource(path);
+					}
 				};
 			}
 
@@ -225,6 +224,7 @@ namespace IKIGAI {
 			inline static std::unordered_map<std::string, std::vector<std::pair<std::string, IdGenerator<EVENT::Event<>>::ID>>> sFWSubscribersIds;
 
 		private:
+			std::shared_ptr<int> mLifetime = std::make_shared<int>(0);
 			inline static std::string PROJECT_ASSETS_PATH = "";
 			inline static std::string ENGINE_ASSETS_PATH = "";
 

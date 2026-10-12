@@ -28,6 +28,13 @@
 #include <stdexcept>
 #include "windowModule/window/window.h"
 #include <iostream>
+#include <algorithm>
+#include <set>
+#include <cstring>
+#include <functional>
+#include "backends/meshFactory.h"
+#include "coreModule/gui/components/spriteComponent.h"
+#include "coreModule/gui/guiObject.h"
 
 #ifdef OCULUS
 #include "util_matrix.h"
@@ -60,6 +67,12 @@ namespace IKIGAI::RENDER {
 
 		mEngineUbo = render->createUniformBuffer<EngineUBO>({});
 		mBoneUbo = render->createUniformBuffer<BonesUBO>({});
+		mFrameUbo = render->createUniformBuffer<FrameUBO>({});
+		mShadowUbo = render->createUniformBuffer<ShadowUBO>({});
+		mShadowPassUbo = render->createUniformBuffer<MATH::Matrix4f>({});
+		mPointShadowPassUbo = render->createUniformBuffer<PointShadowPassUBO>({});
+        mCurrentShadowUbo = render->createUniformBuffer<CurrentShadowUBO>({});
+		mFullscreenMesh = CreateMesh({Vertex({-1,-1,0},{0,0}), Vertex({3,-1,0},{2,0}), Vertex({-1,3,0},{0,2})}, {0,1,2});
 
 
 		RenderGraphPipeline::Descriptor desc;
@@ -69,7 +82,13 @@ namespace IKIGAI::RENDER {
 		stageDesc.Name = "Forward";
 		desc.Stages.push_back(stageDesc);
 
-		setPipeline(std::make_unique<RenderGraphPipeline>(desc, *render));
+		if (!DriverInterface::settings.pipeline.empty()) {
+			auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(DriverInterface::settings.pipeline);
+			if (loaded.isErr()) throw std::runtime_error("Render pipeline: " + loaded.unwrapErr().text);
+			desc = loaded.unwrap();
+		}
+		std::cout << "Render pipeline: " << DriverInterface::settings.pipeline << "; stages=" << desc.Stages.size() << std::endl;
+		setPipeline(std::make_unique<RenderGraphPipeline>(desc, *render, DriverInterface::settings.pipeline));
 	}
 
 #ifdef __EMSCRIPTEN__
@@ -119,30 +138,58 @@ namespace IKIGAI::RENDER {
 	}
 
 	void GameRenderer::drawDrawable(const Drawable& drawable) {
+		auto material = mOverrideMaterial ? mOverrideMaterial : drawable.material;
+		if (!material || !drawable.mesh) return;
+		if (mOverrideMaterial && drawable.material) {
+			for (const auto& [key,value] : mOverrideDefaults) material->set(key,value);
+			for (const auto& uniform : material->getShader()->getReflection().mUniforms) {
+				if (material->isEngineUniform(uniform.mName)) continue;
+				if (uniform.mMembers.empty()) {
+					try { material->set(uniform.mName, drawable.material->get(uniform.mName)); } catch (const std::out_of_range&) {
+						if (uniform.mName == "u_AlbedoMap") try { material->set(uniform.mName,drawable.material->get("u_DiffuseMap")); } catch (const std::out_of_range&) {}
+					}
+				} else for (const auto& member : uniform.mMembers) {
+					const auto key = uniform.mName + member.mName;
+					try { material->set(key, drawable.material->get(key)); } catch (const std::out_of_range&) {
+						try { material->set(key,drawable.material->get(member.mName)); } catch (const std::out_of_range&) {
+							if (member.mName == "u_Albedo") try { material->set(key,drawable.material->get("data_UBOu_Diffuse")); } catch (const std::out_of_range&) {}
+						}
+					}
+				}
+			}
+		}
 		WEB_LOG("drawDrawable");
-		static int drawLogs = 8;
 		static int skipLogs = 4;
-		const bool canDraw = drawable.material && drawable.material->hasShader() && drawable.material->getGPUInstances() > 0 && drawable.mesh;
+		const bool canDraw = material && material->hasShader() && material->getGPUInstances() > 0 && drawable.mesh;
 		if (skipLogs > 0 && !canDraw) {
 			--skipLogs;
-			IKIGAI_COUT("draw skip material=" << (drawable.material ? 1 : 0)
-				<< " shader=" << (drawable.material && drawable.material->hasShader() ? 1 : 0)
-				<< " instances=" << (drawable.material ? drawable.material->getGPUInstances() : 0)
+			IKIGAI_COUT("draw skip material=" << (material ? 1 : 0)
+				<< " shader=" << (material && material->hasShader() ? 1 : 0)
+				<< " instances=" << (material ? material->getGPUInstances() : 0)
 				<< " mesh=" << (drawable.mesh ? 1 : 0));
 		}
-		if (drawable.material->hasShader() && drawable.material->getGPUInstances() > 0) {
+		if (material->hasShader() && material->getGPUInstances() > 0) {
 			auto& render = mContext.render;
 
-			render->setDepth(drawable.material->getDepthFunc());
+			render->setDepth({material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS, material->isDepthWriting()});
+			render->setCull(material->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
+			if (material->isBlendable()) render->setBlending({BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA});
+			else render->resetBlending();
 			//render->setCull(CullFace::NONE);
 
-			render->setShader(drawable.material->getShader());
-			drawable.material->bind(mEmptyTexture, true);
+			render->setShader(material->getShader());
+			material->bind(mEmptyTexture, true);
+			if (mOverrideMaterial && mActiveStage) {
+				const auto& reflection=material->getShader()->getReflection();
+				for(const auto& [name,value]:mActiveStage->mDescriptor.Uniforms) if(const auto* texture=std::get_if<std::string>(&value))
+					render->setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind,mRenderPipeline->mTextures.at(*texture));
+			}
 
 			//TODO: use render for it
-			render->setPushConstant(IKIGAI::RENDER::ShaderType::VERTEX, 0, sizeof(MATH::Matrix4f), &drawable.world);
+			const auto model=DriverInterface::settings.backend==RenderSettings::Backend::OPENGL?drawable.world:MATH::Matrix4f::Transpose(drawable.world);
+			render->setPushConstant(IKIGAI::RENDER::ShaderType::VERTEX, 0, sizeof(MATH::Matrix4f), &model);
 
-			BonesUBO data;
+			BonesUBO data{};
 			if (drawable.skeleton && drawable.animationPlayable &&
 				drawable.mAnimLocalTransform && drawable.mAnimGlobalTransform && drawable.mAnimOffset) {
 #ifdef __EMSCRIPTEN__
@@ -179,14 +226,20 @@ namespace IKIGAI::RENDER {
 #endif
 			mBoneUbo->setData(data);
 
-			//std::static_pointer_cast<ShaderGl>(drawable.material->getShader())->setMat4("engine_Model.Projection", MATH::Matrix4f::Transpose(uboData.Projection));
-			//std::static_pointer_cast<ShaderGl>(drawable.material->getShader())->setMat4("engine_Model.View", MATH::Matrix4f::Transpose(uboData.View));
-			render->setUniformBuffer("engine_UBO", mEngineUbo);
-			WEB_LOG("bound engine_UBO");
-			render->setUniformBuffer("engine_Bones", mBoneUbo);
-			WEB_LOG("bound engine_Bones");
-			render->setStorageBuffer("engine_Lights", mLightSSBO);
-			WEB_LOG("bound engine_Lights");
+			//std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.Projection", MATH::Matrix4f::Transpose(uboData.Projection));
+			//std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.View", MATH::Matrix4f::Transpose(uboData.View));
+			const auto& reflected = material->getShader()->getReflection().mNameToUniforms;
+			if (reflected.contains("engine_UBO")) render->setUniformBuffer("engine_UBO", mEngineUbo);
+			if (reflected.contains("engine_Bones")) render->setUniformBuffer("engine_Bones", mBoneUbo);
+			if (reflected.contains("engine_Lights")) render->setStorageBuffer("engine_Lights", mLightSSBO);
+			if (reflected.contains("engine_Frame")) {
+				auto frame=mFrameData;
+				frame.PreviousModel=MATH::Matrix4f::Transpose(drawable.prevWorld);
+				render->setUniformBuffer("engine_Frame",render->createUniformBuffer<FrameUBO>(frame));
+			}
+			if (reflected.contains("engine_ShadowData")) render->setUniformBuffer("engine_ShadowData", mShadowUbo);
+			if (reflected.contains("engine_ShadowPass")) render->setUniformBuffer("engine_ShadowPass", mShadowPassUbo);
+			if (reflected.contains("engine_PointShadowPass")) render->setUniformBuffer("engine_PointShadowPass", mPointShadowPassUbo);
 
 			//glBindBufferBase(GL_UNIFORM_BUFFER, 0, std::static_pointer_cast<UniformBufferGl>(mEngineUbo)->getId());
 
@@ -199,23 +252,10 @@ namespace IKIGAI::RENDER {
 			//}
 			//drawable.mesh->unbind();
 
-			render->draw(drawable.mesh, PrimitiveMode::TRIANGLES, drawable.material->getGPUInstances());
+			render->draw(drawable.mesh, PrimitiveMode::TRIANGLES, material->getGPUInstances());
 			WEB_LOG("draw done");
-			if (drawLogs > 0) {
-				--drawLogs;
-				IKIGAI_COUT("draw indices=" << (drawable.mesh ? drawable.mesh->getIndexCount() : 0)
-					<< " verts=" << (drawable.mesh ? drawable.mesh->getVertexCount() : 0)
-					<< " instances=" << drawable.material->getGPUInstances()
-					<< " skin=" << (data.use == 1 ? 1 : 0)
-#ifdef OPENGL_BACKEND
-					<< " glError=" << static_cast<unsigned>(glGetError())
-#endif
-					);
-			}
-
-
-			//std::static_pointer_cast<ShaderGl>(drawable.material->getShader())->unbind();
-			drawable.material->unbind();
+			//std::static_pointer_cast<ShaderGl>(material->getShader())->unbind();
+			material->unbind();
 		}
 	}
 
@@ -223,7 +263,8 @@ namespace IKIGAI::RENDER {
 		uboData.View = MATH::Matrix4f::Transpose(cameraComponent.getCamera().getViewMatrix());
 		auto projection = cameraComponent.getCamera().getProjectionMatrix();
 		if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN
-			|| DriverInterface::settings.backend == RenderSettings::Backend::METAL) {
+			|| DriverInterface::settings.backend == RenderSettings::Backend::METAL
+			|| DriverInterface::settings.backend == RenderSettings::Backend::DIRECTX12) {
 			// OpenGL-style projection (NDC z in [-1, 1]); Vulkan/Metal clip space uses z in [0, 1].
 			// Y flip: DriverVk negative viewport height; DriverMetal flips viewport origin in applyFixedState.
 			MATH::Matrix4f clipCorrection = MATH::Matrix4f::Identity;
@@ -231,14 +272,43 @@ namespace IKIGAI::RENDER {
 			clipCorrection(2, 3) = 0.5f;
 			projection = clipCorrection * projection;
 		}
-		uboData.Projection = MATH::Matrix4f::Transpose(projection);
 		uboData.ViewPos = cameraComponent.obj->getTransform()->getWorldPosition();
-		uboData.Time = 1.0f;
+        const float previousTime=uboData.Time;
+		uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
 		auto sz = mContext.window->getPixelSize();
 		uboData.ViewportSize = MATH::Vector2f(sz.x,  sz.y);
-		uboData.FPS = 60.0f;
-		uboData.FrameCount = 1;
+		uboData.FPS = static_cast<float>(TIME::Timer::GetInstance().getFPS());
+		uboData.FrameCount = static_cast<int>(mFrameCount);
+        if(mFrameCount%60==0) mRenderPipeline->pollSettings(*mContext.render);
+		mRenderPipeline->resize(*mContext.render, sz.x, sz.y);
+        mRenderPipeline->pollResourceUpdates();
+		auto unjitteredViewProjection = projection * cameraComponent.getCamera().getViewMatrix();
+		if (mPreviousCamera != &cameraComponent) mRenderPipeline->mHistoryValid = false;
+		else {
+			float difference = 0;
+			for (int row=0;row<4;++row) for (int column=0;column<4;++column)
+				difference = std::max(difference,std::abs(unjitteredViewProjection(row,column)-mPreviousUnjitteredViewProjection(row,column)));
+			if (difference > 2.0f) mRenderPipeline->mHistoryValid = false;
+		}
+		const bool taaEnabled = mRenderPipeline->mDescriptor.TemporalJitter && std::any_of(mRenderPipeline->mStages.begin(),mRenderPipeline->mStages.end(),[](const auto& stage) {return stage->mDescriptor.Enabled && stage->mName=="TAA";});
+		if (taaEnabled) {
+			auto halton=[](unsigned index,unsigned base) {float fraction=1,result=0;while(index) {fraction/=base;result+=fraction*(index%base);index/=base;}return result;};
+			const auto index=static_cast<unsigned>(mFrameCount%8)+1;
+			auto jitter=MATH::Matrix4f::Identity;
+			jitter(0,3)=(halton(index,2)-.5f)*2/static_cast<float>(sz.x);
+			jitter(1,3)=(halton(index,3)-.5f)*2/static_cast<float>(sz.y);
+			projection=jitter*projection;
+		}
+		uboData.Projection = MATH::Matrix4f::Transpose(projection);
 		mEngineUbo->setData(uboData);
+		const auto viewProjection = projection * cameraComponent.getCamera().getViewMatrix();
+		mFrameData.InvViewProjection = MATH::Matrix4f::Transpose(MATH::Matrix4f::Inverse(viewProjection));
+		mFrameData.PreviousViewProjection = MATH::Matrix4f::Transpose(mRenderPipeline->mHistoryValid?mPreviousViewProjection:viewProjection);
+		mFrameData.PreviousModel = MATH::Matrix4f::Identity;
+		const float zeroToOne = DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? 0.0f : 1.0f;
+		mFrameData.CameraParams = {cameraComponent.getNear(), cameraComponent.getFar(), zeroToOne, zeroToOne};
+		mFrameData.FrameState = {mRenderPipeline->mHistoryValid ? 1.0f : 0.0f,std::clamp(uboData.Time-previousTime,0.0f,.25f),0,0};
+		mFrameUbo->setData(mFrameData);
 
 		if (cameraComponent.isFrustumLightCulling()) {
 			updateLightsInFrustum(scene, cameraComponent.getCamera().getFrustum());
@@ -246,115 +316,235 @@ namespace IKIGAI::RENDER {
 		else {
 			updateLights(scene);
 		}
+        std::vector<float> sun;
+        for(const auto& light:mLights) if(light.type==1) {
+            sun={light.forward[0],light.forward[1],light.forward[2],light.color[0],light.color[1],light.color[2],light.intensity};break;
+        }
+        if(mFrameCount>0 && sun!=mEnvironmentSun) {
+            mRenderPipeline->invalidateResources({"Environment","SkyEnvironment"});
+            mFrameData.FrameState.x=0;mFrameUbo->setData(mFrameData);
+        }
+        mEnvironmentSun=std::move(sun);
 
 		const auto& cameraPosition = cameraComponent.obj->getTransform()->getWorldPosition();
 		auto chunks = scene.findDrawables(cameraPosition, cameraComponent.getCamera(), nullptr, mEmptyMaterial);
+		auto shadowChunks = scene.findAndSortDrawables(cameraPosition,mEmptyMaterial);
+		if(mFrameCount==0) for(const auto& chunk:chunks) std::cout << "Render drawables: opaque=" << chunk.opaqueDrawablesForward.size()+chunk.opaqueDrawablesDeferred.size() << " transparent=" << chunk.transparentDrawablesForward.size()+chunk.transparentDrawablesDeferred.size() << std::endl;
+		mShadowData.LightIndices={-1,-1,-1,0};
+		mShadowUbo->setData(mShadowData);
 
-		static int sceneLogs = 4;
-		if (sceneLogs > 0) {
-			--sceneLogs;
-			size_t opaque = 0;
-			size_t transparent = 0;
-			for (const auto& chunk : chunks) {
-				opaque += chunk.opaqueDrawablesForward.size();
-				transparent += chunk.transparentDrawablesForward.size();
+		// Re-establish physical resources before applying disabled-stage aliases.
+		mRenderPipeline->mTextures = mRenderPipeline->mAllocatedTextures;
+		std::function<void(std::unique_ptr<PipelineStage>&)> runStage;
+        runStage = [&](std::unique_ptr<PipelineStage>& stage) {
+			if (!stage->mDescriptor.Enabled) {
+                if(stage->mDrawContent==DrawContent::LIGHT_ACCUMULATION) {
+                    for(auto& init:mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass).InitStages) runStage(init);
+                    return;
+                }
+				for (const auto& [output,input] : stage->mDescriptor.Bypass)
+					mRenderPipeline->mTextures.at(output) = mRenderPipeline->mTextures.at(input);
+				if (stage->mDescriptor.Bypass.empty() && stage->mFrameBuffer) {
+					mContext.render->setFrameBuffer(stage->mFrameBuffer);
+					mContext.render->setClearColor(stage->mDescriptor.ClearValue);
+					mContext.render->clear(stage->mDescriptor.ClearColor,stage->mDescriptor.ClearDepth,false);
+					mContext.render->setFrameBuffer(nullptr);
+				}
+				return;
 			}
-			const auto windowSize = mContext.window->getPixelSize();
-#ifdef OPENGL_BACKEND
-			GLint viewport[4] = {};
-			glGetIntegerv(GL_VIEWPORT, viewport);
-			const auto scissor = glIsEnabled(GL_SCISSOR_TEST);
-			GLint scissorBox[4] = {};
-			if (scissor) {
-				glGetIntegerv(GL_SCISSOR_BOX, scissorBox);
+            if(stage->mDescriptor.Once && stage->mExecuted) return;
+            if(stage->mDescriptor.UpdateInterval<1) throw std::runtime_error("Invalid stage update interval: "+stage->mName);
+            if(stage->mDescriptor.UpdateInterval>1 && mFrameCount==0) return;
+            if(mFrameCount % stage->mDescriptor.UpdateInterval != 0) return;
+            if(stage->mDrawContent==DrawContent::LIGHT_ACCUMULATION) {
+                auto& pass=mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass);
+                for(auto& init:pass.InitStages) runStage(init);
+                int used=0,shadowed=0;
+                struct RestoreCapture { int& index; ~RestoreCapture(){index=-1;} } restoreCapture{mCaptureLightIndex};
+                for(size_t i=0;i<mLights.size();++i) {
+                    const auto& light=mLights[i];
+                    if(light.type<0 || light.type>2 || light.intensity<=0) continue;
+                    const int id=i<mLightObjectIds.size()?mLightObjectIds[i]:-1;
+                    if(!pass.Descriptor.LightIds.empty() && std::find(pass.Descriptor.LightIds.begin(),pass.Descriptor.LightIds.end(),id)==pass.Descriptor.LightIds.end()) continue;
+                    mCaptureLightIndex=static_cast<int>(i);
+                    mShadowData.LightIndices={-1,-1,-1,0};
+                    const bool hasShadow=light.shadowEnabled && (pass.Descriptor.ShadowBudget<0 || shadowed<pass.Descriptor.ShadowBudget);
+                    float nearPlane=.1f,farPlane=100.f;
+                    bool captured=false;
+                    for(auto& capture:pass.CaptureStages) {
+                        const auto& type=capture->mDescriptor.ShadowType;
+                        const int captureType=type=="directional"?1:type=="spot"?2:0;
+                        if(captureType!=light.type) continue;
+                        if(type=="pointCube") {
+                            auto scalar=[&](const std::string& key) {
+                                auto it=capture->mDescriptor.Uniforms.find(key);
+                                return it==capture->mDescriptor.Uniforms.end()?std::get<float>(capture->mDefaults.at(key)):std::get<float>(it->second);
+                            };
+                            nearPlane=scalar("data_UBONear");farPlane=scalar("data_UBOFar");
+                        } else farPlane=capture->mDescriptor.ShadowRange;
+                        if(hasShadow) {runStage(capture);captured=true;}
+                    }
+                    if(light.shadowNear>0) nearPlane=light.shadowNear;
+                    if(light.shadowFar>0) farPlane=light.shadowFar;
+                    if(!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane<=0 || farPlane<=nearPlane) throw std::runtime_error("Invalid per-light shadow range");
+                    if(captured) ++shadowed;
+                    mCurrentShadow={};
+                    for(int c=0;c<4;++c) mCurrentShadow.Matrices[c]=mShadowData.Matrices[light.type==2?4:c];
+                    mCurrentShadow.CascadeSplits=mShadowData.CascadeSplits;
+                    mCurrentShadow.PositionRange={light.pos[0],light.pos[1],light.pos[2],farPlane};
+                    mCurrentShadow.Settings={mShadowData.Settings.x,nearPlane,farPlane,0};
+                    const bool volume=pass.Descriptor.VolumeLightLimit<0 || used<pass.Descriptor.VolumeLightLimit;
+                    mCurrentShadow.LightInfo={static_cast<float>(i),static_cast<float>(light.type),captured?1.f:0.f,volume?1.f:0.f};
+                    // Each queued resolve owns a distinct immutable buffer snapshot.
+                    mCurrentShadowUbo=mContext.render->createUniformBuffer<CurrentShadowUBO>(mCurrentShadow);
+                    for(auto& resolve:pass.ResolveStages) runStage(resolve);
+                    ++used;
+                }
+                mCaptureLightIndex=-1;
+                mShadowData.LightIndices={-1,-1,-1,0};mShadowUbo->setData(mShadowData);
+                if(mFrameCount==0) std::cout << "LIGHT_ACCUMULATION " << pass.Descriptor.Name << " lights=" << used << " shadows=" << shadowed << std::endl;
+                stage->mExecuted=true;return;
+            }
+            if(stage->mDrawContent==DrawContent::COMPUTE) {
+                if(!stage->mMaterial || stage->mDescriptor.DispatchTexture.empty()) throw std::runtime_error("Compute requires material and DispatchTexture");
+                bindStage(*stage);
+                const auto target=mRenderPipeline->mTextures.at(stage->mDescriptor.DispatchTexture);
+                const auto& ref=stage->mMaterial->getShader()->getReflection();
+                auto ceilDiv=[](size_t n,uint32_t d) {if(!d) throw std::runtime_error("Invalid compute local size");return static_cast<uint32_t>((n+d-1)/d);};
+                mContext.render->dispatch(ceilDiv(target->getWidth(),ref.mLocalSize[0]),ceilDiv(target->getHeight(),ref.mLocalSize[1]),ceilDiv(target->getDepth(),ref.mLocalSize[2]));
+                stage->mExecuted=true;
+                std::cout << "Pipeline compute: " << stage->mName << std::endl;
+                return;
+            }
+			auto& render = *mContext.render;
+#if defined(OPENGL_BACKEND) && !defined(USING_GLES)
+			GLuint profileQuery=0;
+			if(mProfileGpu && DriverInterface::settings.backend==RenderSettings::Backend::OPENGL) {
+				glGenQueries(1,&profileQuery);glBeginQuery(GL_TIME_ELAPSED,profileQuery);
 			}
 #endif
-			IKIGAI_COUT("renderScene chunks=" << chunks.size()
-				<< " opaque=" << opaque
-				<< " transparent=" << transparent
-				<< " cam=" << cameraPosition.x << "," << cameraPosition.y << "," << cameraPosition.z
-				<< " window=" << windowSize.x << "x" << windowSize.y
-#ifdef OPENGL_BACKEND
-				<< " viewport=" << viewport[2] << "x" << viewport[3]
-				<< " scissor=" << (scissor ? 1 : 0)
-				<< " scissorBox=" << scissorBox[2] << "x" << scissorBox[3]
+			render.setFrameBuffer(stage->mFrameBuffer);
+			const auto size = stage->mFrameBuffer ? MATH::Vector2f(stage->mFrameBuffer->getWidth(), stage->mFrameBuffer->getHeight()) : uboData.ViewportSize;
+			render.setViewport({{0,0},size});
+			render.resetScissor();
+			render.setClearColor(stage->mDescriptor.ClearValue);
+			render.clear(stage->mDescriptor.ClearColor,stage->mDescriptor.ClearDepth,false);
+			if (stage->mMaterial) bindStage(*stage);
+			mOverrideMaterial = stage->mDescriptor.OverrideMaterial ? stage->mMaterial : nullptr;
+			mOverrideDefaults=stage->mDefaults;
+			mActiveStage=stage.get();
+			for(const auto& [name,value]:stage->mDescriptor.Uniforms) std::visit([&](const auto& v) {
+				using T=std::decay_t<decltype(v)>;
+				if constexpr (!std::is_same_v<T,std::string>) {auto key=name;key.erase(std::remove(key.begin(),key.end(),'.'),key.end());mOverrideDefaults[key]=v;}
+			},value);
+			if (stage->mDrawContent == DrawContent::SHADOW) {
+                captureShadows(*stage,shadowChunks,cameraPosition,size);
+			} else
+			if (stage->mDrawContent == DrawContent::QUAD) {
+				if (!stage->mMaterial) throw std::runtime_error("Fullscreen stage requires Material: " + stage->mName);
+				render.draw(mFullscreenMesh,PrimitiveMode::TRIANGLES,1);
+			} else if (stage->mDrawContent == DrawContent::GUI) renderGui(scene);
+			else for (auto& chunk : chunks) {
+				if (stage->mDrawContent == DrawContent::FORWARD || stage->mDrawContent == DrawContent::DEFERRED || stage->mDrawContent == DrawContent::SHADOW) {
+					for (const auto& [distance,drawable] : chunk.opaqueDrawablesForward) drawDrawable(drawable);
+					for (const auto& [distance,drawable] : chunk.opaqueDrawablesDeferred) drawDrawable(drawable);
+				}
+				if (stage->mDrawContent == DrawContent::FORWARD || stage->mDrawContent == DrawContent::TRANSPARENT_GEOMETRY) {
+					for (const auto& [distance,drawable] : chunk.transparentDrawablesForward) drawDrawable(drawable);
+					for (const auto& [distance,drawable] : chunk.transparentDrawablesDeferred) drawDrawable(drawable);
+				}
+			}
+			mOverrideMaterial.reset();
+			mActiveStage=nullptr;
+			if (stage->mMaterial) stage->mMaterial->unbind();
+			render.setFrameBuffer(nullptr);
+#if defined(OPENGL_BACKEND) && !defined(USING_GLES)
+			if(profileQuery) {
+				glEndQuery(GL_TIME_ELAPSED);GLuint64 ns=0;glGetQueryObjectui64v(profileQuery,GL_QUERY_RESULT,&ns);
+				glDeleteQueries(1,&profileQuery);
+				auto& time=mGpuStageTimes[stage->mName];time.first+=static_cast<double>(ns)*1e-6;++time.second;
+			}
 #endif
-				);
-		}
-
-		auto runStage = [&](std::unique_ptr<PipelineStage>& stage) {
-			auto& render = RESOURCES::ServiceManager::Get<RENDER::Renderer>();
-			
-			for (auto& chunk : chunks) {
-				if (chunk.frameBuffer) {
-					render.setFrameBuffer(chunk.frameBuffer);
-				}
-				else if (stage->mFrameBuffer) {
-					render.setFrameBuffer(stage->mFrameBuffer);
-				}
-				else {
-					render.setFrameBuffer(nullptr);
-				}
-
-				render.setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-				render.clear(true, true, false);
-
-				if (stage->mMaterial) {
-					stage->mMaterial->bind(mEmptyTexture, true);
-					//fillUniforms(stage);
-				}
-
-				switch (stage->mDrawContent) {
-					case DrawContent::FORWARD:
-					{
-						for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward) {
-							drawDrawable(drawable);
-						}
-						for (const auto& [distance, drawable] : chunk.transparentDrawablesForward) {
-							drawDrawable(drawable);
-						}
-					}
-					break;
-					case DrawContent::DEFERRED:
-					{
-						for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred) {
-							drawDrawable(drawable);
-						}
-						for (const auto& [distance, drawable] : chunk.transparentDrawablesDeferred) {
-							drawDrawable(drawable);
-						}
-					}
-					break;
-					case DrawContent::GUI: break; //TODO:
-					case DrawContent::QUAD:
-					{
-						//mDriver->draw(*quad->getMeshes()[0], PrimitiveMode::TRIANGLES, 1);
-					}
-					break;
-					default: break;
-				}
-
-				if (stage->mMaterial) {
-					stage->mMaterial->unbind();
-				}
-
-				if (chunk.frameBuffer || stage->mFrameBuffer) {
-					render.setFrameBuffer(nullptr);
-				}
-			} // end for chunk
+            stage->mExecuted=true;
+            if(stage->mDescriptor.Once) std::cout << "Pipeline init: " << stage->mName << std::endl;
+            else if(stage->mDescriptor.UpdateInterval>1) std::cout << "Pipeline update: " << stage->mName << std::endl;
 		};
-
 		if (!mRenderPipeline->mIsInitialized) {
-			for (auto& stage : mRenderPipeline->mStartStages) {
-				runStage(stage);
-			}
+			for (auto& stage : mRenderPipeline->mStartStages) runStage(stage);
 			mRenderPipeline->mIsInitialized = true;
 		}
+		for (auto& stage : mRenderPipeline->mStages) runStage(stage);
+		mRenderPipeline->advanceHistory(*mContext.render);
+		mPreviousViewProjection = viewProjection;
+		mPreviousUnjitteredViewProjection = unjitteredViewProjection;
+		mPreviousCamera = &cameraComponent;
+	}
 
-		for (auto& stage : mRenderPipeline->mStages) {
-			runStage(stage);
+    void GameRenderer::captureShadows(PipelineStage& active, const std::vector<RenderChunk>& shadowChunks,
+        const MATH::Vector3f& cameraPosition, const MATH::Vector2f& size) {
+        auto* stage=&active;auto& render=*mContext.render;
+
+	if (!stage->mMaterial || !stage->mFrameBuffer) throw std::runtime_error("Shadow stage requires material and framebuffer");
+	const auto& type=stage->mDescriptor.ShadowType;
+	const int lightType=type=="directional"?1:type=="spot"?2:(type=="point" || type=="pointCube")?0:-2;
+	int index=mCaptureLightIndex;
+	for (size_t i=0;index<0 && i<mLights.size();++i) if (mLights[i].type==lightType && (stage->mDescriptor.ShadowLightId<0 || (i<mLightObjectIds.size() && mLightObjectIds[i]==stage->mDescriptor.ShadowLightId))) {index=static_cast<int>(i);break;}
+	if (index>=0) {
+		const auto& light=mLights[index];
+		MATH::Vector3f position(light.pos[0],light.pos[1],light.pos[2]);
+		auto direction=MATH::Vector3f::Normalize(MATH::Vector3f(light.forward[0],light.forward[1],light.forward[2]));
+		const bool cube=type=="pointCube";
+		const float nearPlane=mCaptureLightIndex>=0 && light.shadowNear>0 ? light.shadowNear : cube?std::get<float>(stage->mMaterial->get("data_UBONear")):.1f;
+		const float range=mCaptureLightIndex>=0 && light.shadowFar>0 ? light.shadowFar : cube?std::get<float>(stage->mMaterial->get("data_UBOFar")):std::max(stage->mDescriptor.ShadowRange,1.0f);
+		if(!std::isfinite(nearPlane) || !std::isfinite(range) || nearPlane<=0 || range<=nearPlane) throw std::runtime_error("Invalid point shadow near/far");
+		if(cube) mShadowData.Settings.y=nearPlane;
+		const int faces=lightType==1?4:lightType==0?6:1;
+		const int columns=lightType==1?2:lightType==0?3:1,rows=faces/columns;
+		const int base=lightType==1?0:lightType==2?4:5;
+		if(lightType==1) {mShadowData.LightIndices.x=static_cast<float>(index);mShadowData.CascadeSplits={range*.125f,range*.25f,range*.5f,range};}
+		if(lightType==2) mShadowData.LightIndices.y=static_cast<float>(index);
+		if(lightType==0) {mShadowData.LightIndices.z=static_cast<float>(index);mShadowData.PointPositionRange={position.x,position.y,position.z,range};}
+		const MATH::Vector3f directions[6]={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+		const MATH::Vector3f ups[6]={{0,-1,0},{0,-1,0},{0,0,1},{0,0,-1},{0,-1,0},{0,-1,0}};
+		for(int face=cube?stage->mDescriptor.ShadowFace:0;face<(cube?stage->mDescriptor.ShadowFace+1:faces);++face) {
+			MATH::Matrix4f view,proj;
+			if(lightType==1) {
+				const float radius=range*std::pow(2.0f,static_cast<float>(face)-3.0f);
+				const auto eye=cameraPosition-direction*range;
+				const auto up=std::abs(direction.y)>.95f?MATH::Vector3f(0,0,1):MATH::Vector3f(0,1,0);
+				view=MATH::Matrix4f::CreateView(eye,cameraPosition,up);
+				proj=MATH::Matrix4f::CreateOrthographic(-radius,radius,-radius,radius,.1f,range*2);
+			} else {
+				const auto dir=lightType==0?directions[face]:direction;
+				const auto up=lightType==0?ups[face]:(std::abs(dir.y)>.95f?MATH::Vector3f(0,0,1):MATH::Vector3f(0,1,0));
+				view=MATH::Matrix4f::CreateView(position,position+dir,up);
+				const float fov=lightType==0?90.0f:std::clamp(light.outerCutoff*2,1.0f,175.0f);
+				// Near is a radial cutoff, while projection clips axially.
+				proj=MATH::Matrix4f::CreatePerspective(fov,1.0f,cube?nearPlane/std::sqrt(3.0f):nearPlane,range);
+			}
+			if (DriverInterface::settings.backend!=RenderSettings::Backend::OPENGL) {
+				auto correction=MATH::Matrix4f::Identity;correction(2,2)=.5f;correction(2,3)=.5f;proj=correction*proj;
+			}
+			// Cube addressing has the same -Y face rule on all APIs. Explicit APIs
+			// reverse the viewport Y convention; compensate only capture projection.
+			if(cube && DriverInterface::settings.backend!=RenderSettings::Backend::OPENGL) {
+				auto flip=MATH::Matrix4f::Identity;flip(1,1)=-1;proj=flip*proj;
+			}
+			const auto vp=MATH::Matrix4f::Transpose(proj*view);
+			mShadowData.Matrices[base+face]=vp;
+			mShadowPassUbo=render.createUniformBuffer<MATH::Matrix4f>(vp);
+			if(cube) {
+				mPointShadowPassUbo=render.createUniformBuffer<PointShadowPassUBO>({vp,{position.x,position.y,position.z,range},{nearPlane,range,0,0}});
+				render.setViewport({{0,0},size});
+			} else render.setViewport({{size.x/columns*(face%columns),size.y/rows*(face/columns)},{size.x/columns,size.y/rows}});
+			for(const auto& chunk:shadowChunks) {
+				for(const auto& [distance,drawable]:chunk.opaqueDrawablesForward) if(drawable.material&&drawable.material->isCastShadow()) drawDrawable(drawable);
+				for(const auto& [distance,drawable]:chunk.opaqueDrawablesDeferred) if(drawable.material&&drawable.material->isCastShadow()) drawDrawable(drawable);
+			}
 		}
 	}
+	mShadowUbo->setData(mShadowData);
+    }
 
 	namespace {
 #if !defined(IKIGAI_GL_HAS_SSBO)
@@ -369,19 +559,23 @@ namespace IKIGAI::RENDER {
 	}
 
 	void GameRenderer::updateLights(SCENE_SYSTEM::Scene& scene) {
-		auto lightMatrices = scene.findLightData();
+		auto lightMatrices = scene.findLightData(&mLightObjectIds);
+		if(lightMatrices.empty()) lightMatrices.push_back(LightOGL::Inactive());
 #if !defined(IKIGAI_GL_HAS_SSBO)
 		PadLightsForEsUbo(lightMatrices);
 #endif
 		mLightSSBO->setData(lightMatrices);
+		mLights=std::move(lightMatrices);
 	}
 
 	void GameRenderer::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum) {
-		auto lightMatrices = scene.findLightDataInFrustum(frustum);
+		auto lightMatrices = scene.findLightDataInFrustum(frustum,&mLightObjectIds);
+		if(lightMatrices.empty()) lightMatrices.push_back(LightOGL::Inactive());
 #if !defined(IKIGAI_GL_HAS_SSBO)
 		PadLightsForEsUbo(lightMatrices);
 #endif
 		mLightSSBO->setData(lightMatrices);
+		mLights=std::move(lightMatrices);
 	}
 
 	const RenderGraphPipeline& GameRenderer::getCurrentPipeline() const {
@@ -461,159 +655,502 @@ namespace IKIGAI::RENDER {
 #endif
 } // namespace IKIGAI::RENDER
 
-IKIGAI::RENDER::RenderGraphPipeline::RenderGraphPipeline(const Descriptor& descriptor, Renderer& renderer) {
-	// for (const auto& bufferDesc : descriptor.Buffers) {
-	//	if (bufferDesc.Type == BufferType::UNIFORM) {
-	//		mUniformBuffers[bufferDesc.Name] =
-	//renderer.createUniformBuffer(nullptr, bufferDesc.Size);
-	//	}
-	//	else if (bufferDesc.Type == BufferType::STORAGE) {
-	//		mStorageBuffers[bufferDesc.Name] =
-	//renderer.createStorageBuffer(nullptr, bufferDesc.Size, bufferDesc.Stride);
-	//	}
-	// }
 
-	for (const auto& desc : descriptor.Textures) {
-		mTextures[desc.Name] = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(desc.Path);
-	}
-
-	for (const auto& fb : descriptor.FrameBuffers) {
-		std::vector<RESOURCES::ResourcePtr<TextureInterface>> attachments;
-		for (const auto& texName : fb.Textures) {
-			if (mTextures.contains(texName)) {
-				attachments.push_back(mTextures[texName]);
-			} else {
-			}
-		}
-		RESOURCES::ResourcePtr<TextureInterface> depthTex = nullptr;
-		if (!fb.Depth.empty() && mTextures.contains(fb.Depth)) {
-			depthTex = mTextures[fb.Depth];
-		}
-		mFrameBuffers[fb.Name] = renderer.createFrameBuffer(attachments, depthTex);
-	}
-
-	mStartStages = loadStages(descriptor.StartStages);
-	mStages = loadStages(descriptor.Stages);
+namespace IKIGAI::RENDER {
+// Validate resolved capture settings before a reload can mutate stages/resources.
+static void ValidatePointCube(const RenderGraphPipeline::Descriptor& desc) {
+    for(const auto& stage:desc.StartStages) if(stage.ShadowType=="pointCube")
+        throw std::runtime_error("Point cube capture must run every frame, not in StartStages");
+    std::map<std::string,std::set<int>> faces;
+    std::map<std::string,std::tuple<int,float,float>> contracts;
+    for(const auto* stages:{&desc.StartStages,&desc.Stages}) for(const auto& stage:*stages) {
+        if(stage.ShadowType!="pointCube") continue;
+        auto fail=[&] {throw std::runtime_error("Invalid pointCube contract: "+stage.Name);};
+        const auto frame=std::find_if(desc.FrameBuffers.begin(),desc.FrameBuffers.end(),[&](const auto& f){return f.Name==stage.FrameBuffer;});
+        if(stage.Draw!=DrawContent::SHADOW || stage.Once || stage.UpdateInterval!=1 || !stage.Enabled ||
+           !stage.ClearColor || !stage.ClearDepth || stage.ClearValue.x!=1 || stage.ShadowFace<0 || stage.ShadowFace>5 ||
+           frame==desc.FrameBuffers.end() || frame->Layer!=stage.ShadowFace || frame->Mip!=0 || frame->Textures.size()!=1 || frame->Depth.empty()) fail();
+        const auto color=std::find_if(desc.Textures.begin(),desc.Textures.end(),[&](const auto& t){return t.Name==frame->Textures[0];});
+        const auto depth=std::find_if(desc.Textures.begin(),desc.Textures.end(),[&](const auto& t){return t.Name==frame->Depth;});
+        if(color==desc.Textures.end() || depth==desc.Textures.end()) fail();
+        const auto& r=color->Resource;const auto& d=depth->Resource;
+        if(!color->Path.empty() || !depth->Path.empty() || r.texType!=TextureType::TEXTURE_CUBE || r.pixelType!=PixelFormat::R_FLOAT ||
+           r.width<=0 || r.height!=r.width || r.depth!=6 || r.mipMapCount!=1 || r.useMipmap ||
+           r.minFilter!=MinMagFilter::NEAREST || r.magFilter!=MinMagFilter::NEAREST ||
+           d.texType!=TextureType::DEPTH || d.width!=r.width || d.height!=r.height) fail();
+        auto loaded=UTILS::FromJson<MaterialResource>(stage.Material);
+        if(loaded.isErr()) fail();
+        auto uniforms=loaded.unwrap().Uniforms;
+        for(const auto& [name,value]:stage.Uniforms) std::visit([&](const auto& v){uniforms[name]=v;},value);
+        auto scalar=[&](const std::string& name) {
+            if(!uniforms.contains(name) || !std::holds_alternative<float>(uniforms.at(name))) {fail();return 0.f;}
+            return std::get<float>(uniforms.at(name));
+        };
+        const float nearPlane=scalar("data_UBONear"),farPlane=scalar("data_UBOFar");
+        if(!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane<=0 || farPlane<=nearPlane) fail();
+        const auto contract=std::make_tuple(stage.ShadowLightId,nearPlane,farPlane);
+        if(contracts.contains(color->Name) && contracts.at(color->Name)!=contract) fail();
+        contracts[color->Name]=contract;
+        if(!faces[color->Name].insert(stage.ShadowFace).second) fail();
+    }
+    if(faces.size()>1) throw std::runtime_error("Only one shadowed point cubemap is supported");
+    if(!faces.empty()) for(const auto& stage:desc.Stages) if(stage.ShadowType=="point")
+        throw std::runtime_error("Point atlas and cube captures cannot share one shadow light slot");
+    for(const auto& [name,written]:faces) if(written.size()!=6) throw std::runtime_error("Point cubemap requires six capture stages: "+name);
+}
+static RenderGraphPipeline::Descriptor ResolvePipelineSettings(const RenderGraphPipeline::Descriptor& descriptor) {
+    auto resolved=descriptor;
+    RenderGraphPipeline::SettingsDescriptor merged;
+    auto apply=[&](RenderGraphPipeline::SettingsDescriptor settings) {
+        for(const auto& group:settings.Groups) for(const auto& path:group.Materials)
+            for(const auto& [name,value]:group.Uniforms) {
+                const auto alias=group.Rename.find(path);
+                const auto key=alias!=group.Rename.end() && alias->second.contains(name)?alias->second.at(name):name;
+                settings.Materials[path][key]=value;
+            }
+        for(const auto& [path,uniforms]:settings.Materials)
+            for(const auto& [name,value]:uniforms) merged.Materials[path][name]=value;
+        for(const auto& replacement:settings.Textures) {
+            auto target=std::find_if(resolved.Textures.begin(),resolved.Textures.end(),[&](const auto& t){return t.Name==replacement.Name;});
+            if(target==resolved.Textures.end()) throw std::runtime_error("Pipeline settings reference unknown texture: "+replacement.Name);
+            *target=replacement;
+        }
+    };
+    apply(descriptor.Settings);
+    if(!descriptor.SettingsAsset.empty()) {
+        auto result=UTILS::FromJson<RenderGraphPipeline::SettingsDescriptor>(descriptor.SettingsAsset);
+        if(result.isErr()) throw std::runtime_error("Pipeline settings asset: "+result.unwrapErr().text);
+        apply(result.unwrap());
+    }
+    std::vector<std::vector<PipelineStage::Descriptor>*> groups={&resolved.StartStages,&resolved.Stages};
+    for(auto& pass:resolved.LightPasses) {
+        groups.push_back(&pass.InitStages);groups.push_back(&pass.CaptureStages);groups.push_back(&pass.ResolveStages);
+    }
+    for(auto* stages:groups) for(auto& stage:*stages) {
+        if(!merged.Materials.contains(stage.Material)) continue;
+        auto uniforms=merged.Materials.at(stage.Material);
+        // Explicit stage values (face, roughness, quality) take precedence.
+        for(const auto& [name,value]:stage.Uniforms) uniforms[name]=value;
+        stage.Uniforms=std::move(uniforms);
+    }
+    auto validation=resolved;
+    for(const auto& pass:resolved.LightPasses) {
+        if(pass.ShadowBudget<-1 || pass.VolumeLightLimit<-1) throw std::runtime_error("Invalid light pass budget");
+        for(const auto* children:{&pass.InitStages,&pass.CaptureStages,&pass.ResolveStages}) for(const auto& child:*children)
+            if(child.Draw==DrawContent::LIGHT_ACCUMULATION || child.Once || child.UpdateInterval!=1 || !child.Enabled) throw std::runtime_error("Invalid light pass child: "+child.Name);
+        validation.Stages.insert(validation.Stages.end(),pass.CaptureStages.begin(),pass.CaptureStages.end());
+        int point=0,spot=0,directional=0;
+        for(const auto& capture:pass.CaptureStages) {
+            if(capture.Draw!=DrawContent::SHADOW || capture.ShadowLightId>=0 || !capture.OverrideMaterial)
+                throw std::runtime_error("Managed capture must use the current light: "+capture.Name);
+            if(capture.ShadowType=="pointCube") ++point;
+            else if(capture.ShadowType=="spot") ++spot;
+            else if(capture.ShadowType=="directional") ++directional;
+            else throw std::runtime_error("Unsupported managed shadow type: "+capture.Name);
+            if(capture.ShadowType!="pointCube" && (!std::isfinite(capture.ShadowRange) || capture.ShadowRange<=.1f))
+                throw std::runtime_error("Invalid projected shadow range: "+capture.Name);
+        }
+        if(point!=6 || spot!=1 || directional!=1) throw std::runtime_error("Managed lights require six point faces, spot and directional capture");
+        for(const auto& resolve:pass.ResolveStages)
+            if(resolve.Draw!=DrawContent::QUAD || !resolve.Additive || resolve.ClearColor || resolve.ClearDepth)
+                throw std::runtime_error("Per-light resolve must accumulate without clearing: "+resolve.Name);
+    }
+    for(const auto& stage:resolved.Stages) if(stage.Draw==DrawContent::LIGHT_ACCUMULATION &&
+        std::count_if(resolved.LightPasses.begin(),resolved.LightPasses.end(),[&](const auto& p){return p.Name==stage.LightPass;})!=1)
+        throw std::runtime_error("Unknown light pass: "+stage.LightPass);
+    ValidatePointCube(validation);
+    return resolved;
 }
 
-IKIGAI::RENDER::RenderGraphPipeline::StagesArr IKIGAI::RENDER::RenderGraphPipeline::loadStages(const std::vector<PipelineStage::Descriptor>& stages) {
+RenderGraphPipeline::RenderGraphPipeline(const Descriptor& descriptor, Renderer& renderer,const std::string& pipelineAsset)
+    : mDescriptor(ResolvePipelineSettings(descriptor)),mSourceDescriptor(descriptor),mPipelineAsset(pipelineAsset) {
+    if(!mPipelineAsset.empty()) mPipelineWriteTime=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(mPipelineAsset);
+    if(!descriptor.SettingsAsset.empty()) mSettingsWriteTime=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(descriptor.SettingsAsset);
+	for (const auto& b : mDescriptor.Buffers) {
+		if (!b.Size) throw std::runtime_error("Empty pipeline buffer: " + b.Name);
+		if (b.Type == BufferType::UNIFORM) mUniformBuffers.emplace(b.Name,renderer.createUniformBuffer(nullptr,b.Size));
+		else mStorageBuffers.emplace(b.Name,renderer.createStorageBuffer(nullptr,b.Size,b.Stride));
+	}
+	mStartStages = loadStages(mDescriptor.StartStages);
+    for(const auto& descriptor:mDescriptor.LightPasses) {
+        if(mLightPasses.contains(descriptor.Name)) throw std::runtime_error("Duplicate light pass: "+descriptor.Name);
+        auto& pass=mLightPasses[descriptor.Name];pass.Descriptor=descriptor;
+        pass.InitStages=loadStages(descriptor.InitStages);
+        pass.CaptureStages=loadStages(descriptor.CaptureStages);
+        pass.ResolveStages=loadStages(descriptor.ResolveStages);
+    }
+	mStages = loadStages(mDescriptor.Stages);
+}
+
+void GameRenderer::reloadPipelineSettings(const std::string& asset) {
+    if(mRenderPipeline) mRenderPipeline->reloadSettings(*mContext.render,asset);
+}
+
+void GameRenderer::printGpuProfile() const {
+    for(const auto& [stage,time]:mGpuStageTimes)
+        std::cout << "LIGHTING_GPU_STAGE " << stage << " mean_ms=" << time.first/time.second << " samples=" << time.second << std::endl;
+}
+
+void RenderGraphPipeline::pollSettings(Renderer& renderer) {
+    auto& files=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+    const auto pipelineTime=mPipelineAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mPipelineAsset);
+    const auto settingsTime=mSourceDescriptor.SettingsAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+    if(pipelineTime==mPipelineWriteTime && settingsTime==mSettingsWriteTime) return;
+    try {reloadSettings(renderer);}
+    catch(const std::exception& error) {std::cerr << "Pipeline settings reload failed: " << error.what() << std::endl;}
+    // Invalid JSON is reported once per edit; the existing settings remain active.
+    mPipelineWriteTime=pipelineTime;
+    // A successful reload may have selected a different settings asset.
+    mSettingsWriteTime=mSourceDescriptor.SettingsAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+}
+
+void RenderGraphPipeline::reloadSettings(Renderer& renderer,const std::string& asset) {
+    auto source=mSourceDescriptor;
+    if(!mPipelineAsset.empty()) {
+        auto result=UTILS::FromJson<Descriptor>(mPipelineAsset);
+        if(result.isErr()) throw std::runtime_error("Render pipeline: "+result.unwrapErr().text);
+        source=result.unwrap();
+        auto structure=source,previous=mSourceDescriptor;
+        structure.Settings={};previous.Settings={};
+        structure.SettingsAsset.clear();previous.SettingsAsset.clear();
+        if(UTILS::ToJson(structure).unwrap()!=UTILS::ToJson(previous).unwrap())
+            throw std::runtime_error("Pipeline graph changed; restart to apply resource/stage changes. Only Settings/SettingsAsset can reload live.");
+    }
+    const auto overrideAsset=asset.empty()?mSettingsOverrideAsset:asset;
+    if(!overrideAsset.empty()) source.SettingsAsset=overrideAsset;
+    auto candidate=ResolvePipelineSettings(source);
+    std::set<std::string> changedTextures,dirty;
+    for(size_t i=0;i<candidate.Textures.size();++i) {
+        if(UTILS::ToJson(candidate.Textures[i]).unwrap()!=UTILS::ToJson(mDescriptor.Textures[i]).unwrap())
+            changedTextures.insert(candidate.Textures[i].Name);
+    }
+    dirty=changedTextures;
+    bool changed=!dirty.empty();
+    auto updateStages=[&](StagesArr& stages,const auto& descriptors) {
+        auto descriptor=descriptors.begin();
+        for(auto& stage:stages) {
+            const auto& next=*descriptor++;
+            bool update=UTILS::ToJson(next).unwrap()!=UTILS::ToJson(stage->mDescriptor).unwrap();
+            std::set<std::string> outputs;
+            if(!next.FrameBuffer.empty()) {
+                const auto frame=std::find_if(candidate.FrameBuffers.begin(),candidate.FrameBuffers.end(),[&](const auto& f){return f.Name==next.FrameBuffer;});
+                outputs.insert(frame->Textures.begin(),frame->Textures.end());
+            }
+            if(!next.DispatchTexture.empty()) outputs.insert(next.DispatchTexture);
+            for(const auto& name:outputs) if(dirty.contains(name)) update=true;
+            for(const auto& [name,value]:next.Uniforms)
+                if(const auto* texture=std::get_if<std::string>(&value);texture && dirty.contains(*texture)) update=true;
+            stage->mDescriptor=next;
+            if(update) {
+                stage->mExecuted=false;
+                dirty.insert(outputs.begin(),outputs.end());
+                changed=true;
+            }
+        }
+    };
+    updateStages(mStartStages,candidate.StartStages);
+    updateStages(mStages,candidate.Stages);
+    for(const auto& descriptor:candidate.LightPasses) {
+        auto& pass=mLightPasses.at(descriptor.Name);pass.Descriptor=descriptor;
+        updateStages(pass.InitStages,descriptor.InitStages);
+        updateStages(pass.CaptureStages,descriptor.CaptureStages);
+        updateStages(pass.ResolveStages,descriptor.ResolveStages);
+    }
+    mDescriptor=std::move(candidate);mSourceDescriptor=std::move(source);
+    mSettingsOverrideAsset=overrideAsset;
+    if(changed) {
+        mHistoryValid=false;mIsInitialized=false;
+        if(!changedTextures.empty() && mSize.x>0 && mSize.y>0) {
+            for(const auto& name:changedTextures) {mAllocatedTextures.erase(name);mTextureRevisions.erase(name);}
+            const auto size=mSize;mSize={0,0};resize(renderer,size.x,size.y);
+        }
+        std::cout << "Pipeline settings updated: " << mPipelineAsset << "; SettingsAsset=" << mSourceDescriptor.SettingsAsset << std::endl;
+    }
+    auto& files=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+    mSettingsWriteTime=mSourceDescriptor.SettingsAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+    if(!mPipelineAsset.empty()) mPipelineWriteTime=files.lastWriteTime(mPipelineAsset);
+}
+
+void RenderGraphPipeline::invalidateResources(const std::vector<std::string>& resources) {
+    std::set<std::string> dirty(resources.begin(),resources.end());
+    for(auto* stages:stageGroups()) for(auto& stage:*stages) {
+        const auto& descriptor=stage->mDescriptor;
+        std::set<std::string> outputs;
+        if(!descriptor.FrameBuffer.empty()) {
+            const auto frame=std::find_if(mDescriptor.FrameBuffers.begin(),mDescriptor.FrameBuffers.end(),[&](const auto& f){return f.Name==descriptor.FrameBuffer;});
+            outputs.insert(frame->Textures.begin(),frame->Textures.end());
+        }
+        if(!descriptor.DispatchTexture.empty()) outputs.insert(descriptor.DispatchTexture);
+        bool update=false;
+        for(const auto& name:outputs) if(dirty.contains(name)) update=true;
+        for(const auto& [name,value]:descriptor.Uniforms)
+            if(const auto* texture=std::get_if<std::string>(&value);texture && dirty.contains(*texture)) update=true;
+        if(update) {stage->mExecuted=false;dirty.insert(outputs.begin(),outputs.end());}
+    }
+    mHistoryValid=false;mIsInitialized=false;
+}
+
+void RenderGraphPipeline::pollResourceUpdates() {
+    std::vector<std::string> changed;
+    for(const auto& texture:mDescriptor.Textures) if(texture.Persistent && mAllocatedTextures.contains(texture.Name)) {
+        const auto revision=mAllocatedTextures.at(texture.Name)->getRevision();
+        auto [found,inserted]=mTextureRevisions.emplace(texture.Name,revision);
+        if(!inserted && found->second!=revision) {changed.push_back(texture.Name);found->second=revision;}
+    }
+    if(!changed.empty()) invalidateResources(changed);
+}
+
+void RenderGraphPipeline::resize(Renderer& renderer, int width, int height) {
+	if (width <= 0 || height <= 0 || (mSize.x == width && mSize.y == height)) return;
+	auto previous=std::move(mAllocatedTextures);
+    mTextures.clear();
+	for (const auto& t : mDescriptor.Textures) {
+		if (t.Name.empty() || mTextures.contains(t.Name) || !(t.Scale > 0)) throw std::runtime_error("Invalid/duplicate pipeline texture: " + t.Name);
+		if(t.Persistent && t.History) throw std::runtime_error("Persistent texture cannot use screen history: "+t.Name);
+        if(t.Persistent && previous.contains(t.Name)) { mTextures[t.Name]=previous.at(t.Name);continue; }
+		auto resource = t.Resource;
+		if (!resource.width) resource.width = std::max(1,static_cast<int>(width*t.Scale));
+		if (!resource.height) resource.height = std::max(1,static_cast<int>(height*t.Scale));
+		auto create = [&]() { return t.Path.empty() ? renderer.createTexture(resource) : RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(t.Path); };
+		mTextures[t.Name] = create();
+		if (!mTextures[t.Name]) throw std::runtime_error("Cannot allocate pipeline texture: " + t.Name);
+		if (t.History) {
+			if (!t.Path.empty()) throw std::runtime_error("History textures must be render targets");
+			mTextures[t.Name+"Previous"] = create();
+		}
+	}
+	mAllocatedTextures = mTextures;
+	mSize = {width,height};
+	mHistoryValid = false;
+	mIsInitialized = false;
+	rebuildFrameBuffers(renderer);
+	const bool history=std::any_of(mDescriptor.Textures.begin(),mDescriptor.Textures.end(),[](const auto& t){return t.History;});
+	if(history) {
+		auto current=std::move(mFrameBuffers);
+		for(const auto& t:mDescriptor.Textures) if(t.History) std::swap(mAllocatedTextures.at(t.Name),mAllocatedTextures.at(t.Name+"Previous"));
+		rebuildFrameBuffers(renderer);
+		mAlternateFrameBuffers=std::move(mFrameBuffers);mFrameBuffers=std::move(current);
+		for(const auto& t:mDescriptor.Textures) if(t.History) std::swap(mAllocatedTextures.at(t.Name),mAllocatedTextures.at(t.Name+"Previous"));
+		for(auto* stages:stageGroups()) for(auto& stage:*stages)
+			stage->mFrameBuffer=stage->mDescriptor.FrameBuffer.empty()?nullptr:mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+	}
+}
+
+void RenderGraphPipeline::rebuildFrameBuffers(Renderer& renderer) {
+	mFrameBuffers.clear();
+	for (const auto& f : mDescriptor.FrameBuffers) {
+		if (mFrameBuffers.contains(f.Name)) throw std::runtime_error("Duplicate framebuffer: " + f.Name);
+		std::vector<std::shared_ptr<TextureInterface>> colors;
+		for (const auto& name : f.Textures) colors.push_back(mAllocatedTextures.at(name));
+		auto depth = f.Depth.empty() ? nullptr : mAllocatedTextures.at(f.Depth);
+		if (colors.empty() && !depth) throw std::runtime_error("Empty framebuffer: " + f.Name);
+        const auto w=std::max<size_t>(1,(depth ? depth->getWidth() : colors.front()->getWidth()) >> f.Mip);
+        const auto h=std::max<size_t>(1,(depth ? depth->getHeight() : colors.front()->getHeight()) >> f.Mip);
+        if(depth && f.Mip) throw std::runtime_error("Depth attachment mip views are not supported");
+        for(const auto& texture:colors) {
+            if(f.Mip>=texture->getMipCount() || (texture->getType()==TextureType::TEXTURE_CUBE ? f.Layer>=6 : f.Layer!=0)) throw std::runtime_error("Invalid framebuffer subresource: "+f.Name);
+            if(std::max<size_t>(1,texture->getWidth()>>f.Mip)!=w || std::max<size_t>(1,texture->getHeight()>>f.Mip)!=h) throw std::runtime_error("Framebuffer size mismatch: "+f.Name);
+        }
+        mFrameBuffers[f.Name] = renderer.createFrameBuffer(colors,depth,f.Mip,f.Layer);
+	}
+	for (auto* stages : stageGroups()) for (auto& stage : *stages)
+		stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+}
+
+std::vector<RenderGraphPipeline::StagesArr*> RenderGraphPipeline::stageGroups() {
+    std::vector<StagesArr*> groups={&mStartStages,&mStages};
+    for(auto& [name,pass]:mLightPasses) {
+        groups.push_back(&pass.InitStages);groups.push_back(&pass.CaptureStages);groups.push_back(&pass.ResolveStages);
+    }
+    return groups;
+}
+
+void RenderGraphPipeline::advanceHistory(Renderer& renderer) {
+	bool changed=false;
+	for (const auto& texture : mDescriptor.Textures) if (texture.History) {
+		std::swap(mAllocatedTextures.at(texture.Name),mAllocatedTextures.at(texture.Name+"Previous"));
+		changed=true;
+	}
+	mHistoryValid=true;
+	if (changed) {
+		std::swap(mFrameBuffers,mAlternateFrameBuffers);
+		for(auto* stages:stageGroups()) for(auto& stage:*stages)
+			stage->mFrameBuffer=stage->mDescriptor.FrameBuffer.empty()?nullptr:mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+	}
+}
+
+RenderGraphPipeline::StagesArr RenderGraphPipeline::loadStages(const std::vector<PipelineStage::Descriptor>& descriptors) {
 	StagesArr result;
-
-	for (const auto& stageDesc : stages) {
+	std::set<std::string> names;
+	for (const auto& desc : descriptors) {
+		if (!names.insert(desc.Name).second) throw std::runtime_error("Duplicate pipeline stage: " + desc.Name);
 		auto stage = std::make_unique<PipelineStage>();
-		stage->mName = stageDesc.Name;
-		stage->mDrawContent = stageDesc.Draw;
-		if (mFrameBuffers.contains(stageDesc.FrameBuffer)) {
-			stage->mFrameBuffer = mFrameBuffers[stageDesc.FrameBuffer];
+		stage->mDescriptor=desc;
+		stage->mName=desc.Name;
+		stage->mDrawContent=desc.Draw;
+		stage->mBufferLinks=desc.BufferLinks;
+		if (!desc.Material.empty()) {
+			try {
+				stage->mMaterial=RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(desc.Material);
+			} catch (const std::exception& error) {
+				std::cerr << "Pipeline stage " << desc.Name << " (" << desc.Material << "): " << error.what() << std::endl;
+				throw;
+			}
+			if (!stage->mMaterial || !stage->mMaterial->hasShader()) throw std::runtime_error("Invalid stage material: " + desc.Material);
+			for(const auto& uniform:stage->mMaterial->getShader()->getReflection().mUniforms) {
+				if(stage->mMaterial->isEngineUniform(uniform.mName)) continue;
+				if(uniform.mMembers.empty()) {
+					try { stage->mDefaults[uniform.mName]=stage->mMaterial->get(uniform.mName); } catch(const std::out_of_range&) {}
+				} else for(const auto& member:uniform.mMembers) {
+					const auto key=uniform.mName+member.mName;
+					try { stage->mDefaults[key]=stage->mMaterial->get(key); } catch(const std::out_of_range&) {}
+				}
+			}
 		}
-
-		if (!stageDesc.Material.empty()) {
-			stage->mMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(stageDesc.Material);
-		}
-
-		// Uniforms
-		for (auto& u : stageDesc.Uniforms) {
-			PipelineStage::UniformType val;
-			std::visit([&val, this](auto&& arg) {
-					using T = std::decay_t<decltype(arg)>;
-					if constexpr (std::is_same_v<T, std::string>) {
-						if (mTextures.contains(arg)) {
-							val = mTextures[arg];
-						}
-					} else {
-						val = arg;
-					}
-				},
-				u.second);
-			stage->mUniforms[u.first] = val;
-		}
-
-		// stage->mBufferLinks = stageDesc.BufferLinks;
-
-		// Overrides
-		// for (auto& pair : stageDesc.BufferOverrides) {
-		//	for (auto& valPair : pair.second) {
-		//		PipelineStage::UniformType val;
-		//		std::visit([&val, this](auto&& arg) {
-		//			using T = std::decay_t<decltype(arg)>;
-		//			if constexpr (std::is_same_v<T, std::string>) {
-		//
-		//			} else {
-		//				val = arg;
-		//			}
-		//			}, valPair.second);
-		//		stage->mBufferOverrides[pair.first][valPair.first] = val;
-		//	}
-		//}
-
 		result.push_back(std::move(stage));
 	}
-
 	return result;
 }
 
-void IKIGAI::RENDER::RenderGraphPipeline::run() {
-	auto runStage = [&](std::unique_ptr<PipelineStage>& stage) {
-		//auto& render = RESOURCES::ServiceManager::Get<RENDER::Renderer>();
-		//if (stage->mFrameBuffer) {
-		//	render.setFrameBuffer(stage->mFrameBuffer);
-		//}
-		//
-		//render.setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-		//render.clear(true, true, false);
-		//
-		//if (stage->mMaterial) {
-		//	stage->mMaterial->bind(mEmptyTexture, true);
-		//	fillUniforms(stage);
-		//}
-		//
-		//switch (stage->mDrawContent) {
-		//case DrawContent::FORWARD:
-		//{
-		//	for (const auto& [distance, drawable] : mOpaqueMeshesForward) {
-		//		drawDrawable(drawable);
-		//	}
-		//	for (const auto& [distance, drawable] : mTransparentMeshesForward) {
-		//		drawDrawable(drawable);
-		//	}
-		//}
-		//break;
-		//case DrawContent::DEFERRED:
-		//{
-		//	for (const auto& [distance, drawable] : mOpaqueMeshesDeferred) {
-		//		drawDrawable(drawable);
-		//	}
-		//	for (const auto& [distance, drawable] : mTransparentMeshesDeferred) {
-		//		drawDrawable(drawable);
-		//	}
-		//}
-		//break;
-		//case DrawContent::GUI: break; //TODO:
-		//case DrawContent::QUAD:
-		//{
-		//	//mDriver->draw(*quad->getMeshes()[0], PrimitiveMode::TRIANGLES, 1);
-		//}
-		//break;
-		//default: break;
-		//}
-		//
-		//if (stage->mMaterial) {
-		//	stage->mMaterial->unbind();
-		//}
-		//
-		//if (stage->mFrameBuffer) {
-		//	render.setFrameBuffer(nullptr);
-		//}
-	};
-
-	if (!mIsInitialized) {
-		for (auto& stage : mStartStages) {
-			runStage(stage);
+void GameRenderer::bindStage(PipelineStage& stage) {
+	auto& renderer=*mContext.render;
+	auto material=stage.mMaterial;
+	const auto& reflection=material->getShader()->getReflection();
+    for(const auto& [name,value]:stage.mDefaults) material->set(name,value);
+	for (const auto& [name,value] : stage.mDescriptor.Uniforms) {
+		std::visit([&](const auto& v) {
+			using T=std::decay_t<decltype(v)>;
+			if constexpr (!std::is_same_v<T,std::string>) {
+				auto key=name;
+				key.erase(std::remove(key.begin(),key.end(),'.'),key.end());
+				material->set(key,v);
+			}
+		},value);
+	}
+	renderer.setShader(material->getShader());
+	renderer.setDepth({material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS,material->isDepthWriting()});
+	renderer.setCull(material->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
+	if (stage.mDescriptor.Additive) renderer.setBlending({BlendMode::ONE,BlendMode::ONE});
+	else if (material->isBlendable()) renderer.setBlending({BlendMode::SRC_ALPHA,BlendMode::ONE_MINUS_SRC_ALPHA});
+	else renderer.resetBlending();
+	material->bind(mEmptyTexture,true);
+	for (const auto& [name,value] : stage.mDescriptor.Uniforms) if (const auto* texture=std::get_if<std::string>(&value))
+		{
+            if(!reflection.mNameToUniforms.contains(name)) throw std::runtime_error(stage.mName+": unknown texture uniform "+name);
+            if(!mRenderPipeline->mTextures.contains(*texture)) throw std::runtime_error(stage.mName+": unknown texture resource "+*texture);
+            renderer.setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind,mRenderPipeline->mTextures.at(*texture));
+        }
+	for (const auto& [shaderName,bufferName] : stage.mBufferLinks) {
+		const auto& uniform=reflection.mUniforms.at(reflection.mNameToUniforms.at(shaderName));
+		if (uniform.mType==ShaderReflection::UniformType::UNIFORM_BUFFER) renderer.setUniformBuffer(uniform.mBind,mRenderPipeline->mUniformBuffers.at(bufferName));
+		else if (uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER) renderer.setStorageBuffer(uniform.mBind,(bufferName=="Lights" ? mLightSSBO : mRenderPipeline->mStorageBuffers.at(bufferName)));
+		else throw std::runtime_error("BufferLinks references a non-buffer uniform: " + shaderName);
+	}
+	for (const auto& [bufferName,members] : stage.mDescriptor.BufferOverrides) {
+		const auto& uniform=reflection.mUniforms.at(reflection.mNameToUniforms.at(bufferName));
+		if (uniform.mType!=ShaderReflection::UniformType::UNIFORM_BUFFER) throw std::runtime_error("BufferOverrides requires a uniform buffer: " + bufferName);
+		std::vector<uint8_t> data(uniform.mSize,0);
+		for (const auto& [name,value] : members) {
+			const auto member=std::find_if(uniform.mMembers.begin(),uniform.mMembers.end(),[&](const auto& m){return m.mName==name;});
+			if (member==uniform.mMembers.end() || member->mArraySize>1) throw std::runtime_error("Invalid buffer member: " + name);
+			std::visit([&](const auto& v) {
+				using T=std::decay_t<decltype(v)>;
+				if constexpr (std::is_same_v<T,std::string>) throw std::runtime_error("Textures cannot be buffer members");
+				else {
+					if constexpr (std::is_same_v<T,bool>) { if(member->mOffset+4>data.size()) throw std::runtime_error("Buffer member offset mismatch: " + name); const int b=v; std::memcpy(data.data()+member->mOffset,&b,4); }
+					else { if (member->mOffset+sizeof(T)>data.size() || sizeof(T)>member->mSize) throw std::runtime_error("Buffer member size mismatch: " + name); std::memcpy(data.data()+member->mOffset,&v,sizeof(T)); }
+				}
+			},value);
 		}
-		mIsInitialized = true;
+		auto& buffer=stage.mOverrideBuffers[bufferName];
+		if (!buffer) buffer=renderer.createUniformBuffer(nullptr,data.size());
+		buffer->setData(data.data(),data.size());
+		renderer.setUniformBuffer(uniform.mBind,buffer);
 	}
+	for (const auto& [name,buffer] : std::map<std::string,std::shared_ptr<UniformBufferInterface>>{{"engine_UBO",mEngineUbo},{"engine_Frame",mFrameUbo},{"engine_ShadowData",mShadowUbo},{"engine_CurrentShadow",mCurrentShadowUbo}})
+		if (reflection.mNameToUniforms.contains(name)) renderer.setUniformBuffer(name,buffer);
+	if (reflection.mNameToUniforms.contains("engine_Lights")) renderer.setStorageBuffer("engine_Lights",mLightSSBO);
+}
 
-	for (auto& stage : mStages) {
-		runStage(stage);
+void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene) {
+	auto& renderer=*mContext.render;
+	auto& loader=RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>();
+	if(!mGuiSpriteMaterial) mGuiSpriteMaterial=loader.loadResource("/materials/render/portable/gui.mat");
+	if(!mGuiTextMaterial) mGuiTextMaterial=loader.loadResource("/materials/render/portable/text.mat");
+	auto projection=MATH::Matrix4f::CreateOrthographic(0,uboData.ViewportSize.x,uboData.ViewportSize.y,0,-1,1);
+	if(DriverInterface::settings.backend!=RenderSettings::Backend::OPENGL) {
+		auto correction=MATH::Matrix4f::Identity;correction(2,2)=.5f;correction(2,3)=.5f;projection=correction*projection;
 	}
+	auto guiBuffer=renderer.createUniformBuffer<MATH::Matrix4f>(MATH::Matrix4f::Transpose(projection));
+	auto submit=[&](const std::vector<Vertex>& vertices,const std::vector<unsigned>& indices,const std::shared_ptr<TextureInterface>& texture,const std::shared_ptr<MaterialInterface>& material,const MATH::Matrix4f& transform,bool is3D,Blending blend=Blending(BlendMode::SRC_ALPHA,BlendMode::ONE_MINUS_SRC_ALPHA)) {
+		if(!texture||vertices.empty()) return;
+		auto transformed=vertices;
+		for(auto& v:transformed) {auto p=transform*MATH::Vector4f(v.position.x,v.position.y,v.position.z,1);v.position={p.x,p.y,p.z};}
+		renderer.setShader(material->getShader());material->bind(mEmptyTexture,true);
+		renderer.setDepth({DepthFunction::ALWAYS,false});renderer.setCull(CullFace::NONE);
+		renderer.setBlending(blend);
+		renderer.setUniformBuffer("engine_Gui",is3D?renderer.createUniformBuffer<MATH::Matrix4f>(uboData.View*uboData.Projection):guiBuffer);
+		renderer.setTexture("Image",texture);
+		renderer.draw(CreateMesh(transformed,indices),PrimitiveMode::TRIANGLES,1);
+	};
+	auto quad=[](float x,float y,float w,float h,AtlasRect uv,MATH::Vector4f color) {
+		std::vector<Vertex> vertices={Vertex({x,y,0},{uv.mX,uv.mY}),Vertex({x+w,y,0},{uv.mX+uv.mW,uv.mY}),Vertex({x+w,y+h,0},{uv.mX+uv.mW,uv.mY+uv.mH}),Vertex({x,y+h,0},{uv.mX,uv.mY+uv.mH})};
+		for(auto& vertex:vertices) vertex.m_Weights=color;
+		return vertices;
+	};
+	for(auto& object:scene.getObjects()) {
+		if(!object->getIsActive()||!object->getIsVisible()) continue;
+		float left=0,top=0,right=uboData.ViewportSize.x,bottom=uboData.ViewportSize.y;
+		bool clipped=false;
+		for(auto ancestor=object;ancestor;ancestor=ancestor->getParent()) if(auto clip=ancestor->getComponent<ECS::ClipComponent>()) {
+			const auto& matrix=ancestor->getTransform()->getTransform().getWorldMatrix();
+			float minX=right,minY=bottom,maxX=left,maxY=top;
+			for(const auto& corner:{MATH::Vector4f(0,0,0,1),MATH::Vector4f(clip->mWidth,0,0,1),MATH::Vector4f(0,clip->mHeight,0,1),MATH::Vector4f(clip->mWidth,clip->mHeight,0,1)}) {
+				const auto point=matrix*corner;
+				minX=std::min(minX,point.x);minY=std::min(minY,point.y);maxX=std::max(maxX,point.x);maxY=std::max(maxY,point.y);
+			}
+			left=std::max(left,minX);top=std::max(top,minY);right=std::min(right,maxX);bottom=std::min(bottom,maxY);clipped=true;
+		}
+		if(clipped) {
+			if(right<=left||bottom<=top) continue;
+			renderer.setScissor({{left,top},{right-left,bottom-top}});
+		} else renderer.resetScissor();
+		const auto& transform=object->getTransform()->getTransform();
+		if(auto sprite=object->getComponent<ECS::SpriteComponent>();sprite&&sprite->mTexture) {
+			const auto size=transform.getLocalSize();
+			auto uv=sprite->mTexture->getPieceUV(sprite->mTexturePiece);
+			// Image decoders store images bottom-up; GUI coordinates grow downwards.
+			uv.mY=1-uv.mY;uv.mH=-uv.mH;
+			submit(quad(0,0,size.x,size.y,uv,sprite->mColor),{0,1,2,2,3,0},sprite->mTexture,mGuiSpriteMaterial,transform.getWorldMatrix(),sprite->mIs3D);
+		}
+		if(auto label=object->getComponent<ECS::LabelComponent>();label&&label->mFont&&label->mFont->texture) {
+			std::vector<Vertex> vertices;std::vector<unsigned> indices;float x=0;
+			for(char c:label->mLabel) {
+				const auto found=label->mFont->Characters.find(c);if(found==label->mFont->Characters.end()) continue;
+				const auto& ch=found->second;const float width=static_cast<float>(label->mFont->texture->getWidth()),height=static_cast<float>(label->mFont->texture->getHeight());
+				auto v=quad(x+ch.Bearing.x,-ch.Bearing.y,ch.Size.x,ch.Size.y,{ch.Start.x/width,ch.Start.y/height,ch.Size.x/width,ch.Size.y/height},label->color);
+				const auto base=static_cast<unsigned>(vertices.size());vertices.insert(vertices.end(),v.begin(),v.end());
+				for(unsigned index:{0,1,2,2,3,0}) indices.push_back(base+index);
+				x+=ch.Advance/64.0f;
+			}
+			submit(vertices,indices,label->mFont->texture,mGuiTextMaterial,transform.getWorldMatrix(),label->mIs3D);
+		}
+		if(auto component=object->getComponent<ECS::SpineComponent>();component&&component->spine&&component->spine->_drawable) {
+			auto* skeleton=component->spine->_drawable;
+			skeleton->submit=[&](const std::vector<SPINE::SpineVertex>& source,const SPINE::SpineRenderState& state) {
+				std::vector<Vertex> vertices;std::vector<unsigned> indices;
+				for(const auto& v:source) {
+					Vertex vertex({v.x,-v.y,0},{v.u,v.v});
+					const float alpha=skeleton->getUsePremultipliedAlpha()?v.a:1.0f;
+					vertex.m_Weights={v.r*alpha,v.g*alpha,v.b*alpha,v.a};
+					indices.push_back(static_cast<unsigned>(vertices.size()));vertices.push_back(vertex);
+				}
+				submit(vertices,indices,SPINE::SpineTextureLoader::getTexture(state.texture),mGuiSpriteMaterial,transform.getWorldMatrix(),component->mIs3D,{state.blendSrc,state.blendDst});
+			};
+			skeleton->draw();skeleton->submit={};
+		}
+	}
+	renderer.resetScissor();
+	renderer.resetBlending();
+}
 }

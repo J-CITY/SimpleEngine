@@ -348,6 +348,11 @@ namespace IKIGAI
 		template<typename BoundingVolumeClass, typename RigidBody>
 		void BVHTree<BoundingVolumeClass, RigidBody>::Remove(RigidBody body) {
 			if (auto found = Find(body)) {
+				// The root is a sentinel with one child, so the final leaf has no sibling.
+				if (found->m_parent == &m_root) {
+					m_root.m_children[0] = nullptr;
+					found->m_parent = nullptr;
+				}
 				delete found;
 				--m_leafSize;
 			}

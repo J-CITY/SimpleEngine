@@ -18,6 +18,12 @@ void IKIGAI::EDITOR::TextureWatcherWindow::draw() {
 				continue;
 			}
 			ImGui::TextUnformatted(name.c_str());
+			// ImGui's image shader accepts a 2D view only. Passing a cube/volume
+			// descriptor here is invalid on Vulkan and DX12.
+			if (texture->getType()!=RENDER::TextureType::TEXTURE_2D && texture->getType()!=RENDER::TextureType::DEPTH) {
+				ImGui::TextUnformatted("Cube/volume texture; use a face or slice capture");
+				continue;
+			}
 			ImGui::Image(
 				reinterpret_cast<ImTextureID>(texture->getImguiId()),
 				ImVec2(128.0f, 128.0f),

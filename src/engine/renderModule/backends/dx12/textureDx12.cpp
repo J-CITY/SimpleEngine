@@ -38,7 +38,7 @@ static bool LoadTextureImageFromVfs(const std::string& path, bool isFloat, int& 
 	}
 	const auto fileData = file->read();
 	if (isFloat) {
-		outData = UTILS::STBiLoadfFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 0);
+		outData = UTILS::STBiLoadfFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 4); channels=4;
 	} else {
 		auto* data = UTILS::STBiLoadFromMemory(fileData.data(), fileData.size(), &width, &height, &channels, 0);
 		if (data && channels == 3) {
@@ -66,8 +66,8 @@ static const std::map<PixelFormat, DXGI_FORMAT> FormatMap = {
 	{ PixelFormat::RGB_INT, DXGI_FORMAT_R8G8B8A8_UNORM },
 	{ PixelFormat::RGBA_INT, DXGI_FORMAT_R8G8B8A8_UNORM },
 	{ PixelFormat::DEPTH_24_UNORM_STENCIL_8_UINT, DXGI_FORMAT_D24_UNORM_S8_UINT },
-	{ PixelFormat::DEPTH32_FLOAT, DXGI_FORMAT_D32_FLOAT_S8X24_UINT},
-	{ PixelFormat::DEPTH32_FLOAT_S8X24_UINT, DXGI_FORMAT_D32_FLOAT },
+	{ PixelFormat::DEPTH32_FLOAT, DXGI_FORMAT_D32_FLOAT },
+	{ PixelFormat::DEPTH32_FLOAT_S8X24_UINT, DXGI_FORMAT_D32_FLOAT_S8X24_UINT },
 };
 
 uint32_t GetFormatChannelsCount(PixelFormat format) {
@@ -149,15 +149,20 @@ void TextureDx12::create(const TextureResource& descriptor, const std::vector<vo
 	mWrapT = descriptor.wrapT;
 	mWrapR = descriptor.wrapR;
 
-	const size_t arrSize = data.empty() ? 1 : data.size();
-	auto desc = CD3DX12_RESOURCE_DESC::Tex2D(FormatMap.at(mFormat), mWidth, mHeight, arrSize, mMipCount);
+	const size_t arrSize = mType==TextureType::TEXTURE_CUBE ? 6 : mType==TextureType::TEXTURE_2D_ARRAY ? mDepth : data.empty() ? 1 : data.size();
+	auto resourceFormat = FormatMap.at(mFormat);
+	if (mType == TextureType::DEPTH) {
+		resourceFormat = mFormat == PixelFormat::DEPTH32_FLOAT ? DXGI_FORMAT_R32_TYPELESS : mFormat == PixelFormat::DEPTH32_FLOAT_S8X24_UINT ? DXGI_FORMAT_R32G8X24_TYPELESS : DXGI_FORMAT_R24G8_TYPELESS;
+	}
+	auto desc = mType==TextureType::TEXTURE_3D ? CD3DX12_RESOURCE_DESC::Tex3D(resourceFormat,mWidth,mHeight,mDepth,mMipCount) : CD3DX12_RESOURCE_DESC::Tex2D(resourceFormat, mWidth, mHeight, arrSize, mMipCount);
 	D3D12MA::ALLOCATION_FLAGS allocFlags = D3D12MA::ALLOCATION_FLAG_NONE;
 	if (descriptor.texType == TextureType::DEPTH) {
 		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 		allocFlags = D3D12MA::ALLOCATION_FLAG_COMMITTED;
 	}
 	else {
-		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+		if(descriptor.storage) desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+        else desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 		allocFlags = D3D12MA::ALLOCATION_FLAG_COMMITTED;
 	}
 	
@@ -166,6 +171,13 @@ void TextureDx12::create(const TextureResource& descriptor, const std::vector<vo
 
 	if (descriptor.texType != TextureType::DEPTH) {
 		DirectX::CreateShaderResourceView(d3dUtil::GetDriver()->getDevice().Get(), mResource.Get(), d3dUtil::GetDriver()->getDescriptorHeapCPUHandle(), mType == TextureType::TEXTURE_CUBE);
+	} else {
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv{};
+		srv.Format = mFormat == PixelFormat::DEPTH32_FLOAT ? DXGI_FORMAT_R32_FLOAT : mFormat == PixelFormat::DEPTH32_FLOAT_S8X24_UINT ? DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS : DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+		srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srv.Texture2D.MipLevels = 1;
+		d3dUtil::GetDriver()->getDevice()->CreateShaderResourceView(mResource.Get(), &srv, d3dUtil::GetDriver()->getDescriptorHeapCPUHandle());
 	}
 	if (descriptor.texType == TextureType::DEPTH) {
 		d3dUtil::OneTimeSubmit([&](ID3D12GraphicsCommandList* cmdList) {
@@ -173,9 +185,20 @@ void TextureDx12::create(const TextureResource& descriptor, const std::vector<vo
 		});
 	}
 
+	if(descriptor.storage) {
+        auto* driver=d3dUtil::GetDriver();
+        // Reserve SRV below first, then its UAV slot.
+        auto cpu=driver->getDescriptorHeapCPUHandle(); cpu.Offset(1,driver->getDescriptorIncSize());
+        auto gpu=driver->getDescriptorHeapGPUHandle(); gpu.Offset(1,driver->getDescriptorIncSize());
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uav{}; uav.Format=FormatMap.at(mFormat);
+        if(mType==TextureType::TEXTURE_3D) {uav.ViewDimension=D3D12_UAV_DIMENSION_TEXTURE3D;uav.Texture3D.WSize=mDepth;}
+        else uav.ViewDimension=D3D12_UAV_DIMENSION_TEXTURE2D;
+        driver->getDevice()->CreateUnorderedAccessView(mResource.Get(),nullptr,&uav,cpu);
+        mUavHandle=gpu;
+    }
 	mGpuDescriptorHandle = d3dUtil::GetDriver()->getDescriptorHeapGPUHandle();
-	d3dUtil::GetDriver()->getDescriptorHeapCPUHandle().Offset(1, d3dUtil::GetDriver()->getDescriptorIncSize());
-	d3dUtil::GetDriver()->getDescriptorHeapGPUHandle().Offset(1, d3dUtil::GetDriver()->getDescriptorIncSize());
+	d3dUtil::GetDriver()->getDescriptorHeapCPUHandle().Offset(descriptor.storage ? 2 : 1, d3dUtil::GetDriver()->getDescriptorIncSize());
+	d3dUtil::GetDriver()->getDescriptorHeapGPUHandle().Offset(descriptor.storage ? 2 : 1, d3dUtil::GetDriver()->getDescriptorIncSize());
 
 
 	if (data.size()) {
@@ -232,6 +255,7 @@ void* TextureDx12::getImguiId() {
 }
 
 void TextureDx12::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+    ++mRevision;
 	// Отложенное уничтожение старого DX12-ресурса
 	d3dUtil::GetDriver()->destroyDeferred(mResource);
 	mResource = nullptr;
@@ -245,7 +269,7 @@ void TextureDx12::recreate(const TextureResource& descriptor, const std::vector<
 		for (const auto& fData : fileData) {
 			int w = 0, h = 0, c = 0;
 			if (_d.isFloat) {
-				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0));
+				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)); c=4;
 			} else {
 				auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
 				if (c == 3) {
@@ -306,7 +330,7 @@ std::shared_ptr<TextureDx12> TextureDx12::Create(const TextureResource& descript
 	if (_descriptor.useMipmap) {
 		_descriptor.mipMapCount = GetMipCount(_descriptor.width, _descriptor.height);
 	} else {
-		_descriptor.mipMapCount = 1;
+		_descriptor.mipMapCount = std::max(1,_descriptor.mipMapCount);
 	}
 
 	if (textureData.empty() && !_descriptor.pathTexture.empty()) {
@@ -341,7 +365,7 @@ std::shared_ptr<TextureDx12> TextureDx12::Create(const TextureResource& descript
 		for (const auto& fData : fileData) {
 			int w = 0, h = 0, c = 0;
 			if (_d.isFloat) {
-				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 0));
+				textureData.push_back(IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)); c=4;
 			} else {
 				auto* data = IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0);
 				if (c == 3) {
@@ -424,7 +448,7 @@ std::shared_ptr<TextureAtlasDx12> TextureAtlasDx12::CreateAtlasFromResource(cons
 	if (_d.useMipmap) {
 		_d.mipMapCount = GetMipCount(_d.width, _d.height);
 	} else {
-		_d.mipMapCount = 1;
+		_d.mipMapCount = std::max(1,_d.mipMapCount);
 	}
 
 	if (textureData.empty() && !_d.pathTexture.empty()) {

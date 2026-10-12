@@ -10,6 +10,7 @@
 #include "utilsModule/log/loggerDefine.h"
 #include "spirv_hlsl.hpp"
 #include <cstring>
+#include <algorithm>
 #include <vector>
 
 using namespace IKIGAI::RENDER;
@@ -150,7 +151,28 @@ std::string CompileSpirvStageToHlsl(ShaderType type, spv::ExecutionModel model, 
 		}
 	}
 
-	return compiler.compile();
+	auto source = compiler.compile();
+	// DXC packs signatures in declaration order. Cross puts built-ins last,
+	// giving SV_Position different registers when the fragment stage uses
+	// fewer varyings than the vertex stage. Reserve the first register for it.
+	for (const char* signature : {"struct SPIRV_Cross_Input", "struct SPIRV_Cross_Output"}) {
+		const auto structure = source.find(signature);
+		if (structure == std::string::npos) continue;
+		const auto begin = source.find('{', structure) + 1;
+		const auto end = source.find('}', begin);
+		const auto position = source.find(": SV_Position", begin);
+		if (position == std::string::npos || position >= end) {
+			if (type == ShaderType::FRAGMENT && std::strcmp(signature, "struct SPIRV_Cross_Input") == 0)
+				source.insert(begin, "\n    float4 ikigai_Position : SV_Position;\n");
+			continue;
+		}
+		const auto lineBegin = source.rfind('\n', position) + 1;
+		const auto lineEnd = source.find('\n', position) + 1;
+		const auto declaration = source.substr(lineBegin, lineEnd - lineBegin);
+		source.erase(lineBegin, lineEnd - lineBegin);
+		source.insert(begin, "\n" + declaration);
+	}
+	return source;
 }
 
 enum class RootKind {
@@ -321,7 +343,7 @@ void ShaderDx12::buildRootSignature() {
 			uniform.mRootId = slotRootParameters.size();
 			rootKeys.push_back({RootKind::CBV, bind, set, visibility});
 			slotRootParameters.push_back(elem);
-		} else if (uniform.mType == ShaderReflection::UniformType::STORAGE_BUFFER) {
+		} else if (uniform.mType == ShaderReflection::UniformType::STORAGE_BUFFER || uniform.mType == ShaderReflection::UniformType::IMAGE_3D || uniform.mType == ShaderReflection::UniformType::IMAGE_2D) {
 			const int existing = findRoot(RootKind::UAV, bind, set, visibility);
 			if (existing >= 0) {
 				uniform.mRootId = static_cast<size_t>(existing);
@@ -372,6 +394,41 @@ void ShaderDx12::buildRootSignature() {
 	}
 
 	auto staticSamplers = DriverDx12::GetStaticSamplers();
+	// SPIRV-Cross uses the combined image binding for both tN and sN.
+	// Imported programs may use bindings beyond the historical fixed list.
+	for (const auto& uniform : mReflection.mUniforms) {
+		if (!IsTexture(uniform.mType)) continue;
+		const auto bind = static_cast<UINT>(uniform.mBind);
+		const auto set = static_cast<UINT>(uniform.mSet);
+		auto existing = std::find_if(staticSamplers.begin(), staticSamplers.end(),
+			[&](const auto& sampler) { return sampler.ShaderRegister == bind && sampler.RegisterSpace == set; });
+		if (existing == staticSamplers.end()) {
+			staticSamplers.emplace_back(bind, D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+				D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+				D3D12_TEXTURE_ADDRESS_MODE_CLAMP, 0.0f, 1, D3D12_COMPARISON_FUNC_ALWAYS,
+				D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE, 0.0f, D3D12_FLOAT32_MAX,
+				D3D12_SHADER_VISIBILITY_ALL, set);
+			existing = std::prev(staticSamplers.end());
+		}
+		// Radial distance is compared per tap by the portable cube PCF helper.
+		// Filtering distance first changes visibility at silhouettes and seams.
+		if(uniform.mName=="PointShadow" && uniform.mType==ShaderReflection::UniformType::SAMPLER_CUBE)
+			existing->Filter=D3D12_FILTER_MIN_MAG_MIP_POINT;
+		// Portable environment samplers have fixed addressing contracts, including
+		// the high bindings used by forward cloud shading. Longitude wraps, while
+		// latitude clamps; volume noise and turbulence repeat across all axes.
+		if (uniform.mName == "Equirectangular") {
+			existing->AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+			existing->AddressV = existing->AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+		} else if (uniform.mName == "ShapeNoise" || uniform.mName == "DetailNoise"
+			|| uniform.mName == "JitterNoise" || uniform.mName == "CurlNoise") {
+			existing->AddressU = existing->AddressV = existing->AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		} else if (uniform.mName.rfind("u_", 0) != 0) {
+			// Screen targets, BRDF LUT and cube views clamp at the boundary.
+			// Mesh material maps retain the existing repeat policy.
+			existing->AddressU = existing->AddressV = existing->AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+		}
+	}
 
 	size_t stageMask = 0;
 	for (const auto& [type, blob] : mBlobs) {

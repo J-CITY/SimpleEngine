@@ -33,7 +33,9 @@ namespace IKIGAI {
 			float quadratic;
 			float intensity;
 			float radius;
-			float padding[3];
+			int shadowEnabled;
+			float shadowNear;
+			float shadowFar;
 
 			// generateOGLStruct stores Type as (int)type - 1, so NONE is -1.
 			static LightOGL Inactive() {
@@ -42,6 +44,7 @@ namespace IKIGAI {
 				return light;
 			}
 		};
+		static_assert(sizeof(LightOGL) == 80, "Light ABI must match std430/std140 shader layout");
 		
 		struct Light {
 			enum class Type { NONE, POINT, DIRECTIONAL, SPOT, AMBIENT_BOX, AMBIENT_SPHERE, INPUT };
@@ -59,6 +62,9 @@ namespace IKIGAI {
 			float cutoff = 12.f;
 			float outerCutoff = 15.f;
 			Type type = Type::NONE;
+			bool castShadows = true;
+			float shadowNear = -1.0f;
+			float shadowFar = -1.0f;
 
 		protected:
 			ECS2::Entity objId;

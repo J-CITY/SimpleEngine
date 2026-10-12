@@ -60,7 +60,8 @@ constexpr GLenum ComparaisonAlgorithmTable[] = {
 constexpr GLenum OperationTable[] = {GL_KEEP,      GL_ZERO,      GL_REPLACE,
                                      GL_INCR,      GL_INCR_WRAP, GL_DECR,
                                      GL_DECR_WRAP, GL_INVERT};
-constexpr GLenum CullFaceTable[] = {GL_FRONT, GL_BACK, GL_FRONT_AND_BACK};
+constexpr GLenum CullFaceTable[] = {GL_NONE, GL_FRONT, GL_BACK, GL_FRONT_AND_BACK};
+static_assert(sizeof(CullFaceTable)/sizeof(GLenum) == static_cast<size_t>(IKIGAI::RENDER::CullFace::FRONT_AND_BACK)+1);
 // constexpr GLenum PixelDataTypeTable[] = {
 //	GL_BYTE,
 //	GL_UNSIGNED_BYTE,
@@ -120,6 +121,7 @@ constexpr GLenum BlendTable[] = {
     0x0,
     GL_ZERO,
     GL_ONE,
+    GL_SRC_COLOR,
     GL_ONE_MINUS_SRC_COLOR,
     GL_SRC_ALPHA,
     GL_ONE_MINUS_SRC_ALPHA,
@@ -132,6 +134,7 @@ constexpr GLenum BlendTable[] = {
     GL_CONSTANT_ALPHA,
     GL_ONE_MINUS_CONSTANT_ALPHA,
 };
+static_assert(sizeof(BlendTable)/sizeof(GLenum) == static_cast<size_t>(IKIGAI::RENDER::BlendMode::ONE_MINUS_CONSTANT_ALPHA)+1);
 
 IKIGAI::RENDER::DriverGl::DriverGl() { DriverGl::init(); }
 
@@ -154,11 +157,12 @@ void IKIGAI::RENDER::DriverGl::initGlew() {
 
 void IKIGAI::RENDER::DriverGl::init() {
   initGlew();
+#ifndef USING_GLES
+  glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+#endif
 
-#if (defined(BEDUG) || defined(_DEBUG)) && !defined(__APPLE__)
-  GLint flags;
-  glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
-  if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
+#if (defined(BEDUG) || defined(_DEBUG)) && !defined(__APPLE__) && !defined(USING_GLES)
+  if (glDebugMessageCallback) {
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(GLDebugMessageCallback, nullptr);
@@ -244,15 +248,16 @@ void IKIGAI::RENDER::DriverGl::setScissor(const Scissor &param) {
 }
 
 void IKIGAI::RENDER::DriverGl::resetScissor() {
-  mViewport = std::nullopt;
+  mScissor = std::nullopt;
   setDirty(Dirty::SCISSOR);
 }
 
 void IKIGAI::RENDER::DriverGl::setBlend(const Blending &param) {
+  setDirty(Dirty::BLENDING);
   mBlend = param;
 }
 
-void IKIGAI::RENDER::DriverGl::resetBlend() { mBlend = std::nullopt; }
+void IKIGAI::RENDER::DriverGl::resetBlend() { setDirty(Dirty::BLENDING); mBlend = std::nullopt; }
 
 void IKIGAI::RENDER::DriverGl::setDepth(const Depth &param)
 {
@@ -268,7 +273,7 @@ void IKIGAI::RENDER::DriverGl::setStencil(const Stencil &param) {
 
 void IKIGAI::RENDER::DriverGl::resetStencil() { mStencil = std::nullopt; }
 
-void IKIGAI::RENDER::DriverGl::setCull(CullFace param) { mCullFace = param; }
+void IKIGAI::RENDER::DriverGl::setCull(CullFace param) { setDirty(Dirty::CULLING); mCullFace = param; }
 
 void IKIGAI::RENDER::DriverGl::setClearColor(const MATH::Vector4f &color) {
   mClearColor = color;
@@ -301,11 +306,47 @@ void IKIGAI::RENDER::DriverGl::clear(bool clearColor, bool clearDepth,
     flags |= GL_STENCIL_BUFFER_BIT;
     glClearStencil(mStencilValue);
   }
+  GLboolean depthMask;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
+  if (clearDepth) glDepthMask(GL_TRUE);
   glClear(flags);
+  if (clearDepth) glDepthMask(depthMask);
 
   if (hasScissor) {
     glEnable(GL_SCISSOR_TEST);
   }
+}
+
+std::vector<float> IKIGAI::RENDER::DriverGl::readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) {
+#if !defined(USING_GLES)
+    auto t=std::static_pointer_cast<TextureGl>(texture);
+    const size_t w=std::max<size_t>(1,t->getWidth()>>mip),h=std::max<size_t>(1,t->getHeight()>>mip);
+    const bool depth=t->getType()==TextureType::DEPTH;
+    const auto target=t->getType()==TextureType::TEXTURE_CUBE ? GL_TEXTURE_CUBE_MAP : t->getType()==TextureType::TEXTURE_3D ? GL_TEXTURE_3D : GL_TEXTURE_2D;
+    std::vector<float> values(w*h*(depth?1:4)*(target==GL_TEXTURE_3D ? std::max<size_t>(1,t->getDepth()>>mip):1));
+    glBindTexture(target,t->id);
+    glGetTexImage(target==GL_TEXTURE_CUBE_MAP ? GL_TEXTURE_CUBE_MAP_POSITIVE_X+layer : target,mip,depth?GL_DEPTH_COMPONENT:GL_RGBA,GL_FLOAT,values.data());
+    if(target==GL_TEXTURE_3D) {const auto count=w*h*4;return {values.begin()+layer*count,values.begin()+(layer+1)*count};}
+    return values;
+#else
+    throw std::runtime_error("Readback requires desktop OpenGL");
+#endif
+}
+
+void IKIGAI::RENDER::DriverGl::dispatch(uint32_t x,uint32_t y,uint32_t z) {
+#if !defined(USING_GLES) && !defined(__APPLE__)
+  applyState();
+  for(const auto& u:mShader->getReflection().mUniforms) {
+    if(u.mType==ShaderReflection::UniformType::IMAGE_3D || u.mType==ShaderReflection::UniformType::IMAGE_2D) {
+      const auto t=mTextures.at(u.mBind);
+      glBindImageTexture(u.mBind,t->id,0,t->getType()==TextureType::TEXTURE_3D,0,GL_READ_WRITE,GL_RGBA32F);
+    }
+  }
+  glDispatchCompute(x,y,z);
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT);
+#else
+  throw std::runtime_error("Compute pipeline requires desktop OpenGL 4.3+");
+#endif
 }
 
 void IKIGAI::RENDER::DriverGl::draw(uint32_t vertex_count,
@@ -471,13 +512,19 @@ IKIGAI::RENDER::DriverGl::createMaterial(const MaterialResource& res, UTILS::IAl
 std::shared_ptr<IKIGAI::RENDER::FrameBufferInterface>
 IKIGAI::RENDER::DriverGl::createFrameBuffer(
     const std::vector<std::shared_ptr<TextureInterface>> &textures,
-    std::shared_ptr<TextureInterface> depth) {
-  return std::make_shared<FrameBufferGl>(textures, depth);
+    std::shared_ptr<TextureInterface> depth, unsigned mip, unsigned layer) {
+  return std::make_shared<FrameBufferGl>(textures, depth, mip, layer);
 }
 
 void IKIGAI::RENDER::DriverGl::applyState() {
   if (mShader) {
-    // mShader->bind();
+    mShader->bind();
+  }
+  // Bind only resources declared by this shader; stale storage bindings are not sampled.
+  if(mShader) for(const auto& u:mShader->getReflection().mUniforms) {
+    if(u.mType==ShaderReflection::UniformType::SAMPLER_2D || u.mType==ShaderReflection::UniformType::SAMPLER_CUBE || u.mType==ShaderReflection::UniformType::SAMPLER_3D || u.mType==ShaderReflection::UniformType::SAMPLER_2D_ARRAY) {
+      auto it=mTextures.find(u.mBind); if(it!=mTextures.end() && it->second) it->second->bind(static_cast<int>(u.mBind));
+    }
   }
 
   if (isDirty(Dirty::DEPTH)) {
@@ -520,7 +567,7 @@ void IKIGAI::RENDER::DriverGl::applyState() {
                           BlendTable[static_cast<unsigned>(mBlend->mAlphaSrc)],
                           BlendTable[static_cast<unsigned>(mBlend->mAlphaDst)]);
       glColorMask(static_cast<bool>(mBlend->mColorMask & Color::R),
-                  static_cast<bool>(mBlend->mColorMask & Color::B),
+                  static_cast<bool>(mBlend->mColorMask & Color::G),
                   static_cast<bool>(mBlend->mColorMask & Color::B),
                   static_cast<bool>(mBlend->mColorMask & Color::A));
     } else {
@@ -613,6 +660,9 @@ void IKIGAI::RENDER::DriverGl::resetFrameBuffer() {
 void APIENTRY IKIGAI::RENDER::DriverGl::GLDebugMessageCallback(
     uint32_t source, uint32_t type, uint32_t id, uint32_t severity,
     int32_t length, const char *message, const void *userParam) {
+#ifndef USING_GLES
+  if(type!=GL_DEBUG_TYPE_ERROR && type!=GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR) return;
+#endif
   if (id == 131169 || id == 131185 || id == 131218 || id == 131204) {
     return;
   }

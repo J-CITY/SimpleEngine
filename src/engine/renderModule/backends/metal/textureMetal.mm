@@ -134,7 +134,7 @@ namespace IKIGAI::RENDER {
 		void* DecodeBytes(const uint8_t* bytes, int length, bool isFloat, int& width, int& height, int& channels) {
 			UTILS::STBiSetFlipVerticallyOnLoad(true);
 			if (isFloat) {
-				return UTILS::STBiLoadfFromMemory(bytes, length, &width, &height, &channels, 0);
+				return UTILS::STBiLoadfFromMemory(bytes, length, &width, &height, &channels, 4); channels=4;
 			}
 			auto* data = UTILS::STBiLoadFromMemory(bytes, length, &width, &height, &channels, 0);
 			if (data && channels != 4) {
@@ -415,6 +415,7 @@ namespace IKIGAI::RENDER {
 	}
 
 	void TextureMetal::recreate(const TextureResource& descriptor, const std::vector<std::vector<uint8_t>>& fileData) {
+        ++mRevision;
 		auto& mutableDesc = const_cast<TextureResource&>(descriptor);
 		ImagePayload payload = fileData.empty() ? LoadPayload(mutableDesc, nullptr) : LoadPayload(mutableDesc, &fileData);
 		init(mutableDesc, payload.pixels);

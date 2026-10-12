@@ -55,6 +55,7 @@ namespace IKIGAI::RENDER {
 		void setClearColor(float r, float g, float b, float a) override;
 
 		void draw(uint32_t count, uint32_t offset, uint32_t instance) override;
+		void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 		void drawIndexed(uint32_t count, uint32_t offset, uint32_t instance) override;
 		void draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) override;
 
@@ -83,7 +84,7 @@ namespace IKIGAI::RENDER {
 		std::shared_ptr<ModelInterface> createModel(const std::string& path, UTILS::IAllocator* allocator = nullptr, ModelDeleter deleter = nullptr) override;
 		std::shared_ptr<MaterialInterface> createMaterial(const MaterialResource& res, UTILS::IAllocator* allocator = nullptr, MaterialDeleter deleter = nullptr) override;
 
-		std::shared_ptr<FrameBufferInterface> createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth) override;
+		std::shared_ptr<FrameBufferInterface> createFrameBuffer(const std::vector<std::shared_ptr<TextureInterface>>& textures, std::shared_ptr<TextureInterface> depth, unsigned mip = 0, unsigned layer = 0) override;
 		void setFrameBuffer(std::shared_ptr<FrameBufferInterface> frameBuffer) override;
 		void resetFrameBuffer() override;
 
