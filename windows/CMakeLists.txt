@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 3.20)
 
 set(APP_NAME "IkigaiEngine")
 project(${APP_NAME} LANGUAGES C CXX)
+include(CMakeDependentOption)
 
 # --- Configuration Options ---
 option(USE_SDL      "Use SDL window backend" ON)
@@ -219,6 +220,11 @@ add_executable(${APP_NAME} ${EXECUTABLE_FLAG}
 
 # --- Generate Reflection Headers ---
 add_custom_command(
+    TARGET ${APP_NAME} POST_BUILD
+    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/install_render_assets.py"
+    COMMENT "Installing tracked render pipeline assets..."
+)
+add_custom_command(
     TARGET ${APP_NAME} PRE_BUILD
     COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
     COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
@@ -321,5 +327,19 @@ if(USE_SDL)
 endif()
 
 target_link_libraries(${APP_NAME} PRIVATE ${LIBS_TO_LINK})
+
+# Some bundled dependencies cache their output directory. Keep alternate backend
+# builds runnable when ENGINE_RUNTIME_OUTPUT_DIRECTORY points at another folder.
+foreach(runtime_target assimp freetype glslang SPIRV glslang-default-resource-limits SPIRV-Tools-shared)
+    if(TARGET ${runtime_target})
+        get_target_property(runtime_type ${runtime_target} TYPE)
+        if(runtime_type STREQUAL "SHARED_LIBRARY")
+            add_custom_command(TARGET ${APP_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_FILE:${runtime_target}> $<TARGET_FILE_DIR:${APP_NAME}>
+                VERBATIM)
+        endif()
+    endif()
+endforeach()
 
 set_target_properties(${APP_NAME} PROPERTIES LINK_FLAGS "/NODEFAULTLIB:LIBCMT /NODEFAULTLIB:LIBCMTD /ignore:4099")
