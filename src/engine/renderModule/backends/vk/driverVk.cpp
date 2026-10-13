@@ -178,6 +178,7 @@ DriverVk::~DriverVk() {
 	mTextures.clear();
 	mCurrentState = {};
 	mStates.clear();
+    mRayTracingFrameResources.clear();
 	for (auto& [_, ctx] : mSwapchains) {
 		for (auto& frame : ctx.frames) {
 			frame.destroyDeferred.clear();
@@ -393,6 +394,10 @@ void DriverVk::init() {
 	auto deviceFeatures = mPhysicalDevice.getFeatures2<
 		vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT
 	>();
+    configureRayTracing(device_extensions);
+    if(mRayTracingCapabilities.AccelerationStructure) {
+        deviceFeatures.get<vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>().pNext=&mRTCoreFeatures;
+    }
 
 	vk::DeviceCreateInfo deviceInfo{};
 	deviceInfo.setQueueCreateInfos(queueInfo);
@@ -419,6 +424,7 @@ void DriverVk::init() {
 		allocatorCreateInfo.instance = *mInstance;
 		allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
 		allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+        if(mRayTracingCapabilities.AccelerationStructure) allocatorCreateInfo.flags|=VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
 		const VkResult allocatorResult = vmaCreateAllocator(&allocatorCreateInfo, &mAllocator);
 		if (allocatorResult != VK_SUCCESS) {
@@ -546,6 +552,7 @@ bool DriverVk::checkInstanceExtensionSupport(const std::vector<const char*>& ext
 
 void DriverVk::begin() {
 	working = true;
+    mRayTracingFrameResources.clear();
 	// Previous frame's fence has already signaled (submit waits before begin).
 	mFrameDescriptorSets.clear();
     mDescriptorPoolIndex=0;
@@ -1121,7 +1128,13 @@ void DriverVk::wait() {
 	auto& frame = it->second.frames.at(mFrameIndex);
 	auto wait_result = mDevice.waitForFences({*frame.fence}, true, UINT64_MAX);
 	(void)wait_result;
-	frame.destroyDeferred.clear();
+    // Retiring a TLAS can release BLAS/mesh owners which themselves enqueue
+    // buffers for retirement. Do not mutate the vector being destroyed.
+    while(!frame.destroyDeferred.empty()) {
+        auto retired=std::move(frame.destroyDeferred);
+        frame.destroyDeferred.clear();
+        retired.clear();
+    }
 }
 
 void DriverVk::createSwapchain(unsigned int windowID, uint32_t width, uint32_t height) {

@@ -6,7 +6,7 @@
 #include "d3dx12/DirectXHelpers.h"
 
 IKIGAI::RENDER::VertexBufferDx12::VertexBufferDx12(void *data, size_t sz, size_t stride): VertexBufferInterface(sz, stride) {
-	mBuffer = d3dUtil::CreateBuffer(mSizeByte);
+	mBuffer = d3dUtil::CreateResource(CD3DX12_RESOURCE_DESC::Buffer(mSizeByte,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),D3D12_HEAP_TYPE_DEFAULT,D3D12_RESOURCE_STATE_COMMON);
 
 	mState = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 
@@ -14,7 +14,7 @@ IKIGAI::RENDER::VertexBufferDx12::VertexBufferDx12(void *data, size_t sz, size_t
 		DirectX::TransitionResource(cmdlist, mBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, mState);
 	});
 
-	VertexBufferDx12::setData(data, sz, stride);
+    if(data)VertexBufferDx12::setData(data, sz, stride);
 }
 
 IKIGAI::RENDER::VertexBufferDx12::~VertexBufferDx12() {
@@ -26,6 +26,7 @@ const IKIGAI::RENDER::Dx12Resource& IKIGAI::RENDER::VertexBufferDx12::getBuffer(
 }
 
 void IKIGAI::RENDER::VertexBufferDx12::bind() {
+    transition(d3dUtil::GetDriver()->getCommandList().Get(),D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	d3dUtil::GetDriver()->setVertexBuffer(shared_from_this());
 }
 
@@ -39,7 +40,8 @@ void IKIGAI::RENDER::VertexBufferDx12::setData(const void* data, size_t sz, size
 		mStride = stride;
 		mSizeByte = mSize * mStride;
 		d3dUtil::GetDriver()->destroyDeferred(mBuffer);
-		mBuffer = d3dUtil::CreateBuffer(mSizeByte);
+        mBuffer = d3dUtil::CreateResource(CD3DX12_RESOURCE_DESC::Buffer(mSizeByte,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),D3D12_HEAP_TYPE_DEFAULT,D3D12_RESOURCE_STATE_COMMON);
+        mState=D3D12_RESOURCE_STATE_COMMON;
 	}
 
 	auto buffer = d3dUtil::CreateBuffer(sz * stride, D3D12_HEAP_TYPE_UPLOAD);
@@ -53,5 +55,8 @@ void IKIGAI::RENDER::VertexBufferDx12::setData(const void* data, size_t sz, size
 	});
 	d3dUtil::GetDriver()->getCommandList()->CopyBufferRegion(mBuffer.Get(), 0, buffer.Get(), 0, sz * stride);
 	d3dUtil::GetDriver()->destroyDeferred(buffer);
+}
+void IKIGAI::RENDER::VertexBufferDx12::transition(ID3D12GraphicsCommandList* cmd,D3D12_RESOURCE_STATES state) {
+    if(state!=mState){auto barrier=CD3DX12_RESOURCE_BARRIER::Transition(mBuffer.Get(),mState,state);cmd->ResourceBarrier(1,&barrier);mState=state;}
 }
 #endif

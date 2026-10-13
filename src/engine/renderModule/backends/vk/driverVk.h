@@ -41,6 +41,29 @@ namespace IKIGAI::RENDER {
 		vk::raii::Queue mQueue = nullptr;
 		vk::raii::Device mDevice = nullptr;
 		VmaAllocator mAllocator = nullptr;
+        RayTracingCapabilities mRayTracingCapabilities;
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR mASFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR mRTFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
+        VkPhysicalDeviceRayQueryFeaturesKHR mRQFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR};
+        VkPhysicalDeviceVulkan12Features mRTCoreFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR mRTProperties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR mASProperties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR};
+        std::vector<std::shared_ptr<void>> mRayTracingFrameResources;
+        std::map<std::string,std::weak_ptr<RayTracingProgram>> mRayTracingPrograms;
+        void configureRayTracing(std::vector<const char*>& extensions);
+        RayTracingCapabilities rayTracingCapabilities() const override { return mRayTracingCapabilities; }
+        std::shared_ptr<VertexBufferInterface> createRayTracingVertexBuffer(const void*,size_t,size_t) override;
+        std::shared_ptr<RayTracingProgram> createRayTracingProgram(const RayTracingProgramResource&) override;
+        std::shared_ptr<RayTracingProgram> createComputeProgram(const RayTracingProgramResource&) override;
+        void dispatchComputeProgram(const RayTracingDispatch&) override;
+        std::shared_ptr<RayTracingProgram> createRayTracingProgramImpl(const RayTracingProgramResource&,bool requireRayQuery);
+        std::shared_ptr<AccelerationStructure> createBottomLevelAS(const std::vector<RayTracingGeometry>&, bool allowUpdate=false) override;
+        std::shared_ptr<AccelerationStructure> createTopLevelAS(const std::vector<RayTracingInstance>&, bool allowUpdate=false) override;
+        void refitBottomLevelAS(const std::shared_ptr<AccelerationStructure>&) override;
+        void refitTopLevelAS(const std::shared_ptr<AccelerationStructure>&, const std::vector<RayTracingInstance>&) override;
+        void traceRays(const RayTracingDispatch&) override;
+        void dispatchRayQueries(const RayTracingDispatch&) override;
+        void executeRayProgram(const RayTracingDispatch&,bool rayQuery);
 		uint32_t mQueueFamilyIndex = -1;
 		vk::SurfaceFormatKHR mSurfaceFormat;
 		

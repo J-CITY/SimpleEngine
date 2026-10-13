@@ -39,7 +39,7 @@ namespace {
 			}
 
 			auto includePath = std::string(content.begin() + comma1 + 1, content.begin() + comma2);
-			std::string fullIncludePath = (dir / includePath).string();
+			std::string fullIncludePath = (dir / includePath).lexically_normal().generic_string();
 			auto newContent = readFileWithInclude(fullIncludePath);
 			content.erase(pos, comma2 - pos + 1);
 			content.insert(pos, newContent);

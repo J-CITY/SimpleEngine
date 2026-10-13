@@ -17,7 +17,12 @@ namespace IKIGAI::RENDER {
 		MeshDx12(const std::vector<Vertex>& vertices, unsigned materialIndex = 0);
 		void bind() const override;;
 		void unbind() const override;;
+        const std::vector<Vertex>& rayTracingVertices() const override {return mRayVertices;}
+        const std::vector<unsigned>& rayTracingIndices() const override {return mRayIndices;}
+        std::shared_ptr<IndexBufferInterface> rayTracingIndexBuffer() const override {return mIndexBuffer;}
 	private:
+        std::vector<Vertex> mRayVertices;
+        std::vector<unsigned> mRayIndices;
 		std::shared_ptr<VertexBufferInterface> mVertexBuffer;
 		std::shared_ptr<IndexBufferInterface> mIndexBuffer;
 	};

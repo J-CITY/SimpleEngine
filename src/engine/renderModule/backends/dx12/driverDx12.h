@@ -56,6 +56,27 @@ namespace IKIGAI::RENDER {
 
 		DriverDx12();
 		~DriverDx12() override;
+        RayTracingCapabilities mRayTracingCapabilities;
+        Microsoft::WRL::ComPtr<ID3D12Device5> mRayDevice;
+        bool mShuttingDown=false;
+        DWORD mDebugCallbackCookie=0;
+        std::vector<std::shared_ptr<void>> mRayFrameResources,mRayDeferred;
+        std::vector<std::shared_ptr<TextureDx12>> mImGuiTextures;
+        std::map<std::string,std::weak_ptr<RayTracingProgram>> mRayPrograms;
+        RayTracingCapabilities rayTracingCapabilities() const override {return mRayTracingCapabilities;}
+        void configureRayTracing();
+        std::shared_ptr<VertexBufferInterface> createRayTracingVertexBuffer(const void*,size_t,size_t) override;
+        std::shared_ptr<RayTracingProgram> createRayTracingProgram(const RayTracingProgramResource&) override;
+        std::shared_ptr<RayTracingProgram> createComputeProgram(const RayTracingProgramResource&) override;
+        std::shared_ptr<RayTracingProgram> createRayProgram(const RayTracingProgramResource&,bool query);
+        std::shared_ptr<AccelerationStructure> createBottomLevelAS(const std::vector<RayTracingGeometry>&,bool allowUpdate=false) override;
+        std::shared_ptr<AccelerationStructure> createTopLevelAS(const std::vector<RayTracingInstance>&,bool allowUpdate=false) override;
+        void refitBottomLevelAS(const std::shared_ptr<AccelerationStructure>&) override;
+        void refitTopLevelAS(const std::shared_ptr<AccelerationStructure>&,const std::vector<RayTracingInstance>&) override;
+        void traceRays(const RayTracingDispatch&) override;
+        void dispatchRayQueries(const RayTracingDispatch&) override;
+        void dispatchComputeProgram(const RayTracingDispatch&) override;
+        void executeRayProgram(const RayTracingDispatch&,bool compute);
 
 
 		void onResize();

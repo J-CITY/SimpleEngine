@@ -306,6 +306,12 @@ namespace IKIGAI::RENDER {
 		void dispatch(uint32_t x, uint32_t y, uint32_t z) {
 			execute([driver=mDriver,x,y,z]() { driver->dispatch(x,y,z); });
 		}
+        void traceRays(RayTracingDispatch dispatch) {
+            execute([driver=mDriver,dispatch=std::move(dispatch)]() { driver->traceRays(dispatch); });
+        }
+        void dispatchRayQueries(RayTracingDispatch dispatch) {
+            execute([driver=mDriver,dispatch=std::move(dispatch)]() { driver->dispatchRayQueries(dispatch); });
+        }
 
 		void begin() { push<CommandHeader>(OpCode::BEGIN); }
 		void end() { push<CommandHeader>(OpCode::END); }

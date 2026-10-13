@@ -21,6 +21,10 @@ DriverVk* UtilityVk::GetDriver() {
 
 VmaBuffer UtilityVk::CreateBuffer(uint64_t size, vk::BufferUsageFlags usage, MemoryUsage memoryUsage)
 {
+    if(GetDriver()->mRayTracingCapabilities.AccelerationStructure &&
+        (usage&(vk::BufferUsageFlagBits::eVertexBuffer|vk::BufferUsageFlagBits::eIndexBuffer))) {
+        usage|=vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR|vk::BufferUsageFlagBits::eShaderDeviceAddress;
+    }
 	auto buffer_create_info = vk::BufferCreateInfo()
 	                          .setSize(size)
 	                          .setUsage(usage)

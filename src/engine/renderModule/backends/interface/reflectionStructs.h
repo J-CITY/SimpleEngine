@@ -13,7 +13,9 @@ namespace IKIGAI::RENDER {
 		GEOMETRY = 4,
 		TESSELLATION_CONTROL = 8,
 		TESSELLATION_EVALUATION = 16,
-		COMPUTE = 32
+		COMPUTE = 32,
+        RAYGEN = 64, MISS = 128, CLOSEST_HIT = 256, ANY_HIT = 512,
+        INTERSECTION = 1024, CALLABLE = 2048
 	};
 
 	inline void from_json(const nlohmann::json& j, ShaderType& s) {
@@ -24,6 +26,12 @@ namespace IKIGAI::RENDER {
 		else if (str == "TessellationControl" || str == "TESSELLATION_CONTROL") s = ShaderType::TESSELLATION_CONTROL;
 		else if (str == "TessellationEvaluation" || str == "TESSELLATION_EVALUATION") s = ShaderType::TESSELLATION_EVALUATION;
 		else if (str == "Compute"             || str == "COMPUTE")              s = ShaderType::COMPUTE;
+        else if(str=="RAYGEN") s=ShaderType::RAYGEN;
+        else if(str=="MISS") s=ShaderType::MISS;
+        else if(str=="CLOSEST_HIT") s=ShaderType::CLOSEST_HIT;
+        else if(str=="ANY_HIT") s=ShaderType::ANY_HIT;
+        else if(str=="INTERSECTION") s=ShaderType::INTERSECTION;
+        else if(str=="CALLABLE") s=ShaderType::CALLABLE;
 		else s = ShaderType::NONE;
 	}
 
@@ -35,6 +43,12 @@ namespace IKIGAI::RENDER {
 			case ShaderType::TESSELLATION_CONTROL:   j = "TessellationControl"; break;
 			case ShaderType::TESSELLATION_EVALUATION:j = "TessellationEvaluation"; break;
 			case ShaderType::COMPUTE:                j = "Compute"; break;
+            case ShaderType::RAYGEN: j="RAYGEN"; break;
+            case ShaderType::MISS: j="MISS"; break;
+            case ShaderType::CLOSEST_HIT: j="CLOSEST_HIT"; break;
+            case ShaderType::ANY_HIT: j="ANY_HIT"; break;
+            case ShaderType::INTERSECTION: j="INTERSECTION"; break;
+            case ShaderType::CALLABLE: j="CALLABLE"; break;
 			default:                                 j = "None"; break;
 		}
 	}

@@ -161,8 +161,8 @@ void TextureDx12::create(const TextureResource& descriptor, const std::vector<vo
 		allocFlags = D3D12MA::ALLOCATION_FLAG_COMMITTED;
 	}
 	else {
-		if(descriptor.storage) desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-        else desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        if(descriptor.storage) desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		allocFlags = D3D12MA::ALLOCATION_FLAG_COMMITTED;
 	}
 	
@@ -251,6 +251,9 @@ void TextureDx12::setState(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_ST
 }
 
 void* TextureDx12::getImguiId() {
+    // UI may reference the old graph textures during a resize. Keep their
+    // objects alive until ImGui records its draw and the GPU completes it.
+    if(auto texture=weak_from_this().lock())d3dUtil::GetDriver()->mImGuiTextures.push_back(std::move(texture));
 	return (void*)mGpuDescriptorHandle.ptr;
 }
 

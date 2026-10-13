@@ -22,6 +22,7 @@ IKIGAI::RENDER::IndexBufferDx12::~IndexBufferDx12() {
 }
 
 void IKIGAI::RENDER::IndexBufferDx12::bind() {
+    transition(d3dUtil::GetDriver()->getCommandList().Get(),D3D12_RESOURCE_STATE_INDEX_BUFFER);
 	d3dUtil::GetDriver()->setIndexBuffer(shared_from_this());
 }
 
@@ -53,5 +54,8 @@ void IKIGAI::RENDER::IndexBufferDx12::setData(const void* data, size_t sz, size_
 
 const IKIGAI::RENDER::Dx12Resource& IKIGAI::RENDER::IndexBufferDx12::getBuffer() const {
 	return mBuffer;
+}
+void IKIGAI::RENDER::IndexBufferDx12::transition(ID3D12GraphicsCommandList* cmd,D3D12_RESOURCE_STATES state) {
+    if(state!=mState){auto barrier=CD3DX12_RESOURCE_BARRIER::Transition(mBuffer.Get(),mState,state);cmd->ResourceBarrier(1,&barrier);mState=state;}
 }
 #endif

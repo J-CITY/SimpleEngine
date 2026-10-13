@@ -3,6 +3,7 @@
 #include "frustum.h"
 #include "gameRendererInterface.h"
 #include "backends/interface/resourceStruct.h"
+#include "backends/interface/rayTracingInterface.h"
 #include "light.h"
 #include "backends/interface/materialInterface.h"
 #include <filesystem>
@@ -46,7 +47,8 @@ namespace IKIGAI::RENDER {
 		TRANSPARENT_GEOMETRY,
         COMPUTE,
         CLEAR,
-        LIGHT_ACCUMULATION
+        LIGHT_ACCUMULATION,
+        RAY_TRACE
 	};
 
 	struct PipelineStage {
@@ -61,6 +63,16 @@ namespace IKIGAI::RENDER {
 			DrawContent Draw;
 			std::string Material;
 			std::string FrameBuffer;
+            std::string Program;
+            std::string LaunchTexture;
+            int LaunchX=1,LaunchY=1,LaunchZ=1;
+            int RaygenRecord=0;
+            std::map<std::string,std::string> Bindings;
+            std::vector<std::string> Reads,Writes;
+            std::vector<int> PushConstants;
+            std::string Unsupported="ERROR";
+            int HitGroupOffset=0;
+            bool Progressive=false;
 			std::map<std::string, UniformTypeDescr> Uniforms;
 			bool Enabled = true;
             bool Once = false;
@@ -90,6 +102,19 @@ namespace IKIGAI::RENDER {
 					.field(&Self::Draw, "Draw")
 					.field(&Self::Material, "Material", default_{std::string{}})
 					.field(&Self::FrameBuffer, "FrameBuffer", default_{""})
+                    .field(&Self::Program,"Program",default_{std::string{}})
+                    .field(&Self::LaunchTexture,"LaunchTexture",default_{std::string{}})
+                    .field(&Self::LaunchX,"LaunchX",default_{1})
+                    .field(&Self::LaunchY,"LaunchY",default_{1})
+                    .field(&Self::LaunchZ,"LaunchZ",default_{1})
+                    .field(&Self::RaygenRecord,"RaygenRecord",default_{0})
+                    .field(&Self::Bindings,"Bindings",default_{decltype(Bindings){}})
+                    .field(&Self::Reads,"Reads",default_{decltype(Reads){}})
+                    .field(&Self::Writes,"Writes",default_{decltype(Writes){}})
+                    .field(&Self::PushConstants,"PushConstants",default_{decltype(PushConstants){}})
+                    .field(&Self::Unsupported,"Unsupported",default_{std::string{"ERROR"}})
+                    .field(&Self::HitGroupOffset,"HitGroupOffset",default_{0})
+                    .field(&Self::Progressive,"Progressive",default_{false})
 					.field(&Self::Uniforms, "Uniforms", default_{decltype(Uniforms){}})
 					.field(&Self::BufferLinks, "BufferLinks", default_{decltype(BufferLinks){}})
 					.field(&Self::BufferOverrides, "BufferOverrides", default_{decltype(BufferOverrides){}})
@@ -113,6 +138,7 @@ namespace IKIGAI::RENDER {
 		PipelineStage() = default;
 		Descriptor mDescriptor;
         bool mExecuted = false;
+        std::shared_ptr<RayTracingProgram> mRayTracingProgram;
 
 		std::string mName;
 		std::shared_ptr<::IKIGAI::RENDER::FrameBufferInterface> mFrameBuffer;
@@ -222,7 +248,7 @@ namespace IKIGAI::RENDER {
 			int ShadowBudget = -1;
 			int VolumeLightLimit = -1;
 			std::vector<int> LightIds;
-			std::vector<PipelineStage::Descriptor> InitStages, CaptureStages, ResolveStages;
+			std::vector<PipelineStage::Descriptor> InitStages, CaptureStages, PrepareStages, ResolveStages;
 			template<class Context>
 			constexpr static auto serde(Context& context, LightPassDescriptor& value) {
 				using Self = LightPassDescriptor;
@@ -234,6 +260,7 @@ namespace IKIGAI::RENDER {
 					.field(&Self::LightIds,"LightIds",default_{decltype(LightIds){}})
 					.field(&Self::InitStages,"InitStages")
 					.field(&Self::CaptureStages,"CaptureStages")
+                    .field(&Self::PrepareStages,"PrepareStages",default_{decltype(PrepareStages){}})
 					.field(&Self::ResolveStages,"ResolveStages");
 			}
 		};
@@ -275,6 +302,7 @@ namespace IKIGAI::RENDER {
 		std::map<std::string, std::shared_ptr<RENDER::TextureInterface>> mTextures;
 		std::map<std::string, std::shared_ptr<RENDER::StorageBufferInterface>> mStorageBuffers;
 		std::map<std::string, std::shared_ptr<RENDER::UniformBufferInterface>> mUniformBuffers;
+        std::map<std::string,std::shared_ptr<AccelerationStructure>> mAccelerationStructures;
 
 		using StagesArr = std::list<std::unique_ptr<PipelineStage>>;
 
@@ -282,7 +310,7 @@ namespace IKIGAI::RENDER {
 		StagesArr mStages;
 		struct LightPass {
 			LightPassDescriptor Descriptor;
-			StagesArr InitStages, CaptureStages, ResolveStages;
+			StagesArr InitStages, CaptureStages, PrepareStages, ResolveStages;
 		};
 		std::map<std::string, LightPass> mLightPasses;
 		std::vector<StagesArr*> stageGroups();
@@ -318,6 +346,20 @@ namespace IKIGAI::RENDER {
 		std::unique_ptr<RenderGraphPipeline> mRenderPipeline;
 
 		std::shared_ptr<StorageBufferInterface> mLightSSBO;
+        struct RayScene;
+        std::shared_ptr<RayScene> mRayScene;
+        std::map<std::string,std::shared_ptr<AccelerationStructure>> mRayTopLevels;
+        std::shared_ptr<StorageBufferInterface> mRayTriangles,mRayInstances;
+        std::shared_ptr<StorageBufferInterface> mRayLightSSBO;
+        std::vector<LightOGL> mRayLights;
+        std::vector<std::shared_ptr<TextureInterface>> mRayAlbedoMaps;
+        std::shared_ptr<TextureInterface> mRayWhite;
+        uint64_t mRaySceneHash=0;
+        unsigned mRaySample=0;
+        bool mRaySceneChanged=true;
+        std::shared_ptr<UniformBufferInterface> mRayFrameUbo;
+        void prepareRayTracingScene(const std::vector<RenderChunk>& chunks);
+        void runRayTracingStage(PipelineStage& stage);
 		std::vector<LightOGL> mLights;
 		std::vector<int> mLightObjectIds;
         std::vector<float> mEnvironmentSun;
@@ -326,6 +368,15 @@ namespace IKIGAI::RENDER {
 		std::shared_ptr<RENDER::TextureInterface> mEmptyTexture;
 		std::shared_ptr<UniformBufferInterface> mEngineUbo;
 		std::shared_ptr<UniformBufferInterface> mBoneUbo;
+        struct SkinningPose {
+            std::shared_ptr<SKELETON::Skeleton> Skeleton;
+            SKELETON::IAnimationPlayable* Playable=nullptr;
+            std::array<MATH::Matrix4f,128> Current,Previous;
+            std::shared_ptr<UniformBufferInterface> CurrentUbo,PreviousUbo;
+            unsigned Frame=0;
+        };
+        std::map<const SKELETON::AnimOffset*,SkinningPose> mSkinningPoses;
+        const SkinningPose* skinningPose(const Drawable& drawable);
 		std::shared_ptr<UniformBufferInterface> mFrameUbo;
 		std::shared_ptr<UniformBufferInterface> mShadowUbo;
 		std::shared_ptr<UniformBufferInterface> mShadowPassUbo;
@@ -393,6 +444,10 @@ namespace IKIGAI::RENDER {
 
 		void setPipeline(std::unique_ptr<RenderGraphPipeline>&& renderPipeline);
 		std::shared_ptr<TextureInterface> getPipelineTexture(const std::string& name) const { return mRenderPipeline->mTextures.at(name); }
+        void setPipelineAccelerationStructure(const std::string& name,std::shared_ptr<AccelerationStructure> structure) {
+            if(name.empty()||!structure)throw std::runtime_error("AS resource needs a name and nonnull structure");
+            mRenderPipeline->mAccelerationStructures[name]=std::move(structure);
+        }
         void reloadPipelineSettings(const std::string& asset={});
 		void enableGpuProfiling() { mProfileGpu=true; }
 		void printGpuProfile() const;

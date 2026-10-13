@@ -12,8 +12,9 @@ namespace IKIGAI::RENDER {
 		Dx12Resource mBuffer;
 		D3D12_RESOURCE_STATES mState;
 	
-		VertexBufferDx12(void *data, size_t sz, size_t stride);
 	public:
+        VertexBufferDx12(void *data, size_t sz, size_t stride);
+        void transition(ID3D12GraphicsCommandList* cmd,D3D12_RESOURCE_STATES state);
 		template <class T>
 		VertexBufferDx12(const std::vector<T> &vertices): VertexBufferDx12((void*)vertices.data(), vertices.size(), sizeof(T)) {}
 		~VertexBufferDx12() override;

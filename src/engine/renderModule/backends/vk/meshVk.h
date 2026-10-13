@@ -23,10 +23,15 @@ namespace IKIGAI::RENDER {
 
 		void bind() const override;
 		void unbind() const override;
+        const std::vector<Vertex>& rayTracingVertices() const override {return mRayTracingVertices;}
+        const std::vector<unsigned>& rayTracingIndices() const override {return mRayTracingIndices;}
+        std::shared_ptr<IndexBufferInterface> rayTracingIndexBuffer() const override {return mIndexBuffer;}
 
 		// Counts, material index and offset are stored in MeshInterface (do not shadow them here).
 		std::shared_ptr<VertexBufferVk> mVertexBuffer;
 		std::shared_ptr<IndexBufferVk> mIndexBuffer;
+        std::vector<Vertex> mRayTracingVertices;
+        std::vector<unsigned> mRayTracingIndices;
 
 	private:
 		void init(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex);

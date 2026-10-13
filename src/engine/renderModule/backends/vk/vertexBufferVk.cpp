@@ -7,7 +7,7 @@
 
 IKIGAI::RENDER::VertexBufferVk::VertexBufferVk(void* data, size_t size, size_t stride): VertexBufferInterface(size, stride) {
 	if (mSizeByte > 0) {
-		mBuffer = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, UtilityVk::MemoryUsage::GpuOnly);
+		mBuffer = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, UtilityVk::MemoryUsage::GpuOnly);
 	}
 	if (data && mSizeByte > 0) {
 		VertexBufferVk::setData(data, size, stride);
@@ -26,7 +26,7 @@ void IKIGAI::RENDER::VertexBufferVk::setData(const void* data, size_t sz, size_t
 		mStride = stride;
 		mSizeByte = mSize * mStride;
 		if (mBuffer) UtilityVk::GetDriver()->destroyDeferred(std::move(mBuffer));
-		mBuffer = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, UtilityVk::MemoryUsage::GpuOnly);
+		mBuffer = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, UtilityVk::MemoryUsage::GpuOnly);
 	}
 
 	UtilityVk::SetMemoryBarrier(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, UtilityVk::GetDriver()->mCurrentMemoryStage, vk::PipelineStageFlagBits2::eTransfer);

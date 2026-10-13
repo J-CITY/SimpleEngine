@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "resourceStruct.h"
+#include "rayTracingInterface.h"
 #include "storageBufferInterface.h"
 #include "textureInterface.h"
 #include "meshInterface.h"
@@ -176,6 +177,41 @@ namespace IKIGAI::RENDER {
 		virtual void setClearColor(const MATH::Vector4f& color) = 0;
 		virtual void setClearColor(float r, float g, float b, float a) = 0;
 		virtual void dispatch(uint32_t x, uint32_t y, uint32_t z) = 0;
+        virtual RayTracingCapabilities rayTracingCapabilities() const { return {}; }
+        virtual std::shared_ptr<VertexBufferInterface> createRayTracingVertexBuffer(const void*,size_t,size_t) {
+            throw UnsupportedRayTracing("RT vertex buffers are unavailable on this backend");
+        }
+        virtual std::shared_ptr<RayTracingProgram> createRayTracingProgram(const RayTracingProgramResource&) {
+            throw std::runtime_error("Ray tracing pipelines are unavailable on this backend");
+        }
+        // Reflected compute programs use the same descriptor snapshot format.
+        // This entry point does not require ray-query device capabilities.
+        virtual std::shared_ptr<RayTracingProgram> createComputeProgram(const RayTracingProgramResource&) {
+            throw std::runtime_error("Reflected compute programs are unavailable on this backend");
+        }
+        virtual void dispatchComputeProgram(const RayTracingDispatch&) {
+            throw std::runtime_error("Reflected compute dispatch is unavailable on this backend");
+        }
+        virtual std::shared_ptr<AccelerationStructure> createBottomLevelAS(const std::vector<RayTracingGeometry>&, bool allowUpdate=false) {
+            throw std::runtime_error("Acceleration structures are unavailable on this backend");
+        }
+        virtual std::shared_ptr<AccelerationStructure> createTopLevelAS(const std::vector<RayTracingInstance>&, bool allowUpdate=false) {
+            throw std::runtime_error("Acceleration structures are unavailable on this backend");
+        }
+        // Refit preserves topology. Vertex buffers must keep their allocation,
+        // indices and active primitive set; changing these requires a rebuild.
+        virtual void refitBottomLevelAS(const std::shared_ptr<AccelerationStructure>&) {
+            throw std::runtime_error("Acceleration structure refit is unavailable on this backend");
+        }
+        virtual void refitTopLevelAS(const std::shared_ptr<AccelerationStructure>&, const std::vector<RayTracingInstance>&) {
+            throw std::runtime_error("Acceleration structure refit is unavailable on this backend");
+        }
+        virtual void traceRays(const RayTracingDispatch&) {
+            throw std::runtime_error("Ray tracing dispatch is unavailable on this backend");
+        }
+        virtual void dispatchRayQueries(const RayTracingDispatch&) {
+            throw std::runtime_error("Ray query dispatch is unavailable on this backend");
+        }
         // Synchronous diagnostic readback of one mip/face (or one 3D slice).
         virtual std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture, unsigned mip, unsigned layer) {
             throw std::runtime_error("Float texture readback is unavailable on this backend");

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <vector>
+#include "../../vertex.h"
 
 #include "../../objects/boundingSphere.h"
 
@@ -9,6 +12,7 @@ namespace IKIGAI
 {
 	namespace RENDER
 	{
+            class IndexBufferInterface;
 
 		struct VertexDescriptor {
 			struct Member {
@@ -30,6 +34,9 @@ namespace IKIGAI
 
 			virtual void bind() const = 0;
 			virtual void unbind() const = 0;
+            virtual const std::vector<Vertex>& rayTracingVertices() const {static const std::vector<Vertex> empty;return empty;}
+            virtual const std::vector<unsigned>& rayTracingIndices() const {static const std::vector<unsigned> empty;return empty;}
+            virtual std::shared_ptr<IndexBufferInterface> rayTracingIndexBuffer() const {return {};}
 
 			const IKIGAI::RENDER::BoundingSphere& getBoundingSphere() const;
 			void setOffset(size_t offset);

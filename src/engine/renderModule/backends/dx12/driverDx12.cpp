@@ -186,6 +186,8 @@ DriverDx12::DriverDx12() {
 DriverDx12::~DriverDx12() {
 	DriverDx12::end();
 	wait();
+    mShuttingDown=true;
+    mImGuiTextures.clear();
 	mVertexBuffer.reset();
 	mIndexBuffer.reset();
 	mUniformBuffers.clear();
@@ -195,7 +197,11 @@ DriverDx12::~DriverDx12() {
 	mStates.clear();
 	mSwapchains.clear();
 	clearForDestroy();
+    D3D12MA::TotalStatistics rtStats{};mAllocator->CalculateStatistics(&rtStats);
+    std::cout<<"D3D12MA shutdown: allocations="<<rtStats.Total.Stats.AllocationCount<<" bytes="<<rtStats.Total.Stats.AllocationBytes<<"\n";
 	mAllocator.Reset();
+    Microsoft::WRL::ComPtr<ID3D12InfoQueue1> callbacks;
+    if(mDebugCallbackCookie&&SUCCEEDED(mDevice.As(&callbacks)))callbacks->UnregisterMessageCallback(mDebugCallbackCookie);
 	if (mFenceEvent) CloseHandle(mFenceEvent);
 }
 
@@ -237,6 +243,7 @@ void DriverDx12::init() {
 	allocatorDesc.pAdapter = adapter.Get();
 	allocatorDesc.Flags = static_cast<D3D12MA::ALLOCATOR_FLAGS>(D3D12MA_RECOMMENDED_ALLOCATOR_FLAGS);
 	ThrowIfFailed(D3D12MA::CreateAllocator(&allocatorDesc, mAllocator.GetAddressOf()));
+    configureRayTracing();
 
 
 #if defined(DEBUG) || defined(_DEBUG) 
@@ -256,6 +263,11 @@ void DriverDx12::init() {
 	filter.DenyList.NumIDs = denyList.size();
 	filter.DenyList.pIDList = denyList.data();
 	infoQueue->AddStorageFilterEntries(&filter);
+    Microsoft::WRL::ComPtr<ID3D12InfoQueue1> callbacks;
+    if(SUCCEEDED(mDevice.As(&callbacks)))callbacks->RegisterMessageCallback(
+        [](D3D12_MESSAGE_CATEGORY,D3D12_MESSAGE_SEVERITY severity,D3D12_MESSAGE_ID,const char* message,void*) {
+            if(severity<=D3D12_MESSAGE_SEVERITY_WARNING)std::cerr<<"DX12_VALIDATION "<<message<<"\n";
+        },D3D12_MESSAGE_CALLBACK_FLAG_NONE,nullptr,&mDebugCallbackCookie);
 #endif
 
 	createCommandList();
@@ -544,7 +556,7 @@ void DriverDx12::draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t in
 }
 
 std::vector<float> DriverDx12::readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) {
-    if(texture->getFormat()!=PixelFormat::RGBA_FLOAT && texture->getFormat()!=PixelFormat::R_FLOAT && texture->getType()!=TextureType::DEPTH) throw std::runtime_error("DX12 float readback requires RGBA_FLOAT, R_FLOAT or depth");
+    if(texture->getFormat()!=PixelFormat::RGBA_FLOAT && texture->getFormat()!=PixelFormat::RG_FLOAT && texture->getFormat()!=PixelFormat::R_FLOAT && texture->getType()!=TextureType::DEPTH) throw std::runtime_error("DX12 float readback requires float color or depth");
     auto t=std::static_pointer_cast<TextureDx12>(texture);auto resource=t->getResource().Get();auto desc=resource->GetDesc();
     const UINT subresource=mip+(t->getType()==TextureType::TEXTURE_CUBE?layer*t->getMipCount():0);
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};UINT rows=0;UINT64 rowSize=0,bytes=0;
@@ -556,7 +568,7 @@ std::vector<float> DriverDx12::readTexture(std::shared_ptr<TextureInterface> tex
         auto destination=CD3DX12_TEXTURE_COPY_LOCATION(buffer.Get(),footprint);
         cmd->CopyTextureRegion(&destination,0,0,0,&source,nullptr);
     });
-    const size_t channels=t->getType()==TextureType::DEPTH?1:4,w=std::max<size_t>(1,t->getWidth()>>mip),h=std::max<size_t>(1,t->getHeight()>>mip);
+    const size_t channels=t->getType()==TextureType::DEPTH?1:t->getFormat()==PixelFormat::RG_FLOAT?2:4,w=std::max<size_t>(1,t->getWidth()>>mip),h=std::max<size_t>(1,t->getHeight()>>mip);
     std::vector<float> values(w*h*channels);void* mapped=nullptr;D3D12_RANGE range{0,static_cast<SIZE_T>(bytes)};
     ThrowIfFailed(buffer.Get()->Map(0,&range,&mapped));
     const auto* src=static_cast<const uint8_t*>(mapped)+footprint.Offset+(t->getType()==TextureType::TEXTURE_3D?layer*h*footprint.Footprint.RowPitch:0);
@@ -614,6 +626,14 @@ Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> DriverDx12::getCommandList() 
 }
 
 void DriverDx12::submit() {
+    // Defer transitions until after all graph passes, including RT/UAV writes.
+    // This list deliberately survives resize waits before the UI is submitted.
+    for(auto& texture:mImGuiTextures){
+        texture->setState(mCommandList.Get(),D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        mRayFrameResources.push_back(std::move(texture));
+    }
+    mImGuiTextures.clear();
+    mCommandList->SetDescriptorHeaps(1,mDescriptorHeap.GetAddressOf());
 	if (auto* imgui = IKIGAI::IMGUI::Get()) {
 		imgui->renderDrawData();
 	}
@@ -740,8 +760,13 @@ std::vector<Microsoft::WRL::ComPtr<ID3D12DeviceChild>>& DriverDx12::getDestroyDe
 }
 
 void DriverDx12::clearForDestroy() {
-	mDestroyDeffered.clear();
-	mDestroyDeferredResources.clear();
+    mRayFrameResources.clear();
+    while(!mRayDeferred.empty()||!mDestroyDeffered.empty()||!mDestroyDeferredResources.empty()) {
+        auto ray=std::move(mRayDeferred);mRayDeferred.clear();
+        auto objects=std::move(mDestroyDeffered);mDestroyDeffered.clear();
+        auto resources=std::move(mDestroyDeferredResources);mDestroyDeferredResources.clear();
+        ray.clear();objects.clear();resources.clear();
+    }
 }
 
 std::shared_ptr<TextureInterface> DriverDx12::createTexture(const std::string& path, bool generateMipmap, UTILS::IAllocator* allocator, TextureDeleter deleter) {

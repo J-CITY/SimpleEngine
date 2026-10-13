@@ -13,6 +13,7 @@ namespace IKIGAI::RENDER {
 
 		IndexBufferDx12(void* data, size_t sz, size_t stride);
 	public:
+        void transition(ID3D12GraphicsCommandList* cmd,D3D12_RESOURCE_STATES state);
 		template<class T>
 		IndexBufferDx12(const std::vector<T>& vertices) : IndexBufferDx12((void*)vertices.data(), vertices.size(), sizeof(T)) {
 

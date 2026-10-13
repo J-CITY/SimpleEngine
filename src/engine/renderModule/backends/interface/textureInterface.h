@@ -49,6 +49,11 @@ namespace IKIGAI::RENDER {
 		uint32_t getMipCount() const { return mMipCount; }
         uint64_t getRevision() const { return mRevision; }
 		bool getUseMipMap() const { return mUseMipMap; }
+        MinMagFilter getMinFilter() const {return mMinFilter;}
+        MinMagFilter getMagFilter() const {return mMagFilter;}
+        WrapFilter getWrapS() const {return mWrapS;}
+        WrapFilter getWrapT() const {return mWrapT;}
+        WrapFilter getWrapR() const {return mWrapR;}
 		virtual AtlasRect getPieceUV(const std::string&) const { return {0,0,1,1}; }
 		virtual AtlasRect getPiece(const std::string&) const { return {0,0,static_cast<float>(mWidth),static_cast<float>(mHeight)}; }
 

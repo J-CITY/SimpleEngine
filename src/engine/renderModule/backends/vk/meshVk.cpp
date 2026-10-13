@@ -46,6 +46,9 @@ void MeshVk::unbind() const {
 }
 
 void MeshVk::createBuffers(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices) {
+    if(UtilityVk::GetDriver()->mRayTracingCapabilities.AccelerationStructure) {
+        mRayTracingVertices=vertices;mRayTracingIndices=indices;
+    }
 	if (!vertices.empty()) {
 		mVertexBuffer = std::make_shared<VertexBufferVk>(vertices);
 	}

@@ -207,7 +207,7 @@ std::shared_ptr<ShaderDx12> ShaderDx12::Create(const ShaderResource& resource) {
 	auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
 
 	for (const auto& [type, path] : res.paths) {
-		if (path.empty()) {
+		if (path.empty() || res.sources.contains(ShaderResource::toEnum.at(type))) {
 			continue;
 		}
 		auto file = fs.getFile(path);

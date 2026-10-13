@@ -19,7 +19,7 @@
 namespace IKIGAI::RENDER {
 	struct TextureResource;
 
-	class TextureDx12 : public TextureInterface {
+	class TextureDx12 : public TextureInterface, public std::enable_shared_from_this<TextureDx12> {
 	public:
 		TextureDx12(const TextureResource& descriptor, const std::vector<void*>& data);
 		TextureDx12(size_t width, size_t height, PixelFormat format, Microsoft::WRL::ComPtr<ID3D12Resource> texture);

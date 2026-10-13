@@ -411,9 +411,12 @@ IKIGAI::RENDER::CompileGlslToSpirv(IKIGAI::RENDER::ShaderType stage,
           {IKIGAI::RENDER::ShaderType::TESSELLATION_EVALUATION,
            EShLangTessEvaluation},
           {IKIGAI::RENDER::ShaderType::COMPUTE, EShLangCompute},
-          //{IKIGAI::RENDER::ShaderType::RAY_GEN, EShLangRayGen},
-          //{IKIGAI::RENDER::ShaderType::MISS, EShLangMiss},
-          //{IKIGAI::RENDER::ShaderType::CLOSES_HIT, EShLangClosestHit}
+          {IKIGAI::RENDER::ShaderType::RAYGEN, EShLangRayGen},
+          {IKIGAI::RENDER::ShaderType::MISS, EShLangMiss},
+          {IKIGAI::RENDER::ShaderType::CLOSEST_HIT, EShLangClosestHit},
+          {IKIGAI::RENDER::ShaderType::ANY_HIT, EShLangAnyHit},
+          {IKIGAI::RENDER::ShaderType::INTERSECTION, EShLangIntersect},
+          {IKIGAI::RENDER::ShaderType::CALLABLE, EShLangCallable}
       };
 
   glslang::InitializeProcess();

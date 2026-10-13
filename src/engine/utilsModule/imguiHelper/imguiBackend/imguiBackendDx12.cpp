@@ -10,6 +10,7 @@
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_dx12.h"
 #include "imgui.h"
+#include <algorithm>
 
 namespace IKIGAI::IMGUI {
 	void ConfigureImGuiContext();
@@ -75,7 +76,18 @@ namespace {
 			const auto color = frame->getTexHeap()->GetCPUDescriptorHandleForHeapStart();
 			const auto depth = frame->getDepthHeap()->GetCPUDescriptorHandleForHeapStart();
 			command->OMSetRenderTargets(1, &color, FALSE, &depth);
-			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), driverDx12->getCommandList().Get());
+            auto* drawData=ImGui::GetDrawData();
+            // Node editor draw commands may have an unbounded clip rect. Clamp
+            // before the DX12 backend converts floats to signed LONG scissors.
+            const auto origin=drawData->DisplayPos;
+            const ImVec2 limit(origin.x+drawData->DisplaySize.x,origin.y+drawData->DisplaySize.y);
+            for(int i=0;i<drawData->CmdListsCount;++i)for(auto& draw:drawData->CmdLists[i]->CmdBuffer){
+                draw.ClipRect.x=std::clamp(draw.ClipRect.x,origin.x,limit.x);
+                draw.ClipRect.y=std::clamp(draw.ClipRect.y,origin.y,limit.y);
+                draw.ClipRect.z=std::clamp(draw.ClipRect.z,origin.x,limit.x);
+                draw.ClipRect.w=std::clamp(draw.ClipRect.w,origin.y,limit.y);
+            }
+			ImGui_ImplDX12_RenderDrawData(drawData, driverDx12->getCommandList().Get());
 			if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 				ImGui::UpdatePlatformWindows();
 				ImGui::RenderPlatformWindowsDefault();
