@@ -49,6 +49,9 @@ option(ENABLE_SPVREMAPPER OFF)
 add_subdirectory(${THIRD_PARTY_DIR}/glslang ./3rd/glslang/build)
 
 # 4. SPIRV-Cross
+if(USE_DX12 AND NOT EXISTS "${THIRD_PARTY_DIR}/SPIRV-Cross/spirv_hlsl_raytracing.cpp")
+    message(FATAL_ERROR "Apply patches/spirv-cross-ray-tracing.patch to 3rd/SPIRV-Cross before building DX12 shared RT shaders.")
+endif()
 option(SPIRV_CROSS_SKIP_INSTALL ON)
 option(SPIRV_CROSS_CLI OFF)
 option(SPIRV_CROSS_ENABLE_TESTS OFF)
