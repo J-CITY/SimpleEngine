@@ -5,9 +5,9 @@
 Manual pull (any OS):
 
 ```text
-python utils/sync_assets.py
-python utils/sync_assets.py pull
-python utils/sync_assets.py ensure
+python utils/assets/sync_assets.py
+python utils/assets/sync_assets.py pull
+python utils/assets/sync_assets.py ensure
 ```
 
 No rclone, no Google account, no tokens. The Drive folder is shared as **Anyone with the link** (view).
@@ -37,9 +37,9 @@ Python 3 is enough. The script installs [gdown](https://github.com/wkentaro/gdow
 | `ensure` | Pull only if missing or stale. |
 
 ```text
-python utils/sync_assets.py pull
-python utils/sync_assets.py pull-mirror
-python utils/sync_assets.py pull --dry-run
+python utils/assets/sync_assets.py pull
+python utils/assets/sync_assets.py pull-mirror
+python utils/assets/sync_assets.py pull --dry-run
 ```
 
 `mode` in `assets.source.json`:
@@ -54,8 +54,8 @@ Upload needs [rclone](https://rclone.org/) configured once on this machine. The 
 Default push is **`rclone copy`**: it adds/updates files and does **not** delete leftovers on Drive.
 
 ```text
-python utils/sync_assets.py push --dry-run
-python utils/sync_assets.py push
+python utils/assets/sync_assets.py push --dry-run
+python utils/assets/sync_assets.py push
 ```
 
 If the rclone remote name is not unique, create `utils/assets.remote.json` (gitignored):
@@ -74,8 +74,8 @@ Empty `rclonePath` uses `--drive-root-folder-id` from `assets.source.json`. You 
 `rclone sync` removes files on the receiver that are gone from the source. Do not use this by accident.
 
 ```text
-python utils/sync_assets.py push-mirror --dry-run
-python utils/sync_assets.py push-mirror
+python utils/assets/sync_assets.py push-mirror --dry-run
+python utils/assets/sync_assets.py push-mirror
 ```
 
 Run `--dry-run` before the first real `push-mirror`.
@@ -85,8 +85,8 @@ Run `--dry-run` before the first real `push-mirror`.
 After you change `assets/` locally and want a stable Pull:
 
 ```text
-python utils/sync_assets.py pack --use-zip-pull
-python utils/sync_assets.py push
+python utils/assets/sync_assets.py pack --use-zip-pull
+python utils/assets/sync_assets.py push
 ```
 
 `pack` writes `utils/.pack/IkigaiEngine-assets.zip` and updates `version` + `sha256` in `assets.source.json`. `--use-zip-pull` sets `mode` to `zip`. `push` then uploads that zip and fills `driveFileId` when rclone can see it.
@@ -97,7 +97,7 @@ Commit `utils/assets.source.json` after pack/push so other clones pull the new a
 
 | Path | In Git | Role |
 |------|--------|------|
-| `utils/sync_assets.py` | yes | Pull / Pack / Push / ensure |
+| `utils/assets/sync_assets.py` | yes | Pull / Pack / Push / ensure |
 | `utils/assets.source.json` | yes | public folder/file ids, version, hash |
 | `utils/assets.remote.json` | no | rclone remote name override |
 | `utils/.pack/` | no | local zip from pack |

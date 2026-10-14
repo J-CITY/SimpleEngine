@@ -1,5 +1,9 @@
 # Render backends
 
+SDF text and anti-aliased paths/shapes use the shared Renderer through the independent
+[vector graphics module](vector-graphics.md). Screen-space components join `GUI`;
+world-space Canvas uses a `VECTOR_WORLD` stage with a depth attachment.
+
 Ikigai can compile several graphics APIs into one binary and pick the active API **once at startup**. Switching backends without a restart is not supported.
 
 ## Compile-time vs runtime
@@ -66,7 +70,7 @@ Editor and cheat UI go through `IKIGAI::IMGUI::IImGuiBackend`:
 
 ## Known limits
 
-- Spine (and GUI sprite components that depend on it) is OpenGL-only at runtime. Other backends log an error and skip Spine setup.
+- Game GUI sprites, FreeType labels and Spine now use the shared Renderer; the migrated pipeline has separate sprite/text shaders. Native Spine animation is not covered by the smoke scene.
 - Chunk/terrain mesh upload still has a disabled GL-specific `bufferData` path.
 - `debugRender.cpp` is behind `USE_EDITOR_` (legacy). The live editor uses `EditorRender`.
 - Metal `CreateMesh` is not implemented yet (`CreateEmptyModel` works; mesh upload returns null).
@@ -80,3 +84,29 @@ For each compiled backend (`--render-backend=opengl|vulkan|dx12|metal`):
 3. File browser thumbnails and Texture Watcher show GPU textures via `getImguiId()`.
 4. A simple model loads (Assimp `createBuffers` on the active backend).
 5. Switching backend requires a restart; a second process can use a different API.
+
+The tracked shader overlay and migrated/environment/cloud pipeline presets are in
+[render_assets](../render_assets/README.md). Install with
+`python utils/assets/install_render_assets.py --activate`; this sets the `pipeline`
+field in both asset render configs while preserving the selected backend.
+See [shader migration validation](shader-migration-validation.md) for shader
+compiler results and native GPU smoke checks.
+Environment/IBL and compute cloud presets use
+`python utils/assets/install_render_assets.py --activate --pipeline environment-clouds`;
+see [environment validation](environment-ibl-clouds-validation.md) for resource
+contracts, GPU regressions and Metal/platform limitations.
+
+Ray tracing is available on Vulkan KHR and DirectX 12 DXR through the same
+`RAY_TRACE` pipeline step and reflected compute/query API. Hybrid effects and
+full path tracing use explicit resources and launch dimensions. DX12 RT stages
+use the same GLSL sources as Vulkan through the local SPIRV-Cross RT extension
+and DXC; compute shaders follow the same path. See
+[ray tracing API](ray-tracing.md) and [GPU validation](ray-tracing-validation.md).
+
+DLSS Super Resolution and AMD FSR are optional Vulkan/DX12 providers for the
+shared `UPSCALE` stage. See [upscaling](upscaling.md) for SDK setup, the
+`migrated-upscale` preset, CLI/JSON options and native GPU checks.
+
+Frame Generation has an independent `FRAME_GENERATION` presentation stage and
+`migrated-frame-generation` preset. See [Frame Generation](frame-generation.md)
+for Streamline/FSR runtimes, UI inputs, lifetime and validation.

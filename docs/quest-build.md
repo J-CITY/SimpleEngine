@@ -12,11 +12,11 @@ python run_vs.py -p quest --abi arm64-v8a --build
 Quest uses:
 
 - **Headers:** git submodule `3rd/OpenXR-SDK` (Khronos).
-- **Loader:** Khronos Android loader `org.khronos.openxr:openxr_loader_for_android` (Meta-supported, 1.0.34+). `utils/fetch_meta_openxr.py` downloads the AAR into `3rd/MetaOpenXR/` (gitignored). Version is pinned in `platform/quest/meta_openxr_version.json`.
+- **Loader:** Khronos Android loader `org.khronos.openxr:openxr_loader_for_android` (Meta-supported, 1.0.34+). `utils/environment/fetch_meta_openxr.py` downloads the AAR into `3rd/MetaOpenXR/` (gitignored). Version is pinned in `platform/quest/meta_openxr_version.json`.
 
 ```text
-python utils/fetch_meta_openxr.py
-python utils/fetch_meta_openxr.py --force
+python utils/environment/fetch_meta_openxr.py
+python utils/environment/fetch_meta_openxr.py --force
 ```
 
 Set `META_OPENXR_AAR` to a local `.aar` if the Maven download is blocked.
