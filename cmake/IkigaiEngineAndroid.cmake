@@ -152,6 +152,8 @@ list(FILTER PROJECT_SOURCES EXCLUDE REGEX "imguiBackendVk\\.cpp$")
 list(FILTER PROJECT_SOURCES EXCLUDE REGEX "imguiBackendDx12\\.cpp$")
 list(FILTER PROJECT_SOURCES EXCLUDE REGEX "imguiBackendMetal\\.mm$")
 
+include("${CMAKE_CURRENT_LIST_DIR}/VectorGraphics.cmake")
+
 add_library(main SHARED ${PROJECT_HEADERS} ${PROJECT_SOURCES})
 set_target_properties(main PROPERTIES DEBUG_POSTFIX "")
 # NDK enables -Werror=format-security. Editor/ImGui helpers pass non-literal format strings.
@@ -159,7 +161,7 @@ target_compile_options(main PRIVATE -Wno-error=format-security)
 
 add_custom_command(
     TARGET main PRE_BUILD
-    COMMAND python "${REPO_ROOT}/utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
+    COMMAND python "${REPO_ROOT}/utils/build/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
     COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
 )
 
@@ -225,3 +227,6 @@ target_link_libraries(main PRIVATE
 )
 
 message(STATUS "IkigaiEngine Android OpenGL ES IKIGAI_GLES_VERSION=${IKIGAI_GLES_VERSION}")
+
+# Independent vector geometry and SDF font module
+target_link_libraries(main PRIVATE ikigai_vector)
