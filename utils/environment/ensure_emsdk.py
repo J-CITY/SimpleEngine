@@ -1,3 +1,10 @@
+
+# Support direct CLI invocation from any working directory.
+if __package__ in (None, ""):
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import os
 import sys
 import subprocess
@@ -5,7 +12,7 @@ import shutil
 
 
 def _repo_root():
-    return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 
 def read_emsdk_version(root_dir=None):

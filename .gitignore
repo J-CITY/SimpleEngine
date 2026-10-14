@@ -58,4 +58,5 @@ utils/__pycache__
 # uncomment, when add tests
 utils/validation
 utils/assets
+utils/tests
 render_assets/

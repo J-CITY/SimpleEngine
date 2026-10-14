@@ -1,3 +1,10 @@
+
+# Support direct CLI invocation from any working directory.
+if __package__ in (None, ""):
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import os
 import shutil
 import sys
@@ -7,11 +14,11 @@ import zipfile
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
-from http_download import download_file
+from utils.environment.http_download import download_file
 
 def update_spine():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    target_dir = os.path.join(current_dir, "..", "3rd", "spine", "spine")
+    target_dir = os.path.join(current_dir, "..", "..", "3rd", "spine", "spine")
     spine_version = "4.2"
     version_file = os.path.join(target_dir, "version.txt")
     

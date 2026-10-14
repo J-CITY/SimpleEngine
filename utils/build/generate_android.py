@@ -1,4 +1,15 @@
-"""Generate a Gradle Meta Quest / OpenXR project under quest/out."""
+"""Generate a Gradle Android project under android/out.
+
+SDL3 is compiled from 3rd/SDL3 by CMake. The Java glue in
+org.libsdl.app is copied from 3rd/SDL3/android-project on each run.
+"""
+
+# Support direct CLI invocation from any working directory.
+if __package__ in (None, ""):
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 
 import json
 import os
@@ -7,18 +18,21 @@ import shutil
 import subprocess
 from datetime import datetime, timezone
 
-from fetch_meta_openxr import fetch as fetch_meta_openxr, load_spec
+# SDL3's Android port requires API 21. ES 3.0 is available earlier, but the
+# activity glue is not, so 3 and 3.1 share minSdk 21. ES 3.2 needs API 24.
+ES_VERSIONS = {
+    "3": {"cmake": 300, "min_sdk": 21, "hex": "0x00030000"},
+    "3.1": {"cmake": 310, "min_sdk": 21, "hex": "0x00030001"},
+    "3.2": {"cmake": 320, "min_sdk": 24, "hex": "0x00030002"},
+}
 
 DEFAULT_APP_ID = "com.ikigai.engine"
 COMPILE_SDK = 35
 TARGET_SDK = 35
-MIN_SDK = 29
-GLES_CMAKE = 320
-GLES_HEX = "0x00030002"
 
 
 def _read_template(repo_root, name):
-    path = os.path.join(repo_root, "platform", "quest", "templates", name)
+    path = os.path.join(repo_root, "platform", "android", "templates", name)
     with open(path, "r", encoding="utf-8") as handle:
         return handle.read()
 
@@ -55,6 +69,7 @@ def _java_major(java_exe):
 
 
 def _find_jdk_home():
+    """AGP 8.7 needs JDK 17+. Prefer JAVA_HOME when it is new enough, else Android Studio's JBR."""
     candidates = []
     java_home = os.environ.get("JAVA_HOME")
     if java_home:
@@ -107,52 +122,42 @@ def _link_assets(repo_root, output_dir):
         os.symlink(src, dest, target_is_directory=True)
 
 
-def _copy_placeholder_icon(res_dst):
-    densities = ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi")
-    for density in densities:
-        mipmap = os.path.join(res_dst, "mipmap-%s" % density)
-        os.makedirs(mipmap, exist_ok=True)
-
-
-def generate_quest(
+def generate_android(
     repo_root,
     output_dir=None,
+    es_ver="3.2",
     app_id=DEFAULT_APP_ID,
     abis=None,
+    use_editor=True,
+    use_file_watcher=False,
 ):
+    if es_ver not in ES_VERSIONS:
+        raise ValueError("es_ver must be one of: " + ", ".join(ES_VERSIONS))
+
     repo_root = os.path.abspath(repo_root)
     if output_dir is None:
-        output_dir = os.path.join(repo_root, "quest", "out")
+        output_dir = os.path.join(repo_root, "android", "out")
     output_dir = os.path.abspath(output_dir)
 
     if abis is None:
-        abis = ["arm64-v8a"]
+        abis = ["arm64-v8a", "armeabi-v7a"]
     abis = [abi.strip() for abi in abis if abi and abi.strip()]
     if not abis:
         raise ValueError("at least one ABI is required")
 
-    openxr_headers = os.path.join(repo_root, "3rd", "OpenXR-SDK", "include", "openxr", "openxr.h")
-    if not os.path.isfile(openxr_headers):
-        raise FileNotFoundError(
-            "OpenXR-SDK headers not found at %s. Run: git submodule update --init 3rd/OpenXR-SDK"
-            % openxr_headers
-        )
-
-    spec = load_spec(repo_root)
-    fetch_meta_openxr(repo_root)
+    if not use_editor:
+        use_file_watcher = False
 
     sdl_project = os.path.join(repo_root, "3rd", "SDL3", "android-project")
-    if not os.path.isdir(os.path.join(sdl_project, "gradle", "wrapper")):
+    java_src = os.path.join(sdl_project, "app", "src", "main", "java", "org", "libsdl", "app")
+    if not os.path.isdir(java_src):
         raise FileNotFoundError(
-            "Gradle wrapper not found at %s. Check out 3rd/SDL3." % sdl_project
+            "SDL3 Android Java glue not found at %s. Check out 3rd/SDL3." % java_src
         )
 
+    spec = ES_VERSIONS[es_ver]
     cmake_rel = os.path.relpath(
-        os.path.join(repo_root, "cmake", "quest", "CMakeLists.txt"),
-        os.path.join(output_dir, "app"),
-    ).replace("\\", "/")
-    jni_libs = os.path.relpath(
-        os.path.join(repo_root, "3rd", "MetaOpenXR", "OpenXR", "Libs", "Android"),
+        os.path.join(repo_root, "cmake", "android", "CMakeLists.txt"),
         os.path.join(output_dir, "app"),
     ).replace("\\", "/")
     abi_filters = ", ".join("'%s'" % abi for abi in abis)
@@ -161,14 +166,14 @@ def generate_quest(
         "APP_ID": app_id,
         "COMPILE_SDK": COMPILE_SDK,
         "TARGET_SDK": TARGET_SDK,
-        "MIN_SDK": MIN_SDK,
-        "ANDROID_PLATFORM": "android-%d" % MIN_SDK,
-        "GLES_CMAKE": GLES_CMAKE,
-        "GLES_HEX": GLES_HEX,
+        "MIN_SDK": spec["min_sdk"],
+        "ANDROID_PLATFORM": "android-%d" % spec["min_sdk"],
+        "GLES_CMAKE": spec["cmake"],
+        "GLES_HEX": spec["hex"],
         "ABI_FILTERS": abi_filters,
         "CMAKE_PATH": cmake_rel,
-        "JNI_LIBS": jni_libs,
-        "OPENXR_LOADER_VERSION": spec["loader"]["version"],
+        "USE_EDITOR": "ON" if use_editor else "OFF",
+        "USE_FILE_WATCHER": "ON" if use_file_watcher else "OFF",
     }
 
     os.makedirs(output_dir, exist_ok=True)
@@ -184,31 +189,34 @@ def generate_quest(
             shutil.copy2(src, os.path.join(wrapper_dst, name))
 
     os.makedirs(os.path.join(output_dir, "app"), exist_ok=True)
-    proguard_src = os.path.join(sdl_project, "app", "proguard-rules.pro")
-    if os.path.isfile(proguard_src):
-        shutil.copy2(proguard_src, os.path.join(output_dir, "app", "proguard-rules.pro"))
-    else:
-        _write(os.path.join(output_dir, "app", "proguard-rules.pro"), "")
-
-    res_dst = os.path.join(output_dir, "app", "src", "main", "res")
-    os.makedirs(os.path.join(res_dst, "values"), exist_ok=True)
     shutil.copy2(
-        os.path.join(repo_root, "platform", "quest", "static", "strings.xml"),
+        os.path.join(sdl_project, "app", "proguard-rules.pro"),
+        os.path.join(output_dir, "app", "proguard-rules.pro"),
+    )
+
+    java_dst = os.path.join(output_dir, "app", "src", "main", "java", "org", "libsdl", "app")
+    shutil.copytree(java_src, java_dst, dirs_exist_ok=True)
+
+    res_src = os.path.join(sdl_project, "app", "src", "main", "res")
+    res_dst = os.path.join(output_dir, "app", "src", "main", "res")
+    shutil.copytree(res_src, res_dst, dirs_exist_ok=True)
+
+    legacy_activity = os.path.join(
+        output_dir, "app", "src", "main", "java", "com", "daniil", "cross_test"
+    )
+    if os.path.isdir(legacy_activity):
+        shutil.rmtree(legacy_activity)
+
+    activity_dir = os.path.join(
+        output_dir, "app", "src", "main", "java", *app_id.split(".")
+    )
+    os.makedirs(activity_dir, exist_ok=True)
+    main_activity = _render(_read_template(repo_root, "MainActivity.java.in"), values)
+    _write(os.path.join(activity_dir, "MainActivity.java"), main_activity)
+    shutil.copy2(
+        os.path.join(repo_root, "platform", "android", "static", "strings.xml"),
         os.path.join(res_dst, "values", "strings.xml"),
     )
-    android_res = os.path.join(sdl_project, "app", "src", "main", "res")
-    if os.path.isdir(android_res):
-        for name in os.listdir(android_res):
-            if name.startswith("mipmap") or name.startswith("drawable"):
-                src = os.path.join(android_res, name)
-                dst = os.path.join(res_dst, name)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst, dirs_exist_ok=True)
-    _copy_placeholder_icon(res_dst)
-
-    activity_dir = os.path.join(output_dir, "app", "src", "main", "java", *app_id.split("."))
-    os.makedirs(activity_dir, exist_ok=True)
-    _write(os.path.join(activity_dir, "MainActivity.java"), _render(_read_template(repo_root, "MainActivity.java.in"), values))
 
     _write(os.path.join(output_dir, "settings.gradle"), _render(_read_template(repo_root, "settings.gradle.in"), values))
     _write(os.path.join(output_dir, "build.gradle"), _render(_read_template(repo_root, "build.gradle.in"), values))
@@ -219,14 +227,20 @@ def generate_quest(
     else:
         print("Warning: JDK 17+ was not found. Android Gradle Plugin 8.7 needs it (Android Studio JBR is enough).")
     _write(os.path.join(output_dir, "gradle.properties"), gradle_properties)
-    _write(os.path.join(output_dir, "app", "build.gradle"), _render(_read_template(repo_root, "app.build.gradle.in"), values))
+    _write(
+        os.path.join(output_dir, "app", "build.gradle"),
+        _render(_read_template(repo_root, "app.build.gradle.in"), values),
+    )
     _write(
         os.path.join(output_dir, "app", "src", "main", "AndroidManifest.xml"),
         _render(_read_template(repo_root, "AndroidManifest.xml.in"), values),
     )
     run_cfg_dir = os.path.join(output_dir, ".idea", "runConfigurations")
     os.makedirs(run_cfg_dir, exist_ok=True)
-    _write(os.path.join(run_cfg_dir, "app.xml"), _read_template(repo_root, "runConfiguration.xml.in"))
+    _write(
+        os.path.join(run_cfg_dir, "app.xml"),
+        _read_template(repo_root, "runConfiguration.xml.in"),
+    )
     _write(
         os.path.join(output_dir, ".gitignore"),
         "\n".join([
@@ -248,38 +262,43 @@ def generate_quest(
         sdk_escaped = sdk.replace("\\", "\\\\")
         _write(os.path.join(output_dir, "local.properties"), "sdk.dir=%s\n" % sdk_escaped)
     else:
-        print("Warning: Android SDK not found. Set ANDROID_HOME or create quest/out/local.properties.")
+        print("Warning: Android SDK not found. Set ANDROID_HOME or create android/out/local.properties.")
 
     _link_assets(repo_root, output_dir)
 
     meta = {
-        "platform": "quest",
-        "gles": GLES_CMAKE,
-        "minSdk": MIN_SDK,
+        "esVer": es_ver,
+        "gles": spec["cmake"],
+        "minSdk": spec["min_sdk"],
         "abis": abis,
         "appId": app_id,
-        "openxrLoader": spec["loader"]["version"],
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     _write(os.path.join(output_dir, ".ikigai-build.json"), json.dumps(meta, indent=2) + "\n")
 
-    print("Generated Quest project: %s" % output_dir)
-    print("OpenXR loader %s, GLES 3.2, minSdk %s, ABI %s" % (
-        spec["loader"]["version"], MIN_SDK, ",".join(abis)
-    ))
+    if app_id != DEFAULT_APP_ID:
+        print(
+            "Warning: custom applicationId %s requires matching kMainActivityJniClass in androidStorage.cpp."
+            % app_id
+        )
+
+    print("Generated Android project: %s" % output_dir)
+    print("OpenGL ES %s (IKIGAI_GLES_VERSION=%s, minSdk %s)" % (es_ver, spec["cmake"], spec["min_sdk"]))
     return output_dir
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Generate quest/out from the IkigaiEngine Quest templates.")
-    parser.add_argument("--abi", default="arm64-v8a")
+    parser = argparse.ArgumentParser(description="Generate android/out from the IkigaiEngine Android templates.")
+    parser.add_argument("--esVer", dest="es_ver", default="3.2", choices=sorted(ES_VERSIONS))
+    parser.add_argument("--abi", default="arm64-v8a,armeabi-v7a")
     parser.add_argument("-o", "--output", default=None)
     args = parser.parse_args()
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    generate_quest(
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    generate_android(
         root,
         args.output,
+        es_ver=args.es_ver,
         abis=[part.strip() for part in args.abi.split(",") if part.strip()],
     )

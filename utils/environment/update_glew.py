@@ -1,3 +1,10 @@
+
+# Support direct CLI invocation from any working directory.
+if __package__ in (None, ""):
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import os
 import shutil
 import sys
@@ -6,7 +13,7 @@ import zipfile
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
-from http_download import download_file
+from utils.environment.http_download import download_file
 
 def download_and_extract_glew():
     glew_version = "2.3.1"
@@ -48,7 +55,7 @@ def download_and_extract_glew():
 if __name__ == "__main__":
     # Change working directory to 3rd/
     script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
-    os.chdir(os.path.join(script_dir, "..", "3rd"))
+    os.chdir(os.path.join(script_dir, "..", "..", "3rd"))
     
     download_and_extract_glew()
     print("Done!")

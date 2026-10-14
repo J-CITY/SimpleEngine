@@ -1,3 +1,10 @@
+
+# Support direct CLI invocation from any working directory.
+if __package__ in (None, ""):
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import os
 import subprocess
 import sys
@@ -60,13 +67,13 @@ def format_code(root_dir):
 
 if __name__ == '__main__':
     # Если передали путь через аргумент командной строки - используем его,
-    # иначе форматируем корневую директорию проекта (на 1 уровень выше utils)
+    # иначе форматируем корневую директорию проекта (на 2 уровня выше utils/tools)
     if len(sys.argv) > 1:
         target_dir = sys.argv[1]
     else:
-        # Скрипт находится в utils/, поэтому корень проекта это ../
+        # Скрипт находится в utils/tools/, поэтому корень проекта это ../../
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        target_dir = os.path.join(script_dir, "..")
+        target_dir = os.path.join(script_dir, "..", "..")
         
     abs_target_dir = os.path.abspath(target_dir)
     print(f"Анализ директории: {abs_target_dir}")

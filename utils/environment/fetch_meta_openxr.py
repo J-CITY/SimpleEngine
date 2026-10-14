@@ -5,6 +5,13 @@ org.khronos.openxr:openxr_loader_for_android (1.0.34+). Headers come from
 the 3rd/OpenXR-SDK git submodule.
 """
 
+# Support direct CLI invocation from any working directory.
+if __package__ in (None, ""):
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
+
 import json
 import os
 import shutil
@@ -14,7 +21,7 @@ import zipfile
 
 
 def repo_root():
-    return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 
 def version_path(root):
@@ -123,7 +130,7 @@ def require(root=None):
     spec = load_spec(root)
     if loader_ready(root, spec):
         return dest_root(root)
-    print("Meta/Khronos OpenXR loader is missing. Run: python utils/fetch_meta_openxr.py")
+    print("Meta/Khronos OpenXR loader is missing. Run: python utils/environment/fetch_meta_openxr.py")
     return fetch(root)
 
 

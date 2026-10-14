@@ -3,11 +3,12 @@ import shutil
 import sys
 import subprocess
 
-_UTILS_DIR = os.path.dirname(os.path.abspath(__file__))
-if _UTILS_DIR not in sys.path:
-    sys.path.insert(0, _UTILS_DIR)
+if __package__ in (None, ''):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sync_assets import ensure_assets
+from utils.assets.sync_assets import ensure_assets
+from utils.environment.render_sdk_options import RenderSdkOptions, add_render_sdk_arguments, render_sdk_options
+from utils.environment.render_sdks import ensure_render_sdks, render_sdks_ready
 
 GLEW_VERSION = "2.3.1"
 SPINE_VERSION = "4.2"
@@ -170,9 +171,28 @@ def ensure_linux_packages():
         print("Warning: Neither 'apt-get' nor 'pacman' found. Please ensure dependencies are installed.")
 
 
-def is_environment_ready(root_dir=None, platform="win"):
+def update_base_submodules(root_dir):
+    from utils.environment.sdks import SDK_NAMES
+    vendor_paths = {sdk[0] for sdk in SDK_NAMES.values()}
+    paths = subprocess.run(['git', 'config', '-f', '.gitmodules', '--get-regexp',
+                            r'^submodule\..*\.path$'], cwd=root_dir, capture_output=True, text=True)
+    if paths.returncode not in (0, 1):
+        raise subprocess.CalledProcessError(paths.returncode, paths.args, paths.stdout, paths.stderr)
+    selected = [line.split(None, 1)[1] for line in paths.stdout.splitlines()
+                if line.split(None, 1)[1] not in vendor_paths]
+    if selected:
+        subprocess.run(['git', 'submodule', 'update', '--init', '--recursive', '--', *selected],
+                       cwd=root_dir, check=True)
+
+
+def is_environment_ready(root_dir=None, platform="win", render_sdks=None, graphics_backends=()):
     root_dir = repo_root(root_dir)
     platform = (platform or "win").lower()
+    if render_sdks is not None:
+        try:
+            render_sdks.validate(platform, graphics_backends)
+        except ValueError:
+            return False
 
     if not has_submodules(root_dir) or not has_spine(root_dir):
         return False
@@ -185,20 +205,22 @@ def is_environment_ready(root_dir=None, platform="win"):
             return False
         elif shutil.which("pacman") and missing_linux_pacman_packages():
             return False
-    return True
+    return render_sdks_ready(render_sdks, graphics_backends)
 
 
-def main(platform="win"):
+def main(platform="win", render_sdks=None, graphics_backends=(), generator='Visual Studio 17 2022'):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = repo_root()
     platform = (platform or "win").lower()
+    render_sdks = render_sdks or RenderSdkOptions()
+    render_sdks.validate(platform, graphics_backends)
 
     print("Updating git submodules...")
-    subprocess.run(["git", "submodule", "update", "--init", "--recursive"], cwd=root_dir, check=True)
+    update_base_submodules(root_dir)
 
     if platform == "win":
         print("\nUpdating GLEW (update_glew.py)...")
-        subprocess.run([sys.executable, os.path.join(script_dir, "update_glew.py")], cwd=root_dir, check=True)
+        subprocess.run([sys.executable, os.path.join(script_dir, "environment", "update_glew.py")], cwd=root_dir, check=True)
 
     if platform == "mac":
         print("\nChecking macOS Homebrew packages...")
@@ -210,10 +232,12 @@ def main(platform="win"):
 
     if platform == "quest":
         print("\nFetching OpenXR Android loader (fetch_meta_openxr.py)...")
-        subprocess.run([sys.executable, os.path.join(script_dir, "fetch_meta_openxr.py")], cwd=root_dir, check=True)
+        subprocess.run([sys.executable, os.path.join(script_dir, "environment", "fetch_meta_openxr.py")], cwd=root_dir, check=True)
 
     print("\nUpdating Spine...")
-    subprocess.run([sys.executable, os.path.join(script_dir, "update_spine.py")], cwd=root_dir, check=True)
+    subprocess.run([sys.executable, os.path.join(script_dir, "environment", "update_spine.py")], cwd=root_dir, check=True)
+
+    ensure_render_sdks(render_sdks, graphics_backends, generator)
 
     print("\nChecking game assets...")
     ensure_assets(root_dir)
@@ -222,5 +246,11 @@ def main(platform="win"):
 
 
 if __name__ == "__main__":
-    requested = sys.argv[1] if len(sys.argv) > 1 else "win"
-    main(requested)
+    import argparse
+    parser = argparse.ArgumentParser(description='Prepare engine dependencies and selected Windows SR/FG SDKs.')
+    parser.add_argument('platform', nargs='?', default='win', choices=('win', 'mac', 'linux', 'ios', 'web', 'android', 'quest'))
+    parser.add_argument('-g', nargs='+', default=['opengl'], choices=('opengl', 'vulkan', 'dx12', 'metal'))
+    parser.add_argument('--generator', default='Visual Studio 17 2022', help='Generator for the FSR Vulkan SDK source build')
+    add_render_sdk_arguments(parser)
+    args = parser.parse_args()
+    main(args.platform, render_sdk_options(args), args.g, args.generator)
