@@ -82,3 +82,19 @@
 [submodule "3rd/OpenXR-SDK"]
 	path = 3rd/OpenXR-SDK
 	url = https://github.com/KhronosGroup/OpenXR-SDK.git
+[submodule "3rd/DLSS"]
+	path = 3rd/DLSS
+	url = https://github.com/NVIDIA/DLSS.git
+	shallow = true
+[submodule "3rd/FidelityFX-Vulkan"]
+	path = 3rd/FidelityFX-Vulkan
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK.git
+	shallow = true
+[submodule "3rd/FSR-DX12"]
+	path = 3rd/FSR-DX12
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK.git
+	shallow = true
+[submodule "3rd/Streamline"]
+	path = 3rd/Streamline
+	url = https://github.com/NVIDIA-RTX/Streamline.git
+	shallow = true
