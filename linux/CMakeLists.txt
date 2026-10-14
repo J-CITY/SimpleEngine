@@ -193,6 +193,8 @@ list(FILTER PROJECT_ABSOLUTE_HEADERS EXCLUDE REGEX "oxrInput\\.h$")
 # Source Groups for IDE
 source_group(TREE ${MAIN_SOURCE_DIR} FILES ${PROJECT_ABSOLUTE_HEADERS} ${PROJECT_ABSOLUTE_SOURCES})
 
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/VectorGraphics.cmake")
+
 add_executable(${APP_NAME}
     ${PROJECT_ABSOLUTE_HEADERS}
     ${PROJECT_ABSOLUTE_SOURCES}
@@ -201,7 +203,7 @@ add_executable(${APP_NAME}
 # --- Generate Reflection Headers ---
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_custom_target(GenerateReflectionHeaders
-    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../utils/build/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
     COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
 )
 add_dependencies(${APP_NAME} GenerateReflectionHeaders)
@@ -301,3 +303,6 @@ target_link_libraries(${APP_NAME} PRIVATE
     pthread
     m
 )
+
+# Independent vector geometry and SDF font module
+target_link_libraries(${APP_NAME} PRIVATE ikigai_vector)

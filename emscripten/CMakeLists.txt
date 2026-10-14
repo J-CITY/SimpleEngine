@@ -171,6 +171,8 @@ list(FILTER PROJECT_ABSOLUTE_SOURCES EXCLUDE REGEX "[/\\\\]backends[/\\\\]metal[
 list(FILTER PROJECT_ABSOLUTE_HEADERS EXCLUDE REGEX "[/\\\\]backends[/\\\\]metal[/\\\\]")
 list(FILTER PROJECT_ABSOLUTE_SOURCES EXCLUDE REGEX "imguiBackendMetal\\.mm$")
 
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/VectorGraphics.cmake")
+
 add_executable(${APP_NAME}
     ${PROJECT_ABSOLUTE_HEADERS}
     ${PROJECT_ABSOLUTE_SOURCES}
@@ -178,7 +180,7 @@ add_executable(${APP_NAME}
 
 add_custom_command(
     TARGET ${APP_NAME} PRE_BUILD
-    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
+    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/build/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
     COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
 )
 
@@ -271,3 +273,6 @@ set(EMSCRIPTEN_LINK_OPTIONS
 target_compile_options(imgui PRIVATE ${EMSCRIPTEN_COMPILE_OPTIONS})
 target_compile_options(${APP_NAME} PRIVATE ${EMSCRIPTEN_COMPILE_OPTIONS})
 target_link_options(${APP_NAME} PRIVATE ${EMSCRIPTEN_LINK_OPTIONS})
+
+# Independent vector geometry and SDF font module
+target_link_libraries(${APP_NAME} PRIVATE ikigai_vector)

@@ -13,6 +13,8 @@ option(USE_SDL      "Use SDL window backend" ON)
 option(USE_OPENGL   "Use OpenGL rendering backend" ON)
 option(USE_VULKAN   "Use Vulkan rendering backend" OFF)
 option(USE_DX12     "Use DX12 rendering backend" OFF)
+option(USE_DLSS     "Enable NVIDIA DLSS Super Resolution" OFF)
+option(USE_FSR      "Enable AMD FSR Upscaling" OFF)
 option(USE_METAL    "Use Metal rendering backend" OFF)
 option(USE_MIMALLOC "Use mimalloc override" OFF)
 option(USE_EDITOR "Build with in-engine editor UI" ON)
@@ -49,8 +51,10 @@ option(ENABLE_SPVREMAPPER OFF)
 add_subdirectory(${THIRD_PARTY_DIR}/glslang ./3rd/glslang/build)
 
 # 4. SPIRV-Cross
-if(USE_DX12 AND NOT EXISTS "${THIRD_PARTY_DIR}/SPIRV-Cross/spirv_hlsl_raytracing.cpp")
-    message(FATAL_ERROR "Apply patches/spirv-cross-ray-tracing.patch to 3rd/SPIRV-Cross before building DX12 shared RT shaders.")
+set(SPIRV_CROSS_SOURCE "${THIRD_PARTY_DIR}/SPIRV-Cross")
+if(USE_DX12)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/SpirvCross.cmake")
+    ikigai_prepare_spirv_cross("${SPIRV_CROSS_SOURCE}" SPIRV_CROSS_SOURCE)
 endif()
 option(SPIRV_CROSS_SKIP_INSTALL ON)
 option(SPIRV_CROSS_CLI OFF)
@@ -58,7 +62,7 @@ option(SPIRV_CROSS_ENABLE_TESTS OFF)
 option(SPIRV_CROSS_ENABLE_C_API OFF)
 option(SPIRV_CROSS_ENABLE_CPP OFF)
 option(SPIRV_CROSS_ENABLE_UTIL OFF)
-add_subdirectory(${THIRD_PARTY_DIR}/SPIRV-Cross ./3rd/SPIRV-Cross/build)
+add_subdirectory("${SPIRV_CROSS_SOURCE}" ./3rd/SPIRV-Cross/build)
 
 # 5. SPIRV-Reflect
 file(GLOB SPIRV_REFLECT_SRC 
@@ -149,6 +153,10 @@ target_compile_definitions(volk PUBLIC VK_NO_PROTOTYPES)
 # 10. SDL3
 if(USE_SDL)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    if(USE_DLSS)
+        # NGX uses the dynamic CRT; SDL's libc-less memmove conflicts with it.
+        set(SDL_LIBC ON CACHE BOOL "Use system CRT with NGX" FORCE)
+    endif()
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
     set(SDL_TEST OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
@@ -216,6 +224,8 @@ if(WIN32)
     endif()
 endif()
 
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/VectorGraphics.cmake")
+
 add_executable(${APP_NAME} ${EXECUTABLE_FLAG}
     ${PROJECT_ABSOLUTE_HEADERS}
     ${PROJECT_ABSOLUTE_SOURCES}
@@ -224,12 +234,12 @@ add_executable(${APP_NAME} ${EXECUTABLE_FLAG}
 # --- Generate Reflection Headers ---
 add_custom_command(
     TARGET ${APP_NAME} POST_BUILD
-    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/install_render_assets.py"
+    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/assets/install_render_assets.py"
     COMMENT "Installing tracked render pipeline assets..."
 )
 add_custom_command(
     TARGET ${APP_NAME} PRE_BUILD
-    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
+    COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/../utils/build/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
     COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
 )
 
@@ -330,6 +340,7 @@ if(USE_SDL)
 endif()
 
 target_link_libraries(${APP_NAME} PRIVATE ${LIBS_TO_LINK})
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Upscalers.cmake")
 
 # Some bundled dependencies cache their output directory. Keep alternate backend
 # builds runnable when ENGINE_RUNTIME_OUTPUT_DIRECTORY points at another folder.
@@ -346,3 +357,15 @@ foreach(runtime_target assimp freetype glslang SPIRV glslang-default-resource-li
 endforeach()
 
 set_target_properties(${APP_NAME} PROPERTIES LINK_FLAGS "/NODEFAULTLIB:LIBCMT /NODEFAULTLIB:LIBCMTD /ignore:4099")
+
+# Independent vector geometry and SDF font module
+target_link_libraries(${APP_NAME} PRIVATE ikigai_vector)
+if(IKIGAI_VECTOR_TESTS)
+    add_executable(ikigai_vector_components_tests "${CMAKE_CURRENT_SOURCE_DIR}/../utils/tests/vector_components.cpp")
+    get_target_property(vector_engine_includes ${APP_NAME} INCLUDE_DIRECTORIES)
+    target_include_directories(ikigai_vector_components_tests PRIVATE ${vector_engine_includes})
+    target_compile_features(ikigai_vector_components_tests PRIVATE cxx_std_20)
+    target_compile_definitions(ikigai_vector_components_tests PRIVATE NOMINMAX)
+    target_compile_options(ikigai_vector_components_tests PRIVATE /bigobj)
+    add_test(NAME vector_components COMMAND ikigai_vector_components_tests)
+endif()

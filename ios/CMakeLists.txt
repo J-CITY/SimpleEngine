@@ -239,6 +239,8 @@ set_source_files_properties(${ASSETS_DIR} PROPERTIES MACOSX_PACKAGE_LOCATION "Re
 
 source_group(TREE ${MAIN_SOURCE_DIR} FILES ${PROJECT_ABSOLUTE_HEADERS} ${PROJECT_ABSOLUTE_SOURCES})
 
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/VectorGraphics.cmake")
+
 add_executable(${APP_NAME} MACOSX_BUNDLE
     ${PROJECT_ABSOLUTE_HEADERS}
     ${PROJECT_ABSOLUTE_SOURCES}
@@ -261,7 +263,7 @@ endif()
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_custom_command(
     TARGET ${APP_NAME} PRE_BUILD
-    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../utils/build/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
     COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
 )
 
@@ -373,3 +375,6 @@ if(USE_METAL)
     # Tell CMake to compile core.cpp as Objective-C++ since it includes Metal headers
     set_source_files_properties(${MAIN_SOURCE_DIR}/engine/coreModule/core/core.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
 endif()
+
+# Independent vector geometry and SDF font module
+target_link_libraries(${APP_NAME} PRIVATE ikigai_vector)

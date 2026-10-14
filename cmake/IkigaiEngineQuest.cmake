@@ -23,7 +23,7 @@ if(NOT EXISTS "${_OX_LOADER}")
     set(_OX_LOADER "${META_OPENXR_DIR}/OpenXR/Libs/Android/${ANDROID_ABI}/libopenxr_loader.so")
 endif()
 if(NOT EXISTS "${_OX_LOADER}")
-    message(FATAL_ERROR "libopenxr_loader.so not found for ${ANDROID_ABI}. Run: python utils/fetch_meta_openxr.py")
+    message(FATAL_ERROR "libopenxr_loader.so not found for ${ANDROID_ABI}. Run: python utils/environment/fetch_meta_openxr.py")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -152,13 +152,15 @@ set(QUEST_SOURCES
     "${QUEST_COMMON_DIR}/winsys/winsys_null.c"
 )
 
+include("${CMAKE_CURRENT_LIST_DIR}/VectorGraphics.cmake")
+
 add_library(main SHARED ${PROJECT_HEADERS} ${PROJECT_SOURCES} ${QUEST_SOURCES})
 set_target_properties(main PROPERTIES DEBUG_POSTFIX "")
 target_compile_options(main PRIVATE -Wno-error=format-security)
 
 add_custom_command(
     TARGET main PRE_BUILD
-    COMMAND python "${REPO_ROOT}/utils/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
+    COMMAND python "${REPO_ROOT}/utils/build/IkigaiHeaderTool.py" "${MAIN_SOURCE_DIR}" "${MAIN_SOURCE_DIR}/engine/generated"
     COMMENT "Running IkigaiHeaderTool to generate reflection headers..."
 )
 
@@ -228,3 +230,6 @@ target_link_libraries(main PRIVATE
 
 message(STATUS "IkigaiEngine Quest OpenXR GLES IKIGAI_GLES_VERSION=${IKIGAI_GLES_VERSION}")
 message(STATUS "OpenXR loader: ${_OX_LOADER}")
+
+# Independent vector geometry and SDF font module
+target_link_libraries(main PRIVATE ikigai_vector)
