@@ -1,90 +1,40 @@
 #pragma once
 
 #include <chrono>
-#include <coroutine>
 
 namespace IKIGAI::TIME {
-	template<typename T>
-	struct Generator {
-		struct promise_type;
-		using handle_type = std::coroutine_handle<promise_type>;
-
-		struct promise_type {
-			T value_;
-			std::exception_ptr exception_;
-
-			Generator get_return_object() {
-				return Generator(handle_type::from_promise(*this));
-			}
-			std::suspend_always initial_suspend() { return {}; }
-			std::suspend_always final_suspend() noexcept { return {}; }
-			void unhandled_exception() { exception_ = std::current_exception(); }
-
-			template<std::convertible_to<T> From>
-			std::suspend_always yield_value(From&& from) {
-				value_ = std::forward<From>(from);
-				return {};
-			}
-			void return_void() {}
-		};
-
-		handle_type h_;
-
-		Generator(handle_type h) : h_(h) {}
-		~Generator() { h_.destroy(); }
-		explicit operator bool() {
-			fill();
-			return !h_.done();
-		}
-		T operator()() {
-			fill();
-			full_ = false;
-			return std::move(h_.promise().value_);
-		}
-
-	private:
-		bool full_ = false;
-
-		void fill() {
-			if (!full_) {
-				h_();
-				if (h_.promise().exception_)
-					std::rethrow_exception(h_.promise().exception_);
-				full_ = true;
-			}
-		}
-	};
-
 	class Timer {
 	public:
 		Timer(Timer const&) = delete;
 		Timer& operator=(Timer const&) = delete;
 
+		// Sample once at frame start. The first sample has a zero delta.
 		void update();
 		[[nodiscard]] double getFPS() const;
+		// Capped at 0.1 seconds before applying the time scale.
 		[[nodiscard]] std::chrono::duration<double> getDeltaTime() const;
+		// Actual elapsed wall time, without a cap or time scale.
 		[[nodiscard]] std::chrono::duration<double> getDeltaTimeUnscaled() const;
+		// Constant simulation step in game seconds, independent of time scale.
 		[[nodiscard]] std::chrono::duration<double> getFixedDeltaTime() const;
+		// Wall time since construction, independent of time scale.
 		[[nodiscard]] std::chrono::duration<double> getTimeSinceStart() const;
 		[[nodiscard]] double getTimeScale() const;
+		// Invalid values are ignored; zero scale pauses game time.
 		void setScale(double s);
+		// Only finite, positive simulation steps are accepted.
 		void setFixedDeltaTime(std::chrono::duration<double> step);
-
-		using TimerGenerator = Generator<std::chrono::duration<double>>;
 
 		static Timer& GetInstance();
 	private:
 		Timer();
-		void init();
-
-		TimerGenerator timerGenerator;
 
 		std::chrono::steady_clock::time_point start;
+		std::chrono::steady_clock::time_point lastFrameTime;
+		bool firstFrame = true;
 		double scale = 1.0;
 		std::chrono::duration<double> dt{};
 		std::chrono::duration<double> fixedDt{1.0 / 50.0};
-#ifdef __EMSCRIPTEN__
-		double mLastMs = -1.0;
-#endif
+		static constexpr std::chrono::duration<double> maxFrameDt{0.1};
 	};
 }

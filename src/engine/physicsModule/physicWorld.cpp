@@ -170,11 +170,11 @@ void PhysicWorld::runPhysics(float dt) {
             cloths[i].ApplyForces();
         }
         for (int i = 0, size = cloths.size(); i < size; ++i) {
-            cloths[i].Update(0.1);
+            cloths[i].Update(dt);
         }
         // Same as above, apply spring forces for cloths
         for (int i = 0, size = cloths.size(); i < size; ++i) {
-            cloths[i].ApplySpringForces(0.1);
+            cloths[i].ApplySpringForces(dt);
         }
         // Same as above, solve cloth constraints
         for (int i = 0, size = cloths.size(); i < size; ++i) {

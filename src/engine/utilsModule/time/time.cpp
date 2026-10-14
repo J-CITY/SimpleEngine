@@ -1,30 +1,17 @@
 #include "time.h"
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
+#include <algorithm>
+#include <cmath>
 
 using namespace IKIGAI::TIME;
 
-Timer::TimerGenerator tick() {
-	std::chrono::steady_clock::time_point current = std::chrono::steady_clock::now();
-	std::chrono::steady_clock::time_point prevTime = current;
-	while (true) {
-		prevTime = current;
-		current = std::chrono::steady_clock::now();
-		co_yield current - prevTime;
-	}
-}
-
-Timer::Timer(): timerGenerator(tick()) {
-	init();
-}
+Timer::Timer(): start(std::chrono::steady_clock::now()), lastFrameTime(start) {}
 
 double Timer::getFPS() const {
-	return 1.0 / (dt.count());
+	return dt.count() > 0.0 ? 1.0 / dt.count() : 0.0;
 }
 
 std::chrono::duration<double> Timer::getDeltaTime() const {
-	return dt * scale;
+	return std::min(dt, maxFrameDt) * scale;
 }
 
 std::chrono::duration<double> Timer::getDeltaTimeUnscaled() const {
@@ -32,11 +19,11 @@ std::chrono::duration<double> Timer::getDeltaTimeUnscaled() const {
 }
 
 std::chrono::duration<double> Timer::getFixedDeltaTime() const {
-	return fixedDt * scale;
+	return fixedDt;
 }
 
 void Timer::setFixedDeltaTime(std::chrono::duration<double> step) {
-	if (step.count() > 0.0) {
+	if (std::isfinite(step.count()) && step.count() > 0.0) {
 		fixedDt = step;
 	}
 }
@@ -50,7 +37,9 @@ double Timer::getTimeScale() const {
 }
 
 void Timer::setScale(double s) {
-	scale = s;
+	if (std::isfinite(s) && s >= 0.0) {
+		scale = s;
+	}
 }
 
 Timer& Timer::GetInstance() {
@@ -58,32 +47,9 @@ Timer& Timer::GetInstance() {
 	return singleton;
 }
 
-void Timer::init() {
-	start = std::chrono::steady_clock::now();
-#ifdef __EMSCRIPTEN__
-	dt = std::chrono::duration<double>(1.0 / 60.0);
-#endif
-}
-
 void Timer::update() {
-#ifdef __EMSCRIPTEN__
-	const double nowMs = emscripten_get_now();
-	if (mLastMs < 0.0) {
-		mLastMs = nowMs;
-		dt = std::chrono::duration<double>(1.0 / 60.0);
-		return;
-	}
-	double delta = (nowMs - mLastMs) / 1000.0;
-	mLastMs = nowMs;
-	if (delta < 0.0) {
-		delta = 0.0;
-	}
-	if (delta > 0.1) {
-		delta = 0.1;
-	}
-	dt = std::chrono::duration<double>(delta);
-#else
-	dt = timerGenerator.h_.promise().value_;
-	timerGenerator.h_();
-#endif
+	const auto now = std::chrono::steady_clock::now();
+	dt = firstFrame ? std::chrono::duration<double>::zero() : now - lastFrameTime;
+	lastFrameTime = now;
+	firstFrame = false;
 }

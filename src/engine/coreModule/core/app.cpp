@@ -1,6 +1,8 @@
 #include "app.h"
+#include "captureModule/screenshot.h"
 
 #include <iostream>
+#include <cmath>
 #include <stdexcept>
 
 #include "coreModule/ecs/componentManager.h"
@@ -23,6 +25,10 @@
 #endif
 #include "renderModule/gameRenderer.h"
 #include "renderModule/backends/interface/driverInterface.h"
+#include "renderModule/backends/driverFactory.h"
+#ifdef USE_SDL
+#include <SDL3/SDL.h>
+#endif
 
 using namespace IKIGAI::CORE;
 
@@ -143,6 +149,9 @@ bool App::runMainLoop() {
 		step("not running");
 		return false;
 	}
+	auto& timer = TIME::Timer::GetInstance();
+	timer.update();
+	const auto frameDt = timer.getDeltaTime();
 	static bool init = false;
 	if (!init)
 	{
@@ -213,6 +222,11 @@ bool App::runMainLoop() {
 	//std::cout << model->getMeshes()[0]->getIndexCount() << std::endl;
 	step("pollEvent");
 	core.window->pollEvent();
+    CAPTURE::ScreenshotService::Get().status();
+#if defined(USE_SDL) || defined(OCULUS)
+    if(core.inputManager && core.inputManager->wasKeyPressedThisFrame(INPUT_SYSTEM::EKey::KEY_F12))
+        CAPTURE::ScreenshotService::Get().request();
+#endif
 	/*
 	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -256,12 +270,11 @@ bool App::runMainLoop() {
 
 	//profiler.Update(TIME::Timer::GetInstance().getDeltaTime().count());
 	step("preUpdate");
-	preUpdate(TIME::Timer::GetInstance().getDeltaTime());
+	preUpdate(frameDt);
 	step("update");
-	update(TIME::Timer::GetInstance().getDeltaTime());
+	update(frameDt);
 	step("postUpdate");
-	postUpdate(TIME::Timer::GetInstance().getDeltaTime());
-	TIME::Timer::GetInstance().update();
+	postUpdate(frameDt);
 	step("done");
 #ifdef __EMSCRIPTEN__
 	if (gWebLogFrames > 0) {
@@ -287,13 +300,15 @@ void App::preUpdate(std::chrono::duration<double> dt) {
 }
 
 void App::update(std::chrono::duration<double> dt) {
+    auto* frameDriver=RENDER::DriverInterface::Get();
+    if(frameDriver)frameDriver->latencyFrameBegin();
 	//PROFILER_EVENT();
 	//core.renderer->getUBO().setSubData(static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count()), 
 	//	3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
 
 #ifdef USE_FILE_WATCHER
 	static std::chrono::duration<double> fwwait = std::chrono::milliseconds(0);
-	fwwait += dt;
+	fwwait += TIME::Timer::GetInstance().getDeltaTimeUnscaled();
 	if (fwwait > std::chrono::milliseconds(5000)) {
 		fwwait = std::chrono::milliseconds(0);
 		RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("UpdateFileWatcher", 2, nullptr, []() {
@@ -331,8 +346,10 @@ void App::update(std::chrono::duration<double> dt) {
 			WebLog("ecs runFixedUpdate done");
 		}
 	}
-	if (fixedSteps >= kMaxFixedStepsPerFrame) {
-		m_fixedTimeAccumulator = std::chrono::duration<double>::zero();
+	if (m_fixedTimeAccumulator >= fixedDt) {
+		// Drop excess whole steps under overload, but preserve the fractional remainder.
+		m_fixedTimeAccumulator = std::chrono::duration<double>(
+			std::fmod(m_fixedTimeAccumulator.count(), fixedDt.count()));
 	}
 
 #if defined(USE_SDL) || defined(OCULUS)
@@ -343,6 +360,7 @@ void App::update(std::chrono::duration<double> dt) {
 	}
 #endif
 
+    bool presentationAllowed=true;
 	if (core.sceneManager->hasCurrentScene()) {
 		WebLog("scene update");
 		auto& currentScene = core.sceneManager->getCurrentScene();
@@ -360,9 +378,20 @@ void App::update(std::chrono::duration<double> dt) {
 		WebLog("ecs runLateUpdate done");
 #ifndef OCULUS
 		WebLog("window update");
+        if(frameDriver){frameDriver->latencySimulationEnd();frameDriver->latencySubmitBegin();}
 		core.window->update();
+#ifdef USE_SDL
+        presentationAllowed=!(SDL_GetWindowFlags(core.window->getSDLWindow())&SDL_WINDOW_MINIMIZED);
+        if(!presentationAllowed){
+            if(frameDriver&&frameDriver->mFrameGeneration&&frameDriver->mFrameGenerationStatus.Active){
+                frameDriver->mFrameGeneration->suspend();frameDriver->mFrameGeneration->waitForPresents();
+                frameDriver->mFrameGenerationStatus=frameDriver->mFrameGeneration->status();
+            }
+            if(auto* game=dynamic_cast<RENDER::GameRenderer*>(core.renderer.get()))game->resetTemporalHistory();
+        }
+#endif
 		WebLog("renderScene");
-		core.renderer->renderScene();
+		if(presentationAllowed)core.renderer->renderScene();
 		WebLog("renderScene done");
 #endif
 	}
@@ -370,7 +399,10 @@ void App::update(std::chrono::duration<double> dt) {
 	RESOURCES::ServiceManager::Get<TASK::TaskSystem>().waitSync();
 #endif
 
-	if (RENDER::DriverInterface::settings.backend != RENDER::RenderSettings::Backend::OPENGL) {
+	if (presentationAllowed&&RENDER::DriverInterface::settings.backend != RENDER::RenderSettings::Backend::OPENGL) {
+#if defined(_WIN32) && defined(USE_SDL)
+        RENDER::FocusPresentationForSmoke(SDL_GetPointerProperty(SDL_GetWindowProperties(core.window->getSDLWindow()),SDL_PROP_WINDOW_WIN32_HWND_POINTER,nullptr));
+#endif
 		RESOURCES::ServiceManager::Get<RENDER::Renderer>().submit();
 	}
 
