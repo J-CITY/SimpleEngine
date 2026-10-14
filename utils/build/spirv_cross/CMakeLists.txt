@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.20)
+project(IkigaiSpirvCross LANGUAGES C CXX)
+
+# Standalone CLI with the same HLSL extension used by the Windows engine.
+get_filename_component(IKIGAI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
+include("${IKIGAI_ROOT}/cmake/SpirvCross.cmake")
+ikigai_prepare_spirv_cross("${IKIGAI_ROOT}/3rd/SPIRV-Cross" SPIRV_CROSS_SOURCE)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+option(SPIRV_CROSS_CLI "Build the shader validation CLI" ON)
+option(SPIRV_CROSS_SKIP_INSTALL "Skip dependency installation" ON)
+option(SPIRV_CROSS_ENABLE_TESTS "Build upstream tests" OFF)
+option(SPIRV_CROSS_ENABLE_C_API "Build the C API" OFF)
+option(SPIRV_CROSS_ENABLE_CPP "Build the C++ emitter required by the CLI" ON)
+option(SPIRV_CROSS_ENABLE_UTIL "Build utility library required by the CLI" ON)
+add_subdirectory("${SPIRV_CROSS_SOURCE}" spirv-cross)

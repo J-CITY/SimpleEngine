@@ -1,0 +1,458 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8e5129c8..1139fb27 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -244,6 +244,7 @@ set(spirv-cross-msl-sources
+ 
+ set(spirv-cross-hlsl-sources
+ 		${CMAKE_CURRENT_SOURCE_DIR}/spirv_hlsl.cpp
++		${CMAKE_CURRENT_SOURCE_DIR}/spirv_hlsl_raytracing.cpp
+ 		${CMAKE_CURRENT_SOURCE_DIR}/spirv_hlsl.hpp)
+ 
+ set(spirv-cross-reflect-sources
+diff --git a/main.cpp b/main.cpp
+index c7cef831..fabbee81 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -740,6 +740,8 @@ struct CLIArguments
+ 
+ 	bool hlsl_support_nonzero_base = false;
+ 	bool hlsl_base_vertex_index_explicit_binding = false;
++	bool hlsl_push_constant_explicit_binding = false;
++	uint32_t hlsl_push_constant_register = 0, hlsl_push_constant_space = 30;
+ 	uint32_t hlsl_base_vertex_index_register_index = 0;
+ 	uint32_t hlsl_base_vertex_index_register_space = 0;
+ 
+@@ -844,6 +846,7 @@ static void print_help_hlsl()
+ 	                "\t\tcbuffer SPIRV_Cross_VertexInfo { int SPIRV_Cross_BaseVertex; int SPIRV_Cross_BaseInstance; };\n"
+ 	                "\t[--hlsl-basevertex-baseinstance-binding <register index> <register space>]:\n\t\tAssign a fixed binding to SPIRV_Cross_VertexInfo.\n"
+ 	                "\t[--hlsl-auto-binding (push, cbv, srv, uav, sampler, all)]\n"
++	                "\t[--hlsl-push-constant-binding <register index> <register space>]:\n\t\tAssign the push-constant CBV binding, including RT stages.\n"
+ 	                "\t\tDo not emit any : register(#) bindings for specific resource types, and rely on HLSL compiler to assign something.\n"
+ 	                "\t[--hlsl-force-storage-buffer-as-uav]:\n\t\tAlways emit SSBOs as UAVs, even when marked as read-only.\n"
+ 	                "\t\tNormally, SSBOs marked with NonWritable will be emitted as SRVs.\n"
+@@ -1516,6 +1519,16 @@ static string compile_iteration(const CLIArguments &args, std::vector<uint32_t>
+ 		hlsl_opts.user_semantic = args.hlsl_user_semantic;
+ 		hlsl->set_hlsl_options(hlsl_opts);
+ 		hlsl->set_resource_binding_flags(args.hlsl_binding_flags);
++		if (args.hlsl_push_constant_explicit_binding)
++		{
++			HLSLResourceBinding binding{};
++			binding.stage = hlsl->get_execution_model();
++			binding.desc_set = ResourceBindingPushConstantDescriptorSet;
++			binding.binding = ResourceBindingPushConstantBinding;
++			binding.cbv.register_binding = args.hlsl_push_constant_register;
++			binding.cbv.register_space = args.hlsl_push_constant_space;
++			hlsl->add_hlsl_resource_binding(binding);
++		}
+ 		if (args.hlsl_base_vertex_index_explicit_binding)
+ 		{
+ 			hlsl->set_hlsl_aux_buffer_binding(HLSL_AUX_BINDING_BASE_VERTEX_INSTANCE,
+@@ -1741,6 +1754,11 @@ static int main_inner(int argc, char *argv[])
+ 	cbs.add("--hlsl-auto-binding", [&args](CLIParser &parser) {
+ 		args.hlsl_binding_flags |= hlsl_resource_type_to_flag(parser.next_string());
+ 	});
++	cbs.add("--hlsl-push-constant-binding", [&args](CLIParser &parser) {
++		args.hlsl_push_constant_explicit_binding = true;
++		args.hlsl_push_constant_register = parser.next_uint();
++		args.hlsl_push_constant_space = parser.next_uint();
++	});
+ 	cbs.add("--hlsl-force-storage-buffer-as-uav",
+ 	        [&args](CLIParser &) { args.hlsl_force_storage_buffer_as_uav = true; });
+ 	cbs.add("--hlsl-nonwritable-uav-texture-as-srv",
+diff --git a/spirv_glsl.cpp b/spirv_glsl.cpp
+index c8284a21..015f7902 100644
+--- a/spirv_glsl.cpp
++++ b/spirv_glsl.cpp
+@@ -10535,6 +10535,11 @@ std::string CompilerGLSL::bitcast_expression(const SPIRType &target_type, SPIRTy
+ 	return join(bitcast_glsl_op(target_type, src_type), "(", expr, ")");
+ }
+ 
++void CompilerGLSL::emit_ray_tracing_terminator(const SPIRBlock &block)
++{
++	statement(block.terminator == SPIRBlock::IgnoreIntersection ? backend.ignore_intersection_literal : backend.terminate_ray_literal, ";");
++}
++
+ string CompilerGLSL::builtin_to_glsl(BuiltIn builtin, StorageClass storage)
+ {
+ 	switch (builtin)
+@@ -19663,11 +19668,11 @@ BlockID CompilerGLSL::emit_block_chain_inner(SPIRBlock &block)
+ 	}
+ 
+ 	case SPIRBlock::IgnoreIntersection:
+-		statement("ignoreIntersectionEXT;");
++		emit_ray_tracing_terminator(block);
+ 		break;
+ 
+ 	case SPIRBlock::TerminateRay:
+-		statement("terminateRayEXT;");
++		emit_ray_tracing_terminator(block);
+ 		break;
+ 
+ 	case SPIRBlock::EmitMeshTasks:
+diff --git a/spirv_glsl.hpp b/spirv_glsl.hpp
+index 5803b58f..29c25ffd 100644
+--- a/spirv_glsl.hpp
++++ b/spirv_glsl.hpp
+@@ -632,6 +632,8 @@ protected:
+ 	{
+ 		std::string discard_literal = "discard";
+ 		std::string demote_literal = "demote";
++		std::string ignore_intersection_literal = "ignoreIntersectionEXT";
++		std::string terminate_ray_literal = "terminateRayEXT";
+ 		std::string null_pointer_literal = "";
+ 		bool float_literal_suffix = false;
+ 		bool double_literal_suffix = true;
+@@ -908,6 +910,7 @@ protected:
+ 	virtual void replace_illegal_names();
+ 	void replace_illegal_names(const std::unordered_set<std::string> &keywords);
+ 	virtual void emit_entry_point_declarations();
++	virtual void emit_ray_tracing_terminator(const SPIRBlock &block);
+ 
+ 	void replace_fragment_output(SPIRVariable &var);
+ 	void replace_fragment_outputs();
+diff --git a/spirv_hlsl.cpp b/spirv_hlsl.cpp
+index 2ce47965..706df49b 100644
+--- a/spirv_hlsl.cpp
++++ b/spirv_hlsl.cpp
+@@ -1186,6 +1186,30 @@ void CompilerHLSL::emit_interface_block_in_struct(const SPIRVariable &var, unord
+ 
+ std::string CompilerHLSL::builtin_to_glsl(BuiltIn builtin, StorageClass storage)
+ {
++	if (is_ray_tracing_shader())
++	{
++		switch (builtin)
++		{
++		case BuiltInLaunchIdKHR: return "DispatchRaysIndex()";
++		case BuiltInLaunchSizeKHR: return "DispatchRaysDimensions()";
++		case BuiltInWorldRayOriginKHR: return "WorldRayOrigin()";
++		case BuiltInWorldRayDirectionKHR: return "WorldRayDirection()";
++		case BuiltInObjectRayOriginKHR: return "ObjectRayOrigin()";
++		case BuiltInObjectRayDirectionKHR: return "ObjectRayDirection()";
++		case BuiltInRayTminKHR: return "RayTMin()";
++		case BuiltInRayTmaxKHR: return "RayTCurrent()";
++		case BuiltInInstanceCustomIndexKHR: return "int(InstanceID())";
++		case BuiltInInstanceId: return "int(InstanceIndex())";
++		case BuiltInPrimitiveId: return "int(PrimitiveIndex())";
++		case BuiltInRayGeometryIndexKHR: return "int(GeometryIndex())";
++		case BuiltInHitKindKHR: return "HitKind()";
++		case BuiltInIncomingRayFlagsKHR: return "RayFlags()";
++		case BuiltInObjectToWorldKHR: return "transpose(ObjectToWorld3x4())";
++		case BuiltInWorldToObjectKHR: return "transpose(WorldToObject3x4())";
++		case BuiltInCullMaskKHR: SPIRV_CROSS_THROW("CullMaskKHR has no DXR Shader Model 6.6 equivalent.");
++		default: break;
++		}
++	}
+ 	switch (builtin)
+ 	{
+ 	case BuiltInPosition:
+@@ -1766,6 +1790,10 @@ void CompilerHLSL::emit_resources()
+ 		statement("");
+ 	emitted = false;
+ 
++	if (is_ray_tracing_shader())
++		emit_ray_tracing_resources();
++	else
++	{
+ 	// Emit builtin input and output variables here.
+ 	emit_builtin_variables();
+ 
+@@ -1945,10 +1973,15 @@ void CompilerHLSL::emit_resources()
+ 		}
+ 	}
+ 
++	} // Ordinary graphics/compute stage interfaces.
++
++	const bool is_mesh_shader = execution.model == ExecutionModelMeshEXT;
+ 	// Global variables.
+ 	for (auto global : global_variables)
+ 	{
+ 		auto &var = get<SPIRVariable>(global);
++		if (is_ray_tracing_shader() && is_ray_tracing_storage(var.storage))
++			continue;
+ 		if (is_hidden_variable(var, true))
+ 			continue;
+ 
+@@ -3094,6 +3127,8 @@ string CompilerHLSL::get_inner_entry_point_name() const
+ 		return "mesh_main";
+ 	else if (execution.model == ExecutionModelTaskEXT)
+ 		return "task_main";
++	else if (is_ray_tracing_shader())
++		return "spvRayMain";
+ 	else
+ 		SPIRV_CROSS_THROW("Unsupported execution model.");
+ }
+@@ -3254,6 +3289,11 @@ void CompilerHLSL::emit_function_prototype(SPIRFunction &func, const Bitset &ret
+ 
+ void CompilerHLSL::emit_hlsl_entry_point()
+ {
++	if (is_ray_tracing_shader())
++	{
++		emit_ray_tracing_entry_point();
++		return;
++	}
+ 	SmallVector<string> arguments;
+ 
+ 	if (require_input && get_entry_point().model != ExecutionModelGeometry)
+@@ -4263,6 +4303,9 @@ void CompilerHLSL::emit_texture_op(const Instruction &i, bool sparse)
+ 
+ string CompilerHLSL::to_resource_binding(const SPIRVariable &var)
+ {
++	if (var.storage == StorageClassShaderRecordBufferKHR)
++		return to_resource_register(HLSL_BINDING_AUTO_CBV_BIT, 'b', hlsl_options.shader_record_register,
++		                            hlsl_options.shader_record_space);
+ 	const auto &type = get<SPIRType>(var.basetype);
+ 
+ 	// We can remap push constant blocks, even if they don't have any binding decoration.
+@@ -5923,6 +5966,8 @@ case OpGroupNonUniform##op: \
+ 
+ void CompilerHLSL::emit_instruction(const Instruction &instruction)
+ {
++	if (is_ray_tracing_shader() && emit_ray_tracing_instruction(instruction))
++		return;
+ 	auto ops = stream(instruction);
+ 	auto opcode = static_cast<Op>(instruction.op);
+ 	uint32_t length = instruction.length;
+@@ -7114,6 +7159,8 @@ void CompilerHLSL::set_resource_binding_flags(HLSLBindingFlags flags)
+ 
+ void CompilerHLSL::validate_shader_model()
+ {
++	if (is_ray_tracing_shader() && hlsl_options.shader_model < 63)
++		SPIRV_CROSS_THROW("Ray tracing pipeline stages require Shader Model 6.3 or higher.");
+ 	// Check for nonuniform qualifier.
+ 	// Instead of looping over all decorations to find this, just look at capabilities.
+ 	for (auto &cap : ir.declared_capabilities)
+@@ -7145,6 +7192,8 @@ void CompilerHLSL::validate_shader_model()
+ 
+ string CompilerHLSL::compile()
+ {
++	backend.ignore_intersection_literal = "IgnoreHit()";
++	backend.terminate_ray_literal = "AcceptHitAndEndSearch()";
+ 	ir.fixup_reserved_names();
+ 
+ 	// Do not deal with ES-isms like precision, older extensions and such.
+diff --git a/spirv_hlsl.hpp b/spirv_hlsl.hpp
+index 0d5181b9..ba764bdf 100644
+--- a/spirv_hlsl.hpp
++++ b/spirv_hlsl.hpp
+@@ -111,6 +111,10 @@ public:
+ 	{
+ 		uint32_t shader_model = 30; // TODO: map ps_4_0_level_9_0,... somehow
+ 
++		// Local-root constant-buffer binding used for SPV_KHR_ray_tracing shader records.
++		uint32_t shader_record_register = 0;
++		uint32_t shader_record_space = 31;
++
+ 		// Allows the PointSize builtin in SM 4.0+, and ignores it, as PointSize is not supported in SM 4+.
+ 		bool point_size_compat = false;
+ 
+@@ -231,6 +235,15 @@ public:
+ 	bool is_hlsl_aux_buffer_binding_used(HLSLAuxBinding binding) const;
+ 
+ private:
++	bool is_ray_tracing_shader() const;
++	static bool is_ray_tracing_storage(StorageClass storage);
++	void emit_ray_tracing_resources();
++	void emit_ray_tracing_entry_point();
++	bool emit_ray_tracing_instruction(const Instruction &instruction);
++	void emit_ray_tracing_terminator(const SPIRBlock &block) override;
++	void emit_ray_tracing_return();
++	std::string ray_tracing_wrapper_name(uint32_t id) const;
++	uint32_t incoming_ray_payload = 0, incoming_callable_data = 0, ray_hit_attribute = 0;
+ 	std::string type_to_glsl(const SPIRType &type, uint32_t id = 0) override;
+ 	std::string image_type_hlsl(const SPIRType &type, uint32_t id);
+ 	std::string image_type_hlsl_modern(const SPIRType &type, uint32_t id);
+diff --git a/spirv_hlsl_raytracing.cpp b/spirv_hlsl_raytracing.cpp
+new file mode 100644
+index 00000000..06908c0a
+--- /dev/null
++++ b/spirv_hlsl_raytracing.cpp
+@@ -0,0 +1,188 @@
++/* SPDX-License-Identifier: Apache-2.0 OR MIT
++ * HLSL lowering for SPV_KHR_ray_tracing. Kept separate from raster lowering.
++ */
++#include "spirv_hlsl.hpp"
++
++using namespace SPIRV_CROSS_NAMESPACE;
++using namespace SPIRV_CROSS_SPV_HEADER_NAMESPACE;
++using namespace std;
++
++bool CompilerHLSL::is_ray_tracing_shader() const
++{
++	switch (get_execution_model())
++	{
++	case ExecutionModelRayGenerationKHR:
++	case ExecutionModelMissKHR:
++	case ExecutionModelClosestHitKHR:
++	case ExecutionModelAnyHitKHR:
++	case ExecutionModelIntersectionKHR:
++	case ExecutionModelCallableKHR: return true;
++	default: return false;
++	}
++}
++
++bool CompilerHLSL::is_ray_tracing_storage(StorageClass storage)
++{
++	switch (storage)
++	{
++	case StorageClassRayPayloadKHR:
++	case StorageClassIncomingRayPayloadKHR:
++	case StorageClassCallableDataKHR:
++	case StorageClassIncomingCallableDataKHR:
++	case StorageClassHitAttributeKHR:
++	case StorageClassShaderRecordBufferKHR: return true;
++	default: return false;
++	}
++}
++
++string CompilerHLSL::ray_tracing_wrapper_name(uint32_t id) const
++{
++	return join("SPIRV_Cross_RayData_", id);
++}
++
++void CompilerHLSL::emit_ray_tracing_resources()
++{
++	incoming_ray_payload = incoming_callable_data = ray_hit_attribute = 0;
++	if (get_execution_model() == ExecutionModelAnyHitKHR)
++		statement("static uint spvRayTermination = 0u;");
++	ir.for_each_typed_id<SPIRVariable>([&](uint32_t, SPIRVariable &var) {
++		if (!is_ray_tracing_storage(var.storage) || is_hidden_variable(var))
++			return;
++		if (var.storage == StorageClassShaderRecordBufferKHR)
++		{
++			emit_buffer_block(var);
++			return;
++		}
++		add_resource_name(var.self);
++		statement("static ", variable_decl(var), ";");
++		// DXR requires struct payload/attribute parameters, even for scalar GLSL data.
++		statement("struct ", ray_tracing_wrapper_name(var.self));
++		begin_scope();
++		const auto &type = get_variable_data_type(var);
++		statement(type_to_glsl(type), " value", type_to_array_glsl(type, var.self), ";");
++		end_scope_decl();
++		uint32_t *incoming = nullptr;
++		if (var.storage == StorageClassIncomingRayPayloadKHR) incoming = &incoming_ray_payload;
++		if (var.storage == StorageClassIncomingCallableDataKHR) incoming = &incoming_callable_data;
++		if (var.storage == StorageClassHitAttributeKHR) incoming = &ray_hit_attribute;
++		if (incoming)
++		{
++			if (*incoming) SPIRV_CROSS_THROW("DXR stages accept one incoming payload/callable datum/hit attribute.");
++			*incoming = var.self;
++		}
++	});
++	statement("struct SPIRV_Cross_UnusedRayData { uint value; };");
++	statement("struct SPIRV_Cross_UnusedHitAttribute { float2 value; };");
++	statement("");
++}
++
++void CompilerHLSL::emit_ray_tracing_entry_point()
++{
++	const char *stage = nullptr;
++	uint32_t payload = 0;
++	bool has_payload = false, has_attribute = false;
++	switch (get_execution_model())
++	{
++	case ExecutionModelRayGenerationKHR: stage = "raygeneration"; break;
++	case ExecutionModelMissKHR: stage = "miss"; has_payload = true; payload = incoming_ray_payload; break;
++	case ExecutionModelClosestHitKHR: stage = "closesthit"; has_payload = has_attribute = true; payload = incoming_ray_payload; break;
++	case ExecutionModelAnyHitKHR: stage = "anyhit"; has_payload = has_attribute = true; payload = incoming_ray_payload; break;
++	case ExecutionModelIntersectionKHR: stage = "intersection"; break;
++	case ExecutionModelCallableKHR: stage = "callable"; has_payload = true; payload = incoming_callable_data; break;
++	default: SPIRV_CROSS_THROW("Invalid DXR stage.");
++	}
++	SmallVector<string> arguments;
++	if (has_payload)
++		arguments.push_back(join("inout ", payload ? ray_tracing_wrapper_name(payload) : "SPIRV_Cross_UnusedRayData", " spvPayload"));
++	if (has_attribute)
++		arguments.push_back(join(ray_hit_attribute ? ray_tracing_wrapper_name(ray_hit_attribute) : "SPIRV_Cross_UnusedHitAttribute", " spvAttributes"));
++	statement("[shader(\"", stage, "\")]");
++	statement("void main(", merge(arguments), ")");
++	begin_scope();
++	if (payload) statement(to_name(payload), " = spvPayload.value;");
++	if (has_attribute && ray_hit_attribute) statement(to_name(ray_hit_attribute), " = spvAttributes.value;");
++	statement(get_inner_entry_point_name(), "();");
++	if (payload) statement("spvPayload.value = ", to_name(payload), ";");
++	if (get_execution_model() == ExecutionModelAnyHitKHR)
++	{
++		statement("if (spvRayTermination == 1u) IgnoreHit();");
++		statement("if (spvRayTermination == 2u) AcceptHitAndEndSearch();");
++	}
++	end_scope();
++}
++
++bool CompilerHLSL::emit_ray_tracing_instruction(const Instruction &instruction)
++{
++	const auto *ops = stream(instruction);
++	switch (static_cast<Op>(instruction.op))
++	{
++	case OpFunctionCall:
++		if (get_execution_model() != ExecutionModelAnyHitKHR) return false;
++		// Evaluate before checking the flag, then unwind every helper to the entry
++		// point, where incoming payload writes are committed before terminating.
++		forced_temporaries.insert(ops[1]);
++		CompilerGLSL::emit_instruction(instruction);
++		statement("if (spvRayTermination != 0u)");
++		begin_scope(); emit_ray_tracing_return(); end_scope();
++		return true;
++	case OpTraceRayKHR:
++	{
++		const auto &var = get<SPIRVariable>(ops[10]);
++		if (var.storage != StorageClassRayPayloadKHR && var.storage != StorageClassIncomingRayPayloadKHR)
++			SPIRV_CROSS_THROW("TraceRayKHR requires a ray payload variable.");
++		const auto suffix = join(current_emitting_block->self, "_", unique_identifier_count++);
++		const auto ray = join("spvRay_", suffix), payload = join("spvPayload_", suffix);
++		statement("RayDesc ", ray, ";");
++		statement(ray, ".Origin = ", to_expression(ops[6]), ";");
++		statement(ray, ".TMin = ", to_expression(ops[7]), ";");
++		statement(ray, ".Direction = ", to_expression(ops[8]), ";");
++		statement(ray, ".TMax = ", to_expression(ops[9]), ";");
++		statement(ray_tracing_wrapper_name(var.self), " ", payload, ";");
++		statement(payload, ".value = ", to_expression(var.self), ";");
++		statement("TraceRay(", to_non_uniform_aware_expression(ops[0]), ", ", to_expression(ops[1]), ", ", to_expression(ops[2]), ", ",
++		          to_expression(ops[3]), ", ", to_expression(ops[4]), ", ", to_expression(ops[5]), ", ", ray, ", ", payload, ");");
++		statement(to_expression(var.self), " = ", payload, ".value;");
++		flush_control_dependent_expressions(current_emitting_block->self);
++		return true;
++	}
++	case OpExecuteCallableKHR:
++	{
++		const auto &var = get<SPIRVariable>(ops[1]);
++		if (var.storage != StorageClassCallableDataKHR && var.storage != StorageClassIncomingCallableDataKHR)
++			SPIRV_CROSS_THROW("ExecuteCallableKHR requires a callable-data variable.");
++		const auto payload = join("spvCallable_", unique_identifier_count++);
++		statement(ray_tracing_wrapper_name(var.self), " ", payload, ";");
++		statement(payload, ".value = ", to_expression(var.self), ";");
++		statement("CallShader(", to_expression(ops[0]), ", ", payload, ");");
++		statement(to_expression(var.self), " = ", payload, ".value;");
++		flush_control_dependent_expressions(current_emitting_block->self);
++		return true;
++	}
++	case OpReportIntersectionKHR:
++	{
++		const auto attribute = join("spvHitAttribute_", unique_identifier_count++);
++		statement(ray_hit_attribute ? ray_tracing_wrapper_name(ray_hit_attribute) : "SPIRV_Cross_UnusedHitAttribute", " ", attribute, ";");
++		statement(attribute, ".value = ", ray_hit_attribute ? to_expression(ray_hit_attribute) : "float2(0.0f, 0.0f)", ";");
++		forced_temporaries.insert(ops[1]);
++		emit_op(ops[0], ops[1], join("ReportHit(", to_expression(ops[2]), ", ", to_expression(ops[3]), ", ", attribute, ")"), false);
++		flush_control_dependent_expressions(current_emitting_block->self);
++		return true;
++	}
++	default: return false;
++	}
++}
++
++void CompilerHLSL::emit_ray_tracing_return()
++{
++	const auto &type = get<SPIRType>(current_function->return_type);
++	if (type.basetype == SPIRType::Void || !type.array.empty()) statement("return;");
++	else statement("return ", to_zero_initialized_expression(type.self), ";");
++}
++
++void CompilerHLSL::emit_ray_tracing_terminator(const SPIRBlock &block)
++{
++	if (get_execution_model() != ExecutionModelAnyHitKHR)
++		SPIRV_CROSS_THROW("IgnoreIntersectionKHR/TerminateRayKHR require an any-hit shader.");
++	statement("spvRayTermination = ", block.terminator == SPIRBlock::IgnoreIntersection ? "1u;" : "2u;");
++	emit_ray_tracing_return();
++}

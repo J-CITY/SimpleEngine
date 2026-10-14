@@ -5,13 +5,10 @@ import argparse
 from datetime import datetime
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-UTILS_DIR = os.path.join(ROOT_DIR, "utils")
-if UTILS_DIR not in sys.path:
-    sys.path.insert(0, UTILS_DIR)
-
-from setup_env import ensure_mac_brew_packages, is_environment_ready, main as setup_environment
-from sync_assets import ensure_assets
-from ensure_emsdk import ensure_emsdk, emrun_path
+from utils.setup_env import ensure_mac_brew_packages, ensure_render_sdks, is_environment_ready, main as setup_environment
+from utils.assets.sync_assets import ensure_assets
+from utils.environment.ensure_emsdk import ensure_emsdk, emrun_path
+from utils.environment.render_sdk_options import add_render_sdk_arguments, render_sdk_options
 
 LOG_FILE = None
 
@@ -77,8 +74,9 @@ def create_assets_link(build_dir):
         return
 
     try:
+        os.makedirs(build_dir, exist_ok=True)
         if platform.system() == 'Windows':
-            subprocess.run(['cmd', '/c', 'mklink', '/J', assets_dest, assets_src], stdout=subprocess.DEVNULL)
+            subprocess.run(['cmd', '/c', 'mklink', '/J', assets_dest, assets_src], stdout=subprocess.DEVNULL, check=True)
         else:
             os.symlink(assets_src, assets_dest, target_is_directory=True)
         print(f"Created assets link in {build_dir}")
@@ -86,16 +84,18 @@ def create_assets_link(build_dir):
         print(f"Warning: Failed to create assets link: {e}")
 
 
-def ensure_environment(platform_arg, skip_setup):
+def ensure_environment(platform_arg, skip_setup, render_sdks=None, graphics_backends=(), generator='Visual Studio 17 2022'):
     if skip_setup:
         return
     if platform_arg == "mac":
         ensure_mac_brew_packages()
     if is_environment_ready(ROOT_DIR, platform_arg):
         ensure_assets(ROOT_DIR)
+        ensure_render_sdks(render_sdks, graphics_backends, generator=generator)
         return
     print("Environment is not ready. Running utils/setup_env.py...")
-    setup_environment(platform_arg)
+    setup_environment(platform_arg, render_sdks=render_sdks, graphics_backends=graphics_backends,
+                      generator=generator)
 
 
 def format_command(command):
@@ -267,6 +267,7 @@ def main():
     parser.add_argument('-t', '--build-type', type=str, default='Release', choices=['Debug', 'Release'],
                         help='CMake build type: Debug or Release (default: Release)')
     parser.add_argument('--build', action='store_true', help='Build the project after CMake configure')
+    add_render_sdk_arguments(parser)
     parser.add_argument('--run', action='store_true', help='Run the web build with emrun from 3rd/emsdk')
     parser.add_argument('-S', '--skip-setup', action='store_true', help='Skip automatic environment setup')
     parser.add_argument('--log', type=str, default='run_vs.log',
@@ -294,9 +295,12 @@ def main():
         if platform_arg in ('win', 'mac', 'linux', 'ios'):
             graphics_backends = resolve_graphics_backends(platform_arg, args.g)
             print('Graphics backends: ' + ', '.join(sorted(graphics_backends)))
+        render_sdks = render_sdk_options(args)
+        render_sdks.validate(platform_arg, graphics_backends or (), args.a)
+        sdk_generator = 'Visual Studio 16 2019' if args.c == 'vs19' else 'Visual Studio 17 2022'
         if platform_arg == 'quest' and (args.use_editor is False or args.use_file_watcher is not None):
             print('Note: Quest build has no editor or file watcher; --use-editor / --use_file_watcher are ignored.')
-        ensure_environment(platform_arg, args.skip_setup)
+        ensure_environment(platform_arg, args.skip_setup, render_sdks, graphics_backends or (), sdk_generator)
 
         if platform_arg == 'win':
             build_dir = args.b if args.b else './windows/build'
@@ -317,6 +321,10 @@ def main():
             append_graphics_cmake_args(command, platform_arg, graphics_backends)
             command.append(f'-DENGINE_WIN_SUBSYSTEM={args.s}')
             append_engine_feature_cmake_args(command, use_editor, use_file_watcher)
+            command.extend(render_sdks.cmake_flags())
+            if (render_sdks.fsr_sr or render_sdks.fsr_fg) and 'vulkan' in graphics_backends:
+                from utils.build.fidelityfx_vulkan import runtime_path
+                command.append(f'-DIKIGAI_FSR_VULKAN_RUNTIME={runtime_path()}')
 
             run_logged(command, check=True)
             create_assets_link(build_dir)
@@ -411,7 +419,7 @@ def main():
                 run_logged([emrun_path(ROOT_DIR), html_path], env=emsdk_env, check=True)
 
         elif platform_arg == 'android':
-            from generate_android import generate_android
+            from utils.build.generate_android import generate_android
 
             output_dir = args.b if args.b else os.path.join(ROOT_DIR, 'android', 'out')
             if not os.path.isabs(output_dir):
@@ -431,7 +439,7 @@ def main():
                 run_logged([gradlew, ':app:assembleDebug'], cwd=output_dir, check=True)
 
         elif platform_arg == 'quest':
-            from generate_quest import generate_quest
+            from utils.build.generate_quest import generate_quest
 
             output_dir = args.b if args.b else os.path.join(ROOT_DIR, 'quest', 'out')
             if not os.path.isabs(output_dir):
