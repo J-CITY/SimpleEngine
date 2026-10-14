@@ -48,3 +48,14 @@ utils/.pack/
 ios/build_xcode
 ios/build
 ios/out
+*.pyc
+/screenshots/
+!utils/build/
+!utils/assets/
+graphify-out/
+__pycache__/
+utils/__pycache__
+# uncomment, when add tests
+utils/validation
+utils/assets
+render_assets/
