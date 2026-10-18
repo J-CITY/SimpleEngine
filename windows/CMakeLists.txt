@@ -139,11 +139,14 @@ target_include_directories(spine PUBLIC "${THIRD_PARTY_DIR}/spine")
 target_compile_definitions(spine PUBLIC SPINE_USE_STD_FUNCTION)
 
 # 8. Lua
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Scripting.cmake")
+if(USE_LUA)
 file(GLOB_RECURSE LUA_FILES "${THIRD_PARTY_DIR}/lua/*.c")
 list(FILTER LUA_FILES EXCLUDE REGEX "lua\\.c$")
 list(FILTER LUA_FILES EXCLUDE REGEX "luac\\.c$")
 add_library(lua STATIC ${LUA_FILES})
 target_include_directories(lua PUBLIC "${THIRD_PARTY_DIR}/lua")
+endif()
 
 # 9. Volk
 add_library(volk STATIC "${THIRD_PARTY_DIR}/volk/volk.c" "${THIRD_PARTY_DIR}/volk/volk.h")
@@ -225,6 +228,7 @@ if(WIN32)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/VectorGraphics.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Coroutines.cmake")
 
 add_executable(${APP_NAME} ${EXECUTABLE_FLAG}
     ${PROJECT_ABSOLUTE_HEADERS}
@@ -291,7 +295,7 @@ target_include_directories(${APP_NAME} PRIVATE
     ${THIRD_PARTY_DIR}/fmt/include
     ${THIRD_PARTY_DIR}/vfspp/include
     ${THIRD_PARTY_DIR}/vfspp/vendor/miniz-cpp
-    ${THIRD_PARTY_DIR}/sol/include
+
     ${THIRD_PARTY_DIR}/volk
     ${THIRD_PARTY_DIR}/Vulkan-Headers/include
     ${THIRD_PARTY_DIR}/VMA/include
@@ -301,7 +305,7 @@ target_include_directories(${APP_NAME} PRIVATE
 set(LIBS_TO_LINK
     imgui
     spine
-    lua
+
     assimp
     freetype
     soloud
@@ -360,6 +364,7 @@ set_target_properties(${APP_NAME} PROPERTIES LINK_FLAGS "/NODEFAULTLIB:LIBCMT /N
 
 # Independent vector geometry and SDF font module
 target_link_libraries(${APP_NAME} PRIVATE ikigai_vector)
+target_link_libraries(${APP_NAME} PRIVATE ikigai_coroutines)
 if(IKIGAI_VECTOR_TESTS)
     add_executable(ikigai_vector_components_tests "${CMAKE_CURRENT_SOURCE_DIR}/../utils/tests/vector_components.cpp")
     get_target_property(vector_engine_includes ${APP_NAME} INCLUDE_DIRECTORIES)
@@ -369,3 +374,9 @@ if(IKIGAI_VECTOR_TESTS)
     target_compile_options(ikigai_vector_components_tests PRIVATE /bigobj)
     add_test(NAME vector_components COMMAND ikigai_vector_components_tests)
 endif()
+
+ikigai_configure_scripting(${APP_NAME})
+ikigai_add_scripting_tests(${APP_NAME})
+
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Networking.cmake")
+ikigai_configure_network(${APP_NAME})
