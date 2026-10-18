@@ -133,7 +133,7 @@ namespace IKIGAI::UTILS {
 
 		explicit WeakPtr(T* component) {
 			mCb = component->getControlBlock();
-			if (mCb && mCb->mPtr) {
+			if (mCb) {
 				mCb->mRC += 1;
 			}
 		}
@@ -144,7 +144,7 @@ namespace IKIGAI::UTILS {
 
 		WeakPtr(const WeakPtr& obj) {
 			mCb = obj.mCb;
-			if (mCb && mCb->mPtr) {
+			if (mCb) {
 				mCb->mRC += 1;
 			}
 		}
@@ -178,7 +178,7 @@ namespace IKIGAI::UTILS {
 		template<typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
 		constexpr WeakPtr(U* ptr_) noexcept {
 			mCb = ptr_->getControlBlock();
-			if (mCb && mCb->mPtr) {
+			if (mCb) {
 				mCb->mRC += 1;
 			}
 		}
@@ -186,7 +186,7 @@ namespace IKIGAI::UTILS {
 		template<typename Ptr, typename = std::enable_if_t<std::is_convertible<Ptr, T>::value>>
 		constexpr WeakPtr(const WeakPtr<Ptr> & other) noexcept {
 			mCb = other->getControlBlock();
-			if (mCb && mCb->mPtr) {
+			if (mCb) {
 				mCb->mRC += 1;
 			}
 		}
@@ -197,7 +197,7 @@ namespace IKIGAI::UTILS {
 			}
 			cleanup();
 			mCb = obj.mCb;
-			if (obj.mCb->mPtr) {
+			if (mCb) {
 				mCb->mRC += 1;
 			}
 			return *this;
@@ -215,6 +215,7 @@ namespace IKIGAI::UTILS {
 		}
 
 		WeakPtr& operator=(WeakPtr&& obj) noexcept {
+            if (this == &obj) return *this;
 			cleanup();
 			mCb = obj.mCb;
 			obj.mCb = nullptr;
@@ -222,14 +223,14 @@ namespace IKIGAI::UTILS {
 		}
 
 		bool operator==(const WeakPtr& c) const {
-			if (mCb->mPtr == c.mCb->mPtr) {
+			if ((mCb ? mCb->mPtr : nullptr) == (c.mCb ? c.mCb->mPtr : nullptr)) {
 				return true;
 			}
 			return false;
 		}
 
 		bool operator!=(const WeakPtr& c) {
-			if (mCb->mPtr != c.mCb->mPtr) {
+			if ((mCb ? mCb->mPtr : nullptr) != (c.mCb ? c.mCb->mPtr : nullptr)) {
 				return true;
 			}
 			return false;
