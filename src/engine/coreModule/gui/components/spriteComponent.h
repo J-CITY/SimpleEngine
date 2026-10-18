@@ -4,6 +4,7 @@
 #include <renderModule/spine/spineDrawable.h>
 
 #include "mathModule/math.h"
+#include "particleModule/particles.h"
 #include "renderModule/backends/interface/textureInterface.h"
 
 
@@ -12,6 +13,7 @@ namespace IKIGAI
 	namespace RESOURCES
 	{
 		class Shader;
+		struct ParticleAsset;
 	}
 }
 
@@ -183,6 +185,7 @@ namespace IKIGAI {
 			std::string mPath;
 			std::shared_ptr<RENDER::TextureInterface> mTexture;
 			std::string mTexturePiece;
+            bool mExplicitAtlas=false;
 
 			//move to component
 			bool mIs3D = false;
@@ -333,6 +336,12 @@ namespace IKIGAI {
 
 		class SpriteParticleComponent : public SpriteComponent {
 		public:
+			~SpriteParticleComponent() override;
+			SpriteParticleComponent(const SpriteParticleComponent&);
+			SpriteParticleComponent& operator=(const SpriteParticleComponent&);
+			void tick(double dt);
+			const auto* runtime() const {return mRuntime.get();}
+			const auto& asset() const {return mParticleAsset;}
 			SpriteParticleComponent(Object& obj);;
 			SpriteParticleComponent(Object& obj, const std::string& path);;
 
@@ -405,6 +414,8 @@ namespace IKIGAI {
 			std::vector<int> freeParticlesId;
 
 			std::vector<Emmiter> emmiters;
+			std::shared_ptr<RESOURCES::ParticleAsset> mParticleAsset;
+			std::unique_ptr<PARTICLES::Runtime<2>> mRuntime;
 			
 			struct Descriptor : public ComponentBase::Descriptor {
 				std::string Type;

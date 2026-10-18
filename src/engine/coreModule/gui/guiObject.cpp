@@ -15,10 +15,11 @@
 #include <coreModule/graphicsWrapper.hpp>
 
 #include "resourceModule/fileSystem/fileSystem.h"
+#include "components/vectorComponents.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::GUI;
-Font::Font(std::string fontPath, int size) {
+Font::Font(std::string fontPath, int size) : path(fontPath) {
 	FT_Library ft=nullptr; FT_Face face=nullptr;
 	if(FT_Init_FreeType(&ft)) throw std::runtime_error("Cannot initialize FreeType");
 	auto file=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFile(fontPath);
@@ -47,6 +48,18 @@ Font::Font(std::string fontPath, int size) {
 }
 
 int id = 1000;
+
+namespace {
+std::shared_ptr<ECS::Object> vectorObject(const std::string& name) {
+    auto& scene=RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
+    auto object=scene.getCurrentScene().createObject(ECS::Object::Id(ECS::Object::Id::ID(id++)),name);
+    object->getTransform()->getTransform().turnOnAnchorPivot();return object;
+}
+}
+std::shared_ptr<ECS::Object> GuiHelper::CreateSdfLabel(const std::string& name,const std::string& text,const std::string& font) {auto o=vectorObject(name);auto c=o->addComponent<ECS::SdfTextComponent>();c->Text=text;c->Font=font;return o;}
+std::shared_ptr<ECS::Object> GuiHelper::CreateVectorShape(const std::string& name,MATH::Vector2f size,int shape) {auto o=vectorObject(name);auto c=o->addComponent<ECS::VectorShapeComponent>();c->Size=size;c->Shape=shape;return o;}
+std::shared_ptr<ECS::Object> GuiHelper::CreateVectorPath(const std::string& name,const std::string& commands) {auto o=vectorObject(name);o->addComponent<ECS::VectorPathComponent>()->Commands=commands;return o;}
+std::shared_ptr<ECS::Object> GuiHelper::CreateVectorCanvas(const std::string& name,bool world) {auto o=vectorObject(name);o->addComponent<ECS::VectorCanvasComponent>()->WorldSpace=world;return o;}
 
 std::shared_ptr<ECS::Object> GuiHelper::CreateSprite(const std::string & name, const std::string & path, bool isRoot) {
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();

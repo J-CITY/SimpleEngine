@@ -1,3 +1,4 @@
+#if USE_LUA
 #include "scriptSystem.h"
 #include <algorithm>
 #include <sceneModule/sceneManager.h>
@@ -170,3 +171,5 @@ bool IKIGAI::ECS::ScriptSystem::registerToLuaContext(ScriptComponent& component,
 void IKIGAI::ECS::ScriptSystem::unregisterFromLuaContext(ScriptComponent& component) {
 	component.getTable() = sol::lua_nil;
 }
+
+#endif

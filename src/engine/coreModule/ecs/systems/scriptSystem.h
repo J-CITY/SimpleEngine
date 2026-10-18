@@ -1,3 +1,4 @@
+#if USE_LUA
 #pragma once
 #include "../systemManager.h"
 #include "../components/scriptComponent.h"
@@ -40,3 +41,4 @@ namespace IKIGAI::ECS {
 		}
 	};
 }
+#endif

@@ -1,4 +1,5 @@
 #include "spriteComponent.h"
+#include "resourceModule/particleManager.h"
 #include <stdexcept>
 #include "renderModule/render.h"
 #include "renderModule/backends/meshFactory.h"
@@ -132,15 +133,19 @@ SpriteComponent::SpriteComponent(Object& obj, const std::string& path): Componen
 }
 
 void SpriteComponent::setTexture(std::string path) {
+	mExplicitAtlas=false;
 	mPath = path;
-	const auto extension = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFileExtension(path);
-	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(path,
-		extension == ".texture" ? RESOURCES::ELoadingType::RESOURCE : RESOURCES::ELoadingType::FILE);
+	auto& loader = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>();
+	const auto resolved=loader.resolveSprite(path);
+	mTexture = loader.createSprite(path);
+	mTexturePiece = resolved.region;
+	const auto piece=mTexture->getPiece(mTexturePiece);
 	obj->getTransform()->getTransform().setLocalSize(
-		{ (float)mTexture->getWidth(), (float)mTexture->getHeight() });
+		{ piece.mW, piece.mH });
 }
 
 void SpriteComponent::setTextureAtlas(std::string path) {
+	mExplicitAtlas=true;
 	mPath = path;
 	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createAtlasFromFile(path, true);
 	//obj->getTransform()->getTransform().setLocalSize(
@@ -170,7 +175,8 @@ SpriteComponent::Descriptor SpriteComponent::getDescriptor() const
 {
 	Descriptor d;
 	d.Type = GetType<SpriteComponent>();
-	d.TexturePath = mPath;
+	d.TexturePath = mExplicitAtlas ? "" : mPath;
+    d.TextureAtlasPath = mExplicitAtlas ? mPath : "";
 	d.TexturePiece = mTexturePiece;
 	d.Is3D = mIs3D;
 	return d;
@@ -215,13 +221,14 @@ int SpriteAnimateComponent::getFrameCount() const
 
 void SpriteAnimateComponent::updateAnim()
 {
+    if (!mTexture || mGridSize.x<=0 || mGridSize.y<=0) return;
 	mCutTime -= TIME::Timer::GetInstance().getDeltaTime().count() * mTimeScale;
 	if (mCutTime < 0.0f) {
 		mCutTime = mTime;
 		nextFrame();
 	}
 
-	//TODO: add atlas support
+	const auto region=mTexture->getPieceUV(mTexturePiece);
 
 	const float frameWidth = 1.f / mGridSize.x;
 	const float frameHeight = 1.f / mGridSize.y;
@@ -229,10 +236,10 @@ void SpriteAnimateComponent::updateAnim()
 	const int row = mCurrentFreme / mGridSize.x;
 	const int col = mCurrentFreme % (int)mGridSize.x;
 
-	mUVRect.mX = frameWidth * col;
-	mUVRect.mY = frameHeight * row;
-	mUVRect.mW = frameWidth;
-	mUVRect.mH = frameHeight;
+	mUVRect.mX = region.mX + region.mW * frameWidth * col;
+	mUVRect.mY = region.mY + region.mH * frameHeight * row;
+	mUVRect.mW = region.mW * frameWidth;
+	mUVRect.mH = region.mH * frameHeight;
 }
 
 void SpriteAnimateComponent::nextFrame() {
@@ -271,126 +278,104 @@ SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, cons
 {
 }
 
-SpriteParticleComponent::SpriteParticleComponent(Object& obj): SpriteComponent(obj)
-{
-	srand(static_cast <unsigned> (time(0)));
+SpriteParticleComponent::SpriteParticleComponent(Object& obj): SpriteComponent(obj) {}
+SpriteParticleComponent::SpriteParticleComponent(Object& obj,const std::string& path): SpriteComponent(obj,path) {}
+SpriteParticleComponent::~SpriteParticleComponent()=default;
+SpriteParticleComponent::SpriteParticleComponent(const SpriteParticleComponent& other):SpriteComponent(other),
+    particles(other.particles),freeParticlesId(other.freeParticlesId),emmiters(other.emmiters),mParticleAsset(other.mParticleAsset),
+    mRuntime(other.mRuntime?std::make_unique<PARTICLES::Runtime<2>>(*other.mRuntime):nullptr){}
+SpriteParticleComponent& SpriteParticleComponent::operator=(const SpriteParticleComponent& other) {
+    if(this!=&other){auto runtime=other.mRuntime?std::make_unique<PARTICLES::Runtime<2>>(*other.mRuntime):nullptr;
+        SpriteComponent::operator=(other);particles=other.particles;freeParticlesId=other.freeParticlesId;
+        emmiters=other.emmiters;mParticleAsset=other.mParticleAsset;mRuntime=std::move(runtime);}return *this;
 }
 
-SpriteParticleComponent::SpriteParticleComponent(Object& obj, const std::string& path): SpriteComponent(obj, path)
-{
-	srand(static_cast <unsigned> (time(0)));
+void SpriteParticleComponent::setEmmiters(std::vector<Emmiter> e) {
+    using J=nlohmann::json;
+    J effect{{"Version",1},{"Dimension","2D"},{"Emitters",J::array()}};
+    auto uniform=[](float a,float b){return J{{"Mode","uniform"},{"Min",a},{"Max",b}};};
+    for(size_t i=0;i<e.size();++i) {
+        auto& emitter=e[i];emitter.curSpawnTime=emitter.pause;emitter.curParticleCount=0;
+        if(emitter.count<=0)continue;
+        if(emitter.spawnTime<=0)throw std::invalid_argument("Legacy particle SpawnTime must be positive; choose an explicit interval");
+        J render{{"Type","sprite2D"},{"RenderSpace",mIs3D?"world":"screen"},{"Piece",emitter.piece.empty()?mTexturePiece:emitter.piece}};
+        if(mExplicitAtlas)render["Atlas"]=mPath;else if(!mPath.empty())render["Texture"]=mPath;
+        J acceleration{{"Mode","uniform"},{"Min",{emitter.gravity.x*emitter.weight.x,emitter.gravity.y*emitter.weight.x}},
+            {"Max",{emitter.gravity.x*emitter.weight.y,emitter.gravity.y*emitter.weight.y}}};
+        // Negative gravity reverses a numeric interval; linked channels preserve one weight.
+        for(int c=0;c<2;++c)if(acceleration["Min"][c].get<float>()>acceleration["Max"][c].get<float>())
+            std::swap(acceleration["Min"][c],acceleration["Max"][c]);
+        effect["Emitters"].push_back({{"Id","legacy-"+std::to_string(i)},{"SimulationSpace","local"},
+            {"Capacity",emitter.count},{"Timing",{{"Duration",emitter.spawnTime},{"Loops",0},{"Delay",emitter.pause}}},
+            {"Emission",{{"Bursts",J::array({{{"Time",0},{"Count",emitter.spawnCount}}})}}},
+            {"Spawn",J::array({
+                {{"Id","shape"},{"Type","Shape"},{"Shape","point"},{"Offset",{emitter.localPos.x,emitter.localPos.y}}},
+                {{"Id","init"},{"Type","Initialize"},{"Lifetime",uniform(emitter.lifeTime.x,emitter.lifeTime.y)},
+                 {"Size",{{"Mode","uniform"},{"Min",{emitter.size.x,emitter.size.x}},{"Max",{emitter.size.y,emitter.size.y}}}},
+                 {"Color",{{"Mode","constant"},{"Value",{emitter.color.x,emitter.color.y,emitter.color.z,emitter.color.w}}}}},
+                {{"Id","launch"},{"Type","DirectionalVelocity"},{"Speed",uniform(emitter.angleForce.x,emitter.angleForce.y)},{"Angle",uniform(emitter.angle.x,emitter.angle.y)}}})},
+            {"Update",J::array({{{"Id","gravity"},{"Type","Acceleration"},{"Value",acceleration}},{{"Id","motion"},{"Type","IntegrateMotion"}}})},
+            {"Renderer",render}});
+    }
+    std::shared_ptr<RESOURCES::ParticleAsset> asset;
+    std::unique_ptr<PARTICLES::Runtime<2>> runtime;
+    if(!effect["Emitters"].empty()) {
+        auto definition=std::make_shared<PARTICLES::Definition>(*PARTICLES::parse(effect,"legacy particles"));
+        for(auto& converted:definition->emitters) {
+            const auto& original=e[std::stoi(converted.id.substr(7))];
+            for(auto& m:converted.update)if(m.type==PARTICLES::ModuleType::Acceleration) {
+                // Preserve one shared random weight, including opposite signs of gravity axes.
+                m.value.min={original.gravity.x*original.weight.x,original.gravity.y*original.weight.x,0,0};
+                m.value.max={original.gravity.x*original.weight.y,original.gravity.y*original.weight.y,0,0};
+            }
+        }
+        asset=RESOURCES::ServiceManager::Get<RESOURCES::ParticleLoader>().createInline(std::move(definition));
+        runtime=std::make_unique<PARTICLES::Runtime<2>>(asset->definition,1);
+    }
+    emmiters=std::move(e);mParticleAsset=std::move(asset);mRuntime=std::move(runtime);
+    particles.clear();freeParticlesId.clear();
 }
-
-void SpriteParticleComponent::setEmmiters(std::vector<Emmiter> e)
-{
-	emmiters = std::move(e);
-
-	int count = 0;
-	for (auto emmiter : emmiters) {
-		count += emmiter.count;
-		emmiter.curSpawnTime = emmiter.pause;
-	}
-	particles.resize(count);
-	freeParticlesId.resize(count);
-	for (auto i = 0; i < count; i++) {
-		freeParticlesId[i] = i;
-	}
+std::vector<SpriteParticleComponent::Emmiter> SpriteParticleComponent::getEmmiters(){return emmiters;}
+void SpriteParticleComponent::spawnParticle(Emmiter& emitter,int id){
+    if(!mRuntime)return;
+    for(size_t i=0;i<mRuntime->definition().emitters.size();++i)if(mRuntime->definition().emitters[i].id=="legacy-"+std::to_string(id)) {
+        mRuntime->emit(i,uint32_t(std::max(0,emitter.spawnCount)));return;
+    }
 }
-
-std::vector<SpriteParticleComponent::Emmiter> SpriteParticleComponent::getEmmiters()
-{
-	return emmiters;
-}
-
-float randFloat0to1()
-{
-	return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-}
-
-float randFloat(float LO, float HI)
-{
-	return  LO + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (HI - LO)));
-}
-
-void SpriteParticleComponent::spawnParticle(Emmiter& emmiter, int emmiterId) {
-	if (freeParticlesId.empty()) {
-		return;
-	}
-	for (auto i = 0; i < emmiter.spawnCount; ++i) {
-		if (emmiter.curParticleCount >= emmiter.count) {
-			break;
-		}
-		auto freeId = freeParticlesId.back();
-		freeParticlesId.pop_back();
-		auto& newParticle = particles[freeId];
-
-		emmiter.curParticleCount++;
-		newParticle.emmiterId = emmiterId;
-		newParticle.isAlive = true;
-		newParticle.pos = MATH::Vector3f();
-		newParticle.life = randFloat(emmiter.lifeTime.x, emmiter.lifeTime.y);
-		newParticle.size = randFloat(emmiter.size.x, emmiter.size.y);
-		newParticle.weight = randFloat(emmiter.weight.x, emmiter.weight.y);
-		const auto angle = MATH::TO_RADIANS(randFloat(emmiter.angle.x, emmiter.angle.y));
-		const auto force = randFloat(emmiter.angleForce.x, emmiter.angleForce.y);
-		newParticle.speed = MATH::Vector3f(cos(angle), sin(angle), 0.0f) * force;
-	}
-}
-
-void SpriteParticleComponent::update() {
-	auto dt = TIME::Timer::GetInstance().getDeltaTime().count();
-
-	int eid = 0;
-	for (auto& emmiter : emmiters) {
-		emmiter.curSpawnTime -= dt;
-		if (emmiter.curSpawnTime < 0) {
-			emmiter.curSpawnTime = emmiter.spawnTime;
-			spawnParticle(emmiter, eid);
-		}
-		eid++;
-	}
-
-	int pid = 0;
-	for (Particle& p : particles) {
-		if (p.life <= 0.0f) {
-			if (p.isAlive) {
-				p.isAlive = false;
-				emmiters[p.emmiterId].curParticleCount--;
-				freeParticlesId.push_back(pid);
-			}
-			pid++;
-			continue;
-		}
-		auto& emmiter = emmiters[p.emmiterId];
-		p.life -= dt;
-		p.speed += emmiter.gravity * (float)dt * p.weight;
-		p.pos += p.speed * (float)dt;
-		pid++;
-	}
+void SpriteParticleComponent::update(){tick(TIME::Timer::GetInstance().getDeltaTime().count());}
+void SpriteParticleComponent::tick(double dt){
+    if(!mRuntime)return;
+    mRuntime->update(dt,obj->getTransform()->getTransform().getWorldMatrix());
+    particles.clear();for(auto& e:emmiters)e.curParticleCount=0;
+    for(size_t i=0;i<mRuntime->emitters().size();++i) {
+        const int id=std::stoi(mRuntime->definition().emitters[i].id.substr(7));
+        const auto& current=mRuntime->emitters()[i];emmiters[id].curParticleCount=int(current.particles.size());
+        for(const auto& p:current.particles){Particle legacy;legacy.pos={p.position[0],p.position[1],0};legacy.speed={p.velocity[0],p.velocity[1],0};
+            legacy.life=p.lifetime-p.age;legacy.size=p.size[0];legacy.weight=1;legacy.emmiterId=id;legacy.isAlive=true;particles.push_back(legacy);}
+    }
 }
 
 SpriteParticleComponent::Descriptor SpriteParticleComponent::getDescriptor() const
 {
 	Descriptor d;
 	d.Type = GetType<SpriteParticleComponent>();
-	d.TexturePath = mPath;
-	d.TexturePiece = mTexturePiece;
-	d.Is3D = mIs3D;
-	d.Emmiters = emmiters;
+	d.TexturePath = mExplicitAtlas ? "" : mPath;
+    d.TextureAtlasPath = mExplicitAtlas ? mPath : "";
+    d.TexturePiece = mTexturePiece;
+    d.Is3D = mIs3D;
+    d.Emmiters = emmiters;
 	return d;
 }
 
 SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): SpriteComponent(obj)
 {
-	mIs3D = descriptor.Is3D;
-	setEmmiters(descriptor.Emmiters);
-	if (!descriptor.TexturePath.empty()) {
-		setTexture(descriptor.TexturePath);
-	}
-	else {
-		setTexture(descriptor.TextureAtlasPath);
-		setAtlasPiece(descriptor.TexturePiece);
-	}
+    mIs3D = descriptor.Is3D;
+    if (!descriptor.TexturePath.empty()) setTexture(descriptor.TexturePath);
+    else if(!descriptor.TextureAtlasPath.empty()) {
+        setTextureAtlas(descriptor.TextureAtlasPath);
+        setAtlasPiece(descriptor.TexturePiece);
+    }
+    setEmmiters(descriptor.Emmiters);
 }
 
 SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
@@ -441,7 +426,7 @@ LabelComponent::Descriptor LabelComponent::getDescriptor() const
 	d.Type = GetType<LabelComponent>();
 	d.Is3D = mIs3D;
 	d.Label = mLabel;
-	d.Font = ""; //TODO:
+	d.Font = mFont ? mFont->path : "";
 	return d;
 }
 
