@@ -130,11 +130,14 @@ target_include_directories(spine PUBLIC "${THIRD_PARTY_DIR}/spine")
 target_compile_definitions(spine PUBLIC SPINE_USE_STD_FUNCTION)
 
 # 8. Lua
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Scripting.cmake")
+if(USE_LUA)
 file(GLOB_RECURSE LUA_FILES "${THIRD_PARTY_DIR}/lua/*.c")
 list(FILTER LUA_FILES EXCLUDE REGEX "lua\\.c$")
 list(FILTER LUA_FILES EXCLUDE REGEX "luac\\.c$")
 add_library(lua STATIC ${LUA_FILES})
 target_include_directories(lua PUBLIC "${THIRD_PARTY_DIR}/lua")
+endif()
 
 # 9. SDL3 is provided by the Emscripten port (-sUSE_SDL=3)
 
@@ -172,6 +175,7 @@ list(FILTER PROJECT_ABSOLUTE_HEADERS EXCLUDE REGEX "[/\\\\]backends[/\\\\]metal[
 list(FILTER PROJECT_ABSOLUTE_SOURCES EXCLUDE REGEX "imguiBackendMetal\\.mm$")
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/VectorGraphics.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Coroutines.cmake")
 
 add_executable(${APP_NAME}
     ${PROJECT_ABSOLUTE_HEADERS}
@@ -219,14 +223,14 @@ target_include_directories(${APP_NAME} PRIVATE
     ${THIRD_PARTY_DIR}/fmt/include
     ${THIRD_PARTY_DIR}/vfspp/include
     ${THIRD_PARTY_DIR}/vfspp/vendor/miniz-cpp
-    ${THIRD_PARTY_DIR}/sol/include
+
     ${THIRD_PARTY_DIR}/stb
 )
 
 set(LIBS_TO_LINK
     imgui
     spine
-    lua
+
     assimp
     soloud
     SPIRV
@@ -253,6 +257,8 @@ set(EMSCRIPTEN_COMPILE_OPTIONS
 )
 set(EMSCRIPTEN_LINK_OPTIONS
     -fexceptions
+    "SHELL:-lidbfs.js"
+    "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/user_storage.js"
     ${EMSCRIPTEN_PORT_OPTIONS}
     "SHELL:-sWASM=1"
     "SHELL:-sUSE_WEBGL2=1"
@@ -276,3 +282,10 @@ target_link_options(${APP_NAME} PRIVATE ${EMSCRIPTEN_LINK_OPTIONS})
 
 # Independent vector geometry and SDF font module
 target_link_libraries(${APP_NAME} PRIVATE ikigai_vector)
+target_link_libraries(${APP_NAME} PRIVATE ikigai_coroutines)
+
+ikigai_configure_scripting(${APP_NAME})
+ikigai_add_scripting_tests(${APP_NAME})
+
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Networking.cmake")
+ikigai_configure_network(${APP_NAME})

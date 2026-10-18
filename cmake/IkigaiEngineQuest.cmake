@@ -95,11 +95,14 @@ add_library(spine STATIC ${SPINE_FILES})
 target_include_directories(spine PUBLIC "${THIRD_PARTY_DIR}/spine")
 target_compile_definitions(spine PUBLIC SPINE_USE_STD_FUNCTION)
 
+include("${CMAKE_CURRENT_LIST_DIR}/Scripting.cmake")
+if(USE_LUA)
 file(GLOB_RECURSE LUA_FILES "${THIRD_PARTY_DIR}/lua/*.c")
 list(FILTER LUA_FILES EXCLUDE REGEX "lua\\.c$")
 list(FILTER LUA_FILES EXCLUDE REGEX "luac\\.c$")
 add_library(lua STATIC ${LUA_FILES})
 target_include_directories(lua PUBLIC "${THIRD_PARTY_DIR}/lua")
+endif()
 
 file(GLOB_RECURSE SOLOUD_SOURCES
     "${THIRD_PARTY_DIR}/soloud/src/audiosource/*.cpp"
@@ -153,6 +156,7 @@ set(QUEST_SOURCES
 )
 
 include("${CMAKE_CURRENT_LIST_DIR}/VectorGraphics.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/Coroutines.cmake")
 
 add_library(main SHARED ${PROJECT_HEADERS} ${PROJECT_SOURCES} ${QUEST_SOURCES})
 set_target_properties(main PROPERTIES DEBUG_POSTFIX "")
@@ -197,7 +201,7 @@ target_include_directories(main PRIVATE
     "${THIRD_PARTY_DIR}/fmt/include"
     "${THIRD_PARTY_DIR}/vfspp/include"
     "${THIRD_PARTY_DIR}/vfspp/vendor/miniz-cpp"
-    "${THIRD_PARTY_DIR}/sol/include"
+
     "${THIRD_PARTY_DIR}/stb"
     ${ANDROID_NDK}/sources/android/native_app_glue
 )
@@ -214,7 +218,7 @@ target_link_libraries(main PRIVATE
     ${ANDROID_LOG_LIB}
     ${ANDROID_LIB}
     spine
-    lua
+
     assimp
     freetype
     soloud
@@ -233,3 +237,10 @@ message(STATUS "OpenXR loader: ${_OX_LOADER}")
 
 # Independent vector geometry and SDF font module
 target_link_libraries(main PRIVATE ikigai_vector)
+target_link_libraries(main PRIVATE ikigai_coroutines)
+
+ikigai_configure_scripting(main)
+ikigai_add_scripting_tests(main)
+
+include("${CMAKE_CURRENT_LIST_DIR}/Networking.cmake")
+ikigai_configure_network(main)
