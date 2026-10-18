@@ -1,0 +1,15 @@
+include_guard(GLOBAL)
+include("${CMAKE_CURRENT_LIST_DIR}/tests/Containers.cmake")
+option(IKIGAI_ENABLE_MEMORY_TRACKING "Track engine CPU/GPU allocations; snapshots are captured on demand" OFF)
+option(IKIGAI_MEMORY_TESTS "Build independent allocator regression tests" OFF)
+
+function(ikigai_configure_memory target)
+    target_compile_definitions(${target} PRIVATE IKIGAI_ENABLE_MEMORY_TRACKING=$<BOOL:${IKIGAI_ENABLE_MEMORY_TRACKING}>)
+    if(IKIGAI_MEMORY_TESTS)
+        ikigai_configure_memory_tests(${target})
+    endif()
+endfunction()
+
+if(IKIGAI_MEMORY_TESTS)
+    include("${CMAKE_CURRENT_LIST_DIR}/tests/Memory.cmake")
+endif()
