@@ -418,7 +418,8 @@ namespace IKIGAI::RENDER {
         if(upscaleEnabled) {
             mJitter=mRenderPipeline->mUpscaler->jitter(mFrameCount,renderSize,displaySize);
             auto jitter=MATH::Matrix4f::Identity;
-            jitter(0,3)=2*mJitter.x/renderSize.x;jitter(1,3)=-2*mJitter.y/renderSize.y;
+            jitter(0,3)=2*mJitter.x/renderSize.x;
+            jitter(1,3)=(DriverInterface::settings.backend==RenderSettings::Backend::OPENGL?2.f:-2.f)*mJitter.y/renderSize.y;
             projection=jitter*projection;
         } else if (taaEnabled) {
 			auto halton = [](unsigned index, unsigned base) {
@@ -433,8 +434,8 @@ namespace IKIGAI::RENDER {
 			const auto index = static_cast<unsigned>(mFrameCount % 8) + 1;
             mJitter={halton(index,2)-.5f,halton(index,3)-.5f};
 			auto jitter = MATH::Matrix4f::Identity;
-			jitter(0, 3) = (halton(index, 2) - .5f) * 2 / static_cast<float>(sz.x);
-			jitter(1, 3) = (halton(index, 3) - .5f) * 2 / static_cast<float>(sz.y);
+			jitter(0, 3) = mJitter.x * 2 / renderSize.x;
+			jitter(1, 3) = (DriverInterface::settings.backend==RenderSettings::Backend::OPENGL?2.f:-2.f)*mJitter.y/renderSize.y;
 			projection = jitter * projection;
 		}
 		uboData.Projection = MATH::Matrix4f::Transpose(projection);
@@ -446,9 +447,12 @@ namespace IKIGAI::RENDER {
 		mFrameData.PreviousModel = MATH::Matrix4f::Identity;
 		const float zeroToOne = DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? 0.0f : 1.0f;
 		mFrameData.CameraParams = { cameraComponent.getNear(), cameraComponent.getFar(), zeroToOne, zeroToOne };
+		// Jitter is expressed in texture pixels on every backend. G-buffer
+		// velocity subtracts this delta so a stationary camera has zero motion;
+		// RT denoising restores it when sampling its jittered history grid.
 		mFrameData.FrameState = { temporalValid ? 1.0f : 0.0f, std::clamp(uboData.Time - previousTime, 0.0f, .25f),
-            upscaleEnabled&&temporalValid?(mJitter.x-mPreviousJitter.x)/renderSize.x:0,
-            upscaleEnabled&&temporalValid?(mJitter.y-mPreviousJitter.y)/renderSize.y:0 };
+            temporalValid?(mJitter.x-mPreviousJitter.x)/renderSize.x:0,
+            temporalValid?(mJitter.y-mPreviousJitter.y)/renderSize.y:0 };
         const auto cameraFrameState=mFrameData.FrameState;
 		mFrameUbo->setData(mFrameData);
 
@@ -764,8 +768,9 @@ namespace IKIGAI::RENDER {
 			render.setClearColor(stage->mDescriptor.ClearValue);
 			render.clear(stage->mDescriptor.ClearColor, stage->mDescriptor.ClearDepth, false);
             if(stage->mName=="PrepareFrameGenMotion"){
-                const MATH::Vector2f delta{(mJitter.x-mPreviousJitter.x)/renderSize.x,(mJitter.y-mPreviousJitter.y)/renderSize.y};
-                stage->mDefaults["data_UBOJitterDelta"]=upscaleEnabled?MATH::Vector2f{}:delta;
+                // G-buffer motion excludes projection jitter for both native
+                // TAA and upscalers. Frame generation uses that same motion.
+                stage->mDefaults["data_UBOJitterDelta"]=MATH::Vector2f{};
             }
             if(stage->mName=="PrepareFrameGenMotion"||stage->mName=="PrepareUpscaleVelocity"){
                 mFrameData.FrameState=cameraFrameState;mFrameUbo->setData(mFrameData);
