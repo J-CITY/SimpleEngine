@@ -10,6 +10,31 @@
 #include "fileWatcher.h"
 
 namespace IKIGAI::RESOURCES {
+    COROUTINE::Task<ResourcePtr<AUDIO::SoundResource>> AudioSourceLoader::createResourceTask(
+        std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) {
+        control->check();
+        if (auto ready = getResource(path)) co_return ready;
+        AUDIO::SoundConfig config;
+        config.pathSoundSource = path;
+        if (type == ELoadingType::RESOURCE) {
+            auto file = ServiceManager::Get<FileSystem>().getFile(path, FileMode::READ);
+            if (!file || !file->isValid()) throw std::runtime_error("Missing audio descriptor: " + path);
+            auto bytes = co_await file->readAllTask(control);
+            auto parsed = UTILS::FromJsonStr<AUDIO::SoundConfig>(std::string(bytes.begin(), bytes.end()));
+            if (parsed.isErr()) throw std::runtime_error("Invalid audio descriptor: " + path);
+            config = parsed.unwrap();
+        }
+        control->check();
+        co_await COROUTINE::NextFrame();
+        control->check();
+        const auto desiredState = config.state;
+        config.state = AUDIO::SoundStatus::STOP;
+        auto resource = CreateFromResource(config, nullptr, [](AUDIO::SoundResource* source) {
+            if (source->id) AUDIO::AudioManagerAL::GetInstance().stop(*source);
+        });
+        resource->data.state = desiredState;
+        co_return registerResource(path, resource);
+    }
 	using SoundDeleter = std::function<void(AUDIO::SoundResource*)>;
 
 	ResourcePtr<AUDIO::SoundResource> AudioSourceLoader::CreateFromFile(const std::string& path, UTILS::IAllocator* allocator, AudioDeleter deleter) {
@@ -22,7 +47,7 @@ namespace IKIGAI::RESOURCES {
 		config.is3D = false;
 		config.isLooped = false;
 
-		auto resource = AllocateResource<AUDIO::SoundResource>(allocator, std::move(deleter), path, config);
+		auto resource = MEMORY::MakeSharedWithDeleter<AUDIO::SoundResource, MEMORY::Category::Audio>(allocator, std::move(deleter), path, config);
 		AUDIO::AudioManagerAL::GetInstance().addSource(*resource);
 		resource->path = path;
 
@@ -35,7 +60,7 @@ namespace IKIGAI::RESOURCES {
 	}
 
 	ResourcePtr<AUDIO::SoundResource> AudioSourceLoader::CreateFromResource(const AUDIO::SoundConfig& config, UTILS::IAllocator* allocator, AudioDeleter deleter) {
-		auto resource = AllocateResource<AUDIO::SoundResource>(allocator, std::move(deleter), config.pathSoundSource, config);
+		auto resource = MEMORY::MakeSharedWithDeleter<AUDIO::SoundResource, MEMORY::Category::Audio>(allocator, std::move(deleter), config.pathSoundSource, config);
 
 		AUDIO::AudioManagerAL::GetInstance().addSource(*resource);
 		resource->path = config.pathSoundSource;

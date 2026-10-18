@@ -33,6 +33,84 @@ TextureLoader::LoadedTextureData TextureLoader::LoadFileData(const std::string& 
 
 TextureLoader::TextureLoader() = default;
 
+ResolvedTexture TextureLoader::resolveSprite(const std::string& path) {
+    if(!mResolver)mResolver=std::make_unique<ResourceResolver>(ServiceManager::Get<FileSystem>());
+    return mResolver->texture(NormalizePath(path));
+}
+ResourceRequest<RENDER::TextureInterface> TextureLoader::requestSprite(const std::string& path) {
+    const auto resolved=resolveSprite(path);
+    return resolved.atlas ? requestAtlas(resolved.path) : requestResource(resolved.path,
+        resolved.path.ends_with(".texture") ? ELoadingType::RESOURCE : ELoadingType::FILE);
+}
+ResourcePtr<RENDER::TextureInterface> TextureLoader::createSprite(const std::string& path) {
+    const auto resolved=resolveSprite(path);
+    return resolved.atlas ? createAtlasFromFile(resolved.path,false) : loadResource(resolved.path,
+        resolved.path.ends_with(".texture") ? ELoadingType::RESOURCE : ELoadingType::FILE);
+}
+
+ResourceRequest<RENDER::TextureInterface> TextureLoader::requestAtlas(std::string path) {
+    path = NormalizePath(std::move(path));
+    auto& files=ServiceManager::Get<FileSystem>();const auto generation=files.generation();
+    return mRequests.request(ServiceManager::Get<COROUTINE::Scheduler>(), "atlas:"+std::to_string(generation)+":" + path,
+        [this, path, generation, &files](auto control) {
+            control->valid=[&files,generation]{return files.generation()==generation;};
+            return createAtlasTask(path, std::move(control));
+        });
+}
+COROUTINE::Task<ResourcePtr<RENDER::TextureInterface>> TextureLoader::createAtlasTask(
+    std::string path, std::shared_ptr<ResourceLoadControl> control) {
+    control->check();
+    const auto cacheKey=std::to_string(ServiceManager::Get<FileSystem>().generation())+":"+path;
+    if (auto ready = mAtlases[cacheKey].lock()) co_return ready;
+    auto file = ServiceManager::Get<FileSystem>().getFile(path, FileMode::READ);
+    if (!file || !file->isValid()) throw std::runtime_error("Missing texture atlas: " + path);
+    auto bytes = co_await file->readAllTask(control);
+    control->check();
+    RENDER::TextureResource descriptor;
+    descriptor.path = path; descriptor.pathTexture = {path}; descriptor.useMipmap = false;
+    auto atlas = ServiceManager::Get<RENDER::Renderer>().createTextureAtlas(descriptor, {bytes});
+    mAtlases[cacheKey] = atlas;
+    co_return atlas;
+}
+
+COROUTINE::Task<ResourcePtr<RENDER::TextureInterface>> TextureLoader::createResourceTask(
+    std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) {
+    control->check();
+    if (auto ready = getResource(path)) co_return ready;
+    auto& fs = ServiceManager::Get<FileSystem>();
+    RENDER::TextureResource descriptor;
+    descriptor.path = path;
+    descriptor.useMipmap = true;
+    if (path.ends_with(".texture") && type == ELoadingType::RESOURCE) {
+        auto file = fs.getFile(path, FileMode::READ);
+        if (!file || !file->isValid()) throw std::runtime_error("Missing texture descriptor: " + path);
+        auto bytes = co_await file->readAllTask(control);
+        auto parsed = UTILS::FromJsonStr<RENDER::TextureResource>(std::string(bytes.begin(), bytes.end()));
+        if (parsed.isErr()) throw std::runtime_error("Invalid texture descriptor: " + path);
+        descriptor = parsed.unwrap();
+        descriptor.path = path;
+    } else {
+        descriptor.pathTexture = {path};
+        descriptor.isFloat = path.ends_with(".hdr");
+    }
+    std::vector<std::vector<uint8_t>> data;
+    std::unordered_set<std::string> watches{path};
+    for (const auto& source : descriptor.pathTexture) {
+        control->check();
+        auto file = fs.getFile(source, FileMode::READ);
+        if (!file || !file->isValid()) throw std::runtime_error("Missing texture: " + source);
+        data.push_back(co_await file->readAllTask(control));
+        watches.insert(source);
+    }
+    control->check();
+    co_await COROUTINE::YieldIfBudgetExceeded();
+    control->check();
+    auto texture = ServiceManager::Get<RENDER::Renderer>().createTexture(descriptor, data, nullptr, createCacheDeleter(path));
+    if (!texture) throw std::runtime_error("Cannot create texture: " + path);
+    addFileWatchSubscribe(path, watches, texture);
+    co_return registerResource(path, texture);
+}
+
 TextureLoader::~TextureLoader() { 
 	sDefaultTexture.reset();
 }
@@ -301,11 +379,11 @@ ResourcePtr<RENDER::TextureInterface> TextureLoader::createFromMemory(const std:
 }
 
 ResourcePtr<RENDER::TextureInterface> TextureLoader::createAtlasFromFile(const std::string& path, bool generateMipmap) {
-	if (auto resource = getResource(path)) {
-		return resource;
-	}
-	if (auto newResource = CreateAtlasFromFile(path, generateMipmap, nullptr, createCacheDeleter(path))) {
-		return registerResource(path, newResource);
+    const auto cacheKey=std::to_string(ServiceManager::Get<FileSystem>().generation())+":"+NormalizePath(path);
+    if (auto cached = mAtlases[cacheKey].lock()) return cached;
+	if (auto newResource = CreateAtlasFromFile(path, generateMipmap)) {
+        mAtlases[cacheKey]=newResource;
+		return newResource;
 	}
 	ASSERT("TextureLoader::createAtlasFromFile — can not create texture");
 	return GetDefaultTexture();

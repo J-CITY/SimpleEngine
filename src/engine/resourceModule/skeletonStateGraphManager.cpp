@@ -15,7 +15,7 @@ namespace IKIGAI::RESOURCES {
 	}
 
 	ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::CreateFromResource(const RENDER::SkeletonStateGraphResource& config, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
-		return  AllocateResource<SKELETON::SkeletalStateGraph>(allocator, deleter, config);
+		return  MEMORY::MakeSharedWithDeleter<SKELETON::SkeletalStateGraph, MEMORY::Category::Skeleton>(allocator, deleter, config);
 	}
 
 	bool SkeletonStateGraphLoader::reloadResource(std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes, const std::string& path) {

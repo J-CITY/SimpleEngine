@@ -11,7 +11,7 @@ namespace IKIGAI::RESOURCES {
 AssimpParser SkeletonLoader::_ASSIMP;
 
 ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromFile(const std::string& path, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
-	auto skeleton = UTILS::AllocateResource<SKELETON::Skeleton>(allocator, deleter);
+	auto skeleton = MEMORY::MakeSharedWithDeleter<SKELETON::Skeleton, MEMORY::Category::Skeleton>(allocator, deleter);
 	auto data = ServiceManager::Get<FileSystem>().getFile(path)->read();
 	if (data.empty()) {
 		ASSERT(std::string("SkeletonLoader::CreateFromFile: empty file: " + path).c_str());

@@ -6,6 +6,7 @@
 #include "utilsModule/assertion.h"
 #include "utilsModule/pathGetter.h"
 #include "serviceManager.h"
+#include "textureManager.h"
 #include <resourceModule/fileSystem/fileSystem.h>
 #include <string>
 #include <serdepp/attribute/default.hpp>
@@ -15,13 +16,15 @@ namespace IKIGAI::RESOURCES {
 	struct ResourcePackItem {
 		std::string path;
 		std::string method = "resource";
+        std::string atlas;
 
 		template<class Context>
 		constexpr static auto serde(Context& context, ResourcePackItem& value) {
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
 				.field(&ResourcePackItem::path, "path")
-				.field(&ResourcePackItem::method, "method", default_{"resource"});
+				.field(&ResourcePackItem::method, "method", default_{"resource"})
+                .field(&ResourcePackItem::atlas,"atlas",default_{""});
 		}
 	};
 
@@ -38,10 +41,14 @@ namespace IKIGAI::RESOURCES {
 		}
 	};
 
-	void ResourcePackManager::loadPack(const std::string& path, ELoadingPolicy policy) {
+	void ResourcePackManager::loadPack(const std::string& inputPath, ELoadingPolicy policy) {
+        const auto path=FileSystem::normalizePath(inputPath);
 		if (mLoadedPacks.contains(path)) {
+            ++mReferences[path];
 			return; 
 		}
+        if(!mLoading.insert(path).second)throw std::runtime_error("Resource pack cycle: "+path);
+        struct Guard {std::set<std::string>& loading;std::string path;~Guard(){loading.erase(path);}}guard{mLoading,path};
 
 		if (policy == ELoadingPolicy::Asynchronous) {
 			//TODO:
@@ -97,19 +104,25 @@ namespace IKIGAI::RESOURCES {
 				if (item.method == "file") method = ELoadingType::FILE;
 				else if (item.method == "memory") method = ELoadingType::MEMORY;
 
-				auto resLoad = entry.loader(item.path, method, policy);
+				auto resLoad = !item.atlas.empty() && (type=="texture"||type=="textures")
+                    ? std::any(ServiceManager::Get<TextureLoader>().createSprite(item.path))
+                    : entry.loader(item.path, method, policy);
 				if (policy == ELoadingPolicy::Asynchronous && resLoad.has_value()) {
 					mAsyncFutures.push_back(std::move(resLoad));
 				}
-				loadedResources.push_back({type, item.path});
+				loadedResources.push_back({type, item.path,std::move(resLoad)});
 			}
 		}
 
 		mLoadedPacks[path] = std::move(loadedResources);
+        mReferences[path]=1;
 	}
 
-	void ResourcePackManager::unloadPack(const std::string& path) {
+	void ResourcePackManager::unloadPack(const std::string& inputPath) {
+        const auto path=FileSystem::normalizePath(inputPath);
 		if (!mLoadedPacks.contains(path)) return;
+        if(--mReferences[path]>0)return;
+        mReferences.erase(path);
 
 		const auto& resources = mLoadedPacks[path];
 		// Unload in reverse order of loading

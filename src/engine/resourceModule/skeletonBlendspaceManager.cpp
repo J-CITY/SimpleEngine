@@ -23,7 +23,7 @@ ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::CreateBlend
 		return nullptr;
 	}
 
-	auto bs = UTILS::AllocateResource<SKELETON::Blendspace1D>(allocator, deleter);
+	auto bs = MEMORY::MakeSharedWithDeleter<SKELETON::Blendspace1D, MEMORY::Category::Skeleton>(allocator, deleter);
 	bs->mSkeleton = skeleton;
 	bs->mNodes.reserve(desc.nodes[0].nodes.size());
 
@@ -49,7 +49,7 @@ ResourcePtr<SKELETON::BlendspaceInterface> SkeletonBlendspaceLoader::CreateBlend
 		return nullptr;
 	}
 
-	auto bs = UTILS::AllocateResource<SKELETON::Blendspace2D>(allocator, deleter);
+	auto bs = MEMORY::MakeSharedWithDeleter<SKELETON::Blendspace2D, MEMORY::Category::Skeleton>(allocator, deleter);
 	bs->mSkeleton = skeleton;
 	bs->mRows.reserve(desc.nodes.size());
 

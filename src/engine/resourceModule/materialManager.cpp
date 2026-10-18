@@ -10,8 +10,37 @@
 #include "renderModule/render.h"
 #include "utilsModule/assertion.h"
 #include <utilsModule/pathGetter.h>
+#include "shaderManager.h"
+#include "textureManager.h"
 
 namespace IKIGAI::RESOURCES {
+
+    COROUTINE::Task<ResourcePtr<RENDER::MaterialInterface>> MaterialLoader::createResourceTask(
+        std::string path, ELoadingType, std::shared_ptr<ResourceLoadControl> control) {
+        control->check();
+        if (auto ready = getResource(path)) co_return ready;
+        auto file = ServiceManager::Get<FileSystem>().getFile(path, FileMode::READ);
+        if (!file || !file->isValid()) throw std::runtime_error("Missing material: " + path);
+        auto bytes = co_await file->readAllTask(control);
+        auto parsed = UTILS::FromJsonStr<RENDER::MaterialResource>(std::string(bytes.begin(), bytes.end()));
+        if (parsed.isErr()) throw std::runtime_error("Invalid material: " + path);
+        auto descriptor = parsed.unwrap();
+        descriptor.path = path;
+        std::vector<std::shared_ptr<void>> dependencies;
+        dependencies.push_back(co_await ServiceManager::Get<ShaderLoader>().loadResourceTask(descriptor.ShaderPath));
+        for (const auto& [name, value] : descriptor.Uniforms) {
+            control->check();
+            if (const auto texture = std::get_if<std::string>(&value); texture && !texture->empty())
+                dependencies.push_back(co_await ServiceManager::Get<TextureLoader>().loadResourceTask(*texture,
+                    texture->ends_with(".texture") ? ELoadingType::RESOURCE : ELoadingType::FILE));
+        }
+        control->check();
+        co_await COROUTINE::NextFrame();
+        control->check();
+        auto material = ServiceManager::Get<RENDER::Renderer>().createMaterial(descriptor, nullptr, createCacheDeleter(path));
+        addFileWatchSubscribe(path, {path}, material);
+        co_return registerResource(path, material);
+    }
 
 	ResourcePtr<RENDER::MaterialInterface> MaterialLoader::Create(const std::string& path, UTILS::IAllocator* allocator, RENDER::MaterialDeleter deleter) {
 		auto& render = ServiceManager::Get<RENDER::Renderer>();
@@ -39,7 +68,7 @@ namespace IKIGAI::RESOURCES {
 		}
 
 		//TODO fix it
-		auto _path = "/" + path;
+		auto _path = NormalizePath(path);
 
 		RENDER::MaterialResource config;
 		if (HasConfig(_path)) {

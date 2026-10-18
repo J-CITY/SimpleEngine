@@ -16,6 +16,38 @@ namespace IKIGAI::RESOURCES {
 
 	AssimpParser ModelLoader::_ASSIMP;
 
+    COROUTINE::Task<ResourcePtr<RENDER::ModelInterface>> ModelLoader::createResourceTask(
+        std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) {
+        control->check();
+        if (auto ready = getResource(path)) co_return ready;
+        auto source = path;
+        auto flags = getDefaultFlag();
+        auto& fs = ServiceManager::Get<FileSystem>();
+        if (path.ends_with(".model") && type == ELoadingType::RESOURCE) {
+            auto file = fs.getFile(path, FileMode::READ);
+            if (!file || !file->isValid()) throw std::runtime_error("Missing model descriptor: " + path);
+            auto bytes = co_await file->readAllTask(control);
+            auto parsed = UTILS::FromJsonStr<RENDER::ModelResource>(std::string(bytes.begin(), bytes.end()));
+            if (parsed.isErr()) throw std::runtime_error("Invalid model descriptor: " + path);
+            const auto config = parsed.unwrap();
+            source = config.pathModel;
+            flags = ModelParserFlags::NONE;
+            for (auto flag : config.flags) flags |= flag;
+        }
+        auto file = fs.getFile(source, FileMode::READ);
+        if (!file || !file->isValid()) throw std::runtime_error("Missing model: " + source);
+        auto bytes = co_await file->readAllTask(control);
+        control->check();
+        co_await COROUTINE::NextFrame();
+        control->check();
+        auto model = ServiceManager::Get<RENDER::Renderer>().createModel(path, nullptr, createCacheDeleter(path));
+        if (!model || !_ASSIMP.LoadModel(source, bytes, model, flags)) throw std::runtime_error("Cannot import model: " + source);
+        model->computeBoundingSphere();
+        model->setPath(path);
+        addFileWatchSubscribe(path, {path, source}, model);
+        co_return registerResource(path, model);
+    }
+
 	void ModelLoader::Reload(RENDER::ModelInterface& model, const RENDER::ModelResource& config) {
 		auto usedFlags = ModelParserFlags::NONE;
 		for (auto e : config.flags) {

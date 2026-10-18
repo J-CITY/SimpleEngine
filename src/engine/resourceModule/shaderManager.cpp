@@ -8,11 +8,37 @@
 #include "serviceManager.h"
 #include "utilsModule/jsonLoader.h"
 #include <filesystem>
+#include <regex>
+#include <set>
+#include <sstream>
 #include <resourceModule/fileSystem/fileSystem.h>
 #include "renderModule/render.h"
 #include "utilsModule/assertion.h"
 
 namespace {
+	std::string readProgramSource(const std::string& path, std::set<std::string>& stack) {
+		if (!stack.insert(path).second)
+			throw std::runtime_error("RT shader include cycle: " + path);
+		auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::FileSystem>();
+		if (!fs.isFileExist(path))
+			throw std::runtime_error("Missing RT shader: " + path);
+		std::string source = fs.getFile(path)->readStr();
+		const std::regex include(R"inc(^[ \t]*#include[ \t]+"([^"]+)"[^\n]*)inc");
+		std::string result, line;
+		std::istringstream stream(source);
+		while (std::getline(stream, line)) {
+			std::smatch match;
+			if (std::regex_match(line, match, include)) {
+				const auto child = (std::filesystem::path(path).parent_path() / match[1].str()).lexically_normal().generic_string();
+				result += readProgramSource(child, stack);
+			}
+			else
+				result += line;
+			result += '\n';
+		}
+		stack.erase(path);
+		return result;
+	}
 	std::string readFileWithInclude(const std::string& path) {
 		auto dir = std::filesystem::path{path}.parent_path();
 
@@ -85,6 +111,43 @@ void main() {
 }
 
 namespace IKIGAI::RESOURCES {
+    COROUTINE::Task<ResourcePtr<RENDER::ShaderInterface>> ShaderLoader::createResourceTask(
+        std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) {
+        control->check();
+        if (auto ready = getResource(path)) co_return ready;
+        auto file = ServiceManager::Get<FileSystem>().getFile(path, FileMode::READ);
+        if (!file || !file->isValid()) throw std::runtime_error("Missing shader: " + path);
+        auto bytes = co_await file->readAllTask(control);
+        auto parsed = UTILS::FromJsonStr<RENDER::ShaderResource>(std::string(bytes.begin(), bytes.end()));
+        if (parsed.isErr()) throw std::runtime_error("Invalid shader: " + path);
+        auto descriptor = parsed.unwrap(); descriptor.path = path;
+        AddConfigToCache(path, descriptor);
+        co_await COROUTINE::NextFrame();
+        control->check();
+        co_return loadResource(path, type);
+    }
+	RENDER::RayTracingProgramResource ShaderLoader::LoadProgramResource(const std::string& path) {
+		auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+		if (!fs.isFileExist(path))
+			throw std::runtime_error("Missing shader program: " + path);
+		auto parsed = UTILS::FromJsonStr<RENDER::ShaderResource>(fs.getFile(path)->readStr());
+		if (parsed.isErr())
+			throw std::runtime_error("Invalid shader program " + path + ": " + parsed.unwrapErr().text);
+		auto resource = parsed.unwrap().getProgramResource();
+		for (auto& shader : resource.Shaders) {
+			if (RENDER::DriverInterface::settings.backend == RENDER::RenderSettings::Backend::DIRECTX12 && shader.BackendPaths.contains("DIRECTX12")) {
+				shader.Path = shader.BackendPaths.at("DIRECTX12");
+				shader.Language = "HLSL";
+				shader.Source.clear();
+			}
+			if (!shader.Source.empty())
+				continue;
+			std::set<std::string> stack;
+			shader.Source = readProgramSource(shader.Path, stack);
+		}
+		return resource;
+	}
+
 	ResourcePtr<RENDER::ShaderInterface> ShaderLoader::createResource(const std::string& path) {
 		return createResource(path, ELoadingType::RESOURCE);
 	}
@@ -110,8 +173,6 @@ namespace IKIGAI::RESOURCES {
 		else if (type == ELoadingType::FILE || type == ELoadingType::MEMORY) {
 			//NOT SUPPORT
 		}
-		res = CreateFromResource(config, nullptr, createCacheDeleter(path));
-
 		{
 			std::unordered_set<std::string> paths = {path};
 			for (auto& [type, shaderPath] : config.paths) {
@@ -150,6 +211,8 @@ namespace IKIGAI::RESOURCES {
 	}
 
 	ResourcePtr<RENDER::ShaderInterface> ShaderLoader::CreateFromResource(const RENDER::ShaderResource& res, UTILS::IAllocator* allocator, RENDER::ShaderDeleter deleter) {
+		if (!res.Shaders.empty() || !res.Groups.empty())
+			throw std::invalid_argument("Named shader modules/groups require a Program pipeline step: " + res.path);
 		auto& render = ServiceManager::Get<RENDER::Renderer>();
 		const std::string path = res.path;
 

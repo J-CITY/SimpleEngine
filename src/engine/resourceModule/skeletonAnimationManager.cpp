@@ -23,7 +23,7 @@ ResourcePtr<SKELETON::Animation> SkeletonAnimationLoader::CreateFromFile(
 		return nullptr;
 	}
 
-	auto animation = UTILS::AllocateResource<SKELETON::Animation>(allocator, deleter);
+	auto animation = MEMORY::MakeSharedWithDeleter<SKELETON::Animation, MEMORY::Category::Skeleton>(allocator, deleter);
 	auto data = ServiceManager::Get<FileSystem>().getFile(path)->read();
 	if (data.empty()) {
 		ASSERT(std::string("SkeletonAnimationLoader::CreateFromFile: empty file: " + path).c_str());

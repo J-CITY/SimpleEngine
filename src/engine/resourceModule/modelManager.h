@@ -6,7 +6,7 @@
 #include "renderModule/backends/interface/driverInterface.h"
 #include "utilsModule/event.h"
 #include "renderModule/backends/interface/resourceStruct.h"
-#include "utilsModule/memoryAlloc.h"
+#include "utilsModule/memory/memory.h"
 
 namespace IKIGAI
 {
@@ -35,6 +35,8 @@ namespace IKIGAI {
 			static ModelParserFlags getDefaultFlag();
 
 		private:
+            COROUTINE::Task<ResourcePtr<RENDER::ModelInterface>> createResourceTask(
+                std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) override;
 			static AssimpParser _ASSIMP;
 
 			ResourcePtr<RENDER::ModelInterface> createResource(const std::string& path) override;

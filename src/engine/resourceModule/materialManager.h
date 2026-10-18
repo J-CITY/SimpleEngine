@@ -21,6 +21,8 @@ namespace IKIGAI {
 				RENDER::MaterialDeleter deleter = nullptr);
 
 		private:
+            COROUTINE::Task<ResourcePtr<RENDER::MaterialInterface>> createResourceTask(
+                std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) override;
 			// Вспомогательные: с кэшем и filewatcher
 			ResourcePtr<RENDER::MaterialInterface> createFromResource(const std::string& path);
 

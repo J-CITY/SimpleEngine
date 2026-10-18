@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include <any>
+#include <set>
 
 namespace IKIGAI::RESOURCES {
 	class ResourcePackManager {
@@ -48,9 +49,12 @@ namespace IKIGAI::RESOURCES {
 		struct LoadedResource {
 			std::string type;
 			std::string path;
+            std::any handle;
 		};
 		// Map PackPath -> List of loaded resources
 		std::map<std::string, std::vector<LoadedResource>> mLoadedPacks;
+        std::map<std::string,size_t> mReferences;
+        std::set<std::string> mLoading;
 
 		std::vector<std::any> mAsyncFutures;
 	};

@@ -2,9 +2,10 @@
 #include "renderModule/backends/interface/driverInterface.h"
 #include "renderModule/backends/interface/resourceStruct.h"
 #include "resourceManager.h"
+#include "resourceResolver.h"
 #include "utilsModule/assertion.h"
 #include "utilsModule/event.h"
-#include "utilsModule/memoryAlloc.h"
+#include "utilsModule/memory/memory.h"
 #include <any>
 #include <functional>
 #include <future>
@@ -22,6 +23,10 @@ namespace IKIGAI::RESOURCES {
 	class TextureLoader : public ResourceManager<RENDER::TextureInterface, RENDER::TextureResource> {
 	public:
 		TextureLoader();
+        ResolvedTexture resolveSprite(const std::string& path);
+        ResourceRequest<RENDER::TextureInterface> requestSprite(const std::string& path);
+        ResourcePtr<RENDER::TextureInterface> createSprite(const std::string& path);
+        ResourceRequest<RENDER::TextureInterface> requestAtlas(std::string path);
 		~TextureLoader() override;
 
 		// С кэшем и FileWatch
@@ -52,6 +57,12 @@ namespace IKIGAI::RESOURCES {
 			UTILS::IAllocator* allocator = nullptr, RENDER::TextureDeleter deleter = nullptr);
 
 	private:
+        std::unique_ptr<ResourceResolver> mResolver;
+        std::unordered_map<std::string, std::weak_ptr<RENDER::TextureInterface>> mAtlases;
+        COROUTINE::Task<ResourcePtr<RENDER::TextureInterface>> createAtlasTask(
+            std::string path, std::shared_ptr<ResourceLoadControl> control);
+            COROUTINE::Task<ResourcePtr<RENDER::TextureInterface>> createResourceTask(
+                std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) override;
 		struct LoadedTextureData {
 			RENDER::TextureResource descriptor;
 			std::vector<uint8_t> fileData;

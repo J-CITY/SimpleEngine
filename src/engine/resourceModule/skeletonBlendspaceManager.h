@@ -9,7 +9,7 @@
 #include "skeletalModule/blendspace.h"
 #include "utilsModule/event.h"
 #include "utilsModule/idGenerator.h"
-#include "utilsModule/memoryAlloc.h"
+#include "utilsModule/memory/memory.h"
 
 namespace IKIGAI::SKELETON {
 	class Blendspace1D;

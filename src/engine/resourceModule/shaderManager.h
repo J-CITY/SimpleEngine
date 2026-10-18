@@ -18,6 +18,7 @@ namespace IKIGAI {
 	namespace RESOURCES {
 		class ShaderLoader : public ResourceManager<RENDER::ShaderInterface, RENDER::ShaderResource> {
 		public:
+			static RENDER::RayTracingProgramResource LoadProgramResource(const std::string& filePath);
 			static ResourcePtr<RENDER::ShaderInterface> Create(const std::string& filePath, UTILS::IAllocator* allocator = nullptr, RENDER::ShaderDeleter deleter = nullptr);
 			static ResourcePtr<RENDER::ShaderInterface> CreateFromResource(const RENDER::ShaderResource& res, UTILS::IAllocator* allocator = nullptr, RENDER::ShaderDeleter deleter = nullptr);
 
@@ -27,6 +28,8 @@ namespace IKIGAI {
 			static void Recompile(RENDER::ShaderInterface& shader, const RENDER::ShaderResource& res);
 
 		protected:
+            COROUTINE::Task<ResourcePtr<RENDER::ShaderInterface>> createResourceTask(
+                std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) override;
 			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path) override;
 			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path, ELoadingType type) override;
 			virtual std::shared_ptr<RENDER::ShaderInterface> createResource(const std::string& path, ELoadingType type, std::any data) override;

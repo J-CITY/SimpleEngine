@@ -4,6 +4,7 @@
 #include <future>
 #include <any>
 #include <unordered_set>
+#include "resourceRequest.h"
 
 #include "fileWatcher.h"
 #include "serviceManager.h"
@@ -43,7 +44,31 @@ namespace IKIGAI {
 
 			using ResourceDeleter = std::function<void(ResourceT*)>;
 
-			virtual ~ResourceManager() override = default;
+            virtual ~ResourceManager() override { mRequests.shutdown(); mLifetime.reset(); }
+
+            static std::string NormalizePath(std::string path) {
+                path = UTILS::ReplaceSubstrings(path, "\\", "/");
+                for (const auto prefix : {"assets/engine/", "assets/game/"}) {
+                    if (const auto pos = path.find(prefix); pos != std::string::npos)
+                        path = path.substr(pos + std::char_traits<char>::length(prefix));
+                }
+                return "/" + std::filesystem::path(path).relative_path().lexically_normal().generic_string();
+            }
+            ResourceRequest<ResourceT> requestResource(std::string path, ELoadingType type = ELoadingType::RESOURCE) {
+                path = NormalizePath(std::move(path));
+                auto& scheduler = ServiceManager::Get<COROUTINE::Scheduler>();
+                auto& files = ServiceManager::Get<FileSystem>();
+                const auto generation = files.generation();
+                auto key = std::to_string(generation) + ":" + std::to_string(static_cast<int>(type)) + ":" + path;
+                return mRequests.request(scheduler, std::move(key), [this, path, type, generation, &files](auto control) {
+                    control->valid = [&files,generation] { return files.generation() == generation; };
+                    return createResourceTask(path, type, std::move(control));
+                });
+            }
+            COROUTINE::Task<ResourcePtr<ResourceT>> loadResourceTask(std::string path, ELoadingType type = ELoadingType::RESOURCE) {
+                auto request = requestResource(std::move(path), type);
+                co_return co_await request.wait();
+            }
 
 			ResourcePtr<ResourceT> loadResource(const std::string& path) {
 				return loadResource(path, ELoadingType::RESOURCE);
@@ -54,15 +79,7 @@ namespace IKIGAI {
 			}
 
 			ResourcePtr<ResourceT> loadResource(const std::string& path, ELoadingType type, std::any data) {
-				std::string _path = UTILS::ReplaceSubstrings(path, "\\", "/");
-				auto pos = _path.find("assets/engine/");
-				if (pos != std::string::npos) {
-					_path = _path.substr(pos + 14);
-				}
-				pos = _path.find("assets/game/");
-				if (pos != std::string::npos) {
-					_path = _path.substr(pos + 12);
-				}
+                const auto _path = NormalizePath(path);
 
 				{
 					std::lock_guard<std::recursive_mutex> lock(mMutex);
@@ -71,6 +88,13 @@ namespace IKIGAI {
 					}
 				}
 
+                static thread_local std::unordered_set<std::string> creating;
+                const auto creationKey = std::to_string(static_cast<int>(type)) + ":" + _path;
+                if (!creating.insert(creationKey).second) throw std::runtime_error("Resource dependency cycle: " + _path);
+                struct CreationGuard {
+                    std::unordered_set<std::string>& set; std::string key;
+                    ~CreationGuard() { set.erase(key); }
+                } guard{creating, creationKey};
 				auto newResource = createResource(_path, type, data);
 				if (newResource) {
 					return registerResource(_path, newResource);
@@ -78,6 +102,7 @@ namespace IKIGAI {
 				return nullptr;
 			}
 
+            [[deprecated("Use requestResource or loadResourceTask on the main thread")]]
 			std::future<ResourcePtr<ResourceT>> loadResourceAsync(const std::string& path, ELoadingType type) {
 				//TODO: use task system or corutines
 				return std::async(std::launch::async, [this, path, type]() {
@@ -85,6 +110,7 @@ namespace IKIGAI {
 				});
 			}
 
+            [[deprecated("Use requestResource or loadResourceTask on the main thread")]]
 			std::future<ResourcePtr<ResourceT>> loadResourceAsync(const std::string& path, ELoadingType type, std::any data) {
 				//TODO: use task system or corutines
 				return std::async(std::launch::async, [this, path, type, data]() {
@@ -94,7 +120,7 @@ namespace IKIGAI {
 
 			void unloadResource(const std::string& path) override {
 				std::lock_guard<std::recursive_mutex> lock(mMutex);
-				resources.erase(path);
+				resources.erase(NormalizePath(path));
 			}
 
 			std::unordered_map<std::string, std::weak_ptr<ResourceT>>& getResources() {
@@ -117,11 +143,23 @@ namespace IKIGAI {
 			}
 
 		protected:
+            virtual COROUTINE::Task<ResourcePtr<ResourceT>> createResourceTask(
+                std::string path, ELoadingType type, std::shared_ptr<ResourceLoadControl> control) {
+                control->check();
+                co_await COROUTINE::YieldIfBudgetExceeded();
+                control->check();
+                co_return loadResource(path, type);
+            }
+            ResourceRequests<ResourceT> mRequests;
 			ResourcePtr<ResourceT> getResource(const std::string& path) {
 				// Assumes lock is held by caller if called internally, 
 				// but let's use recursive_mutex so we can lock again just in case
 				std::lock_guard<std::recursive_mutex> lock(mMutex);
-				if (auto resource = resources.find(path); resource != resources.end()) {
+                const auto generation = ServiceManager::Get<FileSystem>().generation();
+                if (mGeneration != generation) {
+                    resources.clear(); sResourceCache.clear(); mGeneration=generation;
+                }
+				if (auto resource = resources.find(NormalizePath(path)); resource != resources.end()) {
 					return resource->second.lock();
 				}
 				return nullptr;
@@ -129,7 +167,7 @@ namespace IKIGAI {
 
 			ResourcePtr<ResourceT> registerResource(const std::string& path, std::shared_ptr<ResourceT> res) {
 				std::lock_guard<std::recursive_mutex> lock(mMutex);
-				resources[path] = res;
+				resources[NormalizePath(path)] = res;
 				return res;
 			}
 
@@ -176,7 +214,8 @@ namespace IKIGAI {
 				(void)weakRes;
 				return;
 #endif
-				auto fwCb = [this, mainPath, watchPaths, weakRes](RESOURCES::FileWatcher::FileStatus status) {
+                auto fwCb = [this, mainPath, watchPaths, weakRes, lifetime=std::weak_ptr<int>(mLifetime)](RESOURCES::FileWatcher::FileStatus status) {
+                    if (lifetime.expired()) return;
 					if (status == RESOURCES::FileWatcher::FileStatus::MODIFIED) {
 						if (weakRes.lock()) {
 							unsubscribeFileWatch(mainPath);
@@ -211,7 +250,11 @@ namespace IKIGAI {
 				return [this, path, lifetime=std::weak_ptr<int>(mLifetime)](ResourceT* ptr) {
 					// Render targets/materials may outlive the resource loader during shutdown.
 					if (!lifetime.expired()) {
-						this->unloadResource(path);
+                        // An older generation may die after a replacement was
+                        // registered under the same key. Keep the live replacement.
+                        std::lock_guard<std::recursive_mutex> lock(mMutex);
+                        auto it = resources.find(NormalizePath(path));
+                        if (it != resources.end() && it->second.expired()) resources.erase(it);
 					}
 				};
 			}
@@ -224,6 +267,7 @@ namespace IKIGAI {
 			inline static std::unordered_map<std::string, std::vector<std::pair<std::string, IdGenerator<EVENT::Event<>>::ID>>> sFWSubscribersIds;
 
 		private:
+            uint64_t mGeneration = ~uint64_t{0};
 			std::shared_ptr<int> mLifetime = std::make_shared<int>(0);
 			inline static std::string PROJECT_ASSETS_PATH = "";
 			inline static std::string ENGINE_ASSETS_PATH = "";
