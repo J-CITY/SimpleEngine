@@ -4,6 +4,9 @@
 #include <cctype>
 #include <stdexcept>
 #include <string>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #ifdef OPENGL_BACKEND
 #include "gl/driverGl.h"
@@ -22,8 +25,13 @@ namespace IKIGAI::RENDER {
 
 namespace IKIGAI::RENDER {
 	namespace {
+        bool gSmokeFocus=false;
 		std::optional<std::string> gCliBackend;
 		std::optional<std::string> gCliPipeline;
+        std::optional<UpscalerType> gCliUpscaler;
+        std::optional<UpscalerQuality> gCliUpscalerQuality;
+        std::optional<FrameGenerationType> gCliFrameGeneration;
+        std::optional<unsigned> gCliFrameGenerationMultiplier;
 		std::string ToLower(std::string value) {
 			std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
 				return static_cast<char>(std::tolower(c));
@@ -31,6 +39,19 @@ namespace IKIGAI::RENDER {
 			return value;
 		}
 	}
+
+    void SetPresentationSmokeFocus(bool enabled){gSmokeFocus=enabled;}
+    void FocusPresentationForSmoke(void* nativeWindow){
+#ifdef _WIN32
+        if(!gSmokeFocus||!nativeWindow)return;
+        auto hwnd=static_cast<HWND>(nativeWindow);
+        if(GetForegroundWindow()==hwnd)return;
+        const auto current=GetCurrentThreadId(),foreground=GetWindowThreadProcessId(GetForegroundWindow(),nullptr);
+        const bool linked=current!=foreground&&AttachThreadInput(current,foreground,TRUE);
+        SetForegroundWindow(hwnd);SetFocus(hwnd);
+        if(linked)AttachThreadInput(current,foreground,FALSE);
+#endif
+    }
 
 	const char* BackendToString(RenderSettings::Backend backend) {
 		switch (backend) {
@@ -104,8 +125,36 @@ namespace IKIGAI::RENDER {
 	void SetCliRenderPipelineOverride(std::string_view path) {
 		gCliPipeline=std::string(path);
 	}
+    void SetCliUpscalerOverride(std::string_view name) {
+        if(name=="off")gCliUpscaler=UpscalerType::OFF;
+        else if(name=="fsr")gCliUpscaler=UpscalerType::FSR;
+        else if(name=="dlss")gCliUpscaler=UpscalerType::DLSS;
+        else if(name=="auto")gCliUpscaler=UpscalerType::AUTO;
+        else throw std::runtime_error("Invalid --upscaler; expected off/fsr/dlss/auto");
+    }
+    void SetCliUpscalerQualityOverride(std::string_view name) {
+        if(name=="quality")gCliUpscalerQuality=UpscalerQuality::QUALITY;
+        else if(name=="balanced")gCliUpscalerQuality=UpscalerQuality::BALANCED;
+        else if(name=="performance")gCliUpscalerQuality=UpscalerQuality::PERFORMANCE;
+        else throw std::runtime_error("Invalid --upscaler-quality; expected quality/balanced/performance");
+    }
 
+    void SetCliFrameGenerationOverride(std::string_view name){
+        if(name=="off")gCliFrameGeneration=FrameGenerationType::OFF;
+        else if(name=="fsr")gCliFrameGeneration=FrameGenerationType::FSR;
+        else if(name=="dlss")gCliFrameGeneration=FrameGenerationType::DLSS;
+        else if(name=="auto")gCliFrameGeneration=FrameGenerationType::AUTO;
+        else throw std::runtime_error("Invalid --frame-generation; expected off/fsr/dlss/auto");
+    }
+    void SetCliFrameGenerationMultiplier(unsigned multiplier){
+        if(multiplier<2||multiplier>6)throw std::runtime_error("Frame generation multiplier must be in [2,6]");
+        gCliFrameGenerationMultiplier=multiplier;
+    }
 	void ResolveRenderBackend(RenderSettings& settings) {
+        if(gCliFrameGeneration)settings.frameGeneration.technology=*gCliFrameGeneration;
+        if(gCliFrameGenerationMultiplier)settings.frameGeneration.multiplier=*gCliFrameGenerationMultiplier;
+        if(gCliUpscaler)settings.upscaler.technology=*gCliUpscaler;
+        if(gCliUpscalerQuality)settings.upscaler.quality=*gCliUpscalerQuality;
 		if(gCliPipeline) settings.pipeline=*gCliPipeline;
 		if (!ApplyCliRenderBackendOverride(settings)) {
 			throw std::runtime_error("Invalid --render-backend value");
