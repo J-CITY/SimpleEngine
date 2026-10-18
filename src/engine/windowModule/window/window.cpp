@@ -1,9 +1,12 @@
 #include "window.h"
+#include "captureModule/screenshot.h"
+#include "coreModule/graphicsWrapper.hpp"
 
 #ifdef USE_SDL
 
 #include <set>
 #include <SDL3/SDL.h>
+#include "renderModule/backends/interface/driverInterface.h"
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #endif
@@ -134,6 +137,10 @@ MATH::Vector2i Window::getMousePos() const {
 }
 
 void Window::setSize(unsigned width, unsigned height) {
+    if(mIsMainWindow)if(auto* driver=RENDER::DriverInterface::Get();driver&&driver->mFrameGeneration){
+        if(driver->mFrameGeneration->status().Technology==RENDER::FrameGenerationType::DLSS)driver->stopPresentation();
+        else {driver->mFrameGeneration->suspend();driver->mFrameGeneration->waitForPresents();driver->mFrameGenerationStatus=driver->mFrameGeneration->status();}
+    }
 	switch (GetCurrentPlatform()) {
 		case Platform::IOS:
 		case Platform::ANDROIDOS:
@@ -311,6 +318,10 @@ int Window::getRefreshRate() const {
 }
 
 void Window::setFullscreen(bool val) {
+    if(mIsMainWindow)if(auto* driver=RENDER::DriverInterface::Get();driver&&driver->mFrameGeneration){
+        if(driver->mFrameGeneration->status().Technology==RENDER::FrameGenerationType::DLSS)driver->stopPresentation();
+        else {driver->mFrameGeneration->suspend();driver->mFrameGeneration->waitForPresents();driver->mFrameGenerationStatus=driver->mFrameGeneration->status();}
+    }
 	switch (GetCurrentPlatform()) {
 	case Platform::IOS:
 	case Platform::ANDROIDOS: {
@@ -516,6 +527,38 @@ void Window::draw() const {
 	}
 #endif
 	if (mWindowSettings.renderBackend == RENDER::RenderSettings::Backend::OPENGL) {
+#if defined(OPENGL_BACKEND) && !defined(USING_GLES)
+        if(!(SDL_GetWindowFlags(mContext->mWindow)&SDL_WINDOW_MINIMIZED))CAPTURE::ScreenshotService::Get().capture([this] {
+            const auto size=getPixelSize();
+            if(size.x<=0||size.y<=0)throw std::runtime_error("Screenshot window has no pixels");
+            CAPTURE::ScreenshotImage image{static_cast<int>(size.x),static_cast<int>(size.y),std::vector<uint8_t>(size_t(size.x)*size.y*4)};
+            std::vector<uint8_t> pixels(image.rgba.size());
+            GLint framebuffer=0,buffer=0,packBuffer=0,alignment=0,rowLength=0,skipRows=0,skipPixels=0;
+            glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&framebuffer);
+            glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING,&packBuffer);
+            glGetIntegerv(GL_PACK_ALIGNMENT,&alignment);
+            glGetIntegerv(GL_PACK_ROW_LENGTH,&rowLength);
+            glGetIntegerv(GL_PACK_SKIP_ROWS,&skipRows);
+            glGetIntegerv(GL_PACK_SKIP_PIXELS,&skipPixels);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER,0);
+            glGetIntegerv(GL_READ_BUFFER,&buffer);
+            glReadBuffer(GL_BACK);
+            glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
+            glPixelStorei(GL_PACK_ALIGNMENT,1);glPixelStorei(GL_PACK_ROW_LENGTH,0);
+            glPixelStorei(GL_PACK_SKIP_ROWS,0);glPixelStorei(GL_PACK_SKIP_PIXELS,0);
+            glReadPixels(0,0,size.x,size.y,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
+            glReadBuffer(buffer);glBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
+            glBindBuffer(GL_PIXEL_PACK_BUFFER,packBuffer);
+            glPixelStorei(GL_PACK_ALIGNMENT,alignment);glPixelStorei(GL_PACK_ROW_LENGTH,rowLength);
+            glPixelStorei(GL_PACK_SKIP_ROWS,skipRows);glPixelStorei(GL_PACK_SKIP_PIXELS,skipPixels);
+            const size_t stride=size_t(size.x)*4;
+            for(int y=0;y<image.height;++y)std::copy_n(pixels.data()+size_t(image.height-1-y)*stride,stride,image.rgba.data()+size_t(y)*stride);
+            for(size_t i=3;i<image.rgba.size();i+=4)image.rgba[i]=255;
+            return image;
+        });
+#elif defined(OPENGL_BACKEND)
+        if(CAPTURE::ScreenshotService::Get().pending())CAPTURE::ScreenshotService::Get().fail("Window screenshots require desktop OpenGL");
+#endif
 		SDL_GL_SwapWindow(mContext->mWindow);
 	}
 }
