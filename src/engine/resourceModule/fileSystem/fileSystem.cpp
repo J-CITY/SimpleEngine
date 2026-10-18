@@ -354,6 +354,11 @@ FileSystem::FileTime FileSystem::lastWriteTime(const std::string& path) {
 	return native ? std::filesystem::last_write_time(std::filesystem::u8path(*native), ec) : FileTime {};
 }
 uintmax_t FileSystem::fileSize(const std::string& path) {
+	if (const auto native = getAbsolutePath(path)) {
+		std::error_code error;
+		const auto size = std::filesystem::file_size(std::filesystem::u8path(*native), error);
+		if (!error) return size;
+	}
 	return getFile(path)->getSize();
 }
 std::shared_ptr<File> FileSystem::getFile(const std::string& path, FileMode mode) {

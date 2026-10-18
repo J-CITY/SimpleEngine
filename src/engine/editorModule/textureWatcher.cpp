@@ -6,7 +6,7 @@
 #include "resourceModule/serviceManager.h"
 
 void IKIGAI::EDITOR::TextureWatcherWindow::draw() {
-	ImGui::Begin("Texture Watcher");
+	if (!ImGui::Begin("Texture Watcher")) { ImGui::End(); return; }
 	try {
 		auto& renderer = RESOURCES::ServiceManager::Get<RENDER::GameRendererInterface>();
 		const auto& textures = renderer.getCurrentPipeline().mTextures;
@@ -24,6 +24,7 @@ void IKIGAI::EDITOR::TextureWatcherWindow::draw() {
 				ImGui::TextUnformatted("Cube/volume texture; use a face or slice capture");
 				continue;
 			}
+			if (!ImGui::IsRectVisible(ImVec2(128.0f, 128.0f))) { ImGui::Dummy(ImVec2(128.0f, 128.0f)); continue; }
 			ImGui::Image(
 				reinterpret_cast<ImTextureID>(texture->getImguiId()),
 				ImVec2(128.0f, 128.0f),

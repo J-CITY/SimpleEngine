@@ -131,6 +131,9 @@ void EditorRender::draw() {
 			if (ImGui::MenuItem("Profiler", nullptr, &profilerOpen)) mData->mProfiler.setOpen(profilerOpen);
 			ImGui::EndMenu();
 		}
+		ImGui::Separator();
+		const auto fps = ImGui::GetIO().Framerate;
+		ImGui::Text("%.1f FPS | %.1f ms", fps, fps > 0 ? 1000.0f / fps : 0.0f);
 		ImGui::EndMainMenuBar();
 	}
 	mData->mProfiler.draw();

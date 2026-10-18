@@ -17,6 +17,9 @@
 #include "windowModule/inputManager/inputManager.h"
 #include "windowModule/window/window.h"
 #include <magic_enum.hpp>
+#if defined(USE_EDITOR) && !defined(OCULUS)
+#include "imgui.h"
+#endif
 
 namespace magic_enum::customize {
 template <> struct enum_range<IKIGAI::INPUT_SYSTEM::EKey> {
@@ -209,6 +212,13 @@ void IkigaiScriptBinder::bindGlobals() {
 		return value(Vector2f(float(p.x), float(p.y)));
 	});
 	function("Inputs", "HasFocus", [this](const Args&) { return value(ServiceManager::Get<WINDOW::Window>().hasFocus()); });
+    function("Inputs", "CanControlCamera", [this](const Args&) {
+        bool allowed = ServiceManager::Get<WINDOW::Window>().hasFocus();
+#if defined(USE_EDITOR) && !defined(OCULUS)
+        if (ImGui::GetCurrentContext()) allowed = allowed && !ImGui::GetIO().WantCaptureKeyboard && !ImGui::GetIO().WantCaptureMouse;
+#endif
+        return value(allowed);
+    });
 	function(
 		"Inputs", "IsPressed", [this](const Args& a) { return value(ServiceManager::Get<InputActions>().isPressed(read<std::string>(a.at(0)))); });
 	function("Inputs", "WasPressedThisFrame",

@@ -715,6 +715,7 @@ bool DriverVk::checkInstanceExtensionSupport(const std::vector<const char*>& ext
 
 void DriverVk::begin() {
 	working = true;
+    UniformBufferVk::BeginFrame();
     mRayTracingFrameResources.clear();
 	// Previous frame's fence has already signaled (submit waits before begin).
 	mFrameDescriptorSets.clear();
@@ -744,7 +745,6 @@ void DriverVk::begin() {
 
 	vk::CommandBufferBeginInfo beginInfo;
 	beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-	std::cout << "vkBeginCommandBuffer\n";
 	getCurrentFrame().mCommandBuffer.begin(beginInfo);
 
 	auto tex = std::static_pointer_cast<TextureVk>(getCurrentFrame().mFrameBuffer->getTextures()[0]);
@@ -769,7 +769,6 @@ void DriverVk::end() {
 
 	//UtilityVk::SetImageMemoryBarrier(getCurrentFrame().mCommandBuffer, tex->mImagePtr, vk::ImageAspectFlagBits::eColor, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR);
 
-	std::cout << "vkEndCommandBuffer\n";
 	getCurrentFrame().mCommandBuffer.end();
 
 	const auto& frame = getCurrentFrame();
@@ -1498,7 +1497,6 @@ void DriverVk::beginRenderPass() {
 		if (targets->getDepth()->getFormat() != PixelFormat::DEPTH32_FLOAT)
 			rendering_info.setPStencilAttachment(&depth_stencil_attachment.value());
 	}
-	std::cout << "beginRendering\n";
 	getCurrentFrame().mCommandBuffer.beginRendering(rendering_info);
 }
 
@@ -1506,7 +1504,6 @@ void DriverVk::endRenderPass() {
 	//assert(gContext->render_pass_active);
 	render_pass_active = false;
 
-	std::cout << "endRendering\n";
 	getCurrentFrame().mCommandBuffer.endRendering();
 }
 

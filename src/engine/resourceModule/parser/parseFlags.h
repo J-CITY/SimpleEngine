@@ -1,4 +1,5 @@
 #pragma once
+#include <magic_enum.hpp>
 
 namespace IKIGAI::RESOURCES {
 	enum class ModelParserFlags {
@@ -38,4 +39,13 @@ namespace IKIGAI::RESOURCES {
 	inline ModelParserFlags& operator|= (ModelParserFlags& a, ModelParserFlags b) { return (ModelParserFlags&)((int&)a |= (int)b); }
 	inline ModelParserFlags& operator&= (ModelParserFlags& a, ModelParserFlags b) { return (ModelParserFlags&)((int&)a &= (int)b); }
 	inline ModelParserFlags& operator^= (ModelParserFlags& a, ModelParserFlags b) { return (ModelParserFlags&)((int&)a ^= (int)b); }
+}
+
+// These are Assimp bit flags, not a dense enum in magic_enum's default range.
+// Without this, model descriptors cannot deserialize PRE_TRANSFORM_VERTICES,
+// FLIP_UVS and the other high bits.
+namespace magic_enum::customize {
+template<> struct enum_range<IKIGAI::RESOURCES::ModelParserFlags> {
+    static constexpr bool is_flags = true;
+};
 }

@@ -30,6 +30,19 @@ function(ikigai_configure_network target)
     target_compile_definitions(${target} PRIVATE IKIGAI_NETWORK_ASIO)
     target_link_libraries(${target} PRIVATE ikigai_boost_headers Threads::Threads)
     if(IKIGAI_NETWORK_TLS)
+        # Reuse the locally prepared Windows dependencies in fresh build trees.
+        # Explicit CMake/environment roots keep precedence over this hint.
+        if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT OPENSSL_ROOT_DIR AND NOT DEFINED ENV{OPENSSL_ROOT_DIR})
+            set(local_openssl "${_IKIGAI_NETWORK_ROOT}/utils/.pack/vcpkg/installed/x64-windows-static-md")
+            if(EXISTS "${local_openssl}/include/openssl/ssl.h"
+                AND EXISTS "${local_openssl}/lib/libssl.lib"
+                AND EXISTS "${local_openssl}/lib/libcrypto.lib")
+                set(OPENSSL_ROOT_DIR "${local_openssl}" CACHE PATH "OpenSSL installation root")
+                if(NOT DEFINED OPENSSL_USE_STATIC_LIBS)
+                    set(OPENSSL_USE_STATIC_LIBS ON CACHE BOOL "Use static OpenSSL libraries")
+                endif()
+            endif()
+        endif()
         find_package(OpenSSL REQUIRED)
         target_compile_definitions(${target} PRIVATE IKIGAI_NETWORK_TLS)
         target_link_libraries(${target} PRIVATE OpenSSL::SSL OpenSSL::Crypto)

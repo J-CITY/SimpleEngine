@@ -3,48 +3,62 @@
 
 #include "driverVk.h"
 #include "helpers.h"
+#include <algorithm>
+#include <cstring>
+#include <iterator>
+#include <limits>
+#include <stdexcept>
 
 #ifdef VULKAN_BACKEND
 
 IKIGAI::RENDER::UniformBufferVk::UniformBufferVk(void* data, size_t size) : UniformBufferInterface(size) {
-	if (mSizeByte > 0) {
-		mBuffer = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst, UtilityVk::MemoryUsage::GpuOnly);
-	}
-	if (data && mSizeByte > 0) {
-		UniformBufferVk::setData(data, size, 0);
-	}
+    mBytes.resize(size);
+    if (data && size) std::memcpy(mBytes.data(), data, size);
+    if (size) snapshot();
 }
 
 IKIGAI::RENDER::UniformBufferVk::~UniformBufferVk() {
-	if (mBuffer) UtilityVk::GetDriver()->destroyDeferred(std::move(mBuffer));
+    for (auto& value : mSnapshots)
+        if (value.buffer) UtilityVk::GetDriver()->destroyDeferred(std::move(value.buffer));
 }
 
 void IKIGAI::RENDER::UniformBufferVk::setData(const void* data, size_t sz, size_t offset) {
-	UtilityVk::GetDriver()->deactivateRenderPass();
+    if (!sz) return;
+    if (!data || offset > std::numeric_limits<size_t>::max() - sz)
+        throw std::invalid_argument("Invalid uniform buffer update");
+    mSizeByte = std::max(mSizeByte, offset + sz);
+    mBytes.resize(mSizeByte);
+    std::memcpy(mBytes.data() + offset, data, sz);
+    snapshot();
+}
 
-	if (sz > mSizeByte || !mBuffer) {
-		mSizeByte = sz;
-		if (mBuffer) UtilityVk::GetDriver()->destroyDeferred(std::move(mBuffer));
-		mBuffer = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst, UtilityVk::MemoryUsage::GpuOnly);
-	}
-
-	UtilityVk::SetMemoryBarrier(UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer, UtilityVk::GetDriver()->mCurrentMemoryStage, vk::PipelineStageFlagBits2::eTransfer);
-	UtilityVk::GetDriver()->mCurrentMemoryStage = vk::PipelineStageFlagBits2::eTransfer;
-
-	if (mSizeByte < 65536) {
-		UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer.updateBuffer<uint8_t>(*mBuffer, 0, {(uint32_t)mSizeByte, (uint8_t*)data});
-		return;
-	}
-
-	auto staging_buffer = UtilityVk::CreateBuffer(mSizeByte, vk::BufferUsageFlagBits::eTransferSrc, UtilityVk::MemoryUsage::Staging);
-	staging_buffer.upload(data, mSizeByte);
-
-	vk::BufferCopy region;
-	region.setSize(mSizeByte);
-
-	UtilityVk::GetDriver()->getCurrentFrame().mCommandBuffer.copyBuffer(*staging_buffer, *mBuffer, {region});
-
-	UtilityVk::GetDriver()->destroyDeferred(std::move(staging_buffer));
+void IKIGAI::RENDER::UniformBufferVk::snapshot() {
+    // Host writes are flushed by VMA and made visible by queue submission.
+    // Distinct buffers preserve per-draw values without vkCmdUpdateBuffer,
+    // transfer barriers, or ending dynamic rendering for each material bind.
+    for (size_t i = 0; i < mSnapshots.size(); ++i) {
+        if (mSnapshots[i].bytes == mBytes) {
+            mSnapshot = i;
+            mSnapshots[i].usedFrame = sFrame;
+            return;
+        }
+    }
+    auto slot = std::find_if(mSnapshots.begin(), mSnapshots.end(), [](const Snapshot& value) {
+        return value.usedFrame != sFrame;
+    });
+    if (slot == mSnapshots.end()) {
+        mSnapshots.emplace_back();
+        slot = std::prev(mSnapshots.end());
+    }
+    if (!slot->buffer || slot->bytes.size() != mBytes.size()) {
+        if (slot->buffer) UtilityVk::GetDriver()->destroyDeferred(std::move(slot->buffer));
+        slot->buffer = UtilityVk::CreateBuffer(mBytes.size(), vk::BufferUsageFlagBits::eUniformBuffer,
+            UtilityVk::MemoryUsage::Staging);
+    }
+    slot->buffer.upload(mBytes.data(), mBytes.size());
+    slot->bytes = mBytes;
+    slot->usedFrame = sFrame;
+    mSnapshot = static_cast<size_t>(slot - mSnapshots.begin());
 }
 
 #endif

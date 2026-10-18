@@ -8,6 +8,9 @@
 #include <functional>
 #include <string>
 #include <atomic>
+#include <future>
+#include <mutex>
+#include <optional>
 #include <queue>
 #include <unordered_map>
 #include <utilsModule/event.h>
@@ -24,6 +27,7 @@ namespace IKIGAI::RESOURCES {
 		struct FileModificationInfo {
 			FileTime mLastModifyTime;
 			std::uintmax_t mFileSize{};
+			std::optional<std::string> mNativePath;
 		};
 
 		std::unordered_map<std::string, FileModificationInfo> m_filesLastModifications;
@@ -31,6 +35,7 @@ namespace IKIGAI::RESOURCES {
 		std::vector<std::pair<std::string, FileStatus>> m_events;
 
 		std::atomic_bool m_isRunning = true;
+		std::future<void> mUpdateTask;
 		std::mutex m_mutex;
 		std::mutex m_mutexDeferred;
 
@@ -51,6 +56,7 @@ namespace IKIGAI::RESOURCES {
 
 	public:
 		inline static FileWatcher* m_instance = nullptr;
+		~FileWatcher() { stop(); }
 		static FileWatcher* getInstance() {
 			if (!m_instance) {
 				m_instance = new FileWatcher();
@@ -68,6 +74,7 @@ namespace IKIGAI::RESOURCES {
 		void stop();
 
 		void applyUpdate();
+		void requestUpdate();
 		void update();
 	};
 }

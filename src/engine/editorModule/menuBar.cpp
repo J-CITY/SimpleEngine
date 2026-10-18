@@ -32,6 +32,14 @@ void MenuBar::draw() {
 			if (ImGui::MenuItem("Create new scene")) {
 				//popupStates["create_new_scene"] = true;
 			}
+            if (ImGui::BeginMenu("Scenes")) {
+                auto& manager = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
+                if (ImGui::MenuItem("Pica Pica - Hybrid PBR", nullptr,
+                    manager.getCurrentSceneSourcePath() == "/scenes/pica-pica-demo.json", !manager.isEditingLocked())) {
+                    PREFABS::Try([&] { manager.loadFromFileAsync("/scenes/pica-pica-demo.json"); });
+                }
+                ImGui::EndMenu();
+            }
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Examples")) {

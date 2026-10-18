@@ -18,6 +18,7 @@ void FocusPresentationForSmoke(void* nativeWindow);
 	void ValidateBackendAvailable(RenderSettings::Backend backend);
 	void SetCliRenderBackendOverride(std::string_view name);
 	void SetCliRenderPipelineOverride(std::string_view path);
+    bool HasCliRenderPipelineOverride();
     void SetCliUpscalerOverride(std::string_view name);
     void SetCliUpscalerQualityOverride(std::string_view name);
     void SetCliFrameGenerationOverride(std::string_view name);

@@ -14,6 +14,7 @@
 #include "utilsModule/log/loggerDefine.h"
 
 #include "resourceModule/serviceManager.h"
+#include "resourceModule/fileWatcher.h"
 #include "windowModule/window/window.h"
 #include "windowModule/windowManager.h"
 #include <stdexcept>
@@ -97,6 +98,9 @@ Core::Core(
 
 	fileSystem = std::make_unique<RESOURCES::FileSystem>();
 	RESOURCES::ServiceManager::Set<RESOURCES::FileSystem>(fileSystem.get());
+#ifdef USE_FILE_WATCHER
+	RESOURCES::FileWatcher::getInstance()->start();
+#endif
 	if (Config::CONTENT_RELEASE.empty()) {
 		// fileSystem->addNativeFileSystem(".", "/");
 #ifdef OCULUS
@@ -366,6 +370,9 @@ Core::Core(
 }
 
 Core::~Core() {
+#ifdef USE_FILE_WATCHER
+	RESOURCES::FileWatcher::getInstance()->stop();
+#endif
 	RESOURCES::ServiceManager::Remove<RESOURCES::ContentService>();
 	RESOURCES::ServiceManager::Remove<NETWORK::NetworkRuntime>();
 	network->stop();

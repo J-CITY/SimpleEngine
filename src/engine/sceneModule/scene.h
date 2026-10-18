@@ -174,6 +174,9 @@ namespace IKIGAI::SCENE_SYSTEM {
         void cancelTasks();
         std::vector<DOCUMENT::Instance> prefabInstances;
         std::shared_ptr<void> lifetime = std::make_shared<int>(0);
+        // Empty means the renderer's startup pipeline. Environment is supplied
+        // by the selected pipeline's SettingsAsset.
+        std::string renderPipelineAsset;
         const DOCUMENT::Instance* prefabFor(int objectId) const;
         bool isPrefabRoot(int objectId) const;
         nlohmann::json serializeObjects() const;

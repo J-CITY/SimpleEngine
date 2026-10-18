@@ -38,6 +38,7 @@
 #include <cstring>
 #include <functional>
 #include "backends/meshFactory.h"
+#include "backends/driverFactory.h"
 #include "coreModule/gui/components/spriteComponent.h"
 #include "coreModule/gui/guiObject.h"
 #include "coreModule/gui/components/vectorComponents.h"
@@ -76,6 +77,8 @@ namespace IKIGAI::RENDER {
 		mEngineUbo = render->createUniformBuffer<EngineUBO>({});
 		mBoneUbo = render->createUniformBuffer<BonesUBO>({});
 		mFrameUbo = render->createUniformBuffer<FrameUBO>({});
+		if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN)
+			mDrawFrameUbo = render->createUniformBuffer<FrameUBO>({});
 		mShadowUbo = render->createUniformBuffer<ShadowUBO>({});
 		mShadowPassUbo = render->createUniformBuffer<MATH::Matrix4f>({});
 		mPointShadowPassUbo = render->createUniformBuffer<PointShadowPassUBO>({});
@@ -97,6 +100,7 @@ namespace IKIGAI::RENDER {
 		}
 		std::cout << "Render pipeline: " << DriverInterface::settings.pipeline << "; stages=" << desc.Stages.size() << std::endl;
 		setPipeline(std::make_unique<RenderGraphPipeline>(desc, *render, DriverInterface::settings.pipeline));
+        mStartupPipelineAsset = mActivePipelineAsset = DriverInterface::settings.pipeline;
 	}
 
 #ifdef __EMSCRIPTEN__
@@ -116,6 +120,30 @@ namespace IKIGAI::RENDER {
 		auto& render = mContext.render;
 
 		auto camera = scene.findMainCamera();
+        const auto asset = scene.renderPipelineAsset.empty() || HasCliRenderPipelineOverride()
+            ? mStartupPipelineAsset : scene.renderPipelineAsset;
+        if (asset != mActivePipelineAsset) {
+            RenderGraphPipeline::Descriptor descriptor;
+            if (asset.empty()) {
+                PipelineStage::Descriptor forward;
+                forward.Name = "Forward";
+                forward.Draw = DrawContent::FORWARD;
+                descriptor.Stages.push_back(forward);
+            } else {
+                auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(asset);
+                if (loaded.isErr()) throw std::runtime_error("Scene render pipeline: " + loaded.unwrapErr().text);
+                descriptor = loaded.unwrap();
+            }
+            auto candidate = std::make_unique<RenderGraphPipeline>(descriptor, *render, asset);
+            setPipeline(std::move(candidate));
+            mActivePipelineAsset = asset;
+            std::cout << "Scene render pipeline: " << asset << std::endl;
+        }
+        if (mRenderedScene.lock() != scene.lifetime) {
+            resetTemporalHistory();
+            mPreviousCamera = nullptr;
+            mRenderedScene = scene.lifetime;
+        }
 
 		if (auto mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera()) {
 			WEB_LOG("GameRenderer camera found");
@@ -265,7 +293,10 @@ namespace IKIGAI::RENDER {
 			auto& render = mContext.render;
 
 			render->setDepth({material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS, material->isDepthWriting()});
-			render->setCull(material->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
+            // Pass overrides replace shaders, while the surface retains its
+            // double-sided setting (including G-buffer and shadow passes).
+            const auto& surface = drawable.material ? drawable.material : material;
+			render->setCull(surface->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
 			if (material->isBlendable()) render->setBlending({BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA});
 			else render->resetBlending();
 			//render->setCull(CullFace::NONE);
@@ -295,7 +326,12 @@ namespace IKIGAI::RENDER {
 			if (reflected.contains("engine_Frame")) {
 				auto frame=mFrameData;
 				frame.PreviousModel=MATH::Matrix4f::Transpose(drawable.prevWorld);
-				render->setUniformBuffer("engine_Frame",render->createUniformBuffer<FrameUBO>(frame));
+				if (mDrawFrameUbo) {
+					// Vulkan snapshots preserve each draw's payload. Reuse their
+					// pool instead of allocating a VMA buffer for every object.
+					mDrawFrameUbo->setData(frame);
+					render->setUniformBuffer("engine_Frame",mDrawFrameUbo);
+				} else render->setUniformBuffer("engine_Frame",render->createUniformBuffer<FrameUBO>(frame));
 			}
 			if (reflected.contains("engine_ShadowData")) render->setUniformBuffer("engine_ShadowData", mShadowUbo);
 			if (reflected.contains("engine_ShadowPass")) render->setUniformBuffer("engine_ShadowPass", mShadowPassUbo);
@@ -543,9 +579,17 @@ namespace IKIGAI::RENDER {
 				return;
 			if (stage->mDrawContent == DrawContent::LIGHT_ACCUMULATION) {
 				auto& pass = mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass);
+				bool rayShadows = false;
+				if (!pass.Descriptor.ShadowProviderStage.empty()) {
+					const auto provider = std::find_if(pass.PrepareStages.begin(), pass.PrepareStages.end(), [&](const auto& value) {
+						return value->mName == pass.Descriptor.ShadowProviderStage;
+					});
+					if (provider == pass.PrepareStages.end()) throw std::runtime_error("Unknown shadow provider stage: " + pass.Descriptor.ShadowProviderStage);
+					rayShadows = (*provider)->mDescriptor.Enabled && bool((*provider)->mRayTracingProgram);
+				}
 				for (auto& init : pass.InitStages)
 					runStage(init);
-				int used = 0, shadowed = 0;
+				int used = 0, shadowed = 0, rasterCaptures = 0;
 				struct RestoreCapture {
 					int& index;
 					~RestoreCapture() {
@@ -581,8 +625,9 @@ namespace IKIGAI::RENDER {
 						}
 						else
 							farPlane = capture->mDescriptor.ShadowRange;
-						if (hasShadow) {
+						if (hasShadow && !rayShadows) {
 							runStage(capture);
+							++rasterCaptures;
 							captured = true;
 						}
 					}
@@ -592,7 +637,8 @@ namespace IKIGAI::RENDER {
 						farPlane = light.shadowFar;
 					if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane)
 						throw std::runtime_error("Invalid per-light shadow range");
-					if (captured)
+					const bool shadowAvailable = captured || (hasShadow && rayShadows);
+					if (shadowAvailable)
 						++shadowed;
 					mCurrentShadow = { };
 					for (int c = 0; c < 4; ++c)
@@ -601,7 +647,7 @@ namespace IKIGAI::RENDER {
 					mCurrentShadow.PositionRange = { light.pos[0], light.pos[1], light.pos[2], farPlane };
 					mCurrentShadow.Settings = { mShadowData.Settings.x, nearPlane, farPlane, 0 };
 					const bool volume = pass.Descriptor.VolumeLightLimit < 0 || used < pass.Descriptor.VolumeLightLimit;
-					mCurrentShadow.LightInfo = { static_cast<float>(i), static_cast<float>(light.type), captured ? 1.f : 0.f, volume ? 1.f : 0.f };
+					mCurrentShadow.LightInfo = { static_cast<float>(i), static_cast<float>(light.type), shadowAvailable ? 1.f : 0.f, volume ? 1.f : 0.f };
 					// Each queued resolve owns a distinct immutable buffer snapshot.
 					mCurrentShadowUbo = mContext.render->createUniformBuffer<CurrentShadowUBO>(mCurrentShadow);
 					for (auto& prepare : pass.PrepareStages)
@@ -613,8 +659,9 @@ namespace IKIGAI::RENDER {
 				mCaptureLightIndex = -1;
 				mShadowData.LightIndices = { -1, -1, -1, 0 };
 				mShadowUbo->setData(mShadowData);
-				if (mFrameCount == 0)
-					std::cout << "LIGHT_ACCUMULATION " << pass.Descriptor.Name << " lights=" << used << " shadows=" << shadowed << std::endl;
+				if (!stage->mExecuted)
+					std::cout << "LIGHT_ACCUMULATION " << pass.Descriptor.Name << " lights=" << used << " shadows=" << shadowed
+						<< " shadow_provider=" << (rayShadows ? "ray" : "raster") << " raster_captures=" << rasterCaptures << std::endl;
 				stage->mExecuted = true;
 				return;
 			}

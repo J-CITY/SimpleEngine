@@ -547,7 +547,7 @@ std::shared_ptr<IKIGAI::RENDER::TextureAtlasVk> IKIGAI::RENDER::TextureAtlasVk::
 	return tex;
 }
 
-uint32_t GetFormatChannelsCount(IKIGAI::RENDER::PixelFormat format) {
+static uint32_t GetFormatChannelsCount(IKIGAI::RENDER::PixelFormat format) {
 	static const std::unordered_map<IKIGAI::RENDER::PixelFormat, uint32_t> FormatChannelsMap = {
 		{IKIGAI::RENDER::PixelFormat::R_FLOAT, 1},
 		{IKIGAI::RENDER::PixelFormat::RG_FLOAT, 2},
@@ -561,7 +561,7 @@ uint32_t GetFormatChannelsCount(IKIGAI::RENDER::PixelFormat format) {
 	return FormatChannelsMap.at(format);
 }
 
-uint32_t GetFormatChannelSize(IKIGAI::RENDER::PixelFormat format) {
+static uint32_t GetFormatChannelSize(IKIGAI::RENDER::PixelFormat format) {
 	static const std::unordered_map<IKIGAI::RENDER::PixelFormat, uint32_t> FormatChannelSizeMap = {
 		{IKIGAI::RENDER::PixelFormat::R_FLOAT, 4},
 		{IKIGAI::RENDER::PixelFormat::RG_FLOAT, 4},

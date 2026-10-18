@@ -26,6 +26,12 @@ void Pump(CORE::App& app, const SceneLoadHandle& operation) {
 }
 
 void RunSceneLoadingSmoke(CORE::App& app) {
+    auto modelJson = nlohmann::json{{"PathModel", "/models/pica_pica/scene.gltf"},
+        {"Flags", {"TRIANGULATE", "PRE_TRANSFORM_VERTICES", "FLIP_UVS"}}};
+    auto modelConfig = UTILS::FromJson<RENDER::ModelResource>(modelJson);
+    Require(!modelConfig.isErr(), "High-bit model import flags failed to deserialize");
+    Require(serde::serialize<nlohmann::json>(modelConfig.unwrap())["Flags"] == modelJson["Flags"],
+        "High-bit model import flags failed to round trip");
     auto& manager = *app.getCore()->sceneManager;
     auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
     auto seedFile = fs.getFile("/scenes/render-smoke.json");
@@ -35,6 +41,7 @@ void RunSceneLoadingSmoke(CORE::App& app) {
         {"Components", nlohmann::json::array({camera["Components"][0]})}};
     auto parent = object; parent["Name"] = "Parent"; parent["Id"] = 3; parent["ParentId"] = -1;
     auto smallScene = nlohmann::json{{"Objects", nlohmann::json::array({camera, object, parent})}};
+    smallScene["RenderPipeline"] = "/renderPipeline/migrated-lite.json";
     auto large = smallScene;
     for (int i = 4; i < 260; ++i) { auto item = parent; item["Id"] = i; large["Objects"].push_back(std::move(item)); }
     ECS::VectorShapeComponent::Descriptor shape;
@@ -71,6 +78,9 @@ void RunSceneLoadingSmoke(CORE::App& app) {
     Require(manager.getPresentedScene() == nullptr, "Missing loading scene must present black");
     Pump(app, first);
     Require(first.status() == SceneLoadStatus::Completed, "Initial scene did not load");
+    Require(manager.getCurrentScene().renderPipelineAsset == smallScene["RenderPipeline"] &&
+        manager.serializeScene()["RenderPipeline"] == smallScene["RenderPipeline"],
+        "Scene pipeline metadata was lost during asynchronous load or serialization");
     auto child = manager.getCurrentScene().findObjectByName("Child");
     Require(child && child->getParentId() == 3 && child->getIsActive(), "Forward parent reference or activation failed");
     auto cached = manager.prepareLoadingScene(cachePath);

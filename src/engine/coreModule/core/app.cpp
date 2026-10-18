@@ -184,11 +184,9 @@ void App::update(std::chrono::duration<double> dt) {
 #ifdef USE_FILE_WATCHER
 	static std::chrono::duration<double> fwwait = std::chrono::milliseconds(0);
 	fwwait += TIME::Timer::GetInstance().getDeltaTimeUnscaled();
-	if (fwwait > std::chrono::milliseconds(5000)) {
+	if (fwwait > std::chrono::milliseconds(RESOURCES::FileWatcher::DELAY_UPDATE)) {
 		fwwait = std::chrono::milliseconds(0);
-		RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit("UpdateFileWatcher", 2, nullptr, []() {
-			RESOURCES::FileWatcher::getInstance()->update();
-		});
+		RESOURCES::FileWatcher::getInstance()->requestUpdate();
 	}
     if (!core.sceneManager->isEditingLocked() && !core.sceneManager->isPreparingLoadingScene())
         RESOURCES::FileWatcher::getInstance()->applyUpdate();

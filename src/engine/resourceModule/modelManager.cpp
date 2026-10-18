@@ -28,7 +28,7 @@ namespace IKIGAI::RESOURCES {
             if (!file || !file->isValid()) throw std::runtime_error("Missing model descriptor: " + path);
             auto bytes = co_await file->readAllTask(control);
             auto parsed = UTILS::FromJsonStr<RENDER::ModelResource>(std::string(bytes.begin(), bytes.end()));
-            if (parsed.isErr()) throw std::runtime_error("Invalid model descriptor: " + path);
+            if (parsed.isErr()) throw std::runtime_error("Invalid model descriptor: " + path + ": " + parsed.unwrapErr().text);
             const auto config = parsed.unwrap();
             source = config.pathModel;
             flags = ModelParserFlags::NONE;

@@ -135,6 +135,7 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
     auto bytes = co_await file->readAllTask(state->control);
     state->control->check();
     auto json = nlohmann::json::parse(bytes);
+    const auto pipeline = json.value("RenderPipeline", std::string{});
     state->phase = "Expanding prefabs";
     DOCUMENT::Resolver resolver(json.at("Objects"));
     DOCUMENT::Expanded expanded;
@@ -223,6 +224,7 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
     state->control->check();
     state->phase = "Creating objects";
     context.scene = std::make_unique<Scene>(context.world.get(),mPhysicsFactories);
+    context.scene->renderPipelineAsset = pipeline;
     for (const auto& descriptor : context.descriptors) {
         state->control->check();
         context.scene->createDeferredObject(descriptor);

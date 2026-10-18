@@ -125,7 +125,9 @@ void SceneManager::loadFromFile(const std::string& sceneFilePath) {
         if (!file || !file->isValid()) throw std::runtime_error("Scene or prefab file not found: " + path);
         return nlohmann::json::parse(file->readStr());
     };
-    auto expanded = DOCUMENT::Expand(read(sceneFilePath), read);
+    const auto document = read(sceneFilePath);
+    const auto pipeline = document.value("RenderPipeline", std::string{});
+    auto expanded = DOCUMENT::Expand(document, read);
     // Parse component descriptors before replacing the current scene as well.
     for (auto value : expanded.objects) {
         auto parsed = UTILS::FromJson<ECS::Object::Descriptor>(value);
@@ -134,6 +136,7 @@ void SceneManager::loadFromFile(const std::string& sceneFilePath) {
     mTransitionState = SceneTransitionState::Idle;
     unloadCurrentScene();
     m_currentScene = std::make_unique<Scene>(nullptr,mPhysicsFactories);
+    m_currentScene->renderPipelineAsset = pipeline;
     m_currentScene->appendDocument(expanded);
     m_currentScene->isSceneReady = true;
     m_currentSceneSourcePath = sceneFilePath;
@@ -146,7 +149,9 @@ void SceneManager::saveToFile() {
 
 nlohmann::json SceneManager::serializeScene() const {
     if (!m_currentScene) throw std::runtime_error("No current scene");
-    return DOCUMENT::Compact(m_currentScene->serializeObjects(), m_currentScene->prefabInstances);
+    auto document = DOCUMENT::Compact(m_currentScene->serializeObjects(), m_currentScene->prefabInstances);
+    if (!m_currentScene->renderPipelineAsset.empty()) document["RenderPipeline"] = m_currentScene->renderPipelineAsset;
+    return document;
 }
 
 void SceneManager::saveToFile(const std::string& sceneFilePath) {

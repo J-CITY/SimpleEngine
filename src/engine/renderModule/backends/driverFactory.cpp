@@ -125,6 +125,7 @@ namespace IKIGAI::RENDER {
 	void SetCliRenderPipelineOverride(std::string_view path) {
 		gCliPipeline=std::string(path);
 	}
+    bool HasCliRenderPipelineOverride() { return gCliPipeline.has_value(); }
     void SetCliUpscalerOverride(std::string_view name) {
         if(name=="off")gCliUpscaler=UpscalerType::OFF;
         else if(name=="fsr")gCliUpscaler=UpscalerType::FSR;

@@ -260,6 +260,7 @@ namespace IKIGAI::RENDER {
 
 		struct LightPassDescriptor {
 			std::string Name;
+			std::string ShadowProviderStage;
 			int ShadowBudget = -1;
 			int VolumeLightLimit = -1;
 			std::vector<int> LightIds;
@@ -270,6 +271,7 @@ namespace IKIGAI::RENDER {
 				using namespace serde::attribute;
 				serde::serde_struct(context,value)
 					.field(&Self::Name,"Name")
+					.field(&Self::ShadowProviderStage,"ShadowProviderStage",default_{std::string{}})
 					.field(&Self::ShadowBudget,"ShadowBudget",default_{-1})
 					.field(&Self::VolumeLightLimit,"VolumeLightLimit",default_{-1})
 					.field(&Self::LightIds,"LightIds",default_{decltype(LightIds){}})
@@ -365,6 +367,8 @@ namespace IKIGAI::RENDER {
 
 		IKIGAI::CORE::Core& mContext;
 		std::unique_ptr<RenderGraphPipeline> mRenderPipeline;
+        std::string mStartupPipelineAsset, mActivePipelineAsset;
+        std::weak_ptr<void> mRenderedScene;
 
 		std::shared_ptr<StorageBufferInterface> mLightSSBO;
         struct RayScene;
@@ -399,6 +403,7 @@ namespace IKIGAI::RENDER {
         std::map<const SKELETON::AnimOffset*,SkinningPose> mSkinningPoses;
         const SkinningPose* skinningPose(const Drawable& drawable);
 		std::shared_ptr<UniformBufferInterface> mFrameUbo;
+		std::shared_ptr<UniformBufferInterface> mDrawFrameUbo;
 		std::shared_ptr<UniformBufferInterface> mShadowUbo;
 		std::shared_ptr<UniformBufferInterface> mShadowPassUbo;
 		std::shared_ptr<UniformBufferInterface> mPointShadowPassUbo;

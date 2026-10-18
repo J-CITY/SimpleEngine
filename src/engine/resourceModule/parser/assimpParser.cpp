@@ -4,6 +4,8 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/IOSystem.hpp>
+#include <assimp/IOStream.hpp>
 #include <assimp/matrix4x4.h>
 #include "../resource/bone.h"
 #include <renderModule/vertex.h>
@@ -11,6 +13,9 @@
 #include "skeletalModule/animation.h"
 #include <unordered_map>
 #include <filesystem>
+#include <cstring>
+#include "resourceModule/fileSystem/fileSystem.h"
+#include "resourceModule/serviceManager.h"
 #include "utilsModule/log/loggerDefine.h"
 #include <renderModule/backends/meshFactory.h>
 #include <renderModule/backends/interface/driverInterface.h>
@@ -21,13 +26,67 @@ using namespace IKIGAI;
 using namespace IKIGAI::RESOURCES;
 
 namespace {
+// Keep the top-level asynchronous read, and resolve sidecars through the same
+// VFS mount (native, ZIP, SDL or Android) instead of Assimp's host filesystem.
+class AssetStream final : public Assimp::IOStream {
+    std::vector<uint8_t> bytes;
+    size_t position = 0;
+public:
+    explicit AssetStream(std::vector<uint8_t> data) : bytes(std::move(data)) {}
+    size_t Read(void* output, size_t size, size_t count) override {
+        if (!size) return 0;
+        count = std::min(count, (bytes.size() - position) / size);
+        if (count) std::memcpy(output, bytes.data() + position, count * size);
+        position += count * size;
+        return count;
+    }
+    size_t Write(const void*, size_t, size_t) override { return 0; }
+    aiReturn Seek(size_t offset, aiOrigin origin) override {
+        size_t next = offset;
+        if (origin == aiOrigin_CUR) {
+            if (offset > bytes.size() - position) return aiReturn_FAILURE;
+            next = position + offset;
+        } else if (origin == aiOrigin_END) {
+            if (offset > bytes.size()) return aiReturn_FAILURE;
+            next = bytes.size() - offset;
+        }
+        if (next > bytes.size()) return aiReturn_FAILURE;
+        position = next;
+        return aiReturn_SUCCESS;
+    }
+    size_t Tell() const override { return position; }
+    size_t FileSize() const override { return bytes.size(); }
+    void Flush() override {}
+};
+class AssetIO final : public Assimp::IOSystem {
+    std::string root;
+    const std::vector<uint8_t>& bytes;
+    std::string resolve(const char* name) const {
+        auto path = std::filesystem::path(name).lexically_normal().generic_string();
+        if (path == root || RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().isFileExist(path)) return path;
+        return (std::filesystem::path(root).parent_path() / path).lexically_normal().generic_string();
+    }
+public:
+    AssetIO(std::string path, const std::vector<uint8_t>& data) : root(std::move(path)), bytes(data) {}
+    bool Exists(const char* name) const override {
+        const auto path = resolve(name);
+        return path == root || RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().isFileExist(path);
+    }
+    char getOsSeparator() const override { return '/'; }
+    Assimp::IOStream* Open(const char* name, const char* mode = "rb") override {
+        if (std::strchr(mode, 'w') || std::strchr(mode, '+') || std::strchr(mode, 'a')) return nullptr;
+        const auto path = resolve(name);
+        if (path == root) return new AssetStream(bytes);
+        auto file = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFile(path);
+        if (!file || !file->isValid()) return nullptr;
+        return new AssetStream(file->read());
+    }
+    void Close(Assimp::IOStream* stream) override { delete stream; }
+};
 const aiScene* ReadAssetScene(Assimp::Importer& importer, const std::string& fileName,
 	const std::vector<uint8_t>& data, unsigned int flags) {
-	// Consume bytes supplied by the engine filesystem (SDL IO on iOS and Android).
-	// Assimp expects a format extension, not a virtual filename, as its memory hint.
-	auto hint = std::filesystem::path(fileName).extension().string();
-	if (!hint.empty()) hint.erase(0, 1);
-	const aiScene* scene = importer.ReadFileFromMemory(data.data(), data.size(), flags, hint.c_str());
+    importer.SetIOHandler(new AssetIO(fileName, data));
+	const aiScene* scene = importer.ReadFile(fileName, flags);
 	if (!scene) {
 		IKIGAI_COUT("Assimp failed to load " << fileName << ": " << importer.GetErrorString());
 	}
