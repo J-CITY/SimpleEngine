@@ -124,11 +124,14 @@ target_include_directories(spine PUBLIC "${THIRD_PARTY_DIR}/spine")
 target_compile_definitions(spine PUBLIC SPINE_USE_STD_FUNCTION)
 
 # 8. Lua
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Scripting.cmake")
+if(USE_LUA)
 file(GLOB_RECURSE LUA_FILES "${THIRD_PARTY_DIR}/lua/*.c")
 list(FILTER LUA_FILES EXCLUDE REGEX "lua\\.c$")
 list(FILTER LUA_FILES EXCLUDE REGEX "luac\\.c$")
 add_library(lua STATIC ${LUA_FILES})
 target_include_directories(lua PUBLIC "${THIRD_PARTY_DIR}/lua")
+endif()
 
 # 9. Volk
 add_library(volk STATIC "${THIRD_PARTY_DIR}/volk/volk.c" "${THIRD_PARTY_DIR}/volk/volk.h")
@@ -194,6 +197,7 @@ list(FILTER PROJECT_ABSOLUTE_HEADERS EXCLUDE REGEX "oxrInput\\.h$")
 source_group(TREE ${MAIN_SOURCE_DIR} FILES ${PROJECT_ABSOLUTE_HEADERS} ${PROJECT_ABSOLUTE_SOURCES})
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/VectorGraphics.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Coroutines.cmake")
 
 add_executable(${APP_NAME}
     ${PROJECT_ABSOLUTE_HEADERS}
@@ -249,7 +253,7 @@ target_include_directories(${APP_NAME} PRIVATE
     ${THIRD_PARTY_DIR}/fmt/include
     ${THIRD_PARTY_DIR}/vfspp/include
     ${THIRD_PARTY_DIR}/vfspp/vendor/miniz-cpp
-    ${THIRD_PARTY_DIR}/sol/include
+
     ${THIRD_PARTY_DIR}/volk
     ${THIRD_PARTY_DIR}/Vulkan-Headers/include
     ${THIRD_PARTY_DIR}/VMA/include
@@ -259,7 +263,7 @@ target_include_directories(${APP_NAME} PRIVATE
 set(LIBS_TO_LINK
     imgui
     spine
-    lua
+
     assimp
     freetype
     SPIRV
@@ -306,3 +310,10 @@ target_link_libraries(${APP_NAME} PRIVATE
 
 # Independent vector geometry and SDF font module
 target_link_libraries(${APP_NAME} PRIVATE ikigai_vector)
+target_link_libraries(${APP_NAME} PRIVATE ikigai_coroutines)
+
+ikigai_configure_scripting(${APP_NAME})
+ikigai_add_scripting_tests(${APP_NAME})
+
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Networking.cmake")
+ikigai_configure_network(${APP_NAME})
