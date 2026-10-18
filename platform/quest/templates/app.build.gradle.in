@@ -15,7 +15,7 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM={{ANDROID_PLATFORM}}", "-DIKIGAI_GLES_VERSION={{GLES_CMAKE}}"
+                arguments "-DUSE_LUA={{USE_LUA}}", "-DUSE_IKIGAI_SCRIPT={{USE_IKIGAI_SCRIPT}}", "-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM={{ANDROID_PLATFORM}}", "-DIKIGAI_GLES_VERSION={{GLES_CMAKE}}"
                 abiFilters {{ABI_FILTERS}}
             }
         }
