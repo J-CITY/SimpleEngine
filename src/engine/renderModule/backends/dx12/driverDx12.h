@@ -23,6 +23,7 @@
 #include "d3dUtil.h"
 
 namespace IKIGAI::RENDER {
+    struct StreamlineCallbacks;
 	class StorageBufferDx12;
 	class StorageBufferInterface;
 	class MeshInterface;
@@ -35,6 +36,8 @@ namespace IKIGAI::RENDER {
 	class ShaderDx12;
 
 	class DriverDx12 : public IKIGAI::RENDER::DriverInterface {
+        friend class FsrFrameGenerationDx12;
+        friend class StreamlineFrameGenerationDx12;
 		struct State {
 			std::shared_ptr<ShaderDx12> mShader;
 			CullFace mCullFace = CullFace::NONE;
@@ -57,7 +60,23 @@ namespace IKIGAI::RENDER {
 		DriverDx12();
 		~DriverDx12() override;
         RayTracingCapabilities mRayTracingCapabilities;
+        std::shared_ptr<void> mDlssRuntime;
+        std::unique_ptr<UpscalerInterface> createUpscaler(UpscalerType) override;
+        std::unique_ptr<FrameGenerationInterface> createFrameGeneration(FrameGenerationType) override;
+        void renderPresentationUI(std::shared_ptr<FrameBufferInterface>) override;
+        void initializeStreamline();
+        void bindStreamlineDevice();
+        StreamlineCallbacks streamlineCallbacks();
+        void streamlinePresenter(bool enable);
+        void setTemporalCamera(const FrameGenerationInputs&) override;
+        void latencyFrameBegin() override;
+        void latencySimulationEnd() override;
+        void latencySubmitBegin() override;
+        void latencySubmitEnd() override;
+        void invalidateUpscalerState();
         Microsoft::WRL::ComPtr<ID3D12Device5> mRayDevice;
+        Microsoft::WRL::ComPtr<ID3D12Device> mStreamlineDeviceProxy;
+        Microsoft::WRL::ComPtr<ID3D12CommandQueue> mStreamlineQueueProxy;
         bool mShuttingDown=false;
         DWORD mDebugCallbackCookie=0;
         std::vector<std::shared_ptr<void>> mRayFrameResources,mRayDeferred;
@@ -106,7 +125,10 @@ namespace IKIGAI::RENDER {
 		void draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) override;
 		std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) override;
         void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
-		void drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) override;
+		BindlessCapabilities bindlessCapabilities() const override;
+		bool supportsVertexPulling() const override { return true; }
+        void draw(const DrawArguments& args) override;
+        void drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) override;
 		void draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) override;
 
 		void resize(size_t width, size_t height) override;
@@ -163,6 +185,8 @@ namespace IKIGAI::RENDER {
 		void resetFrameBuffer() override;
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE& getDescriptorHeapCPUHandle() {
+            if (mDescriptorHeap && mDescriptorHeapCPUHandle.ptr>=mDescriptorHeap->GetCPUDescriptorHandleForHeapStart().ptr+SIZE_T(1000)*mDescriptorIncSize)
+                throw std::runtime_error("Legacy descriptor range exhausted; bindless/ImGui ranges are reserved");
 			return mDescriptorHeapCPUHandle;
 		}
 		CD3DX12_GPU_DESCRIPTOR_HANDLE& getDescriptorHeapGPUHandle() {
@@ -185,6 +209,11 @@ namespace IKIGAI::RENDER {
 		float mStencilValue = 1.0f;
 
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mDescriptorHeap;
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mBindlessSamplerHeap;
+		uint32_t mBindlessDescriptorCursor = 1064;
+		uint32_t mBindlessSamplerCursor = 0;
+		std::pair<D3D12_GPU_DESCRIPTOR_HANDLE,D3D12_GPU_DESCRIPTOR_HANDLE> bindlessSnapshot(const ShaderReflection::Uniform&, uint32_t, const BindlessResourceTable* localTable = nullptr);
+		std::map<std::string,std::pair<D3D12_GPU_DESCRIPTOR_HANDLE,D3D12_GPU_DESCRIPTOR_HANDLE>> mBindlessSnapshots;
 		CD3DX12_CPU_DESCRIPTOR_HANDLE mDescriptorHeapCPUHandle{};
 		CD3DX12_GPU_DESCRIPTOR_HANDLE mDescriptorHeapGPUHandle{};
 		unsigned int mDescriptorIncSize = 0;
@@ -198,6 +227,8 @@ namespace IKIGAI::RENDER {
 			std::array<std::shared_ptr<FrameBufferDx12>, DEFAULT_FB_SIZE> mDefaultFb;
 			unsigned width = 0;
 			unsigned height = 0;
+            bool streamline=false;
+            unsigned slMultiplier=0;
 		};
 
 		std::unordered_map<unsigned int, SwapchainContextDx12> mSwapchains;
@@ -216,6 +247,9 @@ namespace IKIGAI::RENDER {
 
 		Microsoft::WRL::ComPtr<ID3D12Device> mDevice;
 		Microsoft::WRL::ComPtr<D3D12MA::Allocator> mAllocator;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        std::shared_ptr<PROFILER::GpuMemorySampler> mMemorySampler;
+#endif
 
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> mCommandList;
 
@@ -246,7 +280,7 @@ namespace IKIGAI::RENDER {
 		void init() override;
 		void createCommandList();
 		void createDescriptorHeaps();
-		void createSwapChain(unsigned int windowID, unsigned width, unsigned height);
+		void createSwapChain(unsigned int windowID, unsigned width, unsigned height, bool streamline=false);
 		void logAdapters();
 		void logOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> createNewState(const State& state);

@@ -1,3 +1,4 @@
+#include "utilsModule/memory/resourceAllocator.h"
 #include "frameBufferDx12.h"
 #ifdef DX12_BACKEND
 #include "d3dUtil.h"
@@ -66,7 +67,7 @@ void IKIGAI::RENDER::FrameBufferDx12::create(CD3DX12_CPU_DESCRIPTOR_HANDLE handl
 		desc.useMipmap = false;
 		desc.width = mWidth;
 		desc.height = mHeight;
-		mDepth = std::make_shared<TextureDx12>(desc, std::vector<void*>{});
+		mDepth = IKIGAI::MEMORY::MakeShared<TextureDx12, IKIGAI::MEMORY::Category::Texture>(desc, std::vector<void*>{});
 	}
 	auto depthTexture = std::static_pointer_cast<TextureDx12>(mDepth);
 

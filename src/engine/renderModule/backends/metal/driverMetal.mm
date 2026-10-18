@@ -1,6 +1,9 @@
+#include "utilsModule/memory/resourceAllocator.h"
 #ifdef METAL_BACKEND
 
 #include "driverMetal.h"
+#include "gpuMemoryMetal.h"
+#include "vertexFormatsMetal.h"
 
 #include <algorithm>
 #include <array>
@@ -173,7 +176,13 @@ namespace IKIGAI::RENDER {
 			LOG_ERROR << "Metal: MTLCreateSystemDefaultDevice failed";
 			return;
 		}
-		mCommandQueue = [mDevice newCommandQueue];
+		#if IKIGAI_ENABLE_MEMORY_TRACKING
+        try {
+            mMemorySampler = CreateMemorySamplerMetal(mDevice);
+            PROFILER::GpuMemoryProfiler::instance().registerSampler(mMemorySampler);
+        } catch (...) { mMemorySampler.reset(); }
+#endif
+        mCommandQueue = [mDevice newCommandQueue];
 		mInFlightSemaphore = dispatch_semaphore_create(1);
 
 		auto& window = RESOURCES::ServiceManager::Get<WINDOW::Window>();
@@ -242,7 +251,7 @@ namespace IKIGAI::RENDER {
 		const NSUInteger width = std::max<NSUInteger>(1, source.width >> mip);
 		const NSUInteger height = std::max<NSUInteger>(1, source.height >> mip);
 		const NSUInteger rowBytes = (width * channels * (bytes ? 1 : sizeof(float)) + 255) & ~NSUInteger(255);
-		id<MTLBuffer> buffer = [mDevice newBufferWithLength:rowBytes * height options:MTLResourceStorageModeShared];
+		id<MTLBuffer> buffer = AllocateBufferMetal(mDevice, rowBytes * height, MTLResourceStorageModeShared);
 		if (!buffer) throw std::runtime_error("Metal readback allocation failed");
 		endPass();
 		const bool activeFrame = mCurrentCommandBuffer != nil;
@@ -289,6 +298,11 @@ namespace IKIGAI::RENDER {
 			}];
 			mHoldingFrame = false;
 		}
+        if (!mBindlessFrameResources.empty() || !mBindlessArgumentBuffers.empty()) {
+            auto resources=std::move(mBindlessFrameResources);mBindlessFrameResources.clear();
+            auto buffers=std::move(mBindlessArgumentBuffers);mBindlessArgumentBuffers.clear();
+            [mCurrentCommandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) { (void)resources;(void)buffers; }];
+        }
 		[mCurrentCommandBuffer commit];
 		mCurrentCommandBuffer = nil;
 		mCurrentDrawable = nil;
@@ -306,6 +320,9 @@ namespace IKIGAI::RENDER {
 	}
 
 	void DriverMetal::cleanup() {
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        if (mMemorySampler) mMemorySampler->disable();
+#endif
 		endPass();
 		if (mCurrentCommandBuffer) {
 			if (mHoldingFrame) {
@@ -345,7 +362,7 @@ namespace IKIGAI::RENDER {
 			&& mDepthTarget->getWidth() == width && mDepthTarget->getHeight() == height
 			&& mDepthTarget->getTexture().sampleCount == samples;
 		if (!sameDepth) {
-			mDepthTarget = std::make_shared<TextureMetal>(static_cast<uint32_t>(width), static_cast<uint32_t>(height), MTLPixelFormatDepth32Float_Stencil8, samples, true);
+			mDepthTarget = IKIGAI::MEMORY::MakeShared<TextureMetal, IKIGAI::MEMORY::Category::Texture>(static_cast<uint32_t>(width), static_cast<uint32_t>(height), MTLPixelFormatDepth32Float_Stencil8, samples, true);
 		}
 		if (samples > 1) {
 			const bool sameColor = mMsaaColor && mMsaaColor.width == width && mMsaaColor.height == height && mMsaaColor.sampleCount == samples;
@@ -355,7 +372,7 @@ namespace IKIGAI::RENDER {
 				desc.sampleCount = samples;
 				desc.storageMode = MTLStorageModePrivate;
 				desc.usage = MTLTextureUsageRenderTarget;
-				mMsaaColor = [mDevice newTextureWithDescriptor:desc];
+				mMsaaColor = AllocateTextureMetal(mDevice, desc);
 			}
 		} else {
 			mMsaaColor = nil;
@@ -475,7 +492,7 @@ namespace IKIGAI::RENDER {
 			key << ":c" << static_cast<int>(format);
 		}
 		const size_t stride = mVertexBuffer ? mVertexBuffer->getStride() : 0;
-		key << ":v" << stride;
+		key << ":v" << stride << ":" << vertexLayoutKey();
 		if (mCurrentState.mShader && mCurrentState.mShader->hasTessellation()) {
 			key << ":tess" << mCurrentState.mShader->tessellationControlPoints()
 				<< (mCurrentState.mShader->tessellationTriangles() ? "tri" : "quad")
@@ -540,6 +557,22 @@ namespace IKIGAI::RENDER {
 			const auto& inputs = shader->getReflection().mInputParams;
 			if (!shader->hasTessellation() && !inputs.empty()) {
 				MTLVertexDescriptor* vertex = [[MTLVertexDescriptor alloc] init];
+                validateVertexInputs(*shader);
+                if (mVertexLayout) {
+                    for (const auto& stream : mVertexLayout->streams) {
+                        if (stream.binding > 3 || stream.stride % 4) throw std::runtime_error("Metal custom stream binding/alignment unsupported");
+                        auto layout=vertex.layouts[MetalVertexStreamIndex(stream.binding)];
+                        layout.stride=stream.stride;
+                        layout.stepFunction=stream.rate==VertexInputRate::PerInstance ? MTLVertexStepFunctionPerInstance : MTLVertexStepFunctionPerVertex;
+                        layout.stepRate=stream.stepRate;
+                    }
+                    for (const auto& a : mVertexLayout->attributes) {
+                        if (a.offset % 4) throw std::runtime_error("Metal custom attribute alignment unsupported");
+                        auto attribute=vertex.attributes[a.location];
+                        attribute.format=NativeVertexFormat(a.format);attribute.offset=a.offset;
+                        attribute.bufferIndex=MetalVertexStreamIndex(a.binding);
+                    }
+                } else {
 				const NSUInteger stride = sizeof(MetalMeshVertex);
 				for (const auto& param : inputs) {
 					if (param.mLocation >= 31) {
@@ -558,6 +591,7 @@ namespace IKIGAI::RENDER {
 				vertex.layouts[kMetalVertexBufferIndex].stride = stride;
 				vertex.layouts[kMetalVertexBufferIndex].stepFunction = MTLVertexStepFunctionPerVertex;
 				vertex.layouts[kMetalVertexBufferIndex].stepRate = 1;
+                }
 				desc.vertexDescriptor = vertex;
 			}
 
@@ -567,6 +601,9 @@ namespace IKIGAI::RENDER {
 				const char* message = error ? [[error localizedDescription] UTF8String] : "unknown error";
 				LOG_ERROR << "Metal pipeline failed: " << message;
 			} else {
+				#if IKIGAI_ENABLE_MEMORY_TRACKING
+				TrackGpuObjectMetal(pipeline, mDevice, PROFILER::GpuResourceKind::Pipeline, "Render pipeline");
+#endif
 				mPipelines[key] = pipeline;
 			}
 		}
@@ -657,9 +694,23 @@ namespace IKIGAI::RENDER {
 		if (!mCurrentEncoder) {
 			return;
 		}
-		if (mVertexBuffer && mVertexBuffer->getBuffer()) {
+        if (mVertexLayout) {
+            for (const auto& [binding,buffer] : mVertexStreams) {
+                const auto native=std::static_pointer_cast<VertexBufferMetal>(buffer);
+                [mCurrentEncoder setVertexBuffer:native->getBuffer() offset:0 atIndex:MetalVertexStreamIndex(binding)];
+            }
+        } else if (mVertexBuffer && mVertexBuffer->getBuffer()) {
 			[mCurrentEncoder setVertexBuffer:mVertexBuffer->getBuffer() offset:0 atIndex:kMetalVertexBufferIndex];
 		}
+        if (mCurrentState.mShader && mCurrentState.mShader->bindingMode()==ShaderBindingMode::Bindless) {
+            bindArgumentResources(ShaderType::VERTEX);bindArgumentResources(ShaderType::FRAGMENT);
+            if (mPushBytes>0) {
+                const auto length=std::max<NSUInteger>((mPushBytes+3u)&~3u,4u);
+                [mCurrentEncoder setVertexBytes:mPushConstants.data() length:length atIndex:kMetalPushConstantBufferIndex];
+                [mCurrentEncoder setFragmentBytes:mPushConstants.data() length:length atIndex:kMetalPushConstantBufferIndex];
+            }
+            return;
+        }
 		for (const auto& [binding, texture] : mTextures) {
 			if (!texture || !texture->getTexture()) {
 				continue;
@@ -678,8 +729,15 @@ namespace IKIGAI::RENDER {
 				return;
 			}
 			const NSUInteger index = MetalBufferIndexForBinding(static_cast<uint32_t>(binding));
-			[mCurrentEncoder setVertexBuffer:buffer offset:offset atIndex:index];
-			[mCurrentEncoder setFragmentBuffer:buffer offset:offset atIndex:index];
+            uint32_t stages=0;
+            for (const auto& uniform : mCurrentState.mShader->getReflection().mUniforms)
+                if (uniform.mBind==binding && (uniform.mType==ShaderReflection::UniformType::UNIFORM_BUFFER || uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER)) stages|=uniform.mShaderMask;
+            if (stages & static_cast<uint32_t>(ShaderType::VERTEX)) {
+                if (mVertexLayout) for (const auto& stream : mVertexLayout->streams)
+                    if (MetalVertexStreamIndex(stream.binding)==index) throw std::runtime_error("Metal vertex stream aliases a shader resource buffer slot");
+                [mCurrentEncoder setVertexBuffer:buffer offset:offset atIndex:index];
+            }
+            if (stages & static_cast<uint32_t>(ShaderType::FRAGMENT)) [mCurrentEncoder setFragmentBuffer:buffer offset:offset atIndex:index];
 		};
 		for (const auto& [binding, buffer] : mUniformBuffers) {
 			if (!buffer || !buffer->getBuffer()) {
@@ -711,7 +769,7 @@ namespace IKIGAI::RENDER {
 		const NSUInteger aligned = (bytes + alignment - 1) & ~(alignment - 1);
 		if (!mUniformStaging || mUniformStagingOffset + aligned > mUniformStaging.length) {
 			const NSUInteger capacity = std::max<NSUInteger>(aligned, 1024 * 1024);
-			mUniformStaging = [mDevice newBufferWithLength:capacity options:MTLResourceStorageModeShared];
+			mUniformStaging = AllocateBufferMetal(mDevice, capacity, MTLResourceStorageModeShared);
 			mUniformStagingOffset = 0;
 		}
 		std::memcpy(static_cast<uint8_t*>(mUniformStaging.contents) + mUniformStagingOffset, source.contents, bytes);
@@ -726,7 +784,7 @@ namespace IKIGAI::RENDER {
 		}
 		constexpr NSUInteger kSlots = 24;
 		if (!mBufferSizeConstants || mBufferSizeConstants.length < kSlots * sizeof(uint32_t)) {
-			mBufferSizeConstants = [mDevice newBufferWithLength:kSlots * sizeof(uint32_t) options:MTLResourceStorageModeShared];
+			mBufferSizeConstants = AllocateBufferMetal(mDevice, kSlots * sizeof(uint32_t), MTLResourceStorageModeShared);
 		}
 		auto* sizes = static_cast<uint32_t*>(mBufferSizeConstants.contents);
 		std::fill_n(sizes, kSlots, 0u);
@@ -751,7 +809,7 @@ namespace IKIGAI::RENDER {
 			bytes = 16;
 		}
 		if (!mFallbackBuffer || mFallbackBuffer.length < bytes) {
-			mFallbackBuffer = [mDevice newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+			mFallbackBuffer = AllocateBufferMetal(mDevice, bytes, MTLResourceStorageModeShared);
 		}
 		return mFallbackBuffer;
 	}
@@ -763,7 +821,7 @@ namespace IKIGAI::RENDER {
 		MTLTextureDescriptor* desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:1 height:1 mipmapped:NO];
 		desc.usage = MTLTextureUsageShaderRead;
 		desc.storageMode = MTLStorageModeShared;
-		mFallbackTexture = [mDevice newTextureWithDescriptor:desc];
+		mFallbackTexture = AllocateTextureMetal(mDevice, desc);
 		const uint8_t white[4] = {255, 255, 255, 255};
 		[mFallbackTexture replaceRegion:MTLRegionMake2D(0, 0, 1, 1) mipmapLevel:0 withBytes:white bytesPerRow:4];
 		MTLSamplerDescriptor* samplerDesc = [[MTLSamplerDescriptor alloc] init];
@@ -843,7 +901,8 @@ namespace IKIGAI::RENDER {
 	}
 
 	void DriverMetal::setVertexBuffer(std::shared_ptr<VertexBufferInterface> buffer) {
-		mVertexBuffer = std::static_pointer_cast<VertexBufferMetal>(buffer);
+		resetVertexStreams();
+    mVertexBuffer = std::static_pointer_cast<VertexBufferMetal>(buffer);
 	}
 
 	void DriverMetal::setIndexBuffer(std::shared_ptr<IndexBufferInterface> buffer) {
@@ -877,7 +936,7 @@ namespace IKIGAI::RENDER {
 		if (slot && slot.length >= length) {
 			return slot;
 		}
-		return [mDevice newBufferWithLength:length options:MTLResourceStorageModePrivate];
+		return AllocateBufferMetal(mDevice, length, MTLResourceStorageModePrivate);
 	}
 
 	id<MTLComputePipelineState> DriverMetal::computePipeline(id<MTLFunction> function) {
@@ -893,6 +952,9 @@ namespace IKIGAI::RENDER {
 				LOG_ERROR << "Metal compute pipeline failed: " << message;
 				return nil;
 			}
+			#if IKIGAI_ENABLE_MEMORY_TRACKING
+			TrackGpuObjectMetal(state, mDevice, PROFILER::GpuResourceKind::Pipeline, "Compute pipeline");
+#endif
 			mComputePipelines[key] = state;
 		}
 		return mComputePipelines[key];
@@ -902,6 +964,11 @@ namespace IKIGAI::RENDER {
 		if (!encoder) {
 			return;
 		}
+        if (mCurrentState.mShader && mCurrentState.mShader->bindingMode()==ShaderBindingMode::Bindless) {
+            bindArgumentResources(stage,encoder);
+            if (mPushBytes>0) [encoder setBytes:mPushConstants.data() length:std::max<NSUInteger>((mPushBytes+3u)&~3u,4u) atIndex:kMetalPushConstantBufferIndex];
+            return;
+        }
 		for (const auto& [binding, texture] : mTextures) {
 			if (!texture || !texture->getTexture()) {
 				continue;
@@ -1241,7 +1308,7 @@ namespace IKIGAI::RENDER {
 	}
 
 	std::shared_ptr<ShaderInterface> DriverMetal::createShader(const std::string& vertexPath, const std::string& fragmentPath) {
-		return std::make_shared<ShaderMetal>(vertexPath, fragmentPath);
+		return IKIGAI::MEMORY::MakeShared<ShaderMetal, IKIGAI::MEMORY::Category::Shader>(vertexPath, fragmentPath);
 	}
 
 	std::shared_ptr<ShaderInterface> DriverMetal::createShader(const ShaderResource& res, UTILS::IAllocator* allocator, ShaderDeleter deleter) {
@@ -1289,4 +1356,82 @@ namespace IKIGAI::RENDER {
 	}
 
 }
+
+IKIGAI::RENDER::BindlessCapabilities IKIGAI::RENDER::DriverMetal::bindlessCapabilities() const {
+    if (!mDevice || mDevice.argumentBuffersSupport!=MTLArgumentBuffersTier2) return {};
+    return {true,true,false,true,false,128,64};
+}
+
+void IKIGAI::RENDER::DriverMetal::bindArgumentResources(ShaderType stage,id<MTLComputeCommandEncoder> compute) {
+    auto shader=mCurrentState.mShader;
+    const auto stageIds=shader->mArgumentIds.find(stage);
+    if (stageIds==shader->mArgumentIds.end() || stageIds->second.empty()) return;
+    const auto function=shader->function(stage);if (!function) return;
+    id<MTLArgumentEncoder> encoder=[function newArgumentEncoderWithBufferIndex:kMetalBindlessArgumentBufferIndex];
+    if (!encoder) throw std::runtime_error("Metal bindless argument encoder unavailable");
+    id<MTLBuffer> arguments=AllocateBufferMetal(mDevice, encoder.encodedLength, MTLResourceStorageModeShared);
+    if (!arguments) throw std::runtime_error("Metal bindless argument allocation failed");
+    [encoder setArgumentBuffer:arguments offset:0];mBindlessArgumentBuffers.push_back(arguments);
+    for (const auto& uniform : shader->getReflection().mUniforms) {
+        if (!(uniform.mShaderMask & static_cast<size_t>(stage)) || uniform.mType==ShaderReflection::UniformType::PUSH_CONSTANT) continue;
+        const auto ids=shader->mArgumentIds.at(stage).at(uniform.mBind);
+        const auto* table=shader->isBindlessResource(uniform) ? &bindlessTable(uniform,ids.count) : nullptr;
+        for (uint32_t i=0;i<ids.count;++i) {
+            BindlessResourceEntry entry;
+            if (table) entry=table->get(i);
+            else if (uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER) {
+                if (auto it=mStorageBuffers.find(uniform.mBind);it!=mStorageBuffers.end()) entry.buffer=it->second;
+            } else if (uniform.mType!=ShaderReflection::UniformType::UNIFORM_BUFFER) {
+                if (auto it=mTextures.find(uniform.mBind);it!=mTextures.end()) entry.texture=it->second;
+            }
+            id<MTLResource> resource=nil;
+            MTLResourceUsage usage=MTLResourceUsageRead;
+            if (uniform.mType==ShaderReflection::UniformType::UNIFORM_BUFFER) {
+                const auto buffer=mUniformBuffers.at(uniform.mBind);
+                NSUInteger offset=0;const auto snapshot=snapshotUniform(buffer->getBuffer(),offset);
+                [encoder setBuffer:snapshot offset:offset atIndex:ids.resource+i];resource=snapshot;
+            } else if (entry.texture) {
+                const auto texture=std::static_pointer_cast<TextureMetal>(entry.texture);
+                [encoder setTexture:texture->getTexture() atIndex:ids.resource+i];resource=texture->getTexture();
+                if (uniform.mType==ShaderReflection::UniformType::SAMPLER_2D || uniform.mType==ShaderReflection::UniformType::SAMPLER_CUBE || uniform.mType==ShaderReflection::UniformType::SAMPLER_3D || uniform.mType==ShaderReflection::UniformType::SAMPLER_2D_ARRAY)
+                    [encoder setSamplerState:texture->getSampler() atIndex:ids.sampler+i];
+                else usage|=MTLResourceUsageWrite;
+            } else if (entry.buffer) {
+                const auto buffer=std::static_pointer_cast<StorageBufferMetal>(entry.buffer);
+                [encoder setBuffer:buffer->getBuffer() offset:0 atIndex:ids.resource+i];resource=buffer->getBuffer();
+                if (!uniform.mReadOnly) usage|=MTLResourceUsageWrite;
+            } else throw std::runtime_error("Missing Metal bindless/local resource: "+uniform.mName);
+            if (compute) [compute useResource:resource usage:usage];
+            else [mCurrentEncoder useResource:resource usage:usage];
+            mBindlessFrameResources.push_back(entry);
+        }
+    }
+    if (compute) [compute setBuffer:arguments offset:0 atIndex:kMetalBindlessArgumentBufferIndex];
+    else if (stage==ShaderType::VERTEX) [mCurrentEncoder setVertexBuffer:arguments offset:0 atIndex:kMetalBindlessArgumentBufferIndex];
+    else [mCurrentEncoder setFragmentBuffer:arguments offset:0 atIndex:kMetalBindlessArgumentBufferIndex];
+}
+
+void IKIGAI::RENDER::DriverMetal::draw(const DrawArguments& args) {
+    if (!args.count || !args.instanceCount) return;
+    validateVertexDraw(args);
+    auto shader=mCurrentState.mShader;
+    if (shader->hasTessellation() || shader->hasGeometry()) {
+        if (args.firstInstance || args.baseVertex) throw std::runtime_error("Base offsets for Metal tessellation/geometry are unavailable");
+        if (args.indexed) drawIndexed(args.count,args.first,args.instanceCount);
+        else draw(args.count,args.first,args.instanceCount);
+        return;
+    }
+    ensurePass();if (!ensurePipeline()) throw std::runtime_error("Metal pipeline unavailable");
+    applyFixedState();bindResources();
+    if (args.indexed) {
+        if (!mIndexBuffer) throw std::runtime_error("Index buffer missing");
+        const auto stride=mIndexBuffer->getStride();
+        [mCurrentEncoder drawIndexedPrimitives:ToPrimitive(mPrimitiveMode) indexCount:args.count
+            indexType:stride==2?MTLIndexTypeUInt16:MTLIndexTypeUInt32 indexBuffer:mIndexBuffer->getBuffer()
+            indexBufferOffset:NSUInteger(args.first)*stride instanceCount:args.instanceCount
+            baseVertex:args.baseVertex baseInstance:args.firstInstance];
+    } else [mCurrentEncoder drawPrimitives:ToPrimitive(mPrimitiveMode) vertexStart:args.first vertexCount:args.count
+        instanceCount:args.instanceCount baseInstance:args.firstInstance];
+}
+
 #endif

@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "reflectionStructs.h"
+#include "bindlessInterface.h"
 #include "mathModule/math.h"
 
 
@@ -24,6 +25,10 @@ namespace IKIGAI::RENDER {
 	protected:
 		ShaderReflection mReflection;
 		Id mId = 0;
+		ShaderBindingMode mBindingMode = ShaderBindingMode::Bound;
+		VertexFetchMode mVertexFetchMode = VertexFetchMode::Attributes;
+		uint32_t mBindlessCapacity = 64;
+		uint64_t mGeneration = 0;
 
 	public:
 
@@ -37,6 +42,17 @@ namespace IKIGAI::RENDER {
 
 		const std::string& getPath() { return mPath; }
 		Id getId() const { return mId; }
+		ShaderBindingMode bindingMode() const { return mBindingMode; }
+		VertexFetchMode vertexFetchMode() const { return mVertexFetchMode; }
+		uint32_t bindlessCapacity() const { return mBindlessCapacity; }
+		uint64_t generation() const { return mGeneration; }
+		void configureResourceInterface(const ShaderResource& res);
+        bool isBindlessResource(const ShaderReflection::Uniform& uniform) const {
+            return mBindingMode==ShaderBindingMode::Bindless && (uniform.mRuntimeArray || uniform.mDescriptorCount>1);
+        }
+        uint32_t descriptorCount(const ShaderReflection::Uniform& uniform) const {
+            return uniform.mRuntimeArray ? mBindlessCapacity : uniform.mDescriptorCount;
+        }
 
 		virtual ~ShaderInterface() = default;
 

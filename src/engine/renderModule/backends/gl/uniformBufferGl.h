@@ -1,4 +1,5 @@
 #pragma once
+#include "gpuMemoryGl.h"
 
 #ifdef OPENGL_BACKEND
 #include <string>
@@ -10,6 +11,9 @@ namespace IKIGAI::RENDER {
 		using Id = unsigned;
 	private:
 		Id mId = 0;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        PROFILER::GpuAllocationToken mMemory;
+#endif
 	public:
 		UniformBufferGl(const void* data, size_t sz);
 		UniformBufferGl(size_t sz);

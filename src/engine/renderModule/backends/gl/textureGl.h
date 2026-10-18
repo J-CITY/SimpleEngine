@@ -1,4 +1,5 @@
 #pragma once
+#include "gpuMemoryGl.h"
 #include <cstdint>
 #include <map>
 #include <vector>
@@ -10,7 +11,7 @@
 #include "../interface/textureInterface.h"
 #include "../interface/atlasInterface.h"
 #include "../interface/driverInterface.h"
-#include <utilsModule/memoryAlloc.h>
+#include <utilsModule/memory/memory.h>
 #include <serdepp/serde.hpp>
 
 namespace IKIGAI::RENDER {
@@ -19,6 +20,10 @@ namespace IKIGAI::RENDER {
 	class TextureGl : public TextureInterface {
 	protected:
 		void create(const TextureResource& descriptor, const std::vector<void*>& data);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        PROFILER::GpuAllocationToken mMemory;
+        TextureMemoryLayoutGl mMemoryLayout;
+#endif
 
 	public:
 		TextureGl() = default;

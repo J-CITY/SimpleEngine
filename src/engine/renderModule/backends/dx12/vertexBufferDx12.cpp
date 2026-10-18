@@ -7,6 +7,7 @@
 
 IKIGAI::RENDER::VertexBufferDx12::VertexBufferDx12(void *data, size_t sz, size_t stride): VertexBufferInterface(sz, stride) {
 	mBuffer = d3dUtil::CreateResource(CD3DX12_RESOURCE_DESC::Buffer(mSizeByte,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),D3D12_HEAP_TYPE_DEFAULT,D3D12_RESOURCE_STATE_COMMON);
+	SetGpuMemoryKindDx12(mBuffer.Get(), PROFILER::GpuResourceKind::VertexBuffer);
 
 	mState = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 
@@ -41,6 +42,7 @@ void IKIGAI::RENDER::VertexBufferDx12::setData(const void* data, size_t sz, size
 		mSizeByte = mSize * mStride;
 		d3dUtil::GetDriver()->destroyDeferred(mBuffer);
         mBuffer = d3dUtil::CreateResource(CD3DX12_RESOURCE_DESC::Buffer(mSizeByte,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),D3D12_HEAP_TYPE_DEFAULT,D3D12_RESOURCE_STATE_COMMON);
+        SetGpuMemoryKindDx12(mBuffer.Get(), PROFILER::GpuResourceKind::VertexBuffer);
         mState=D3D12_RESOURCE_STATE_COMMON;
 	}
 

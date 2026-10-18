@@ -14,7 +14,7 @@
 #include "../interface/textureInterface.h"
 #include "../interface/driverInterface.h"
 #include "../interface/atlasInterface.h"
-#include "utilsModule/memoryAlloc.h"
+#include "utilsModule/memory/memory.h"
 
 namespace IKIGAI::RENDER {
 	struct TextureResource;
@@ -35,6 +35,7 @@ namespace IKIGAI::RENDER {
 		CD3DX12_GPU_DESCRIPTOR_HANDLE getGpuDescriptorHandle() const;
         CD3DX12_GPU_DESCRIPTOR_HANDLE getUavHandle() const { return mUavHandle; }
 		void setState(ID3D12GraphicsCommandList* cmdlist, D3D12_RESOURCE_STATES state);
+        D3D12_RESOURCE_STATES getState() const { return mCurrentState; }
 
 		static std::shared_ptr<TextureDx12> Create(const std::string& path, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr);
 		static std::shared_ptr<TextureDx12> Create(const TextureResource& descriptor, UTILS::IAllocator* allocator = nullptr, TextureDeleter deleter = nullptr);

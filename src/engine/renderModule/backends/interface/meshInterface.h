@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include "../../vertex.h"
+#include "vertexLayout.h"
 
 #include "../../objects/boundingSphere.h"
 
@@ -34,11 +35,16 @@ namespace IKIGAI
 
 			virtual void bind() const = 0;
 			virtual void unbind() const = 0;
+			virtual const VertexLayout* vertexLayout() const { return nullptr; }
+			virtual void updateVertexStream(uint32_t, std::span<const std::byte>, size_t) {
+				throw std::runtime_error("This mesh does not expose custom vertex streams");
+			}
             virtual const std::vector<Vertex>& rayTracingVertices() const {static const std::vector<Vertex> empty;return empty;}
             virtual const std::vector<unsigned>& rayTracingIndices() const {static const std::vector<unsigned> empty;return empty;}
             virtual std::shared_ptr<IndexBufferInterface> rayTracingIndexBuffer() const {return {};}
 
 			const IKIGAI::RENDER::BoundingSphere& getBoundingSphere() const;
+            void setBoundingSphere(const IKIGAI::RENDER::BoundingSphere& bounds) { mBoundingSphere = bounds; }
 			void setOffset(size_t offset);
 
 		protected:

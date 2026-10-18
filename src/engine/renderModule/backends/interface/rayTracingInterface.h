@@ -52,11 +52,19 @@ inline void from_json(const nlohmann::json& j, RayTracingShader& v) {
     v.BackendPaths=j.value("BackendPaths",std::map<std::string,std::string>{});
     v.Language=j.value("Language",std::string{"GLSL"});
 }
+inline void to_json(nlohmann::json& j, const RayTracingShader& v) {
+    j={{"Name",v.Name},{"Stage",v.Stage},{"Path",v.Path},{"Source",v.Source},
+       {"EntryPoint",v.EntryPoint},{"BackendPaths",v.BackendPaths},{"Language",v.Language}};
+}
 inline void from_json(const nlohmann::json& j, RayTracingGroup& v) {
     j.at("Name").get_to(v.Name); v.General=j.value("General",std::string{});
     v.ClosestHit=j.value("ClosestHit",std::string{}); v.AnyHit=j.value("AnyHit",std::string{});
     v.Intersection=j.value("Intersection",std::string{});
     v.RecordData=j.value("RecordData",std::vector<uint8_t>{});
+}
+inline void to_json(nlohmann::json& j, const RayTracingGroup& v) {
+    j={{"Name",v.Name},{"General",v.General},{"ClosestHit",v.ClosestHit},
+       {"AnyHit",v.AnyHit},{"Intersection",v.Intersection},{"RecordData",v.RecordData}};
 }
 inline void from_json(const nlohmann::json& j, RayTracingProgramResource& v) {
     j.at("Shaders").get_to(v.Shaders); v.Groups=j.value("Groups",std::vector<RayTracingGroup>{});

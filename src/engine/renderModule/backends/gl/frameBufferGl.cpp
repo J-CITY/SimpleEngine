@@ -96,6 +96,9 @@ void FrameBufferGl::create() {
 		glBindRenderbuffer(GL_RENDERBUFFER, mDepthRenderbuffer);
 		checkGlError("glBindRenderbuffer");
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, SCR_WIDTH, SCR_HEIGHT);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        TrackRenderbufferMemoryGl(mDepthMemory, mDepthRenderbuffer);
+#endif
 		checkGlError("glRenderbufferStorage");
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, mDepthRenderbuffer);
 		checkGlError("glFramebufferRenderbuffer");

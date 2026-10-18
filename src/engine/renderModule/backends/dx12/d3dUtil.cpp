@@ -423,6 +423,20 @@ Dx12Resource d3dUtil::CreateResource(const D3D12_RESOURCE_DESC& desc, D3D12_HEAP
         clearValue,
         allocation.GetAddressOf(),
         IID_PPV_ARGS(&resource)));
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    PROFILER::GpuAllocationInfo info;
+    info.backend = PROFILER::GpuBackend::DirectX12;
+    info.device = reinterpret_cast<std::uintptr_t>(GetDriver()->getDevice().Get());
+    info.handle = reinterpret_cast<std::uint64_t>(resource.Get());
+    info.bytes = allocation->GetSize();
+    info.deviceLocal = heapType == D3D12_HEAP_TYPE_DEFAULT;
+    info.hostVisible = heapType == D3D12_HEAP_TYPE_UPLOAD || heapType == D3D12_HEAP_TYPE_READBACK;
+    info.kind = desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER ?
+        (info.hostVisible ? PROFILER::GpuResourceKind::Staging :
+            (initialState == D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE ? PROFILER::GpuResourceKind::AccelerationStructure : PROFILER::GpuResourceKind::Buffer)) : PROFILER::GpuResourceKind::Texture;
+    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) info.requestedBytes = desc.Width;
+    TrackGpuMemoryDx12(resource.Get(), info);
+#endif
     return Dx12Resource(std::move(resource), std::move(allocation));
 }
 

@@ -9,7 +9,7 @@
 #include "../interface/textureInterface.h"
 #include "../interface/driverInterface.h"
 #include "../interface/atlasInterface.h"
-#include "utilsModule/memoryAlloc.h"
+#include "utilsModule/memory/memory.h"
 #include "vmaVk.h"
 
 namespace IKIGAI::RENDER {

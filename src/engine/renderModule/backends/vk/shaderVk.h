@@ -1,6 +1,7 @@
 #pragma once
 
 #ifdef VULKAN_BACKEND
+#include "profilerModule/gpuMemoryProfiler.h"
 #include <volk.h>
 
 #include <memory>
@@ -22,6 +23,10 @@ namespace IKIGAI::RENDER {
 
 	class ShaderVk : public ShaderInterface {
 	public:
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        // Declared first so registrations outlive the native module members.
+        std::array<PROFILER::GpuAllocationToken, 6> mGpuModules;
+#endif
 
 		vk::raii::DescriptorSetLayout mDescriptorSetLayout = nullptr;
 		vk::raii::PipelineLayout mPipelineLayout = nullptr;

@@ -1,5 +1,6 @@
 #pragma once
 #ifdef DX12_BACKEND
+#include "gpuMemoryDx12.h"
 #include "renderModule/backends/interface/reflectionStructs.h"
 #include <windows.h>
 #include <wrl.h>

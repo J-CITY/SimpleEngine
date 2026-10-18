@@ -16,12 +16,14 @@
 #include <volk.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
+#include "profilerModule/gpuMemoryProfiler.h"
 
 namespace IKIGAI::RENDER {
 	class VmaBuffer {
 	public:
 		VmaBuffer() = default;
-		VmaBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation);
+        VmaBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation,
+            PROFILER::GpuResourceKind kind = PROFILER::GpuResourceKind::Buffer, uint64_t requestedBytes = 0);
 		VmaBuffer(const VmaBuffer&) = delete;
 		VmaBuffer& operator=(const VmaBuffer&) = delete;
 		VmaBuffer(VmaBuffer&& other) noexcept;
@@ -29,6 +31,8 @@ namespace IKIGAI::RENDER {
 		~VmaBuffer();
 
 		void reset();
+		void markPendingRelease();
+		void setMemoryName(const char* name);
 		void upload(const void* data, size_t size, VkDeviceSize offset = 0);
 
 		vk::Buffer get() const;
@@ -43,6 +47,9 @@ namespace IKIGAI::RENDER {
 		VmaAllocator mAllocator = nullptr;
 		VkBuffer mBuffer = VK_NULL_HANDLE;
 		VmaAllocation mAllocation = nullptr;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        PROFILER::GpuAllocationToken mMemory;
+#endif
 	};
 
 	class VmaImage {
@@ -56,6 +63,8 @@ namespace IKIGAI::RENDER {
 		~VmaImage();
 
 		void reset();
+		void markPendingRelease();
+		void setMemoryName(const char* name);
 
 		vk::Image get() const;
 		vk::Image operator*() const;
@@ -69,6 +78,9 @@ namespace IKIGAI::RENDER {
 		VmaAllocator mAllocator = nullptr;
 		VkImage mImage = VK_NULL_HANDLE;
 		VmaAllocation mAllocation = nullptr;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        PROFILER::GpuAllocationToken mMemory;
+#endif
 	};
 }
 

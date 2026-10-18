@@ -1,3 +1,4 @@
+#include "utilsModule/memory/resourceAllocator.h"
 #include "shaderGl.h"
 #ifdef OPENGL_BACKEND
 #include <array>
@@ -7,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <regex>
 #include <stdexcept>
 // #include <coreModule/resourceManager/textureManager.h>
 #include "../interface/reflectionStructs.h"
@@ -73,7 +75,7 @@ IKIGAI::RENDER::ShaderGl::CreateFromSource(
     const std::map<ShaderType, std::string> &source) {
   ShaderResource res;
   res.sources = source;
-  return std::make_shared<ShaderGl>(res);
+  return IKIGAI::MEMORY::MakeShared<ShaderGl, IKIGAI::MEMORY::Category::Shader>(res);
 }
 
 std::shared_ptr<IKIGAI::RENDER::ShaderGl>
@@ -106,7 +108,7 @@ IKIGAI::RENDER::ShaderGl::Create(const ShaderResource &resource) {
             resource.spirvSources[static_cast<ShaderType>(std::stoi(key))] =
                 HexToSpirv(hexStr);
           }
-          return std::make_shared<ShaderGl>(resource);
+          return IKIGAI::MEMORY::MakeShared<ShaderGl, IKIGAI::MEMORY::Category::Shader>(resource);
         } else {
           LOG_INFO << "Failed to parse SPIR-V cache: " << cacheJsonPath;
         }
@@ -128,7 +130,7 @@ IKIGAI::RENDER::ShaderGl::Create(const ShaderResource &resource) {
     }
   }
 
-  auto shader = std::make_shared<ShaderGl>(resource);
+  auto shader = IKIGAI::MEMORY::MakeShared<ShaderGl, IKIGAI::MEMORY::Category::Shader>(resource);
 
   // Save spirv bin
   if (needSaveBinarySource && shader->mId) {
@@ -164,9 +166,15 @@ IKIGAI::RENDER::ShaderGl::~ShaderGl() { clear(); }
 
 void IKIGAI::RENDER::ShaderGl::clear() const {
   if(mId) glDeleteProgram(static_cast<unsigned>(mId));
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+  mGpuProgram.reset();
+#endif
 }
 
 void IKIGAI::RENDER::ShaderGl::create(const ShaderResource &res) {
+    configureResourceInterface(res);
+    if (!res.sources.empty() && !res.useBinary) res.spirvSources.clear();
+  mReflection=ShaderReflection();
   mPath = res.path;
   mShaderPaths = res.getPaths();
 #ifdef __EMSCRIPTEN__
@@ -290,6 +298,23 @@ void IKIGAI::RENDER::ShaderGl::create(const ShaderResource &res) {
             << " stages=" << sources.size()
             << " es=" << es << " version=" << version
             << " flat=" << force_flattened_io_blocks);
+  if (bindingMode()==ShaderBindingMode::Bindless) {
+#if defined(USING_GLES) || defined(__APPLE__) || defined(__EMSCRIPTEN__)
+      throw std::runtime_error("Bindless shaders are not implemented for GLES/WebGL/macOS OpenGL");
+#else
+      for (auto& [stage,source] : sources) {
+          source.insert(source.find('\n')+1,"#extension GL_ARB_bindless_texture : require\n#extension GL_NV_gpu_shader5 : require\n");
+          source=std::regex_replace(source,std::regex("#extension GL_EXT_nonuniform_qualifier[^\n]*"),"");
+          source=std::regex_replace(source,std::regex("nonuniformEXT"),"");
+          for (const auto& uniform : mReflection.mUniforms) if (isBindlessResource(uniform)) {
+              if (uniform.mRuntimeArray || uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER)
+                  throw std::runtime_error("OpenGL bindless profile supports bounded sampler arrays; buffers use ordinary SSBO arenas");
+              const std::regex declaration("layout\\([^\\n]*\\)[ \t]*uniform[ \t]+(sampler[A-Za-z0-9_]+)[ \t]+"+uniform.mName+"\\[");
+              source=std::regex_replace(source,declaration,"layout(bindless_sampler) uniform $1 "+uniform.mName+"[");
+          }
+      }
+#endif
+  }
   compile(sources);
 #ifdef __EMSCRIPTEN__
   std::cout << "[web] ShaderGl::compile done " << mPath << " id=" << mId
@@ -370,6 +395,10 @@ void IKIGAI::RENDER::ShaderGl::compile(
   }
   IKIGAI_COUT("Shader link path=" << mPath << " program=" << mId
             << " stages=" << shaderIds.size() << " ok=" << linked);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+  mGpuProgram = PROFILER::TrackGpuObject(PROFILER::GpuBackend::OpenGL, 0, mId,
+      PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
   for (auto &[type, id] : shaderIds) {
     glDeleteShader(id);
   }

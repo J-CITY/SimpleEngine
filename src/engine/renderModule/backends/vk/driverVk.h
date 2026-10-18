@@ -24,6 +24,7 @@
 struct ImDrawData;
 
 namespace IKIGAI::RENDER {
+    struct StreamlineCallbacks;
 	class StorageBufferVk;
 	class UniformBufferVk;
 	class MeshInterface;
@@ -32,8 +33,10 @@ namespace IKIGAI::RENDER {
 	class CommandBuffer;
 	
 	class DriverVk : public DriverInterface {
+        friend class FsrFrameGenerationVk;
+        friend class StreamlineFrameGenerationVk;
 	public:
-		struct VolkInitializer { VolkInitializer(); };
+		struct VolkInitializer { std::shared_ptr<void> Runtime; VolkInitializer(); };
 		VolkInitializer mVolkInit;
 		vk::raii::Context mContext;
 		vk::raii::Instance mInstance = nullptr;
@@ -41,7 +44,28 @@ namespace IKIGAI::RENDER {
 		vk::raii::Queue mQueue = nullptr;
 		vk::raii::Device mDevice = nullptr;
 		VmaAllocator mAllocator = nullptr;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        std::shared_ptr<PROFILER::GpuMemorySampler> mMemorySampler;
+#endif
         RayTracingCapabilities mRayTracingCapabilities;
+        std::shared_ptr<void> mDlssRuntime;
+        std::string mDlssUnavailable;
+        std::unique_ptr<UpscalerInterface> createUpscaler(UpscalerType) override;
+        std::unique_ptr<FrameGenerationInterface> createFrameGeneration(FrameGenerationType) override;
+        void renderPresentationUI(std::shared_ptr<FrameBufferInterface>) override;
+        StreamlineCallbacks streamlineCallbacks();
+        void streamlinePresenter(bool enable,bool commandOpen=true);
+        void setTemporalCamera(const FrameGenerationInputs&) override;
+        void latencyFrameBegin() override;
+        void latencySimulationEnd() override;
+        void latencySubmitBegin() override;
+        void latencySubmitEnd() override;
+        void bindStreamlineDevice();
+        void configureStreamlineExtensions(std::vector<const char*>&,bool instance);
+        std::array<VkQueue,3> mPresentationQueues{};
+        uint32_t mOpticalFlowFamily=UINT32_MAX;
+        void configureUpscalerExtensions(std::vector<const char*>& extensions);
+        void configureUpscalerInstanceExtensions(std::vector<const char*>& extensions);
         VkPhysicalDeviceAccelerationStructureFeaturesKHR mASFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR mRTFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
         VkPhysicalDeviceRayQueryFeaturesKHR mRQFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR};
@@ -105,6 +129,14 @@ namespace IKIGAI::RENDER {
 		struct SwapchainContextVk {
 			vk::raii::SurfaceKHR surface = nullptr;
 			vk::raii::SwapchainKHR swapchain = nullptr;
+            VkSwapchainKHR sdkSwapchain=VK_NULL_HANDLE;
+            std::function<VkResult(VkSemaphore,uint32_t*)> sdkAcquire;
+            std::function<VkResult(const VkPresentInfoKHR*)> sdkPresent;
+            std::function<void(uint32_t,uint32_t)> sdkResize;
+            std::function<void()> sdkDestroy;
+            std::function<void(VkSurfaceKHR)> sdkDestroySurface;
+            bool streamline=false;
+            vk::SwapchainCreateInfoKHR lastCreateInfo{};
 			std::vector<Frame> frames;
 			uint32_t width = 0;
 			uint32_t height = 0;
@@ -131,6 +163,9 @@ namespace IKIGAI::RENDER {
 
 		State mCurrentState;
 		std::map<std::string, vk::raii::Pipeline> mStates;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        std::map<std::uint64_t, PROFILER::GpuAllocationToken> mGpuPipelines;
+#endif
 
 
 		VkDescriptorPool mImguiPool;
@@ -285,7 +320,11 @@ namespace IKIGAI::RENDER {
 		void draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) override;
 		std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) override;
         void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
-		void drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) override;
+		BindlessCapabilities mBindlessCapabilities;
+        BindlessCapabilities bindlessCapabilities() const override;
+		bool supportsVertexPulling() const override { return true; }
+        void draw(const DrawArguments& args) override;
+        void drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) override;
 		void draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) override;
 		std::shared_ptr<UniformBufferInterface> createUniformBuffer(const void* data, size_t size) override;
 		std::shared_ptr<StorageBufferInterface> createStorageBuffer(const void* data, size_t size, size_t stride) override;
@@ -309,6 +348,7 @@ namespace IKIGAI::RENDER {
 
 		void wait();
 		void createSwapchain(unsigned int windowID, uint32_t width, uint32_t height);
+        void createSwapchainFrames(unsigned windowID,const std::vector<vk::Image>&);
 		void nextFrame();
 		uint32_t getBackbufferWidth();
 		uint32_t getBackbufferHeight();

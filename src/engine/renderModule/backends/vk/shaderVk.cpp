@@ -1,3 +1,4 @@
+#include "utilsModule/memory/resourceAllocator.h"
 #include "shaderVk.h"
 
 #include <cassert>
@@ -100,13 +101,24 @@ std::tuple<vk::raii::PipelineLayout, vk::raii::DescriptorSetLayout, std::vector<
 
 		const auto typeIt = ShaderTypeMap.find(uniform.mType);
 		if (typeIt == ShaderTypeMap.end()) {
+			if (bindingMode()==ShaderBindingMode::Bindless) throw std::runtime_error("Unsupported bindless/local descriptor type: "+uniform.mName);
 			LOG_ERROR << "Unsupported uniform type for descriptor '" << uniform.mName << "'";
 			continue;
 		}
 
+        const auto count=descriptorCount(uniform);
+        if (isBindlessResource(uniform)) {
+            const auto caps=UtilityVk::GetDriver()->bindlessCapabilities();
+            if (uniform.mSet!=0) throw std::runtime_error("Bindless resource ABI currently uses descriptor set zero");
+            if (uniform.mRuntimeArray && !caps.runtimeArrays) throw std::runtime_error("Runtime descriptor arrays unsupported");
+            const bool texture=typeIt->second==vk::DescriptorType::eCombinedImageSampler;
+            const bool buffer=typeIt->second==vk::DescriptorType::eStorageBuffer;
+            if ((!texture&&!buffer) || (texture && (!caps.sampledTextures || count>caps.maxSampledTextures)) || (buffer && (!caps.storageBuffers || count>caps.maxStorageBuffers)))
+                throw std::runtime_error("Bindless table class/count unsupported: "+uniform.mName);
+        } else if (count!=1) throw std::runtime_error("Descriptor arrays require BindingMode Bindless");
 		auto descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding()
 			.setDescriptorType(typeIt->second)
-			.setDescriptorCount(1)
+			.setDescriptorCount(count)
 			.setBinding(uniform.mBind)
 			.setStageFlags(stageFlag);
 
@@ -148,7 +160,7 @@ std::tuple<vk::raii::PipelineLayout, vk::raii::DescriptorSetLayout, std::vector<
 std::shared_ptr<IKIGAI::RENDER::ShaderVk> IKIGAI::RENDER::ShaderVk::CreateFromSource(const std::map<ShaderType, std::string>& source) {
 	ShaderResource res;
 	res.sources = source;
-	return std::make_shared<ShaderVk>(res);
+	return IKIGAI::MEMORY::MakeShared<ShaderVk, IKIGAI::MEMORY::Category::Shader>(res);
 }
 
 std::shared_ptr<IKIGAI::RENDER::ShaderVk> IKIGAI::RENDER::ShaderVk::CreateFromPath(const std::map<ShaderType, std::string>& paths) {
@@ -176,7 +188,7 @@ std::shared_ptr<IKIGAI::RENDER::ShaderVk> IKIGAI::RENDER::ShaderVk::Create(const
 							loaded[static_cast<ShaderType>(std::stoi(key))] = HexToSpirv(hexStr);
 						}
 						resource.spirvSources = std::move(loaded);
-						return std::make_shared<ShaderVk>(resource);
+						return IKIGAI::MEMORY::MakeShared<ShaderVk, IKIGAI::MEMORY::Category::Shader>(resource);
 					} catch (const std::exception& e) {
 						LOG_ERROR << "Corrupted SPIR-V cache " << cacheJsonPath << ": " << e.what();
 						resource.spirvSources.clear();
@@ -202,7 +214,7 @@ std::shared_ptr<IKIGAI::RENDER::ShaderVk> IKIGAI::RENDER::ShaderVk::Create(const
 		}
 	}
 
-	auto shader = std::make_shared<ShaderVk>(resource);
+	auto shader = IKIGAI::MEMORY::MakeShared<ShaderVk, IKIGAI::MEMORY::Category::Shader>(resource);
 
 	// Save spirv bin
 	if (needSaveBinarySource && !shader->mPath.empty() && !resource.spirvSources.empty()) {
@@ -246,6 +258,8 @@ void IKIGAI::RENDER::ShaderVk::clear() const {
 }
 
 void IKIGAI::RENDER::ShaderVk::create(const ShaderResource& res) {
+    configureResourceInterface(res);
+    if (!res.sources.empty() && !res.useBinary) res.spirvSources.clear();
 	static size_t ID = 0;
 	mId = ID++;
 	mPath = res.path;
@@ -292,36 +306,72 @@ void IKIGAI::RENDER::ShaderVk::create(const ShaderResource& res) {
 		create_info.codeSize = res.spirvSources[ShaderType::VERTEX].size() * sizeof(uint32_t);
 		create_info.pCode = res.spirvSources[ShaderType::VERTEX].data();
 		mVertexShaderModule = UtilityVk::GetDriver()->mDevice.createShaderModule(create_info);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        mGpuModules[0] = PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*UtilityVk::GetDriver()->mDevice)),
+            PROFILER::GpuHandleValue(static_cast<VkShaderModule>(*mVertexShaderModule)),
+            PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
 	}
 	if (res.spirvSources.contains(ShaderType::FRAGMENT) && !res.spirvSources[ShaderType::FRAGMENT].empty()) {
 		auto create_info = vk::ShaderModuleCreateInfo();
 		create_info.codeSize = res.spirvSources[ShaderType::FRAGMENT].size() * sizeof(uint32_t);
 		create_info.pCode = res.spirvSources[ShaderType::FRAGMENT].data();
 		mFragmentShaderModule = UtilityVk::GetDriver()->mDevice.createShaderModule(create_info);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        mGpuModules[1] = PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*UtilityVk::GetDriver()->mDevice)),
+            PROFILER::GpuHandleValue(static_cast<VkShaderModule>(*mFragmentShaderModule)),
+            PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
 	}
 	if (res.spirvSources.contains(ShaderType::GEOMETRY) && !res.spirvSources[ShaderType::GEOMETRY].empty()) {
 		auto create_info = vk::ShaderModuleCreateInfo();
 		create_info.codeSize = res.spirvSources[ShaderType::GEOMETRY].size() * sizeof(uint32_t);
 		create_info.pCode = res.spirvSources[ShaderType::GEOMETRY].data();
 		mGeometryShaderModule = UtilityVk::GetDriver()->mDevice.createShaderModule(create_info);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        mGpuModules[2] = PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*UtilityVk::GetDriver()->mDevice)),
+            PROFILER::GpuHandleValue(static_cast<VkShaderModule>(*mGeometryShaderModule)),
+            PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
 	}
 	if (res.spirvSources.contains(ShaderType::TESSELLATION_CONTROL) && !res.spirvSources[ShaderType::TESSELLATION_CONTROL].empty()) {
 		auto create_info = vk::ShaderModuleCreateInfo();
 		create_info.codeSize = res.spirvSources[ShaderType::TESSELLATION_CONTROL].size() * sizeof(uint32_t);
 		create_info.pCode = res.spirvSources[ShaderType::TESSELLATION_CONTROL].data();
 		mTessellationControlShaderModule = UtilityVk::GetDriver()->mDevice.createShaderModule(create_info);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        mGpuModules[3] = PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*UtilityVk::GetDriver()->mDevice)),
+            PROFILER::GpuHandleValue(static_cast<VkShaderModule>(*mTessellationControlShaderModule)),
+            PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
 	}
 	if (res.spirvSources.contains(ShaderType::TESSELLATION_EVALUATION) && !res.spirvSources[ShaderType::TESSELLATION_EVALUATION].empty()) {
 		auto create_info = vk::ShaderModuleCreateInfo();
 		create_info.codeSize = res.spirvSources[ShaderType::TESSELLATION_EVALUATION].size() * sizeof(uint32_t);
 		create_info.pCode = res.spirvSources[ShaderType::TESSELLATION_EVALUATION].data();
 		mTessellationEvaluationShaderModule = UtilityVk::GetDriver()->mDevice.createShaderModule(create_info);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        mGpuModules[4] = PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*UtilityVk::GetDriver()->mDevice)),
+            PROFILER::GpuHandleValue(static_cast<VkShaderModule>(*mTessellationEvaluationShaderModule)),
+            PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
 	}
 	if (res.spirvSources.contains(ShaderType::COMPUTE) && !res.spirvSources[ShaderType::COMPUTE].empty()) {
 		auto create_info = vk::ShaderModuleCreateInfo();
 		create_info.codeSize = res.spirvSources[ShaderType::COMPUTE].size() * sizeof(uint32_t);
 		create_info.pCode = res.spirvSources[ShaderType::COMPUTE].data();
 		mComputeShaderModule = UtilityVk::GetDriver()->mDevice.createShaderModule(create_info);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        mGpuModules[5] = PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*UtilityVk::GetDriver()->mDevice)),
+            PROFILER::GpuHandleValue(static_cast<VkShaderModule>(*mComputeShaderModule)),
+            PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
 	}
 }
 #endif

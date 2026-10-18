@@ -46,7 +46,16 @@ VmaBuffer UtilityVk::CreateBuffer(uint64_t size, vk::BufferUsageFlags usage, Mem
 		throw std::runtime_error("vmaCreateBuffer failed");
 	}
 
-	return VmaBuffer(GetDriver()->mAllocator, buffer, allocation);
+    auto kind = PROFILER::GpuResourceKind::Buffer;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    if (memoryUsage == MemoryUsage::Staging) kind = PROFILER::GpuResourceKind::Staging;
+    else if (usage & vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR) kind = PROFILER::GpuResourceKind::AccelerationStructure;
+    else if (usage & vk::BufferUsageFlagBits::eVertexBuffer) kind = PROFILER::GpuResourceKind::VertexBuffer;
+    else if (usage & vk::BufferUsageFlagBits::eIndexBuffer) kind = PROFILER::GpuResourceKind::IndexBuffer;
+    else if (usage & vk::BufferUsageFlagBits::eUniformBuffer) kind = PROFILER::GpuResourceKind::UniformBuffer;
+    else if (usage & vk::BufferUsageFlagBits::eStorageBuffer) kind = PROFILER::GpuResourceKind::StorageBuffer;
+#endif
+	return VmaBuffer(GetDriver()->mAllocator, buffer, allocation, kind, size);
 }
 
 vk::raii::ImageView UtilityVk::CreateImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspect_flags, size_t layers, vk::ImageViewType type, uint32_t mip_levels ) {

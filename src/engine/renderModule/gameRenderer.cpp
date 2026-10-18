@@ -1,4 +1,9 @@
 #include "gameRenderer.h"
+#include "particles/particleRenderer.h"
+#if USE_PHYSICS_3D
+#include "physics/deformableRenderer.h"
+#endif
+#include "captureModule/screenshot.h"
 
 #include <coreModule/graphicsWrapper.hpp>
 #include "backends/interface/frameBufferInterface.h"
@@ -35,6 +40,8 @@
 #include "backends/meshFactory.h"
 #include "coreModule/gui/components/spriteComponent.h"
 #include "coreModule/gui/guiObject.h"
+#include "coreModule/gui/components/vectorComponents.h"
+#include "vectorGraphicsModule/render/vectorRenderer.h"
 
 #ifdef OCULUS
 #include "util_matrix.h"
@@ -101,6 +108,10 @@ namespace IKIGAI::RENDER {
 
 	void GameRenderer::renderScene() {
 		WEB_LOG("GameRenderer::renderScene");
+        if (mContext.sceneManager->isTransitioning() || !mContext.sceneManager->hasCurrentScene()) {
+            renderLoadingScene(mContext.sceneManager->getPresentedScene());
+            return;
+        }
 		auto& scene = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::SCENE_SYSTEM::SceneManager>().getCurrentScene();
 		auto& render = mContext.render;
 
@@ -137,6 +148,37 @@ namespace IKIGAI::RENDER {
 		}
 #endif
 	}
+
+    void GameRenderer::renderLoadingScene(SCENE_SYSTEM::Scene* scene) {
+        auto& render = *mContext.render;
+        const auto size = mContext.window->getPixelSize();
+        if (size.x <= 0 || size.y <= 0) return;
+        render.getDriver()->resize(size.x, size.y);
+        resetTemporalHistory();
+        mPreviousCamera = nullptr;
+        mSkinningPoses.clear();
+        CAPTURE::ScreenshotService::Get().setSource({}, {});
+        if (auto& driver = *render.getDriver(); driver.mFrameGeneration) {
+            driver.mFrameGeneration->suspend();
+            driver.mFrameGenerationStatus = driver.mFrameGeneration->status();
+        }
+        render.resetFrameBuffer();
+        render.resetViewport();
+        render.resetScissor();
+        render.resetBlending();
+        render.resetDepth();
+        render.resetStencil();
+        render.setClearColor(0.f, 0.f, 0.f, 1.f);
+        render.clear(true, true, true);
+        if (scene) {
+            uboData.View = MATH::Matrix4f::Identity;
+            uboData.Projection = MATH::Matrix4f::Identity;
+            uboData.ViewportSize = {float(size.x), float(size.y)};
+            uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
+            mEngineUbo->setData(uboData);
+            renderGui(*scene);
+        }
+    }
 
 	const GameRenderer::SkinningPose* GameRenderer::skinningPose(const Drawable& drawable) {
 		if (!drawable.skeleton || !drawable.animationPlayable || !drawable.mAnimLocalTransform || !drawable.mAnimGlobalTransform
@@ -278,6 +320,10 @@ namespace IKIGAI::RENDER {
 	}
 	//TODO: split it
 	void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::CameraComponent& cameraComponent) {
+#if USE_PHYSICS_3D
+        if(!mDeformableRenderer)mDeformableRenderer=std::make_shared<DeformableRenderer>();
+        mDeformableRenderer->update(scene);
+#endif
 		uboData.View = MATH::Matrix4f::Transpose(cameraComponent.getCamera().getViewMatrix());
 		auto projection = cameraComponent.getCamera().getProjectionMatrix();
 		if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN
@@ -294,29 +340,51 @@ namespace IKIGAI::RENDER {
 		const float previousTime = uboData.Time;
 		uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
 		auto sz = mContext.window->getPixelSize();
+        const MATH::Vector2i displaySize{int(sz.x),int(sz.y)};
 		uboData.ViewportSize = MATH::Vector2f(sz.x, sz.y);
 		uboData.FPS = static_cast<float>(TIME::Timer::GetInstance().getFPS());
 		uboData.FrameCount = static_cast<int>(mFrameCount);
 		if (mFrameCount % 60 == 0)
 			mRenderPipeline->pollSettings(*mContext.render);
+        mRenderPipeline->prepareUpscaler(*mContext.render,sz.x,sz.y);
+        auto* presentationDriver=mContext.render->getDriver();
+        const auto fgStages=std::count_if(mRenderPipeline->mStages.begin(),mRenderPipeline->mStages.end(),[](auto& s){return s->mDescriptor.Enabled&&s->mDrawContent==DrawContent::FRAME_GENERATION;});
+        if(fgStages>1)throw std::runtime_error("A pipeline can have only one active FRAME_GENERATION stage");
+        presentationDriver->prepareFrameGeneration(fgStages==1,mRenderPipeline->mRenderSize,{int(sz.x),int(sz.y)});
 		mRenderPipeline->resize(*mContext.render, sz.x, sz.y);
 		mRenderPipeline->pollResourceUpdates();
+        const bool upscaleEnabled=bool(mRenderPipeline->mUpscaler);
+        const auto renderSize=mRenderPipeline->mRenderSize;
+        uboData.ViewportSize={float(renderSize.x),float(renderSize.y)};
 		auto unjitteredViewProjection = projection * cameraComponent.getCamera().getViewMatrix();
-		if (mPreviousCamera != &cameraComponent)
+        const auto unjitteredProjection=projection;
+		if (mPreviousCamera != &cameraComponent) {
+			mRenderPipeline->mPresentationHistoryValid=false;
 			mRenderPipeline->mHistoryValid = false;
+            mRenderPipeline->mUpscaleHistoryValid=false;
+        }
 		else {
 			float difference = 0;
 			for (int row = 0; row < 4; ++row)
 				for (int column = 0; column < 4; ++column)
 					difference
 						= std::max(difference, std::abs(unjitteredViewProjection(row, column) - mPreviousUnjitteredViewProjection(row, column)));
-			if (difference > 2.0f)
+			if (difference > 2.0f) {
+				mRenderPipeline->mPresentationHistoryValid=false;
 				mRenderPipeline->mHistoryValid = false;
+                mRenderPipeline->mUpscaleHistoryValid=false;
+            }
 		}
 		const bool taaEnabled = mRenderPipeline->mDescriptor.TemporalJitter
 			&& std::any_of(mRenderPipeline->mStages.begin(), mRenderPipeline->mStages.end(),
 				[](const auto& stage) { return stage->mDescriptor.Enabled && stage->mName == "TAA"; });
-		if (taaEnabled) {
+		mJitter={};
+        if(upscaleEnabled) {
+            mJitter=mRenderPipeline->mUpscaler->jitter(mFrameCount,renderSize,displaySize);
+            auto jitter=MATH::Matrix4f::Identity;
+            jitter(0,3)=2*mJitter.x/renderSize.x;jitter(1,3)=-2*mJitter.y/renderSize.y;
+            projection=jitter*projection;
+        } else if (taaEnabled) {
 			auto halton = [](unsigned index, unsigned base) {
 				float fraction = 1, result = 0;
 				while (index) {
@@ -327,6 +395,7 @@ namespace IKIGAI::RENDER {
 				return result;
 			};
 			const auto index = static_cast<unsigned>(mFrameCount % 8) + 1;
+            mJitter={halton(index,2)-.5f,halton(index,3)-.5f};
 			auto jitter = MATH::Matrix4f::Identity;
 			jitter(0, 3) = (halton(index, 2) - .5f) * 2 / static_cast<float>(sz.x);
 			jitter(1, 3) = (halton(index, 3) - .5f) * 2 / static_cast<float>(sz.y);
@@ -336,11 +405,15 @@ namespace IKIGAI::RENDER {
 		mEngineUbo->setData(uboData);
 		const auto viewProjection = projection * cameraComponent.getCamera().getViewMatrix();
 		mFrameData.InvViewProjection = MATH::Matrix4f::Transpose(MATH::Matrix4f::Inverse(viewProjection));
-		mFrameData.PreviousViewProjection = MATH::Matrix4f::Transpose(mRenderPipeline->mHistoryValid ? mPreviousViewProjection : viewProjection);
+        const bool temporalValid=mRenderPipeline->mPresentationHistoryValid;
+		mFrameData.PreviousViewProjection = MATH::Matrix4f::Transpose(temporalValid ? mPreviousViewProjection : viewProjection);
 		mFrameData.PreviousModel = MATH::Matrix4f::Identity;
 		const float zeroToOne = DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? 0.0f : 1.0f;
 		mFrameData.CameraParams = { cameraComponent.getNear(), cameraComponent.getFar(), zeroToOne, zeroToOne };
-		mFrameData.FrameState = { mRenderPipeline->mHistoryValid ? 1.0f : 0.0f, std::clamp(uboData.Time - previousTime, 0.0f, .25f), 0, 0 };
+		mFrameData.FrameState = { temporalValid ? 1.0f : 0.0f, std::clamp(uboData.Time - previousTime, 0.0f, .25f),
+            upscaleEnabled&&temporalValid?(mJitter.x-mPreviousJitter.x)/renderSize.x:0,
+            upscaleEnabled&&temporalValid?(mJitter.y-mPreviousJitter.y)/renderSize.y:0 };
+        const auto cameraFrameState=mFrameData.FrameState;
 		mFrameUbo->setData(mFrameData);
 
 		if (cameraComponent.isFrustumLightCulling()) {
@@ -410,6 +483,20 @@ namespace IKIGAI::RENDER {
 				mFrameUbo->setData(mFrameData);
 			}
 		}
+        FrameGenerationInputs temporalCamera;
+        temporalCamera.RenderSize=renderSize;temporalCamera.DisplaySize=displaySize;
+        temporalCamera.View=cameraComponent.getCamera().getViewMatrix();temporalCamera.Projection=unjitteredProjection;
+        temporalCamera.PreviousViewProjection=mPreviousUnjitteredViewProjection;temporalCamera.Position=uboData.ViewPos;
+        temporalCamera.Right={temporalCamera.View(0,0),temporalCamera.View(0,1),temporalCamera.View(0,2)};
+        temporalCamera.Up={temporalCamera.View(1,0),temporalCamera.View(1,1),temporalCamera.View(1,2)};
+        temporalCamera.Forward={-temporalCamera.View(2,0),-temporalCamera.View(2,1),-temporalCamera.View(2,2)};
+        temporalCamera.Jitter=mJitter;temporalCamera.PreviousJitter=mPreviousJitter;
+        temporalCamera.Near=cameraComponent.getNear();temporalCamera.Far=cameraComponent.getFar();
+        temporalCamera.VerticalFov=cameraComponent.getFov()*3.14159265358979323846f/180.f;
+        temporalCamera.DeltaMilliseconds=mFrameData.FrameState.y*1000.f;
+        temporalCamera.RealFrameId=presentationDriver->mRealFrameId==UINT64_MAX?mFrameCount:presentationDriver->mRealFrameId;
+        temporalCamera.Reset=cameraFrameState.x<.5f||(presentationDriver->mFrameGeneration&&!presentationDriver->mFrameGenerationStatus.Active);
+        presentationDriver->setTemporalCamera(temporalCamera);
 		if (mFrameCount == 0)
 			for (const auto& chunk : chunks)
 				std::cout << "Render drawables: opaque=" << chunk.opaqueDrawablesForward.size() + chunk.opaqueDrawablesDeferred.size()
@@ -430,7 +517,7 @@ namespace IKIGAI::RENDER {
 		mRenderPipeline->mTextures = mRenderPipeline->mAllocatedTextures;
 		std::function<void(std::unique_ptr<PipelineStage>&)> runStage;
 		runStage = [&](std::unique_ptr<PipelineStage>& stage) {
-			if (!stage->mDescriptor.Enabled) {
+			if (!stage->mDescriptor.Enabled || (upscaleEnabled&&(stage->mName=="TAA"||stage->mName=="fxaa"))) {
 				if (stage->mDrawContent == DrawContent::LIGHT_ACCUMULATION) {
 					for (auto& init : mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass).InitStages)
 						runStage(init);
@@ -556,6 +643,63 @@ namespace IKIGAI::RENDER {
 				runRayTracingStage(*stage);
 				return;
 			}
+            if(stage->mDrawContent==DrawContent::FRAME_GENERATION){
+                if(DriverInterface::settings.frameGeneration.technology!=FrameGenerationType::OFF&&
+                   !presentationDriver->mFrameGenerationStatus.Supported&&stage->mDescriptor.Unsupported=="ERROR")
+                    throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
+                const auto& b=stage->mDescriptor.Bindings;
+                FrameGenerationInputs f=temporalCamera;
+                f.Color=mRenderPipeline->mTextures.at(b.at("Color"));f.UI=mRenderPipeline->mTextures.at(b.at("UI"));
+                f.Depth=mRenderPipeline->mTextures.at(b.at("Depth"));f.MotionVectors=mRenderPipeline->mTextures.at(b.at("MotionVectors"));
+                f.RenderSize=renderSize;f.DisplaySize=displaySize;f.Jitter=mJitter;f.PreviousJitter=mPreviousJitter;
+                f.View=cameraComponent.getCamera().getViewMatrix();f.Projection=unjitteredProjection;
+                f.PreviousViewProjection=mPreviousUnjitteredViewProjection;f.Position=uboData.ViewPos;
+                f.Right={f.View(0,0),f.View(0,1),f.View(0,2)};f.Up={f.View(1,0),f.View(1,1),f.View(1,2)};
+                f.Forward={-f.View(2,0),-f.View(2,1),-f.View(2,2)};
+                f.Near=cameraComponent.getNear();f.Far=cameraComponent.getFar();f.VerticalFov=cameraComponent.getFov()*3.14159265358979323846f/180.f;
+                f.DeltaMilliseconds=mFrameData.FrameState.y*1000.f;f.RealFrameId=temporalCamera.RealFrameId;
+                f.Reset=temporalCamera.Reset;
+                presentationDriver->dispatchFrameGeneration(f);
+                auto& screenshot=CAPTURE::ScreenshotService::Get();
+                if(screenshot.pending() && screenshot.textureName().empty() && presentationDriver->mFrameGeneration &&
+                   presentationDriver->mFrameGenerationStatus.Active && presentationDriver->mFrameGeneration->composesUI())
+                    screenshot.setSource(f.Color,f.UI);
+                if(stage->mDescriptor.Unsupported=="ERROR"&&!presentationDriver->mFrameGenerationStatus.Reason.empty())
+                    throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
+                stage->mExecuted=true;return;
+            }
+            if(stage->mDrawContent==DrawContent::UPSCALE && mRenderPipeline->mUpscaler) {
+                const auto& bindings=stage->mDescriptor.Bindings;
+                auto texture=[&](const char* name,bool required=true)->std::shared_ptr<TextureInterface> {
+                    auto found=bindings.find(name);
+                    if(found==bindings.end()) {
+                        if(required)throw std::runtime_error(stage->mName+": missing UPSCALE binding "+name);
+                        return {};
+                    }
+                    return mRenderPipeline->mTextures.at(found->second);
+                };
+                UpscaleFrameInputs f;
+                f.Color=texture("Color");f.Depth=texture("Depth");f.MotionVectors=texture("MotionVectors");f.Output=texture("Output");
+                f.Exposure=texture("Exposure",false);f.Reactive=texture("Reactive",false);f.Transparency=texture("Transparency",false);
+                f.RenderSize=renderSize;f.DisplaySize=displaySize;f.Jitter=mJitter;
+                f.Near=cameraComponent.getNear();f.Far=cameraComponent.getFar();
+                f.VerticalFov=cameraComponent.getFov()*3.14159265358979323846f/180.f;
+                f.DeltaMilliseconds=mFrameData.FrameState.y*1000.f;
+                f.Reset=!mRenderPipeline->mUpscaleHistoryValid;f.Sharpness=mRenderPipeline->mUpscalerSettings.sharpness;
+                try {
+                    mRenderPipeline->mUpscaler->dispatch(f);
+                    if(!stage->mExecuted||f.Reset)std::cout<<"UPSCALE_DISPATCH "<<mRenderPipeline->mUpscalerStatus.Implementation<<" reset="<<f.Reset<<'\n';
+                    mRenderPipeline->mUpscaleHistoryValid=true;stage->mExecuted=true;
+                    return;
+                } catch(const UnsupportedUpscaler& error) {
+                    if(stage->mDescriptor.Unsupported=="ERROR")throw;
+                    mRenderPipeline->mUpscalerStatus.Supported=false;
+                    mRenderPipeline->mUpscalerStatus.Reason=error.what();
+                    mRenderPipeline->mUpscalerFailed=true;mRenderPipeline->mUpscaleHistoryValid=false;
+                    std::cerr<<"UPSCALER_FALLBACK "<<error.what()<<'\n';
+                    // Draw the stage's spatial fallback for this already-rendered frame.
+                }
+            }
 			auto& render = *mContext.render;
 #if defined(OPENGL_BACKEND) && !defined(USING_GLES)
 			GLuint profileQuery = 0;
@@ -566,13 +710,22 @@ namespace IKIGAI::RENDER {
 #endif
 			render.setFrameBuffer(stage->mFrameBuffer);
 			const auto size
-				= stage->mFrameBuffer ? MATH::Vector2f(stage->mFrameBuffer->getWidth(), stage->mFrameBuffer->getHeight()) : uboData.ViewportSize;
+				= stage->mFrameBuffer ? MATH::Vector2f(stage->mFrameBuffer->getWidth(), stage->mFrameBuffer->getHeight()) : MATH::Vector2f(float(sz.x),float(sz.y));
+			uboData.ViewportSize=size;mEngineUbo->setData(uboData);
 			render.setViewport({ { 0, 0 }, size });
 			render.resetScissor();
 			render.setClearColor(stage->mDescriptor.ClearValue);
 			render.clear(stage->mDescriptor.ClearColor, stage->mDescriptor.ClearDepth, false);
-			if (stage->mMaterial)
-				bindStage(*stage);
+            if(stage->mName=="PrepareFrameGenMotion"){
+                const MATH::Vector2f delta{(mJitter.x-mPreviousJitter.x)/renderSize.x,(mJitter.y-mPreviousJitter.y)/renderSize.y};
+                stage->mDefaults["data_UBOJitterDelta"]=upscaleEnabled?MATH::Vector2f{}:delta;
+            }
+            if(stage->mName=="PrepareFrameGenMotion"||stage->mName=="PrepareUpscaleVelocity"){
+                mFrameData.FrameState=cameraFrameState;mFrameUbo->setData(mFrameData);
+            }
+            if(stage->mDescriptor.PresentationSink&&stage->mDrawContent==DrawContent::QUAD)
+                stage->mDefaults["data_UBOCompositeUI"]=int(!(presentationDriver->mFrameGeneration&&presentationDriver->mFrameGeneration->composesUI()));
+			if (stage->mMaterial)bindStage(*stage);
 			mOverrideMaterial = stage->mDescriptor.OverrideMaterial ? stage->mMaterial : nullptr;
 			mOverrideDefaults = stage->mDefaults;
 			mActiveStage = stage.get();
@@ -590,13 +743,16 @@ namespace IKIGAI::RENDER {
 			if (stage->mDrawContent == DrawContent::SHADOW) {
 				captureShadows(*stage, shadowChunks, cameraPosition, size);
 			}
-			else if (stage->mDrawContent == DrawContent::QUAD) {
+			else if (stage->mDrawContent == DrawContent::QUAD || stage->mDrawContent == DrawContent::UPSCALE) {
 				if (!stage->mMaterial)
 					throw std::runtime_error("Fullscreen stage requires Material: " + stage->mName);
 				render.draw(mFullscreenMesh, PrimitiveMode::TRIANGLES, 1);
 			}
-			else if (stage->mDrawContent == DrawContent::GUI)
+			else if (stage->mDrawContent == DrawContent::GUI){
 				renderGui(scene);
+                if(stage->mDescriptor.IncludeEditorUI)presentationDriver->renderPresentationUI(stage->mFrameBuffer);
+            }
+			else if (stage->mDrawContent == DrawContent::VECTOR_WORLD){renderGui(scene,true);}
 			else
 				for (auto& chunk : chunks) {
 					if (stage->mDrawContent == DrawContent::FORWARD || stage->mDrawContent == DrawContent::DEFERRED
@@ -613,6 +769,10 @@ namespace IKIGAI::RENDER {
 							drawDrawable(drawable);
 					}
 				}
+            if(stage->mDrawContent==DrawContent::TRANSPARENT_GEOMETRY||stage->mDrawContent==DrawContent::FORWARD) {
+                if(!mParticleRenderer)mParticleRenderer=std::make_shared<ParticleRenderer>();
+                mParticleRenderer->drawWorld(scene,render,uboData.View,uboData.View*uboData.Projection);
+            }
 			mOverrideMaterial.reset();
 			mActiveStage = nullptr;
 			if (stage->mMaterial)
@@ -642,12 +802,20 @@ namespace IKIGAI::RENDER {
 		}
 		for (auto& stage : mRenderPipeline->mStages)
 			runStage(stage);
+        auto& screenshot=CAPTURE::ScreenshotService::Get();
+        if(screenshot.pending() && !screenshot.textureName().empty()) {
+            const auto source=mRenderPipeline->mTextures.find(screenshot.textureName());
+            if(source==mRenderPipeline->mTextures.end())screenshot.fail("Unknown screenshot texture: "+screenshot.textureName());
+            else screenshot.setSource(source->second);
+        }
 		mRenderPipeline->advanceHistory(*mContext.render);
 		if (rayTracingActive)
 			++mRaySample;
 		mPreviousViewProjection = viewProjection;
+        mPreviousJitter=mJitter;
 		mPreviousUnjitteredViewProjection = unjitteredViewProjection;
 		mPreviousCamera = &cameraComponent;
+        mRenderPipeline->mPresentationHistoryValid=true;
 	}
 
 	void GameRenderer::captureShadows(
@@ -803,6 +971,23 @@ namespace IKIGAI::RENDER {
 		XrCompositionLayerProjectionView& layerView, render_target_t& rtarget,
 		XrPosef& stagePose, uint32_t viewID) {
 		(void)stagePose;
+
+        if (mContext.sceneManager->isTransitioning() || !mContext.sceneManager->hasCurrentScene()) {
+            const auto& rect = layerView.subImage.imageRect;
+            glBindFramebuffer(GL_FRAMEBUFFER, rtarget.fbo_id);
+            glViewport(rect.offset.x, rect.offset.y, rect.extent.width, rect.extent.height);
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glClearColor(0.f, 0.f, 0.f, 1.f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            if (auto* loading = mContext.sceneManager->getPresentedScene()) {
+                uboData.ViewportSize = {float(rect.extent.width), float(rect.extent.height)};
+                uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
+                mEngineUbo->setData(uboData);
+                renderGui(*loading);
+            }
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            return;
+        }
 
 		if (!mContext.sceneManager->hasCurrentScene()) {
 			return;
@@ -968,6 +1153,39 @@ static RenderGraphPipeline::Descriptor ResolvePipelineSettings(const RenderGraph
 		std::count_if(resolved.LightPasses.begin(),resolved.LightPasses.end(),[&](const auto& p){return p.Name==stage.LightPass;})!=1)
 		throw std::runtime_error("Unknown light pass: "+stage.LightPass);
 	ValidatePointCube(validation);
+    auto rejectFG=[](const auto& stages){for(const auto& stage:stages)if(stage.Draw==DrawContent::FRAME_GENERATION)
+        throw std::runtime_error("FRAME_GENERATION is allowed only in the main per-frame stage list");};
+    rejectFG(resolved.StartStages);
+    for(const auto& pass:resolved.LightPasses){rejectFG(pass.InitStages);rejectFG(pass.CaptureStages);rejectFG(pass.PrepareStages);rejectFG(pass.ResolveStages);}
+    std::set<std::string> produced,fgInputs;
+    unsigned fgCount=0;
+    for(const auto& stage:resolved.Stages){
+        if(!stage.Enabled)continue;
+        std::set<std::string> writes(stage.Writes.begin(),stage.Writes.end());
+        if(!stage.DispatchTexture.empty())writes.insert(stage.DispatchTexture);
+        if(!stage.FrameBuffer.empty()){
+            const auto frame=std::find_if(resolved.FrameBuffers.begin(),resolved.FrameBuffers.end(),[&](const auto& f){return f.Name==stage.FrameBuffer;});
+            if(frame!=resolved.FrameBuffers.end()){writes.insert(frame->Textures.begin(),frame->Textures.end());if(!frame->Depth.empty())writes.insert(frame->Depth);}
+        }
+        for(const auto& output:writes)if(fgInputs.contains(output))throw std::runtime_error("FG input is overwritten after FRAME_GENERATION: "+output);
+        if(stage.Draw==DrawContent::FRAME_GENERATION){
+            if(++fgCount>1)throw std::runtime_error("Only one main FRAME_GENERATION stage is allowed");
+            if(!writes.empty()||!stage.Material.empty()||!stage.Program.empty())throw std::runtime_error("FRAME_GENERATION must not write a framebuffer or use a shader material");
+            for(const char* key:{"Color","Depth","MotionVectors","UI"}){
+                if(!stage.Bindings.contains(key))throw std::runtime_error("Missing FG input: "+std::string(key));
+                const auto& name=stage.Bindings.at(key);
+                const auto resource=std::find_if(resolved.Textures.begin(),resolved.Textures.end(),[&](const auto& t){return t.Name==name;});
+                const bool scene=std::string_view(key)=="Color"||std::string_view(key)=="UI";
+                const auto format=scene?PixelFormat::RGBA_INT:std::string_view(key)=="Depth"?PixelFormat::DEPTH32_FLOAT:PixelFormat::RG_FLOAT;
+                const auto size=scene?RenderGraphPipeline::TextureDesc::SizeBase::DISPLAY:RenderGraphPipeline::TextureDesc::SizeBase::RENDER;
+                if(resource==resolved.Textures.end()||resource->Resource.pixelType!=format||resource->Size!=size||resource->Scale!=1||resource->Resource.width||resource->Resource.height)
+                    throw std::runtime_error("Invalid FG texture format/size: "+name);
+                if(!produced.contains(name))throw std::runtime_error("FG texture must be produced each frame before the FG stage: "+name);
+                fgInputs.insert(name);
+            }
+        }
+        if(!stage.Once&&stage.UpdateInterval==1)produced.insert(writes.begin(),writes.end());
+    }
 	return resolved;
 }
 
@@ -1071,7 +1289,7 @@ void RenderGraphPipeline::reloadSettings(Renderer& renderer,const std::string& a
 	mDescriptor=std::move(candidate);mSourceDescriptor=std::move(source);
 	mSettingsOverrideAsset=overrideAsset;
 	if(changed) {
-		mHistoryValid=false;mIsInitialized=false;
+		mHistoryValid=false;mUpscaleHistoryValid=false;mPresentationHistoryValid=false;mIsInitialized=false;
 		if(!changedTextures.empty() && mSize.x>0 && mSize.y>0) {
 			for(const auto& name:changedTextures) {mAllocatedTextures.erase(name);mTextureRevisions.erase(name);}
 			const auto size=mSize;mSize={0,0};resize(renderer,size.x,size.y);
@@ -1099,7 +1317,7 @@ void RenderGraphPipeline::invalidateResources(const std::vector<std::string>& re
 			if(const auto* texture=std::get_if<std::string>(&value);texture && dirty.contains(*texture)) update=true;
 		if(update) {stage->mExecuted=false;dirty.insert(outputs.begin(),outputs.end());}
 	}
-	mHistoryValid=false;mIsInitialized=false;
+	mHistoryValid=false;mUpscaleHistoryValid=false;mIsInitialized=false;
 }
 
 void RenderGraphPipeline::pollResourceUpdates() {
@@ -1112,20 +1330,62 @@ void RenderGraphPipeline::pollResourceUpdates() {
 	if(!changed.empty()) invalidateResources(changed);
 }
 
+void RenderGraphPipeline::prepareUpscaler(Renderer& renderer,int width,int height) {
+    if(width<=0||height<=0)return;
+    const auto settings=DriverInterface::settings.upscaler;
+    if(!std::isfinite(settings.sharpness)||settings.sharpness<0||settings.sharpness>1)throw std::runtime_error("Upscaler sharpness must be in [0,1]");
+    auto* upscaleStage=static_cast<PipelineStage*>(nullptr);
+    for(auto& stage:mStages)if(stage->mDescriptor.Enabled&&stage->mDrawContent==DrawContent::UPSCALE) {
+        if(upscaleStage)throw std::runtime_error("A pipeline can have only one active UPSCALE stage");
+        upscaleStage=stage.get();
+    }
+    mRenderSize={width,height};
+    const bool changed=!mUpscalerSettingsLoaded||settings.technology!=mUpscalerSettings.technology||settings.quality!=mUpscalerSettings.quality;
+    mUpscalerSettings=settings;
+    if(changed) {mUpscalerSettingsLoaded=true;mUpscalerFailed=false;mUpscaler.reset();mUpscaleHistoryValid=false;mHistoryValid=false;mPresentationHistoryValid=false;}
+    if(mUpscalerFailed)mUpscaler.reset();
+    if(settings.technology==UpscalerType::OFF||!upscaleStage) {
+        if(settings.technology!=UpscalerType::OFF&&!upscaleStage&&changed)
+            std::cerr<<"UPSCALER_FALLBACK pipeline has no enabled UPSCALE stage\n";
+        mUpscaler.reset();mUpscalerStatus={false,false,UpscalerType::OFF,"Native AA",{}};return;
+    }
+    if(mUpscalerFailed)return;
+    try {
+        if(!mUpscaler) {
+            if(settings.technology==UpscalerType::AUTO) {
+                try {mUpscaler=renderer.getDriver()->createUpscaler(UpscalerType::DLSS);}
+                catch(const UnsupportedUpscaler&) {mUpscaler=renderer.getDriver()->createUpscaler(UpscalerType::FSR);}
+            } else mUpscaler=renderer.getDriver()->createUpscaler(settings.technology);
+        }
+        const MATH::Vector2i display{width,height};
+        auto render=mUpscaler->renderSize(display,settings.quality);
+        if(render.x<=0||render.y<=0||render.x>width||render.y>height)throw UnsupportedUpscaler("SDK returned invalid render size");
+        mUpscaler->configure(render,display,settings.quality);mRenderSize=render;
+        mUpscalerStatus=mUpscaler->capabilities();
+    } catch(const UnsupportedUpscaler& error) {
+        mUpscaler.reset();mUpscalerFailed=true;mUpscalerStatus={false,false,settings.technology,{},error.what()};
+        if(upscaleStage->mDescriptor.Unsupported=="ERROR")throw;
+        std::cerr<<"UPSCALER_FALLBACK "<<error.what()<<'\n';
+    }
+}
+
 void RenderGraphPipeline::resize(Renderer& renderer, int width, int height) {
-	if (width <= 0 || height <= 0 || (mSize.x == width && mSize.y == height)) return;
+	if (width <= 0 || height <= 0 || (mSize.x == width && mSize.y == height && mAllocatedRenderSize==mRenderSize)) return;
+    if(mRenderSize.x<=0||mRenderSize.y<=0)mRenderSize={width,height};
 	auto previous=std::move(mAllocatedTextures);
 	mTextures.clear();
 	for (const auto& t : mDescriptor.Textures) {
 		if (t.Name.empty() || mTextures.contains(t.Name) || !(t.Scale > 0)) throw std::runtime_error("Invalid/duplicate pipeline texture: " + t.Name);
-		if(t.Persistent && previous.contains(t.Name)) {
+		if(t.Persistent && previous.contains(t.Name) && (t.Size==TextureDesc::SizeBase::FIXED || (t.Resource.width&&t.Resource.height))) {
 			mTextures[t.Name]=previous.at(t.Name);
 			if(t.History)mTextures[t.Name+"Previous"]=previous.at(t.Name+"Previous");
 			continue;
 		}
 		auto resource = t.Resource;
-		if (!resource.width) resource.width = std::max(1,static_cast<int>(width*t.Scale));
-		if (!resource.height) resource.height = std::max(1,static_cast<int>(height*t.Scale));
+        if(t.Size==TextureDesc::SizeBase::FIXED&&(!resource.width||!resource.height))throw std::runtime_error("FIXED texture needs explicit dimensions: "+t.Name);
+        const auto base=t.Size==TextureDesc::SizeBase::RENDER?mRenderSize:MATH::Vector2i{width,height};
+		if (!resource.width) resource.width = std::max(1,static_cast<int>(base.x*t.Scale));
+		if (!resource.height) resource.height = std::max(1,static_cast<int>(base.y*t.Scale));
 		auto create = [&]() { return t.Path.empty() ? renderer.createTexture(resource) : RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(t.Path); };
 		mTextures[t.Name] = create();
 		if (!mTextures[t.Name]) throw std::runtime_error("Cannot allocate pipeline texture: " + t.Name);
@@ -1136,6 +1396,7 @@ void RenderGraphPipeline::resize(Renderer& renderer, int width, int height) {
 	}
 	mAllocatedTextures = mTextures;
 	mSize = {width,height};
+    mAllocatedRenderSize=mRenderSize;mUpscaleHistoryValid=false;mPresentationHistoryValid=false;
 	mHistoryValid = false;
 	mIsInitialized = false;
 	rebuildFrameBuffers(renderer);
@@ -1200,10 +1461,30 @@ RenderGraphPipeline::StagesArr RenderGraphPipeline::loadStages(const std::vector
 	for (const auto& desc : descriptors) {
 		if (!names.insert(desc.Name).second) throw std::runtime_error("Duplicate pipeline stage: " + desc.Name);
 		auto stage = std::make_unique<PipelineStage>();
+        if(desc.Draw==DrawContent::FRAME_GENERATION){
+            if(desc.Once||desc.UpdateInterval!=1||!desc.PresentationSink)throw std::runtime_error("FRAME_GENERATION must be a per-frame presentation sink");
+            if(desc.Unsupported!="BYPASS"&&desc.Unsupported!="ERROR")throw std::runtime_error("Invalid FRAME_GENERATION unsupported policy");
+            for(const char* key:{"Color","Depth","MotionVectors","UI"})if(!desc.Bindings.contains(key))throw std::runtime_error("Missing FRAME_GENERATION binding: "+std::string(key));
+        }
 		stage->mDescriptor=desc;
 		stage->mName=desc.Name;
 		stage->mDrawContent=desc.Draw;
 		stage->mBufferLinks=desc.BufferLinks;
+        if(desc.Draw==DrawContent::UPSCALE) {
+            if(desc.Once||desc.UpdateInterval!=1||!desc.Program.empty())throw std::runtime_error("UPSCALE must execute once each frame: "+desc.Name);
+            if(desc.Unsupported!="ERROR"&&desc.Unsupported!="BYPASS")throw std::runtime_error("Unknown UPSCALE Unsupported policy");
+            for(const char* key:{"Color","Depth","MotionVectors","Output"})if(!desc.Bindings.contains(key))throw std::runtime_error("Missing UPSCALE binding: "+std::string(key));
+            if(desc.Material.empty()||desc.FrameBuffer.empty())throw std::runtime_error("UPSCALE needs fallback Material/FrameBuffer");
+            const auto output=desc.Bindings.at("Output");
+            const auto resource=std::find_if(mDescriptor.Textures.begin(),mDescriptor.Textures.end(),[&](const auto& t){return t.Name==output;});
+            if(resource==mDescriptor.Textures.end()||!resource->Resource.storage||resource->Size!=TextureDesc::SizeBase::DISPLAY)
+                throw std::runtime_error("UPSCALE output must be a DISPLAY storage texture");
+            if(resource->Scale!=1||resource->Resource.width||resource->Resource.height)
+                throw std::runtime_error("UPSCALE output must follow the complete display extent");
+            const auto frame=std::find_if(mDescriptor.FrameBuffers.begin(),mDescriptor.FrameBuffers.end(),[&](const auto& f){return f.Name==desc.FrameBuffer;});
+            if(frame==mDescriptor.FrameBuffers.end()||frame->Textures!=std::vector<std::string>{output}||!frame->Depth.empty())
+                throw std::runtime_error("UPSCALE fallback framebuffer must contain its output only");
+        }
 		if(desc.Draw==DrawContent::RAY_TRACE||(desc.Draw==DrawContent::COMPUTE&&!desc.Program.empty())) {
 			if(desc.Program.empty()||!desc.Material.empty())throw std::runtime_error("RAY_TRACE requires Program and does not accept Material: "+desc.Name);
 			if(desc.LaunchX<=0||desc.LaunchY<=0||desc.LaunchZ<=0||desc.RaygenRecord<0||desc.HitGroupOffset<0)throw std::runtime_error("Invalid RT launch/record: "+desc.Name);
@@ -1305,7 +1586,7 @@ void GameRenderer::bindStage(PipelineStage& stage) {
 	if (reflection.mNameToUniforms.contains("engine_Lights")) renderer.setStorageBuffer("engine_Lights",mLightSSBO);
 }
 
-void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene) {
+void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene,bool worldVectors) {
 	auto& renderer=*mContext.render;
 	auto& loader=RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>();
 	if(!mGuiSpriteMaterial) mGuiSpriteMaterial=loader.loadResource("/materials/render/portable/gui.mat");
@@ -1314,49 +1595,73 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene) {
 	if(DriverInterface::settings.backend!=RenderSettings::Backend::OPENGL) {
 		auto correction=MATH::Matrix4f::Identity;correction(2,2)=.5f;correction(2,3)=.5f;projection=correction*projection;
 	}
-	auto guiBuffer=renderer.createUniformBuffer<MATH::Matrix4f>(MATH::Matrix4f::Transpose(projection));
-	auto submit=[&](const std::vector<Vertex>& vertices,const std::vector<unsigned>& indices,const std::shared_ptr<TextureInterface>& texture,const std::shared_ptr<MaterialInterface>& material,const MATH::Matrix4f& transform,bool is3D,Blending blend=Blending(BlendMode::SRC_ALPHA,BlendMode::ONE_MINUS_SRC_ALPHA)) {
+	if(!mVectorRenderer)mVectorRenderer=std::make_shared<VECTOR::VectorRenderer>();
+	mVectorRenderer->beginFrame(worldVectors);
+	Scissor guiClip;bool guiClipped=false;
+	auto submit=[&](const std::vector<Vertex>& vertices,const std::vector<unsigned>& indices,const std::shared_ptr<TextureInterface>& texture,const std::shared_ptr<MaterialInterface>& material,const MATH::Matrix4f& transform,bool is3D,Blending blend=Blending(BlendMode::SRC_ALPHA,BlendMode::ONE_MINUS_SRC_ALPHA,BlendMode::ONE,BlendMode::ONE_MINUS_SRC_ALPHA)) {
 		if(!texture||vertices.empty()) return;
 		auto transformed=vertices;
 		for(auto& v:transformed) {auto p=transform*MATH::Vector4f(v.position.x,v.position.y,v.position.z,1);v.position={p.x,p.y,p.z};}
-		renderer.setShader(material->getShader());material->bind(mEmptyTexture,true);
-		renderer.setDepth({DepthFunction::ALWAYS,false});renderer.setCull(CullFace::NONE);
-		renderer.setBlending(blend);
-		renderer.setUniformBuffer("engine_Gui",is3D?renderer.createUniformBuffer<MATH::Matrix4f>(uboData.View*uboData.Projection):guiBuffer);
-		renderer.setTexture("Image",texture);
-		renderer.draw(CreateMesh(transformed,indices),PrimitiveMode::TRIANGLES,1);
+		mVectorRenderer->enqueue(std::move(transformed),indices,texture,material->getShader(),is3D?uboData.View*uboData.Projection:MATH::Matrix4f::Transpose(projection),blend,{DepthFunction::ALWAYS,false},guiClip,guiClipped);
 	};
 	auto quad=[](float x,float y,float w,float h,AtlasRect uv,MATH::Vector4f color) {
 		std::vector<Vertex> vertices={Vertex({x,y,0},{uv.mX,uv.mY}),Vertex({x+w,y,0},{uv.mX+uv.mW,uv.mY}),Vertex({x+w,y+h,0},{uv.mX+uv.mW,uv.mY+uv.mH}),Vertex({x,y+h,0},{uv.mX,uv.mY+uv.mH})};
 		for(auto& vertex:vertices) vertex.m_Weights=color;
 		return vertices;
 	};
-	for(auto& object:scene.getObjects()) {
+	auto sceneObjects=scene.getObjects();
+	std::vector<std::shared_ptr<ECS::Object>> objects(sceneObjects.begin(),sceneObjects.end());
+	auto canvasFor=[](auto object){while(object){if(auto canvas=object->template getComponent<ECS::VectorCanvasComponent>())return canvas;object=object->getParent();}return decltype(object->template getComponent<ECS::VectorCanvasComponent>()){};};
+	auto orderFor=[&](auto object){auto canvas=canvasFor(object);int order=canvas?canvas->Order:0,layer=canvas?canvas->SortingLayer:0;
+		if(auto c=object->template getComponent<ECS::VectorShapeComponent>())order+=c->Order;
+		else if(auto c=object->template getComponent<ECS::VectorPathComponent>())order+=c->Order;
+		else if(auto c=object->template getComponent<ECS::SdfTextComponent>())order+=c->Order;
+		return std::pair{layer,order};};
+	std::stable_sort(objects.begin(),objects.end(),[&](auto a,auto b){return orderFor(a)<orderFor(b);});
+	for(auto& object:objects) {
 		if(!object->getIsActive()||!object->getIsVisible()) continue;
+		auto canvas=canvasFor(object);bool world=canvas&&canvas->WorldSpace;
+		if(worldVectors&&!world)continue;
+		auto canvasCorrection=MATH::Matrix4f::Identity;
+		if(canvas&&canvas->DpiScale!=1.f){auto root=canvas->obj->getTransform()->getTransform().getWorldMatrix();auto scale=MATH::Matrix4f::Identity;scale(0,0)=scale(1,1)=std::clamp(canvas->DpiScale,.01f,100.f);canvasCorrection=root*scale*MATH::Matrix4f::Inverse(root);}
 		float left=0,top=0,right=uboData.ViewportSize.x,bottom=uboData.ViewportSize.y;
 		bool clipped=false;
 		for(auto ancestor=object;ancestor;ancestor=ancestor->getParent()) if(auto clip=ancestor->getComponent<ECS::ClipComponent>()) {
-			const auto& matrix=ancestor->getTransform()->getTransform().getWorldMatrix();
+			auto matrix=canvasCorrection*ancestor->getTransform()->getTransform().getWorldMatrix();
 			float minX=right,minY=bottom,maxX=left,maxY=top;
 			for(const auto& corner:{MATH::Vector4f(0,0,0,1),MATH::Vector4f(clip->mWidth,0,0,1),MATH::Vector4f(0,clip->mHeight,0,1),MATH::Vector4f(clip->mWidth,clip->mHeight,0,1)}) {
-				const auto point=matrix*corner;
+				auto local=corner;if(worldVectors)local.y=-local.y;
+				auto point=matrix*local;
+				if(worldVectors){auto camera=MATH::Matrix4f::Transpose(uboData.View*uboData.Projection);point=camera*point;if(point.w<=1e-4f)continue;point.x=(point.x/point.w*.5f+.5f)*uboData.ViewportSize.x;point.y=(.5f-point.y/point.w*.5f)*uboData.ViewportSize.y;}
 				minX=std::min(minX,point.x);minY=std::min(minY,point.y);maxX=std::max(maxX,point.x);maxY=std::max(maxY,point.y);
 			}
 			left=std::max(left,minX);top=std::max(top,minY);right=std::min(right,maxX);bottom=std::min(bottom,maxY);clipped=true;
 		}
 		if(clipped) {
 			if(right<=left||bottom<=top) continue;
-			renderer.setScissor({{left,top},{right-left,bottom-top}});
-		} else renderer.resetScissor();
+			guiClip={{left,top},{right-left,bottom-top}};guiClipped=true;
+		} else guiClipped=false;
+        if(!worldVectors&&(object->getComponent<ECS::ParticleSystem2DComponent>()||object->getComponent<ECS::SpriteParticleComponent>())) {
+            mVectorRenderer->flushPending(renderer);
+            if(!mParticleRenderer)mParticleRenderer=std::make_shared<ParticleRenderer>();
+            mParticleRenderer->drawScreen(*object,renderer,MATH::Matrix4f::Transpose(projection),guiClip,guiClipped,canvasCorrection);
+        }
 		const auto& transform=object->getTransform()->getTransform();
-		if(auto sprite=object->getComponent<ECS::SpriteComponent>();sprite&&sprite->mTexture) {
+        auto animatedSprite=object->getComponent<ECS::SpriteAnimateComponent>();
+        auto plainSprite=object->getComponent<ECS::SpriteComponent>();
+        ECS::SpriteComponent* sprite=plainSprite ? plainSprite.get() : nullptr;
+        if(!sprite&&animatedSprite)sprite=animatedSprite.get();
+		if(!worldVectors&&sprite&&sprite->mTexture) {
 			const auto size=transform.getLocalSize();
 			auto uv=sprite->mTexture->getPieceUV(sprite->mTexturePiece);
+            if (animatedSprite) {
+                animatedSprite->updateAnim();uv=animatedSprite->mUVRect;
+            }
 			// Image decoders store images bottom-up; GUI coordinates grow downwards.
 			uv.mY=1-uv.mY;uv.mH=-uv.mH;
 			submit(quad(0,0,size.x,size.y,uv,sprite->mColor),{0,1,2,2,3,0},sprite->mTexture,mGuiSpriteMaterial,transform.getWorldMatrix(),sprite->mIs3D);
 		}
-		if(auto label=object->getComponent<ECS::LabelComponent>();label&&label->mFont&&label->mFont->texture) {
+		if(auto label=object->getComponent<ECS::LabelComponent>();!worldVectors&&label&&label->mFont&&label->mFont->texture) {
 			std::vector<Vertex> vertices;std::vector<unsigned> indices;float x=0;
 			for(char c:label->mLabel) {
 				const auto found=label->mFont->Characters.find(c);if(found==label->mFont->Characters.end()) continue;
@@ -1368,7 +1673,7 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene) {
 			}
 			submit(vertices,indices,label->mFont->texture,mGuiTextMaterial,transform.getWorldMatrix(),label->mIs3D);
 		}
-		if(auto component=object->getComponent<ECS::SpineComponent>();component&&component->spine&&component->spine->_drawable) {
+		if(auto component=object->getComponent<ECS::SpineComponent>();!worldVectors&&component&&component->spine&&component->spine->_drawable) {
 			auto* skeleton=component->spine->_drawable;
 			skeleton->submit=[&](const std::vector<SPINE::SpineVertex>& source,const SPINE::SpineRenderState& state) {
 				std::vector<Vertex> vertices;std::vector<unsigned> indices;
@@ -1382,8 +1687,24 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene) {
 			};
 			skeleton->draw();skeleton->submit={};
 		}
+		if(world!=worldVectors)continue;
+		float pixelScale=1;
+		auto matrix=canvasCorrection*transform.getWorldMatrix();
+		if(world) {
+			auto camera=MATH::Matrix4f::Transpose(uboData.View*uboData.Projection);
+			auto project=[&](MATH::Vector4f p){auto v=camera*(matrix*p);if(v.w<=1e-4f)return MATH::Vector2f{};return MATH::Vector2f(v.x/v.w*uboData.ViewportSize.x*.5f,v.y/v.w*uboData.ViewportSize.y*.5f);};
+			auto origin=project({0,0,0,1}),x=project({1,0,0,1})-origin,y=project({0,1,0,1})-origin;
+			pixelScale=std::max(std::sqrt(x.x*x.x+x.y*x.y),std::sqrt(y.x*y.x+y.y*y.y));
+		}else pixelScale=std::max(std::sqrt(matrix(0,0)*matrix(0,0)+matrix(1,0)*matrix(1,0)),std::sqrt(matrix(0,1)*matrix(0,1)+matrix(1,1)*matrix(1,1)));
+		for(auto draw:mVectorRenderer->prepare(*object,pixelScale,renderer)) {
+			if(!draw.mesh||draw.mesh->indices.empty())continue;
+			auto& material=draw.sdf?mSdfMaterial:mVectorMaterial;
+			if(!material)material=loader.loadResource(draw.sdf?"/materials/render/portable/sdfText.mat":"/materials/render/portable/vector.mat");
+			std::vector<Vertex> vertices;vertices.reserve(draw.mesh->vertices.size());
+			for(auto& v:draw.mesh->vertices){auto p=matrix*MATH::Vector4f(v.position.x,world?-v.position.y:v.position.y,0,1);Vertex vertex({p.x,p.y,p.z},{v.uv.x,v.uv.y});vertex.m_Weights={v.color.r,v.color.g,v.color.b,v.color.a};vertex.normal={v.uvMin.x,v.uvMin.y,0};vertex.tangent={v.uvMax.x,v.uvMax.y,0};vertices.push_back(vertex);}
+			mVectorRenderer->enqueue(std::move(vertices),draw.mesh->indices,draw.texture,material->getShader(),world?uboData.View*uboData.Projection:MATH::Matrix4f::Transpose(projection),{BlendMode::ONE,BlendMode::ONE_MINUS_SRC_ALPHA},{world&&canvas->DepthTest?DepthFunction::LESS_EQUAL:DepthFunction::ALWAYS,false},guiClip,guiClipped,draw.sdf,draw.effects);
+		}
 	}
-	renderer.resetScissor();
-	renderer.resetBlending();
+	mVectorRenderer->flush(renderer);
 }
 }

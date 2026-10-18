@@ -101,6 +101,9 @@ struct Binding {
 	SpvImageFormat ImageFormat = SpvImageFormatUnknown;
 };
 struct ProgramData {
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    std::vector<IKIGAI::PROFILER::GpuAllocationToken> MemoryObjects;
+#endif
 	VkDevice Device = VK_NULL_HANDLE;
 	VkPipeline Pipeline = VK_NULL_HANDLE;
 	VkPipelineLayout Layout = VK_NULL_HANDLE;
@@ -517,6 +520,11 @@ std::shared_ptr<RayTracingProgram> DriverVk::createRayTracingProgramImpl(const R
 		VkShaderModule module;
 		check(vkCreateShaderModule(data.Device, &moduleInfo, nullptr, &module), "vkCreateShaderModule");
 		data.Modules.push_back(module);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        try { data.MemoryObjects.push_back(IKIGAI::PROFILER::TrackGpuObject(IKIGAI::PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(data.Device), IKIGAI::PROFILER::GpuHandleValue(module),
+            IKIGAI::PROFILER::GpuResourceKind::Shader, "Ray shader module")); } catch (...) { IKIGAI::PROFILER::GpuMemoryProfiler::instance().noteDroppedRecord(); }
+#endif
 		VkPipelineShaderStageCreateInfo stage { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 		stage.stage = flag;
 		stage.module = module;
@@ -602,6 +610,11 @@ std::shared_ptr<RayTracingProgram> DriverVk::createRayTracingProgramImpl(const R
 		pipeline.stage = stages.front();
 		pipeline.layout = data.Layout;
 		check(vkCreateComputePipelines(data.Device, VK_NULL_HANDLE, 1, &pipeline, nullptr, &data.Pipeline), "vkCreateComputePipelines(RayQuery)");
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        try { data.MemoryObjects.push_back(IKIGAI::PROFILER::TrackGpuObject(IKIGAI::PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(data.Device), IKIGAI::PROFILER::GpuHandleValue(data.Pipeline),
+            IKIGAI::PROFILER::GpuResourceKind::Pipeline, "Ray-query pipeline")); } catch (...) { IKIGAI::PROFILER::GpuMemoryProfiler::instance().noteDroppedRecord(); }
+#endif
 		mRayTracingPrograms[key] = output;
 		return output;
 	}
@@ -660,6 +673,11 @@ std::shared_ptr<RayTracingProgram> DriverVk::createRayTracingProgramImpl(const R
 	pipeline.layout = data.Layout;
 	check(vkCreateRayTracingPipelinesKHR(data.Device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline, nullptr, &data.Pipeline),
 		"vkCreateRayTracingPipelinesKHR");
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        try { data.MemoryObjects.push_back(IKIGAI::PROFILER::TrackGpuObject(IKIGAI::PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(data.Device), IKIGAI::PROFILER::GpuHandleValue(data.Pipeline),
+            IKIGAI::PROFILER::GpuResourceKind::Pipeline, "Ray-tracing pipeline")); } catch (...) { IKIGAI::PROFILER::GpuMemoryProfiler::instance().noteDroppedRecord(); }
+#endif
 	const uint64_t handleSize = mRTProperties.shaderGroupHandleSize, handleAlign = mRTProperties.shaderGroupHandleAlignment,
 				   baseAlign = mRTProperties.shaderGroupBaseAlignment;
 	std::vector<uint8_t> handles(groups.size() * handleSize);

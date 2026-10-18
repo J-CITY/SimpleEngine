@@ -29,15 +29,8 @@ MaterialDx12::MaterialDx12(const MaterialResource& res) : MaterialInterface(res)
 void MaterialDx12::create(const MaterialResource& res) {
 	//TODO: do it not in constructor (add var in Material resource)
 	//TODO: load textures befor create material
-	auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
-	if (resData.isErr()) {
-
-	}
-	auto resDataVal = resData.unwrap();
-	resDataVal.path = res.ShaderPath;
-	auto shader = std::static_pointer_cast<RENDER::ShaderDx12>(
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resDataVal));
-	MaterialDx12::setShader(shader);
+    auto shader = std::static_pointer_cast<RENDER::ShaderDx12>(RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>().loadResource(res.ShaderPath));
+    MaterialDx12::setShader(shader);
 
 	auto& textureLoader = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>();
 	for (const auto& [k, v] : res.Uniforms) {
@@ -119,6 +112,7 @@ void MaterialDx12::generateUniformsData() {
 	mExternalBuffers.clear();
 	const auto& shaderInfo = mShader->getReflection();
 	for (const auto& uniform : shaderInfo.mUniforms) {
+        if (mShader->isBindlessResource(uniform)) continue;
 		if (isEngineUniform(uniform.mName)) {//this pass from render
 			continue;
 		}
@@ -161,6 +155,7 @@ void MaterialDx12::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture
 	auto& shaderInfo = mShader->getReflection();
 	auto driver = d3dUtil::GetDriver();
 	for (const auto& uniform : shaderInfo.mUniforms) {
+        if (mShader->isBindlessResource(uniform)) continue;
 		switch (uniform.mType) {
 		case ShaderReflection::UniformType::SAMPLER_2D:
 		case ShaderReflection::UniformType::SAMPLER_CUBE:

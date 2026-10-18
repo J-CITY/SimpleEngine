@@ -1,5 +1,6 @@
 #ifdef METAL_BACKEND
 #include "textureMetal.h"
+#include "gpuMemoryMetal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -239,7 +240,7 @@ namespace IKIGAI::RENDER {
 			desc.textureType = MTLTextureType2DMultisample;
 			desc.sampleCount = samples;
 		}
-		mTexture = [device newTextureWithDescriptor:desc];
+		mTexture = AllocateTextureMetal(device, desc, PROFILER::GpuResourceKind::Texture, mPath.c_str());
 		createSampler();
 	}
 
@@ -308,7 +309,7 @@ namespace IKIGAI::RENDER {
 			desc.textureType = MTLTextureType2D;
 			desc.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget | MTLTextureUsageShaderWrite;
 		}
-		mTexture = [device newTextureWithDescriptor:desc];
+		mTexture = AllocateTextureMetal(device, desc, PROFILER::GpuResourceKind::Texture, mPath.c_str());
 		if (!mTexture) {
 			LOG_ERROR << "Metal texture allocation failed: " << mPath;
 			return;
@@ -332,7 +333,7 @@ namespace IKIGAI::RENDER {
 		const NSUInteger imageBytes = row * mHeight;
 		const NSUInteger sliceCount = volume ? 1 : slices;
 		const NSUInteger bufferLength = volume ? row * mHeight * std::max<NSUInteger>(mDepth, 1) : imageBytes * sliceCount;
-		id<MTLBuffer> staging = [device newBufferWithLength:bufferLength options:MTLResourceStorageModeShared];
+		id<MTLBuffer> staging = AllocateBufferMetal(device, bufferLength, MTLResourceStorageModeShared, PROFILER::GpuResourceKind::Staging, "Texture upload");
 		if (!staging) {
 			return;
 		}
@@ -406,6 +407,7 @@ namespace IKIGAI::RENDER {
 			return;
 		}
 		MTLSamplerDescriptor* sampler = [[MTLSamplerDescriptor alloc] init];
+		sampler.supportArgumentBuffers = true;
 		sampler.minFilter = mMinFilter == MinMagFilter::NEAREST ? MTLSamplerMinMagFilterNearest : MTLSamplerMinMagFilterLinear;
 		sampler.magFilter = mMagFilter == MinMagFilter::NEAREST ? MTLSamplerMinMagFilterNearest : MTLSamplerMinMagFilterLinear;
 		sampler.mipFilter = mMipCount > 1

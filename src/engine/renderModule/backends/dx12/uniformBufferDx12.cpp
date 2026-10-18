@@ -8,6 +8,7 @@
 
 IKIGAI::RENDER::UniformBufferDx12::UniformBufferDx12(const void* data, size_t sz) : UniformBufferInterface(DirectX::AlignUp((int)sz, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)) {
 	mBuffer = d3dUtil::CreateBuffer(mSizeByte);
+	SetGpuMemoryKindDx12(mBuffer.Get(), PROFILER::GpuResourceKind::UniformBuffer);
 
 	mState = D3D12_RESOURCE_STATE_COMMON;
 	d3dUtil::OneTimeSubmit([&](ID3D12GraphicsCommandList* cmdlist) {
@@ -32,6 +33,7 @@ void IKIGAI::RENDER::UniformBufferDx12::setData(const void* data, size_t sz, siz
 		mSizeByte = DirectX::AlignUp((int)sz, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 		d3dUtil::GetDriver()->destroyDeferred(mBuffer);
 		mBuffer = d3dUtil::CreateBuffer(mSizeByte);
+		SetGpuMemoryKindDx12(mBuffer.Get(), PROFILER::GpuResourceKind::UniformBuffer);
 		mState = D3D12_RESOURCE_STATE_COMMON;
 	}
 

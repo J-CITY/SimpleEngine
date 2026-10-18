@@ -168,6 +168,7 @@ void TextureDx12::create(const TextureResource& descriptor, const std::vector<vo
 	
 	mCurrentState = D3D12_RESOURCE_STATE_COMMON;
 	mResource = d3dUtil::CreateResource(desc, D3D12_HEAP_TYPE_DEFAULT, mCurrentState, nullptr, allocFlags);
+	SetGpuMemoryKindDx12(mResource.Get(), PROFILER::GpuResourceKind::Texture, mPath.empty() && !descriptor.pathTexture.empty() ? descriptor.pathTexture.front().c_str() : mPath.c_str());
 
 	if (descriptor.texType != TextureType::DEPTH) {
 		DirectX::CreateShaderResourceView(d3dUtil::GetDriver()->getDevice().Get(), mResource.Get(), d3dUtil::GetDriver()->getDescriptorHeapCPUHandle(), mType == TextureType::TEXTURE_CUBE);

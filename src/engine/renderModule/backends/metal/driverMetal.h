@@ -9,6 +9,7 @@
 
 #include "../interface/driverInterface.h"
 #include "bufferMetal.h"
+#include "profilerModule/gpuMemoryProfiler.h"
 #include "deviceMetal.h"
 #include "shaderMetal.h"
 #include "textureMetal.h"
@@ -57,7 +58,10 @@ namespace IKIGAI::RENDER {
 		void draw(uint32_t count, uint32_t offset, uint32_t instance) override;
 		void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 		std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture, unsigned mip, unsigned layer) override;
-		void drawIndexed(uint32_t count, uint32_t offset, uint32_t instance) override;
+		BindlessCapabilities bindlessCapabilities() const override;
+		bool supportsVertexPulling() const override { return true; }
+        void draw(const DrawArguments& args) override;
+        void drawIndexed(uint32_t count, uint32_t offset, uint32_t instance) override;
 		void draw(const MeshInterface& mesh, PrimitiveMode primitive, uint32_t instances) override;
 
 		void setPushConstant(ShaderType stage, uint32_t offset, uint32_t size, const void* data) override;
@@ -111,6 +115,8 @@ namespace IKIGAI::RENDER {
 		bool ensurePipeline();
 		void applyFixedState();
 		void bindResources();
+		void bindArgumentResources(ShaderType stage, id<MTLComputeCommandEncoder> compute = nil);
+		std::vector<id<MTLBuffer>> mBindlessArgumentBuffers;
 		void bindBufferSizeConstants();
 		id<MTLBuffer> snapshotUniform(id<MTLBuffer> source, NSUInteger& outOffset);
 		void bindMissingShaderResources();
@@ -124,6 +130,9 @@ namespace IKIGAI::RENDER {
 		void updateDrawableSize(size_t width, size_t height);
 
 		id<MTLDevice> mDevice = nil;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        std::shared_ptr<PROFILER::GpuMemorySampler> mMemorySampler;
+#endif
 		id<MTLCommandQueue> mCommandQueue = nil;
 		id<MTLCommandBuffer> mCurrentCommandBuffer = nil;
 		id<MTLRenderCommandEncoder> mCurrentEncoder = nil;

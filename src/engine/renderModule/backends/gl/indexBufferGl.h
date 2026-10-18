@@ -1,4 +1,5 @@
 #pragma once
+#include "gpuMemoryGl.h"
 #ifdef OPENGL_BACKEND
 #include <vector>
 #include "../interface/indexBufferInterface.h"
@@ -38,6 +39,9 @@ namespace IKIGAI::RENDER
 		
 	private:
 		Id mId = 0;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        PROFILER::GpuAllocationToken mMemory;
+#endif
 		UsageType mType = UsageType::STATIC_DRAW;
 
 		IndexBufferGl(const void* data, size_t sz, size_t stride, UsageType type);

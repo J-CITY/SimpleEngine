@@ -38,6 +38,9 @@ void IKIGAI::RENDER::StorageBufferGl::setData(const void* data, size_t sz, size_
 	}
 	glBindBuffer(target, mId);
 	glBufferData(target, static_cast<GLsizeiptr>(sz * stride), data, GL_DYNAMIC_DRAW);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    TrackBufferMemoryGl(mMemory, target, mId, PROFILER::GpuResourceKind::StorageBuffer);
+#endif
 	glBindBuffer(target, 0);
 }
 

@@ -8,6 +8,8 @@
 IKIGAI::RENDER::IndexBufferDx12::IndexBufferDx12(void* data, size_t sz, size_t stride): IndexBufferInterface(sz, stride) {
 
 	mBuffer = d3dUtil::CreateBuffer(mSizeByte);
+
+	SetGpuMemoryKindDx12(mBuffer.Get(), PROFILER::GpuResourceKind::IndexBuffer);
 	mState = D3D12_RESOURCE_STATE_COMMON;
 	d3dUtil::OneTimeSubmit([&](ID3D12GraphicsCommandList* cmdlist) {
 		DirectX::TransitionResource(cmdlist, mBuffer.Get(), mState,
@@ -37,6 +39,7 @@ void IKIGAI::RENDER::IndexBufferDx12::setData(const void* data, size_t sz, size_
 		mSizeByte = mSize * mStride;
 		d3dUtil::GetDriver()->destroyDeferred(mBuffer);
 		mBuffer = d3dUtil::CreateBuffer(mSizeByte);
+		SetGpuMemoryKindDx12(mBuffer.Get(), PROFILER::GpuResourceKind::IndexBuffer);
 	}
 
 	auto buffer = d3dUtil::CreateBuffer(sz * stride, D3D12_HEAP_TYPE_UPLOAD);

@@ -1,6 +1,7 @@
 #ifdef METAL_BACKEND
 
 #include "shaderMetal.h"
+#include "gpuMemoryMetal.h"
 
 #include <cstring>
 #include <exception>
@@ -15,6 +16,7 @@
 #include "resourceModule/serviceManager.h"
 #include "utilsModule/log/loggerDefine.h"
 #include "../interface/resourceStruct.h"
+#include "../interface/driverInterface.h"
 
 namespace IKIGAI::RENDER {
 
@@ -114,13 +116,20 @@ namespace IKIGAI::RENDER {
 	}
 
 	void ShaderMetal::create(const ShaderResource& res) {
+    configureResourceInterface(res);
+    if (!res.sources.empty() && !res.useBinary) res.spirvSources.clear();
+        if (bindingMode()==ShaderBindingMode::Bindless) {
+            auto supported=[](ShaderType stage){return stage==ShaderType::VERTEX || stage==ShaderType::FRAGMENT || stage==ShaderType::COMPUTE;};
+            for (const auto& [stage,source] : res.sources) if (!supported(stage)) throw std::runtime_error("Metal bindless profile supports vertex/fragment/compute stages");
+            for (const auto& [stage,source] : res.spirvSources) if (!supported(stage)) throw std::runtime_error("Metal bindless profile supports vertex/fragment/compute stages");
+        }
 		static size_t nextId = 1;
 		mId = nextId++;
 		mGeneration++;
 		mPath = res.path;
 		mShaderPaths = res.getPaths();
 		mReflection = ShaderReflection();
-		mSamplerBindings.clear();
+		mSamplerBindings.clear();mArgumentIds.clear();
 		mVertexFunction = nil;
 		mFragmentFunction = nil;
         mComputeFunction = nil;
@@ -226,6 +235,11 @@ namespace IKIGAI::RENDER {
 			spirv_cross::CompilerMSL compiler(spirv);
 			spirv_cross::CompilerMSL::Options options;
 			options.set_msl_version(2, 4);
+            if (bindingMode()==ShaderBindingMode::Bindless) {
+                options.argument_buffers=true;
+                options.argument_buffers_tier=spirv_cross::CompilerMSL::Options::ArgumentBuffersTier::Tier2;
+                options.force_active_argument_buffer_resources=true;
+            }
 #if TARGET_OS_IPHONE
 			options.platform = spirv_cross::CompilerMSL::Options::iOS;
 #else
@@ -263,13 +277,14 @@ namespace IKIGAI::RENDER {
 				samplerBindings.push_back(compiler.get_decoration(image.id, spv::DecorationBinding));
 			mSamplerBindings[stage] = MetalSamplerBindings(std::move(samplerBindings));
 			bool pushBound = false;
+            uint32_t argumentCursor=0;
 			for (const auto& uniform : mReflection.mUniforms) {
 				if ((uniform.mShaderMask & static_cast<size_t>(stage)) == 0) {
 					continue;
 				}
 				spirv_cross::MSLResourceBinding binding{};
 				binding.stage = model;
-				binding.count = 1;
+				binding.count = descriptorCount(uniform);
 				if (uniform.mType == ShaderReflection::UniformType::PUSH_CONSTANT) {
 					if (pushBound) {
 						continue;
@@ -284,6 +299,27 @@ namespace IKIGAI::RENDER {
 				if (!IsBufferUniform(uniform.mType) && !IsTextureUniform(uniform.mType)) {
 					continue;
 				}
+                if (bindingMode()==ShaderBindingMode::Bindless) {
+                    if (uniform.mSet!=0) throw std::runtime_error("Metal bindless ABI requires descriptor set zero");
+                    if (uniform.mRuntimeArray) throw std::runtime_error("Metal bindless profile requires bounded arrays");
+                    if (isBindlessResource(uniform)) {
+                        const auto caps=DriverInterface::Get()->bindlessCapabilities();
+                        const bool sampled=uniform.mType==ShaderReflection::UniformType::SAMPLER_2D ||
+                            uniform.mType==ShaderReflection::UniformType::SAMPLER_CUBE ||
+                            uniform.mType==ShaderReflection::UniformType::SAMPLER_3D ||
+                            uniform.mType==ShaderReflection::UniformType::SAMPLER_2D_ARRAY;
+                        if ((!sampled && uniform.mType!=ShaderReflection::UniformType::STORAGE_BUFFER) ||
+                            descriptorCount(uniform)>(sampled?caps.maxSampledTextures:caps.maxStorageBuffers))
+                            throw std::runtime_error("Unsupported Metal bindless table type/capacity");
+                    }
+                    ArgumentIds ids;ids.count=descriptorCount(uniform);ids.resource=argumentCursor;argumentCursor+=ids.count;
+                    if (IsTextureUniform(uniform.mType)) {ids.sampler=argumentCursor;argumentCursor+=ids.count;}
+                    mArgumentIds[stage][static_cast<uint32_t>(uniform.mBind)]=ids;
+                    binding.desc_set=0;binding.binding=uniform.mBind;
+                    binding.msl_buffer=ids.resource;binding.msl_texture=ids.resource;binding.msl_sampler=ids.sampler;
+                    compiler.add_msl_resource_binding(binding);
+                    continue;
+                }
 				binding.desc_set = static_cast<uint32_t>(uniform.mSet);
 				binding.binding = static_cast<uint32_t>(uniform.mBind);
 				if (IsBufferUniform(uniform.mType)) {
@@ -295,7 +331,14 @@ namespace IKIGAI::RENDER {
 				compiler.add_msl_resource_binding(binding);
 			}
 
-			std::string msl = compiler.compile();
+			            if (bindingMode()==ShaderBindingMode::Bindless) {
+                spirv_cross::MSLResourceBinding arguments{};arguments.stage=model;arguments.desc_set=0;
+                arguments.binding=spirv_cross::kArgumentBufferBinding;arguments.msl_buffer=kMetalBindlessArgumentBufferIndex;
+                compiler.add_msl_resource_binding(arguments);
+            }
+            std::string msl = compiler.compile();
+            if (bindingMode()==ShaderBindingMode::Bindless && compiler.needs_buffer_size_buffer())
+                throw std::runtime_error("Metal bindless buffer length queries are unsupported");
 			if (stage == ShaderType::GEOMETRY) {
 				const auto unknown = msl.find("unknown ");
 				if (unknown != std::string::npos) {
@@ -329,6 +372,9 @@ namespace IKIGAI::RENDER {
 				return result;
 			}
 			result.function = [library newFunctionWithName:picked];
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+            TrackGpuObjectMetal(result.function, device, PROFILER::GpuResourceKind::Shader, mPath.c_str());
+#endif
 			return result;
 		} catch (const std::exception& error) {
 			LOG_ERROR << "SPIRV-Cross failed for '" << mPath << "': " << error.what();

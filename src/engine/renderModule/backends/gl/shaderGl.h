@@ -1,5 +1,6 @@
 #pragma once
 #ifdef OPENGL_BACKEND
+#include "profilerModule/gpuMemoryProfiler.h"
 #include "../interface/reflectionStructs.h"
 #include "../interface/shaderInterface.h"
 #include "coreModule/glmWrapper.hpp"
@@ -61,6 +62,9 @@ public:
   int getUniformLocation(const std::string &name) const;
 
 private:
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+  mutable PROFILER::GpuAllocationToken mGpuProgram;
+#endif
   static void CheckCompileErrors(GLuint shader, const std::string &type);
 
   // void readReflection();

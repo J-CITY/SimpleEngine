@@ -1,9 +1,11 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "utilsModule/containers/internedNameMap.h"
 #include <nlohmann/json.hpp>
 
 #include "renderEnums.h"
+#include "vertexLayout.h"
 
 namespace IKIGAI::RENDER {
 	enum class ShaderType: int {
@@ -93,6 +95,9 @@ namespace IKIGAI::RENDER {
 	struct ShaderReflection {
         uint32_t mLocalSize[3] = {1,1,1};
 		struct InputParam {
+			VertexScalarType mScalarType = VertexScalarType::Float;
+			uint32_t mComponents = 0;
+			uint32_t mBitWidth = 32;
 			std::string mName;
 			size_t mIndex = 0;
 			size_t mLocation = 0;
@@ -123,6 +128,10 @@ namespace IKIGAI::RENDER {
 			int mArraySize = 0;
 		};
 		struct Uniform {
+			uint32_t mDescriptorCount = 1;
+			uint32_t mSamplerRootId = UINT32_MAX;
+			bool mRuntimeArray = false;
+			bool mReadOnly = false;
 			std::string mName;
 			UniformType mType = UniformType::NONE;
 			size_t mRootId = 0;
@@ -139,6 +148,6 @@ namespace IKIGAI::RENDER {
 		std::vector<InputParam> mInputParams;
 		std::vector<OutputParam> mOutputParam;
 		std::vector<Uniform> mUniforms;
-		std::map<std::string, size_t> mNameToUniforms;
+		UTILS::InternedNameMap<size_t> mNameToUniforms;
 	};
 }

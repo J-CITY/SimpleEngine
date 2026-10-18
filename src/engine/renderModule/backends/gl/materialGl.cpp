@@ -19,15 +19,8 @@ IKIGAI::RENDER::MaterialGl::MaterialGl(const MaterialResource& res): MaterialInt
 
 void IKIGAI::RENDER::MaterialGl::create(const MaterialResource& res) {
 	//TODO: do it not in constructor (add var in Material resource) 
-	auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
-	if (resData.isErr()) {
-
-	}
-	auto resDataVal = resData.unwrap();
-	resDataVal.path = res.ShaderPath;
-	auto shader = std::static_pointer_cast<RENDER::ShaderGl>(
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resDataVal));
-	MaterialGl::setShader(shader);
+    auto shader = std::static_pointer_cast<RENDER::ShaderGl>(RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>().loadResource(res.ShaderPath));
+    MaterialGl::setShader(shader);
 
 	auto& textureLoader = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>();
 	for (const auto& [k, v] : res.Uniforms) {
@@ -88,6 +81,7 @@ void IKIGAI::RENDER::MaterialGl::generateUniformsData() {
 
 	const auto& shaderInfo = mShader->getReflection();
 	for (const auto& uniform : shaderInfo.mUniforms) {
+        if (mShader->isBindlessResource(uniform)) continue;
 		if (isEngineUniform(uniform.mName)) {//this pass from render
 			continue;
 		}
@@ -128,6 +122,7 @@ void IKIGAI::RENDER::MaterialGl::fillUniforms(std::shared_ptr<TextureInterface> 
 
 	auto& shaderInfo = mShader->getReflection();
 	for (const auto& uniform : shaderInfo.mUniforms) {
+        if (mShader->isBindlessResource(uniform)) continue;
 		if (uniform.mName.starts_with("engine")) {
 			continue;
 		}

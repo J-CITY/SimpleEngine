@@ -1,4 +1,5 @@
 #pragma once
+#include "vertexLayout.h"
 
 #include <bitset>
 #include <string>
@@ -8,13 +9,15 @@
 
 #include "resourceStruct.h"
 #include "rayTracingInterface.h"
+#include "upscalerInterface.h"
+#include "frameGenerationInterface.h"
 #include "storageBufferInterface.h"
 #include "textureInterface.h"
 #include "meshInterface.h"
 #include "modelInterface.h"
 #include "materialInterface.h"
 #include "frameBufferInterface.h"
-#include <utilsModule/memoryAlloc.h>
+#include <utilsModule/memory/memory.h>
 #include <functional>
 #include <serdepp/attribute/default.hpp>
 
@@ -31,82 +34,43 @@ namespace IKIGAI::RENDER {
 
 	template <typename T, typename... Args>
 	std::shared_ptr<T> AllocateTexture(UTILS::IAllocator* allocator, TextureDeleter customDeleter, Args&&... args) {
-		void* rawTex = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
-		auto* texObj = new(rawTex) T(std::forward<Args>(args)...);
-
-		TextureDeleter finalDeleter = [allocator, customDeleter](TextureInterface* p) {
-			if (customDeleter) {
-				customDeleter(p); // This acts like a generic callback (e.g. unloadResource)
-			}
-			p->~TextureInterface();
-			if (allocator) allocator->deallocate(p);
-			else ::operator delete(p);
-		};
-
-		return std::shared_ptr<T>(texObj, std::move(finalDeleter));
+		return MEMORY::MakeSharedWithDeleter<T, MEMORY::Category::Texture>(
+			allocator, std::move(customDeleter), std::forward<Args>(args)...);
 	}
 
 	template <typename T, typename... Args>
 	std::shared_ptr<T> AllocateModel(UTILS::IAllocator* allocator, ModelDeleter customDeleter, Args&&... args) {
-		void* raw = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
-		auto* obj = new(raw) T(std::forward<Args>(args)...);
-
-		ModelDeleter finalDeleter = [allocator, customDeleter](ModelInterface* p) {
-			if (customDeleter) {
-				customDeleter(p);
-			}
-			p->~ModelInterface();
-			if (allocator) allocator->deallocate(p);
-			else ::operator delete(p);
-		};
-
-		return std::shared_ptr<T>(obj, std::move(finalDeleter));
+		return MEMORY::MakeSharedWithDeleter<T, MEMORY::Category::Model>(
+			allocator, std::move(customDeleter), std::forward<Args>(args)...);
 	}
 
 	template <typename T, typename... Args>
 	std::shared_ptr<T> AllocateShader(UTILS::IAllocator* allocator, ShaderDeleter customDeleter, Args&&... args) {
-		void* raw = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
-		auto* obj = new(raw) T(std::forward<Args>(args)...);
-
-		ShaderDeleter finalDeleter = [allocator, customDeleter](ShaderInterface* p) {
-			if (customDeleter) {
-				customDeleter(p);
-			}
-			p->~ShaderInterface();
-			if (allocator) allocator->deallocate(p);
-			else ::operator delete(p);
-		};
-		return std::shared_ptr<T>(obj, std::move(finalDeleter));
+		return MEMORY::MakeSharedWithDeleter<T, MEMORY::Category::Shader>(
+			allocator, std::move(customDeleter), std::forward<Args>(args)...);
 	}
 
 	template <typename T, typename... Args>
 	std::shared_ptr<T> AllocateMaterial(UTILS::IAllocator* allocator, MaterialDeleter customDeleter, Args&&... args) {
-		void* raw = allocator ? allocator->allocate(sizeof(T)) : ::operator new(sizeof(T));
-		auto* obj = new(raw) T(std::forward<Args>(args)...);
-
-		MaterialDeleter finalDeleter = [allocator, customDeleter](MaterialInterface* p) {
-			if (customDeleter) {
-				customDeleter(p);
-			}
-			p->~MaterialInterface();
-			if (allocator) allocator->deallocate(p);
-			else ::operator delete(p);
-		};
-
-		return std::shared_ptr<T>(obj, std::move(finalDeleter));
+		return MEMORY::MakeSharedWithDeleter<T, MEMORY::Category::Material>(
+			allocator, std::move(customDeleter), std::forward<Args>(args)...);
 	}
 
 	struct RenderSettings {
 		enum class Backend { OPENGL, VULKAN, DIRECTX12, METAL };
 		Backend backend = Backend::OPENGL;
 		std::string pipeline;
+		UpscalerSettings upscaler;
+        FrameGenerationSettings frameGeneration;
 
 		template<class Context>
 		constexpr static auto serde(Context& context, RenderSettings& value) {
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
 				.field(&RenderSettings::backend, "backend", default_{Backend::OPENGL})
-				.field(&RenderSettings::pipeline, "pipeline", default_{std::string{}});
+				.field(&RenderSettings::pipeline, "pipeline", default_{std::string{}})
+                .field(&RenderSettings::upscaler,"upscaler",default_{UpscalerSettings{}})
+                .field(&RenderSettings::frameGeneration,"frameGeneration",default_{FrameGenerationSettings{}});
 		}
 	};
 
@@ -165,6 +129,29 @@ namespace IKIGAI::RENDER {
 		virtual void
 			setVertexBuffer(std::shared_ptr<VertexBufferInterface> buffer) = 0;
 		virtual void setIndexBuffer(std::shared_ptr<IndexBufferInterface> buffer) = 0;
+		// A null layout preserves the historical Vertex/MetalMeshVertex path.
+		std::optional<VertexLayout> mVertexLayout;
+		std::vector<std::pair<uint32_t, std::shared_ptr<VertexBufferInterface>>> mVertexStreams;
+		void resetVertexStreams() {
+			if (mVertexLayout) setDirty(Dirty::PIPELINE);
+			mVertexLayout.reset(); mVertexStreams.clear();
+		}
+		void setVertexStreams(const VertexLayout& layout,
+			const std::vector<std::pair<uint32_t, std::shared_ptr<VertexBufferInterface>>>& streams) {
+			layout.validate();
+			const auto oldKey = mVertexLayout ? mVertexLayout->key() : "legacy";
+			mVertexLayout = layout; mVertexStreams = streams;
+			setDirty(Dirty::VERTEX_BUFFER);
+			if (oldKey != layout.key()) setDirty(Dirty::PIPELINE);
+		}
+		std::string vertexLayoutKey() const { return mVertexLayout ? mVertexLayout->key() : "legacy"; }
+		void validateVertexInputs(const ShaderInterface& shader) const;
+		void validateVertexDraw(const DrawArguments& args) const;
+		virtual void draw(const DrawArguments& args) {
+			if (args.firstInstance || args.baseVertex) throw std::runtime_error("Base instance/vertex is unavailable on this backend");
+			if (args.indexed) drawIndexed(args.count,args.first,args.instanceCount);
+			else draw(args.count,args.first,args.instanceCount);
+		}
 		virtual void setBlending(const Blending& value) = 0;
 		virtual void resetBlending() = 0;
 		virtual void setDepth(const Depth& depth) = 0;
@@ -177,6 +164,56 @@ namespace IKIGAI::RENDER {
 		virtual void setClearColor(const MATH::Vector4f& color) = 0;
 		virtual void setClearColor(float r, float g, float b, float a) = 0;
 		virtual void dispatch(uint32_t x, uint32_t y, uint32_t z) = 0;
+		virtual BindlessCapabilities bindlessCapabilities() const { return {}; }
+		virtual bool supportsVertexPulling() const { return false; }
+		std::map<uint32_t,BindlessResourceTable> mBindlessTables;
+		std::vector<BindlessResourceEntry> mBindlessFrameResources;
+		BindlessResourceHandle registerBindlessTexture(uint32_t binding, std::shared_ptr<TextureInterface> texture, uint32_t capacity = 64) {
+			const auto caps=bindlessCapabilities();
+			if (!caps.sampledTextures || capacity>caps.maxSampledTextures) throw std::runtime_error("Bindless texture table is unsupported or exceeds device limit");
+			return mBindlessTables[binding].add(binding,{std::move(texture),{}},capacity);
+		}
+		BindlessResourceHandle registerBindlessBuffer(uint32_t binding, std::shared_ptr<StorageBufferInterface> buffer, uint32_t capacity = 64) {
+			const auto caps=bindlessCapabilities();
+			if (!caps.storageBuffers || capacity>caps.maxStorageBuffers) throw std::runtime_error("Bindless buffer table is unsupported or exceeds device limit");
+			return mBindlessTables[binding].add(binding,{{},std::move(buffer)},capacity);
+		}
+		void releaseBindlessResource(BindlessResourceHandle handle) { mBindlessTables.at(handle.binding).release(handle); }
+		const BindlessResourceTable& bindlessTable(const ShaderReflection::Uniform& uniform, uint32_t count) const {
+			const auto it=mBindlessTables.find(static_cast<uint32_t>(uniform.mBind));
+			if (it==mBindlessTables.end() || it->second.capacity!=count) throw std::runtime_error("Missing or incompatible bindless table: "+uniform.mName);
+            const auto& entry=it->second.get(0);
+            if (uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER) {
+                if (!entry.buffer || !entry.buffer->getSizeByte()) throw std::runtime_error("Bindless table needs valid buffers: "+uniform.mName);
+            } else {
+                const auto expected=uniform.mType==ShaderReflection::UniformType::SAMPLER_CUBE ? TextureType::TEXTURE_CUBE
+                    : uniform.mType==ShaderReflection::UniformType::SAMPLER_3D ? TextureType::TEXTURE_3D
+                    : uniform.mType==ShaderReflection::UniformType::SAMPLER_2D_ARRAY ? TextureType::TEXTURE_2D_ARRAY : TextureType::TEXTURE_2D;
+                if (!entry.texture || (entry.texture->getType()!=expected && !(expected==TextureType::TEXTURE_2D && entry.texture->getType()==TextureType::DEPTH)))
+                    throw std::runtime_error("Bindless texture view type does not match shader: "+uniform.mName);
+            }
+			return it->second;
+		}
+        virtual std::unique_ptr<UpscalerInterface> createUpscaler(UpscalerType) {
+            throw UnsupportedUpscaler("DLSS/FSR are only available on enabled Vulkan/DX12 builds");
+        }
+        std::unique_ptr<FrameGenerationInterface> mFrameGeneration;
+        FrameGenerationStatus mFrameGenerationStatus;
+        FrameGenerationSettings mFrameGenerationSettings;
+        bool mFrameGenerationSettingsLoaded=false,mFrameGenerationFailed=false,mPresentationUIRendered=false;
+        virtual std::unique_ptr<FrameGenerationInterface> createFrameGeneration(FrameGenerationType) {
+            throw UnsupportedFrameGeneration("Frame generation SDK is not compiled for this backend");
+        }
+        void prepareFrameGeneration(bool pipelineEnabled, MATH::Vector2i render, MATH::Vector2i display);
+        void dispatchFrameGeneration(const FrameGenerationInputs&);
+        virtual void renderPresentationUI(std::shared_ptr<FrameBufferInterface>) {}
+        uint64_t mRealFrameId=UINT64_MAX;
+        virtual void setTemporalCamera(const FrameGenerationInputs&) {}
+        virtual void latencyFrameBegin() {++mRealFrameId;}
+        virtual void latencySimulationEnd() {}
+        void stopPresentation() {mFrameGeneration.reset();mFrameGenerationStatus={};}
+        virtual void latencySubmitBegin() {}
+        virtual void latencySubmitEnd() {}
         virtual RayTracingCapabilities rayTracingCapabilities() const { return {}; }
         virtual std::shared_ptr<VertexBufferInterface> createRayTracingVertexBuffer(const void*,size_t,size_t) {
             throw UnsupportedRayTracing("RT vertex buffers are unavailable on this backend");

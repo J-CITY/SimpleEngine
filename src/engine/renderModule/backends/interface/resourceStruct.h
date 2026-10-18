@@ -7,9 +7,11 @@
 
 #include "mathModule/math.h"
 #include "reflectionStructs.h"
+#include "rayTracingInterface.h"
 #include "renderEnums.h"
 #include "resourceModule/parser/parseFlags.h"
 #include "textureInterface.h"
+#include "bindlessInterface.h"
 #include "utilsModule/reflection/reflection.h"
 // #include "coreModule/resourceManager/parser/assimpParser.h"
 
@@ -103,7 +105,26 @@ struct TextureResource: public ResourceBase {
   }
 };
 
-struct ShaderResource : public ResourceBase {
+inline void from_json(const nlohmann::json& j, ShaderBindingMode& v) {
+    const auto s=j.get<std::string>();
+    if(s=="Bound") v=ShaderBindingMode::Bound;
+    else if(s=="Bindless") v=ShaderBindingMode::Bindless;
+    else throw std::invalid_argument("Unknown shader BindingMode: "+s);
+}
+inline void to_json(nlohmann::json& j,const ShaderBindingMode& v) { j=v==ShaderBindingMode::Bindless?"Bindless":"Bound"; }
+inline void from_json(const nlohmann::json& j, VertexFetchMode& v) {
+    const auto s=j.get<std::string>();
+    if(s=="Attributes") v=VertexFetchMode::Attributes;
+    else if(s=="Pulling") v=VertexFetchMode::Pulling;
+    else throw std::invalid_argument("Unknown VertexFetchMode: "+s);
+}
+inline void to_json(nlohmann::json& j,const VertexFetchMode& v) { j=v==VertexFetchMode::Pulling?"Pulling":"Attributes"; }
+// Raster, compute and ray tracing share one .shader descriptor. The program
+// base holds named modules/groups; Paths remains the compact legacy form.
+struct ShaderResource : public ResourceBase, public RayTracingProgramResource {
+	ShaderBindingMode bindingMode = ShaderBindingMode::Bound;
+	VertexFetchMode vertexFetchMode = VertexFetchMode::Attributes;
+	uint32_t bindlessCapacity = 64;
   ResourceType type = ResourceType::SHADER;
   std::string path;
 
@@ -118,6 +139,12 @@ struct ShaderResource : public ResourceBase {
       {ShaderType::TESSELLATION_CONTROL, "TESSELLATION_CONTROL"},
       {ShaderType::TESSELLATION_EVALUATION, "TESSELLATION_EVALUATION"},
       {ShaderType::COMPUTE, "COMPUTE"},
+      {ShaderType::RAYGEN, "RAYGEN"},
+      {ShaderType::MISS, "MISS"},
+      {ShaderType::CLOSEST_HIT, "CLOSEST_HIT"},
+      {ShaderType::ANY_HIT, "ANY_HIT"},
+      {ShaderType::INTERSECTION, "INTERSECTION"},
+      {ShaderType::CALLABLE, "CALLABLE"},
   };
 
   inline static std::map<std::string, ShaderType> toEnum{
@@ -127,6 +154,12 @@ struct ShaderResource : public ResourceBase {
       {"TESSELLATION_CONTROL", ShaderType::TESSELLATION_CONTROL},
       {"TESSELLATION_EVALUATION", ShaderType::TESSELLATION_EVALUATION},
       {"COMPUTE", ShaderType::COMPUTE},
+      {"RAYGEN", ShaderType::RAYGEN},
+      {"MISS", ShaderType::MISS},
+      {"CLOSEST_HIT", ShaderType::CLOSEST_HIT},
+      {"ANY_HIT", ShaderType::ANY_HIT},
+      {"INTERSECTION", ShaderType::INTERSECTION},
+      {"CALLABLE", ShaderType::CALLABLE},
   };
   bool hasShader(ShaderType type) const { return paths.contains(toStr[type]); }
 
@@ -140,7 +173,7 @@ struct ShaderResource : public ResourceBase {
   std::map<ShaderType, std::string> getPaths() const {
     std::map<ShaderType, std::string> res;
     for (auto &[e, v] : paths) {
-      res[toEnum[e]] = v;
+      res[toEnum.at(e)] = v;
     }
     return res;
   }
@@ -152,20 +185,62 @@ struct ShaderResource : public ResourceBase {
   mutable std::map<ShaderType, std::string> sources;
   mutable std::map<ShaderType, std::vector<uint32_t>> spirvSources;
 
+  RayTracingProgramResource getProgramResource() const {
+    auto program = static_cast<const RayTracingProgramResource&>(*this);
+    if (!Shaders.empty()) {
+      if (!paths.empty() || !sources.empty())
+        throw std::invalid_argument("Shader must use either Shaders or Paths/sources");
+      return program;
+    }
+    auto stages = getPaths();
+    for (const auto& [stage, source] : sources) stages.try_emplace(stage, "");
+    for (const auto& [stage, shaderPath] : stages) {
+      RayTracingShader shader;
+      shader.Name = toStr.at(stage);
+      shader.Stage = stage;
+      shader.Path = shaderPath;
+      if (const auto it = sources.find(stage); it != sources.end()) shader.Source = it->second;
+      program.Shaders.push_back(std::move(shader));
+    }
+    if (program.Shaders.empty()) throw std::invalid_argument("Shader program has no stages");
+    if (useBinary) throw std::invalid_argument("Program shader loading requires source stages");
+    return program;
+  }
+
   template <class Context>
   constexpr static auto serde(Context &context, ShaderResource &value) {
     using Self = ShaderResource;
     using namespace serde::attribute;
     serde::serde_struct(context, value)
+        .field(&Self::bindingMode, "BindingMode", default_{ShaderBindingMode::Bound})
+        .field(&Self::vertexFetchMode, "VertexFetchMode", default_{VertexFetchMode::Attributes})
+        .field(&Self::bindlessCapacity, "BindlessCapacity", default_{uint32_t(64)})
         .field(&Self::useBinary, "UseBinary", default_{false})
   	    .field(&Self::parentPath, "##parent", default_{std::string()})
-        .field(&Self::paths, "Paths");
+        .field(&Self::paths, "Paths", default_{std::map<std::string, std::string>{}})
+        .field(&Self::Shaders, "Shaders", default_{std::vector<RayTracingShader>{}})
+        .field(&Self::Groups, "Groups", default_{std::vector<RayTracingGroup>{}})
+        .field(&Self::MaxRecursionDepth, "MaxRecursionDepth", default_{1u})
+        .field(&Self::PushConstantSize, "PushConstantSize", default_{0u})
+        .field(&Self::MaxPayloadSize, "MaxPayloadSize", default_{64u})
+        .field(&Self::MaxAttributeSize, "MaxAttributeSize", default_{8u})
+        .field(&Self::RequiresDescriptorIndexing, "RequiresDescriptorIndexing", default_{false});
   }
 
   static auto GetMembers() {
     return std::tuple{
         IKIGAI::UTILS::MakeMemberInfo("UseBinary", &ShaderResource::useBinary),
+        IKIGAI::UTILS::MakeMemberInfo("BindingMode", &ShaderResource::bindingMode),
+        IKIGAI::UTILS::MakeMemberInfo("VertexFetchMode", &ShaderResource::vertexFetchMode),
+        IKIGAI::UTILS::MakeMemberInfo("BindlessCapacity", &ShaderResource::bindlessCapacity),
         IKIGAI::UTILS::MakeMemberInfo("Paths", &ShaderResource::paths),
+        IKIGAI::UTILS::MakeMemberInfo("Shaders", &ShaderResource::Shaders),
+        IKIGAI::UTILS::MakeMemberInfo("Groups", &ShaderResource::Groups),
+        IKIGAI::UTILS::MakeMemberInfo("MaxRecursionDepth", &ShaderResource::MaxRecursionDepth),
+        IKIGAI::UTILS::MakeMemberInfo("PushConstantSize", &ShaderResource::PushConstantSize),
+        IKIGAI::UTILS::MakeMemberInfo("MaxPayloadSize", &ShaderResource::MaxPayloadSize),
+        IKIGAI::UTILS::MakeMemberInfo("MaxAttributeSize", &ShaderResource::MaxAttributeSize),
+        IKIGAI::UTILS::MakeMemberInfo("RequiresDescriptorIndexing", &ShaderResource::RequiresDescriptorIndexing),
     };
   }
 };

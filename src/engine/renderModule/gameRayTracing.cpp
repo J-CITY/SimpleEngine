@@ -5,38 +5,14 @@
 #include "render.h"
 #include "resourceModule/fileSystem/fileSystem.h"
 #include "resourceModule/serviceManager.h"
+#include "resourceModule/shaderManager.h"
 #include <cstring>
 #include <iostream>
-#include <regex>
 #include <set>
-#include <sstream>
 #include <unordered_map>
 
 namespace IKIGAI::RENDER {
 namespace {
-	std::string readShader(const std::string& path, std::set<std::string>& stack) {
-		if (!stack.insert(path).second)
-			throw std::runtime_error("RT shader include cycle: " + path);
-		auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-		if (!fs.isFileExist(path))
-			throw std::runtime_error("Missing RT shader: " + path);
-		std::string source = fs.getFile(path)->readStr();
-		const std::regex include(R"inc(^[ \t]*#include[ \t]+"([^"]+)"[^\n]*)inc");
-		std::string result, line;
-		std::istringstream stream(source);
-		while (std::getline(stream, line)) {
-			std::smatch match;
-			if (std::regex_match(line, match, include)) {
-				const auto child = (std::filesystem::path(path).parent_path() / match[1].str()).lexically_normal().generic_string();
-				result += readShader(child, stack);
-			}
-			else
-				result += line;
-			result += '\n';
-		}
-		stack.erase(path);
-		return result;
-	}
 	void hashBytes(uint64_t& hash, const void* ptr, size_t size) {
 		const auto* bytes = static_cast<const uint8_t*>(ptr);
 		for (size_t i = 0; i < size; ++i) {
@@ -61,24 +37,6 @@ namespace {
 		MATH::Vector4f Albedo, Properties, UVTransform;
 	};
 	static_assert(sizeof(SkinVertex) == 80 && sizeof(DeformedVertex) == 48 && sizeof(TriangleUniform) == 112);
-	RayTracingProgramResource readProgram(const std::string& path) {
-		auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-		if (!fs.isFileExist(path))
-			throw std::runtime_error("Missing shader program: " + path);
-		auto resource = nlohmann::json::parse(fs.getFile(path)->readStr()).get<RayTracingProgramResource>();
-		for (auto& shader : resource.Shaders) {
-			if (DriverInterface::settings.backend == RenderSettings::Backend::DIRECTX12 && shader.BackendPaths.contains("DIRECTX12")) {
-				shader.Path = shader.BackendPaths.at("DIRECTX12");
-				shader.Language = "HLSL";
-				shader.Source.clear();
-			}
-			if (!shader.Source.empty())
-				continue;
-			std::set<std::string> stack;
-			shader.Source = readShader(shader.Path, stack);
-		}
-		return resource;
-	}
 	void dispatchCompute(DriverInterface& driver, const std::shared_ptr<RayTracingProgram>& program, uint32_t count,
 		std::map<std::string, std::vector<RayTracingResource>> bindings, const std::array<uint32_t, 4>& options) {
 		RayTracingDispatch dispatch;
@@ -92,7 +50,7 @@ namespace {
 }
 
 std::shared_ptr<RayTracingProgram> LoadRayTracingProgram(Renderer& renderer, const std::string& path) {
-	return renderer.getDriver()->createRayTracingProgram(readProgram(path));
+	return renderer.getDriver()->createRayTracingProgram(RESOURCES::ShaderLoader::LoadProgramResource(path));
 }
 
 struct GameRenderer::RayScene {
@@ -122,8 +80,8 @@ void GameRenderer::prepareRayTracingScene(const std::vector<RenderChunk>& chunks
 		throw UnsupportedRayTracing("RT scene extraction is unavailable on this backend");
 	if (!mRayScene) {
 		mRayScene = std::make_shared<RayScene>();
-		mRayScene->SkinProgram = renderer.getDriver()->createComputeProgram(readProgram("/shaders/raytracing/skinVertices.rtprogram"));
-		mRayScene->TriangleProgram = renderer.getDriver()->createComputeProgram(readProgram("/shaders/raytracing/buildTriangles.rtprogram"));
+		mRayScene->SkinProgram = renderer.getDriver()->createComputeProgram(RESOURCES::ShaderLoader::LoadProgramResource("/shaders/raytracing/skinVertices.shader"));
+		mRayScene->TriangleProgram = renderer.getDriver()->createComputeProgram(RESOURCES::ShaderLoader::LoadProgramResource("/shaders/raytracing/buildTriangles.shader"));
 	}
 	mRaySceneChanged = false;
 	if (!mRayWhite) {

@@ -4,6 +4,7 @@
 #include "gameRendererInterface.h"
 #include "backends/interface/resourceStruct.h"
 #include "backends/interface/rayTracingInterface.h"
+#include "backends/interface/upscalerInterface.h"
 #include "light.h"
 #include "backends/interface/materialInterface.h"
 #include <filesystem>
@@ -23,6 +24,11 @@ namespace IKIGAI::ECS
 {
 	class CameraComponent;
 }
+namespace IKIGAI::VECTOR {class VectorRenderer;}
+namespace IKIGAI::RENDER {class ParticleRenderer;}
+#if USE_PHYSICS_3D
+namespace IKIGAI::RENDER {class DeformableRenderer;}
+#endif
 
 namespace IKIGAI {
 	namespace CORE {
@@ -48,7 +54,10 @@ namespace IKIGAI::RENDER {
         COMPUTE,
         CLEAR,
         LIGHT_ACCUMULATION,
-        RAY_TRACE
+        RAY_TRACE,
+        UPSCALE,
+        FRAME_GENERATION,
+        VECTOR_WORLD
 	};
 
 	struct PipelineStage {
@@ -73,6 +82,7 @@ namespace IKIGAI::RENDER {
             std::string Unsupported="ERROR";
             int HitGroupOffset=0;
             bool Progressive=false;
+            bool PresentationSink=false,IncludeEditorUI=false;
 			std::map<std::string, UniformTypeDescr> Uniforms;
 			bool Enabled = true;
             bool Once = false;
@@ -115,6 +125,8 @@ namespace IKIGAI::RENDER {
                     .field(&Self::Unsupported,"Unsupported",default_{std::string{"ERROR"}})
                     .field(&Self::HitGroupOffset,"HitGroupOffset",default_{0})
                     .field(&Self::Progressive,"Progressive",default_{false})
+                    .field(&Self::PresentationSink,"PresentationSink",default_{false})
+                    .field(&Self::IncludeEditorUI,"IncludeEditorUI",default_{false})
 					.field(&Self::Uniforms, "Uniforms", default_{decltype(Uniforms){}})
 					.field(&Self::BufferLinks, "BufferLinks", default_{decltype(BufferLinks){}})
 					.field(&Self::BufferOverrides, "BufferOverrides", default_{decltype(BufferOverrides){}})
@@ -154,10 +166,12 @@ namespace IKIGAI::RENDER {
 
 	struct RenderGraphPipeline {
 		struct TextureDesc {
+			enum class SizeBase { DISPLAY, RENDER, FIXED };
 			std::string Name;
 			std::string Path;
 			TextureResource Resource;
 			float Scale = 1.0f;
+            SizeBase Size = SizeBase::DISPLAY;
 			bool History = false;
             bool Persistent = false;
 
@@ -170,6 +184,7 @@ namespace IKIGAI::RENDER {
 					.field(&Self::Path, "Path", default_{std::string{}})
 					.field(&Self::Resource, "Resource", default_{TextureResource{}})
 					.field(&Self::Scale, "Scale", default_{1.0f})
+                    .field(&Self::Size,"Size",default_{SizeBase::DISPLAY})
 					.field(&Self::History, "History", default_{false})
                     .field(&Self::Persistent,"Persistent",default_{false});
 			}
@@ -316,6 +331,7 @@ namespace IKIGAI::RENDER {
 		std::vector<StagesArr*> stageGroups();
 
 		void resize(Renderer& renderer, int width, int height);
+        void prepareUpscaler(Renderer& renderer,int width,int height);
 		void advanceHistory(Renderer& renderer);
 		void rebuildFrameBuffers(Renderer& renderer);
         void reloadSettings(Renderer& renderer,const std::string& asset={});
@@ -330,6 +346,11 @@ namespace IKIGAI::RENDER {
         std::string mSettingsOverrideAsset;
         std::map<std::string,uint64_t> mTextureRevisions;
 		MATH::Vector2i mSize = {0,0};
+        MATH::Vector2i mRenderSize = {0,0},mAllocatedRenderSize={0,0};
+        std::unique_ptr<UpscalerInterface> mUpscaler;
+        UpscalerSettings mUpscalerSettings;
+        UpscalerCapabilities mUpscalerStatus;
+        bool mUpscalerSettingsLoaded=false,mUpscalerFailed=false,mUpscaleHistoryValid=false,mPresentationHistoryValid=false;
 		bool mHistoryValid = false;
 		std::map<std::string, std::shared_ptr<TextureInterface>> mAllocatedTextures;
 
@@ -386,13 +407,20 @@ namespace IKIGAI::RENDER {
 		PipelineStage* mActiveStage = nullptr;
 		std::shared_ptr<MaterialInterface> mGuiSpriteMaterial;
 		std::shared_ptr<MaterialInterface> mGuiTextMaterial;
+		std::shared_ptr<MaterialInterface> mVectorMaterial,mSdfMaterial;
+		std::shared_ptr<VECTOR::VectorRenderer> mVectorRenderer;
+		std::shared_ptr<ParticleRenderer> mParticleRenderer;
+#if USE_PHYSICS_3D
+        std::shared_ptr<DeformableRenderer> mDeformableRenderer;
+#endif
 		MATH::Matrix4f mPreviousViewProjection = MATH::Matrix4f::Identity;
 		MATH::Matrix4f mPreviousUnjitteredViewProjection = MATH::Matrix4f::Identity;
+        MATH::Vector2f mJitter{},mPreviousJitter{};
 		const ECS::CameraComponent* mPreviousCamera = nullptr;
 		void bindStage(PipelineStage& stage);
 		void captureShadows(PipelineStage& stage, const std::vector<RenderChunk>& casters,
 			const MATH::Vector3f& cameraPosition, const MATH::Vector2f& size);
-		void renderGui(SCENE_SYSTEM::Scene& scene);
+		void renderGui(SCENE_SYSTEM::Scene& scene,bool worldVectors=false);
 
 		EngineUBO uboData;
 		struct FrameUBO {
@@ -440,6 +468,7 @@ namespace IKIGAI::RENDER {
 		GameRenderer(CORE::Core& context);
 		void Init();
 		void renderScene() override;
+        void renderLoadingScene(SCENE_SYSTEM::Scene* scene);
 		void drawDrawable(const Drawable& p_toDraw);
 
 		void setPipeline(std::unique_ptr<RenderGraphPipeline>&& renderPipeline);
@@ -449,6 +478,7 @@ namespace IKIGAI::RENDER {
             mRenderPipeline->mAccelerationStructures[name]=std::move(structure);
         }
         void reloadPipelineSettings(const std::string& asset={});
+        void resetTemporalHistory() {mRenderPipeline->mHistoryValid=false;mRenderPipeline->mUpscaleHistoryValid=false;mRenderPipeline->mPresentationHistoryValid=false;}
 		void enableGpuProfiling() { mProfileGpu=true; }
 		void printGpuProfile() const;
 

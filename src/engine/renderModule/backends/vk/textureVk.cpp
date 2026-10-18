@@ -95,6 +95,9 @@ void IKIGAI::RENDER::TextureVk::init(const TextureResource& descriptor, const st
 
 	mImagePtr = *mImage;
 	mPath = !desc.path.empty() ? desc.path : (!desc.pathTexture.empty() ? desc.pathTexture.front() : std::string());
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    mImage.setMemoryName(mPath.c_str());
+#endif
 	mWidth = desc.width;
 	mHeight = desc.height;
 	mMipCount = desc.mipMapCount > 0 ? static_cast<uint32_t>(desc.mipMapCount) : 1u;

@@ -139,6 +139,7 @@ static_assert(sizeof(BlendTable)/sizeof(GLenum) == static_cast<size_t>(IKIGAI::R
 IKIGAI::RENDER::DriverGl::DriverGl() { DriverGl::init(); }
 
 IKIGAI::RENDER::DriverGl::~DriverGl() {
+  begin();mBindlessTables.clear();mVertexStreams.clear();
   // TODO: delete context
 }
 
@@ -178,7 +179,8 @@ void IKIGAI::RENDER::DriverGl::init() {
 // TODO: Remove it
 void IKIGAI::RENDER::DriverGl::setVertexBuffer(
     std::shared_ptr<VertexBufferInterface> buffer) {
-  mVertexBuffer = std::static_pointer_cast<VertexBufferGl>(buffer);
+  resetVertexStreams();
+    mVertexBuffer = std::static_pointer_cast<VertexBufferGl>(buffer);
 }
 // TODO: Remove it
 void IKIGAI::RENDER::DriverGl::setIndexBuffer(
@@ -265,13 +267,13 @@ void IKIGAI::RENDER::DriverGl::setDepth(const Depth &param)
 	mDepth = param;
 }
 
-void IKIGAI::RENDER::DriverGl::resetDepth() { mDepth = std::nullopt; }
+void IKIGAI::RENDER::DriverGl::resetDepth() { mDepth = std::nullopt;setDirty(Dirty::DEPTH); }
 
 void IKIGAI::RENDER::DriverGl::setStencil(const Stencil &param) {
   mStencil = param;
 }
 
-void IKIGAI::RENDER::DriverGl::resetStencil() { mStencil = std::nullopt; }
+void IKIGAI::RENDER::DriverGl::resetStencil() { mStencil = std::nullopt;setDirty(Dirty::STENCIL); }
 
 void IKIGAI::RENDER::DriverGl::setCull(CullFace param) { setDirty(Dirty::CULLING); mCullFace = param; }
 
@@ -307,9 +309,13 @@ void IKIGAI::RENDER::DriverGl::clear(bool clearColor, bool clearDepth,
     glClearStencil(mStencilValue);
   }
   GLboolean depthMask;
+  GLboolean colorMask[4];
+  glGetBooleanv(GL_COLOR_WRITEMASK, colorMask);
+  if (clearColor) glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
   if (clearDepth) glDepthMask(GL_TRUE);
   glClear(flags);
+  if (clearColor) glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
   if (clearDepth) glDepthMask(depthMask);
 
   if (hasScissor) {
@@ -343,7 +349,7 @@ void IKIGAI::RENDER::DriverGl::dispatch(uint32_t x,uint32_t y,uint32_t z) {
     }
   }
   glDispatchCompute(x,y,z);
-  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT);
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
 #else
   throw std::runtime_error("Compute pipeline requires desktop OpenGL 4.3+");
 #endif
@@ -352,6 +358,9 @@ void IKIGAI::RENDER::DriverGl::dispatch(uint32_t x,uint32_t y,uint32_t z) {
 void IKIGAI::RENDER::DriverGl::draw(uint32_t vertex_count,
                                     uint32_t vertex_offset,
                                     uint32_t instance_count) {
+  if (!vertex_count || !instance_count) return;
+  validateVertexInputs(*mShader);
+  validateVertexDraw({vertex_count,vertex_offset,instance_count});
   applyState();
   glDrawArraysInstanced(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)],
                         vertex_offset, vertex_count, instance_count);
@@ -360,14 +369,17 @@ void IKIGAI::RENDER::DriverGl::draw(uint32_t vertex_count,
 void IKIGAI::RENDER::DriverGl::drawIndexed(uint32_t index_count,
                                            uint32_t index_offset,
                                            uint32_t instance_count) {
+  if (!index_count || !instance_count) return;
+  if (!mIndexBuffer) throw std::runtime_error("Index buffer missing");
   applyState();
   auto index_size = mIndexBuffer->getStride();
   auto index_type = index_size == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
-  // glDrawElementsInstanced(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)],
-  // index_count, index_type, (void*)(index_offset * index_size),
-  // instance_count);
-  glDrawElements(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)],
-                 index_count, index_type, nullptr);
+  if (index_offset > mIndexBuffer->getSize() || index_count > mIndexBuffer->getSize()-index_offset)
+    throw std::runtime_error("Indexed draw exceeds index buffer");
+  validateVertexInputs(*mShader);
+  validateVertexDraw({index_count,index_offset,instance_count,0,0,true});
+  glDrawElementsInstanced(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)],
+      index_count,index_type,reinterpret_cast<const void*>(uintptr_t(index_offset)*index_size),instance_count);
 }
 
 void IKIGAI::RENDER::DriverGl::draw(const MeshInterface &mesh,
@@ -380,6 +392,8 @@ void IKIGAI::RENDER::DriverGl::draw(const MeshInterface &mesh,
     mFrameInfo.mPolyCount += (mesh.getIndexCount() / 3) * instances;
 
     mesh.bind();
+    validateVertexInputs(*mShader);
+    validateVertexDraw({static_cast<uint32_t>(mesh.getIndexCount() ? mesh.getIndexCount() : mesh.getVertexCount()),0,instances,0,0,mesh.getIndexCount()>0});
     if (mesh.getIndexCount() > 0) {
       // EBO
       if (instances == 1) {
@@ -519,10 +533,11 @@ IKIGAI::RENDER::DriverGl::createFrameBuffer(
 void IKIGAI::RENDER::DriverGl::applyState() {
   if (mShader) {
     mShader->bind();
+    bindBindlessResources();
   }
   // Bind only resources declared by this shader; stale storage bindings are not sampled.
   if(mShader) for(const auto& u:mShader->getReflection().mUniforms) {
-    if(u.mType==ShaderReflection::UniformType::SAMPLER_2D || u.mType==ShaderReflection::UniformType::SAMPLER_CUBE || u.mType==ShaderReflection::UniformType::SAMPLER_3D || u.mType==ShaderReflection::UniformType::SAMPLER_2D_ARRAY) {
+    if(!mShader->isBindlessResource(u) && (u.mType==ShaderReflection::UniformType::SAMPLER_2D || u.mType==ShaderReflection::UniformType::SAMPLER_CUBE || u.mType==ShaderReflection::UniformType::SAMPLER_3D || u.mType==ShaderReflection::UniformType::SAMPLER_2D_ARRAY)) {
       auto it=mTextures.find(u.mBind); if(it!=mTextures.end() && it->second) it->second->bind(static_cast<int>(u.mBind));
     }
   }
@@ -643,7 +658,7 @@ void IKIGAI::RENDER::DriverGl::applyState() {
     }
 }
 
-void IKIGAI::RENDER::DriverGl::submit() {}
+void IKIGAI::RENDER::DriverGl::submit() { begin(); }
 void IKIGAI::RENDER::DriverGl::setFrameBuffer(
     std::shared_ptr<FrameBufferInterface> frameBuffer) {
   if (frameBuffer) {
@@ -760,4 +775,80 @@ void APIENTRY IKIGAI::RENDER::DriverGl::GLDebugMessageCallback(
 }
 #endif
 
+
+void IKIGAI::RENDER::DriverGl::draw(const DrawArguments& args) {
+    if (!args.count || !args.instanceCount) return;
+    validateVertexDraw(args);
+    validateVertexInputs(*mShader);
+    applyState();
+    if (args.firstInstance || args.baseVertex) {
+#if !defined(USING_GLES) && !defined(__APPLE__)
+        if (!GLEW_VERSION_4_2 && !GLEW_ARB_base_instance) throw std::runtime_error("Base instance draws require GL 4.2 or ARB_base_instance");
+        if (args.indexed) {
+            if (!mIndexBuffer) throw std::runtime_error("Index buffer missing");
+            const auto stride=mIndexBuffer->getStride();
+            glDrawElementsInstancedBaseVertexBaseInstance(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)],args.count,
+                stride==2?GL_UNSIGNED_SHORT:GL_UNSIGNED_INT,reinterpret_cast<const void*>(uintptr_t(args.first)*stride),args.instanceCount,args.baseVertex,args.firstInstance);
+        } else glDrawArraysInstancedBaseInstance(PrimitiveModeTable[static_cast<size_t>(mPrimitiveMode)],args.first,args.count,args.instanceCount,args.firstInstance);
+#else
+        throw std::runtime_error("Base instance/vertex requires desktop OpenGL");
+#endif
+    } else {
+        if (args.indexed) drawIndexed(args.count,args.first,args.instanceCount);
+        else draw(args.count,args.first,args.instanceCount);
+    }
+}
+
+
+IKIGAI::RENDER::BindlessCapabilities IKIGAI::RENDER::DriverGl::bindlessCapabilities() const {
+#if !defined(USING_GLES) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    if (GLEW_ARB_bindless_texture && GLEW_NV_gpu_shader5) return {true,false,false,true,false,128,0};
+#endif
+    return {};
+}
+bool IKIGAI::RENDER::DriverGl::supportsVertexPulling() const {
+#if defined(IKIGAI_GL_HAS_SSBO)
+#if defined(USING_GLES)
+    return true;
+#else
+    return GLEW_VERSION_4_3;
+#endif
+#else
+    return false;
+#endif
+}
+void IKIGAI::RENDER::DriverGl::begin() {
+#if !defined(USING_GLES) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    if (!mBindlessResidentHandles.empty()) {
+        glFinish();
+        for (auto handle : mBindlessResidentHandles) glMakeTextureHandleNonResidentARB(handle);
+        mBindlessResidentHandles.clear();
+    }
+#endif
+    mBindlessFrameResources.clear();
+}
+void IKIGAI::RENDER::DriverGl::bindBindlessResources() {
+#if !defined(USING_GLES) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    if (!mShader || mShader->bindingMode()!=ShaderBindingMode::Bindless) return;
+    for (const auto& uniform : mShader->getReflection().mUniforms) if (mShader->isBindlessResource(uniform)) {
+        const auto count=mShader->descriptorCount(uniform);
+        const auto& table=bindlessTable(uniform,count);
+        std::vector<GLuint64> handles;
+        for (uint32_t i=0;i<count;++i) {
+            const auto entry=table.get(i);mBindlessFrameResources.push_back(entry);
+            const auto texture=std::static_pointer_cast<TextureGl>(entry.texture);
+            const GLuint64 handle=glGetTextureHandleARB(texture->id);
+            if (std::find(mBindlessResidentHandles.begin(),mBindlessResidentHandles.end(),handle)==mBindlessResidentHandles.end()) {
+                glMakeTextureHandleResidentARB(handle);mBindlessResidentHandles.push_back(handle);
+            }
+            handles.push_back(handle);
+        }
+        const auto location=glGetUniformLocation(mShader->getId(),(uniform.mName+"[0]").c_str());
+        if (location<0) throw std::runtime_error("Bindless sampler array uniform is inactive: "+uniform.mName);
+        glUniformHandleui64vARB(location,count,handles.data());
+        const auto error=glGetError();
+        if (error!=GL_NO_ERROR) throw std::runtime_error("Bindless GL uniform update failed: "+std::to_string(error));
+    }
+#endif
+}
 #endif

@@ -23,14 +23,7 @@ namespace IKIGAI::RENDER {
     
     void MaterialMetal::create(const MaterialResource& res) {
         // Basic creation logic similar to Vulkan backend
-        auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
-        if (resData.isOk()) {
-            auto resDataVal = resData.unwrap();
-            resDataVal.path = res.ShaderPath;
-            auto shader = std::static_pointer_cast<RENDER::ShaderMetal>(
-                IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resDataVal));
-            setShader(shader);
-        }
+        setShader(RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>().loadResource(res.ShaderPath));
         
         auto& textureLoader = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>();
         for (const auto& [k, v] : res.Uniforms) {
@@ -121,6 +114,7 @@ namespace IKIGAI::RENDER {
 
         const auto& shaderInfo = mShader->getReflection();
         for (const auto& uniform : shaderInfo.mUniforms) {
+        if (mShader->isBindlessResource(uniform)) continue;
             if (isEngineUniform(uniform.mName)) {
                 continue;
             }
@@ -163,6 +157,7 @@ namespace IKIGAI::RENDER {
         }
         auto& renderer = RESOURCES::ServiceManager::Get<Renderer>();
         for (const auto& uniform : mShader->getReflection().mUniforms) {
+            if (mShader->isBindlessResource(uniform)) continue;
             switch (uniform.mType) {
             case ShaderReflection::UniformType::SAMPLER_2D:
             case ShaderReflection::UniformType::SAMPLER_CUBE:

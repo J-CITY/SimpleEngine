@@ -79,7 +79,10 @@ namespace IKIGAI {
 				uint32_t instance_count) override;
 			std::vector<float> readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) override;
         void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
-		void drawIndexed(uint32_t index_count, uint32_t index_offset,
+		BindlessCapabilities bindlessCapabilities() const override;
+		bool supportsVertexPulling() const override;
+        void draw(const DrawArguments& args) override;
+        void drawIndexed(uint32_t index_count, uint32_t index_offset,
 				uint32_t instance_count) override;
 			void draw(const MeshInterface& mesh, PrimitiveMode primitive,
 				uint32_t instances);
@@ -210,7 +213,9 @@ namespace IKIGAI {
 #endif
 
 		public:
-			void begin() override {};
+			void begin() override;
+			std::vector<uint64_t> mBindlessResidentHandles;
+			void bindBindlessResources();
 			void end() override {};
 			void submit() override;
 			void cleanup() override {};

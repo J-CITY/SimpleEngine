@@ -53,6 +53,9 @@ void IKIGAI::RENDER::VertexBufferGl::unbind() {
 void IKIGAI::RENDER::VertexBufferGl::setData(const void* data, size_t sz, size_t stride) {
 	bind();
 	glBufferData(GL_ARRAY_BUFFER, sz * stride, data, INTERNAL::UsageTypeMap[static_cast<int>(mType)]);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    TrackBufferMemoryGl(mMemory, GL_ARRAY_BUFFER, mId, PROFILER::GpuResourceKind::VertexBuffer);
+#endif
 }
 
 IKIGAI::RENDER::VertexBufferGl::Id IKIGAI::RENDER::VertexBufferGl::getID() const {

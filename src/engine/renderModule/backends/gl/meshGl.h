@@ -46,10 +46,15 @@ namespace IKIGAI {
 			virtual ~MeshGl();
 			virtual void bind() const override;
 			virtual void unbind() const override;
+			const std::vector<Vertex>& rayTracingVertices() const override { return mCanonicalVertices; }
+			const std::vector<unsigned>& rayTracingIndices() const override { return mCanonicalIndices; }
 			//virtual size_t getVertexCount() const override;
 			//virtual size_t getIndexCount() const override;
 			//uint32_t getMaterialIndex() const override;
 		private:
+			// Shared CPU geometry for consumers such as the instanced particle renderer.
+			std::vector<Vertex> mCanonicalVertices;
+			std::vector<unsigned> mCanonicalIndices;
 			void createBuffers(std::vector<Vertex> p_vertices, std::vector<uint32_t> p_indices);
 			void computeBoundingSphere(std::span<Vertex> vertices);
 		public:
@@ -61,8 +66,8 @@ namespace IKIGAI {
 //#ifndef USING_GLES
 			std::unique_ptr<VertexArray> mVertexArray;
 //#endif
-			std::unique_ptr<VertexBufferGl> mVertexBuffer;
-			std::unique_ptr<IndexBufferGl> mIndexBuffer;
+			std::shared_ptr<VertexBufferGl> mVertexBuffer;
+			std::shared_ptr<IndexBufferGl> mIndexBuffer;
 
 			//std::optional<size_t> mOffset = std::nullopt;
 		};

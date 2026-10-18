@@ -20,6 +20,11 @@ namespace IKIGAI::RENDER {
 	// so they do not alias it. Indices from 20 upward are reserved for
 	// tessellation kernels (same slots SPIRV-Cross uses) and push constants.
 	inline constexpr uint32_t kMetalVertexBufferIndex = 0;
+	inline constexpr uint32_t kMetalBindlessArgumentBufferIndex = 19;
+	inline uint32_t MetalVertexStreamIndex(uint32_t binding) {
+		if (binding > 3) throw std::runtime_error("Metal supports four custom vertex streams");
+		return binding == 0 ? 0 : 15 + binding;
+	}
 	inline constexpr uint32_t kMetalResourceBufferBase = 1;
 	inline constexpr uint32_t kMetalUserBufferLimit = 20;
 	inline constexpr uint32_t kMetalShaderPatchInputBufferIndex = 20;

@@ -1,4 +1,5 @@
 #pragma once
+#include "gpuMemoryGl.h"
 #ifdef OPENGL_BACKEND
 #include "renderModule/backends/interface/storageBufferInterface.h"
 namespace IKIGAI::RENDER {
@@ -20,6 +21,9 @@ namespace IKIGAI::RENDER {
 
 	private:
 		Id mId = 0;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        PROFILER::GpuAllocationToken mMemory;
+#endif
 		Id mBindId = 0;
 	};
 }

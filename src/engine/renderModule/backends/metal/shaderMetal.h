@@ -10,6 +10,14 @@ namespace IKIGAI::RENDER {
 
 	class ShaderMetal : public ShaderInterface {
 	public:
+		struct ArgumentIds { uint32_t resource=0, sampler=0, count=1; };
+		std::map<ShaderType,std::map<uint32_t,ArgumentIds>> mArgumentIds;
+		id<MTLFunction> function(ShaderType stage) const {
+			if (stage==ShaderType::VERTEX) return rasterVertexFunction();
+			if (stage==ShaderType::FRAGMENT) return mFragmentFunction;
+			if (stage==ShaderType::COMPUTE) return mComputeFunction;
+			return nil;
+		}
 		explicit ShaderMetal(const ShaderResource& res);
 		ShaderMetal(const std::string& vertexPath, const std::string& fragmentPath);
 		~ShaderMetal() override;

@@ -1,3 +1,4 @@
+#include "utilsModule/memory/resourceAllocator.h"
 #ifdef METAL_BACKEND
 #include "modelMetal.h"
 
@@ -8,7 +9,7 @@ namespace IKIGAI::RENDER {
     }
 
     std::shared_ptr<ModelInterface> CreateEmptyModelMetal(const std::string& path) {
-        return std::make_shared<ModelMetal>(path);
+        return IKIGAI::MEMORY::MakeShared<ModelMetal, IKIGAI::MEMORY::Category::Model>(path);
     }
 
     void ModelMetal::createBuffers(const std::vector<Vertex>& p_vertices, const std::vector<uint32_t>& p_indices) {

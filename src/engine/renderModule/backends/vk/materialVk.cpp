@@ -19,15 +19,8 @@ MaterialVk::MaterialVk(const MaterialResource& res) : MaterialInterface(res) {
 }
 
 void MaterialVk::create(const MaterialResource& res) {
-	auto resData = UTILS::FromJson<RENDER::ShaderResource>(res.ShaderPath);
-	if (resData.isErr()) {
-
-	}
-	auto resDataVal = resData.unwrap();
-	resDataVal.path = res.ShaderPath;
-	auto shader = std::static_pointer_cast<RENDER::ShaderVk>(
-		IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::ShaderLoader>().CreateFromResource(resDataVal));
-	MaterialVk::setShader(shader);
+    auto shader = std::static_pointer_cast<RENDER::ShaderVk>(RESOURCES::ServiceManager::Get<RESOURCES::ShaderLoader>().loadResource(res.ShaderPath));
+    MaterialVk::setShader(shader);
 
 	auto& textureLoader = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>();
 	for (const auto& [k, v] : res.Uniforms) {
@@ -110,6 +103,7 @@ void MaterialVk::generateUniformsData() {
 
 	const auto& shaderInfo = mShader->getReflection();
 	for (const auto& uniform : shaderInfo.mUniforms) {
+        if (mShader->isBindlessResource(uniform)) continue;
 		if (isEngineUniform(uniform.mName)) {
 			continue;
 		}
@@ -152,6 +146,7 @@ void MaterialVk::fillUniforms(std::shared_ptr<TextureInterface> defaultTexture, 
 	auto& renderer = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RENDER::Renderer>();
 
 	for (const auto& uniform : shaderInfo.mUniforms) {
+        if (mShader->isBindlessResource(uniform)) continue;
 		switch (uniform.mType) {
 		case ShaderReflection::UniformType::SAMPLER_2D:
 		case ShaderReflection::UniformType::SAMPLER_CUBE:

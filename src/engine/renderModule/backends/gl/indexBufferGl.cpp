@@ -44,6 +44,9 @@ void IKIGAI::RENDER::IndexBufferGl::unbind() {
 void IKIGAI::RENDER::IndexBufferGl::setData(const void* data, size_t sz, size_t stride) {
 	bind();
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sz * stride, data, INTERNAL::UsageTypeMap[static_cast<unsigned>(mType)]);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    TrackBufferMemoryGl(mMemory, GL_ELEMENT_ARRAY_BUFFER, mId, PROFILER::GpuResourceKind::IndexBuffer);
+#endif
 }
 
 IKIGAI::RENDER::IndexBufferGl::Id IKIGAI::RENDER::IndexBufferGl::getID() const {

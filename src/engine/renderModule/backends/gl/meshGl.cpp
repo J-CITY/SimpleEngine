@@ -1,4 +1,5 @@
 #include "meshGl.h"
+#include "../interface/driverInterface.h"
 
 #ifdef OPENGL_BACKEND
 #include "indexBufferGl.h"
@@ -21,8 +22,8 @@ MeshGl::MeshGl(const VertexDescriptor& descriptor, void* vertices, size_t vertex
 	mMaterialIndex = (materialIndex);
 
 	mVertexArray = std::make_unique<VertexArray>();
-	mVertexBuffer = std::make_unique<VertexBufferGl>(vertices, vertexCount, vertexSize, VertexBufferGl::UsageType::STATIC_DRAW);
-	mIndexBuffer = std::make_unique<IndexBufferGl>(indices);
+	mVertexBuffer = std::make_shared<VertexBufferGl>(vertices, vertexCount, vertexSize, VertexBufferGl::UsageType::STATIC_DRAW);
+	mIndexBuffer = std::make_shared<IndexBufferGl>(indices);
 
 	//TODO:
 	mVertexArray->bindAttribute(0, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));
@@ -36,6 +37,8 @@ MeshGl::MeshGl(const VertexDescriptor& descriptor, void* vertices, size_t vertex
 }
 
 MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsigned materialIndex) {
+	mCanonicalVertices = vertices;
+	mCanonicalIndices = indices;
 
 	mVertexCount = (static_cast<unsigned>(vertices.size()));
 	mIndicesCount = (indices.size());
@@ -60,6 +63,8 @@ MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, unsi
 }
 
 MeshGl::MeshGl(std::vector<Vertex> vertices, std::vector<unsigned> indices, size_t offset, unsigned materialIndex) {
+	mCanonicalVertices = vertices;
+	mCanonicalIndices = indices;
 	mVertexCount = (static_cast<unsigned>(vertices.size()));
 	mIndicesCount = (indices.size());
 	mOffset = (0);
@@ -80,6 +85,8 @@ MeshGl::~MeshGl() = default;
 
 
 void MeshGl::bind() const {
+    DriverInterface::Get()->setVertexBuffer(mVertexBuffer);
+    DriverInterface::Get()->setIndexBuffer(mIndexBuffer);
 //#ifndef USING_GLES
 	mVertexArray->bind();
 //#else
@@ -126,8 +133,8 @@ void MeshGl::createBuffers(std::vector<Vertex> p_vertices, std::vector<uint32_t>
 //#ifndef USING_GLES
 	mVertexArray = std::make_unique<VertexArray>();
 //#endif
-	mVertexBuffer = std::make_unique<VertexBufferGl> (p_vertices);
-	mIndexBuffer = std::make_unique<IndexBufferGl>(p_indices);
+	mVertexBuffer = std::make_shared<VertexBufferGl> (p_vertices);
+	mIndexBuffer = std::make_shared<IndexBufferGl>(p_indices);
 //#ifndef USING_GLES
 	uint64_t vertexSize = sizeof(Vertex);
 	mVertexArray->bindAttribute(0, *mVertexBuffer, VertexArray::AttributeType::FLOAT, 3, vertexSize, (intptr_t)offsetof(Vertex, position));

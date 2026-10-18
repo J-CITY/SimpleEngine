@@ -2,6 +2,20 @@
 #include "renderModule/vertex.h"
 #include "driverInterface.h"
 #include <cstdint>
+#include "resourceStruct.h"
+
+void IKIGAI::RENDER::ShaderInterface::configureResourceInterface(const ShaderResource& res) {
+    mBindingMode=res.bindingMode; mVertexFetchMode=res.vertexFetchMode;
+    mBindlessCapacity=res.bindlessCapacity; ++mGeneration;
+    if (mBindlessCapacity<2) throw std::invalid_argument("Bindless capacity must be positive");
+    if (mVertexFetchMode==VertexFetchMode::Pulling && (!DriverInterface::Get() || !DriverInterface::Get()->supportsVertexPulling()))
+        throw std::runtime_error("Vertex pulling requires storage buffer reads in the vertex stage");
+    if (mBindingMode==ShaderBindingMode::Bindless) {
+        auto* driver=DriverInterface::Get();
+        if (!driver || (!driver->bindlessCapabilities().sampledTextures && !driver->bindlessCapabilities().storageBuffers))
+            throw std::runtime_error("Bindless shaders are unavailable on this backend");
+    }
+}
 
 #include "SPIRV/GlslangToSpv.h"
 #include "glslang/Public/ShaderLang.h"
@@ -40,6 +54,9 @@ void IKIGAI::RENDER::ShaderInterface::GetReflection(
       uniform.mSet = spvUniformInfo->set;
       uniform.mName = spvUniformInfo->name;
       uniform.mShaderMask = (size_t)type;
+      uniform.mDescriptorCount = spvUniformInfo->count;
+      uniform.mRuntimeArray = spvUniformInfo->count == 0;
+      uniform.mReadOnly = (spvUniformInfo->decoration_flags & SPV_REFLECT_DECORATION_NON_WRITABLE) != 0;
       if (spvUniformInfo->descriptor_type ==
           SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
         uniform.mType = ShaderReflection::UniformType::UNIFORM_BUFFER;
@@ -137,6 +154,7 @@ void IKIGAI::RENDER::ShaderInterface::GetReflection(
       ShaderReflection::Uniform uniform;
       uniform.mName = descr.name;
       uniform.mShaderMask = (size_t)type;
+
       uniform.mType = ShaderReflection::UniformType::PUSH_CONSTANT;
   	  reflection.mNameToUniforms[uniform.mName] = reflection.mUniforms.size();
 
@@ -192,10 +210,25 @@ void IKIGAI::RENDER::ShaderInterface::GetReflection(
   if (type == ShaderType::VERTEX) {
     for (auto i = 0; i < module.input_variable_count; i++) {
       auto &descr = module.input_variables[i];
+      if (descr->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) continue;
       ShaderReflection::InputParam member;
       member.mName = descr->name;
       member.mIndex = 0;
       member.mLocation = descr->location;
+      const auto& numeric = descr->type_description->traits.numeric;
+      member.mBitWidth = numeric.scalar.width;
+      const bool integer = (descr->type_description->type_flags & SPV_REFLECT_TYPE_FLAG_INT) != 0;
+      member.mScalarType = integer ? (numeric.scalar.signedness ? VertexScalarType::Int : VertexScalarType::UInt) : VertexScalarType::Float;
+      member.mComponents = numeric.vector.component_count ? numeric.vector.component_count : 1;
+      if (descr->type_description->op == SpvOpTypeMatrix) {
+          member.mComponents = numeric.matrix.row_count;
+          member.mSize = member.mComponents * 4;
+          for (uint32_t column=0; column<numeric.matrix.column_count; ++column) {
+              auto input=member; input.mLocation += column;
+              reflection.mInputParams.push_back(input);
+          }
+          continue;
+      }
 
       // TODO: add int vector support
       int size = 0;

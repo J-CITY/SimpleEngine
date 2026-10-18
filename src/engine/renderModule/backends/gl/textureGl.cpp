@@ -1,3 +1,5 @@
+#include "utilsModule/memory/resourceAllocator.h"
+#include <algorithm>
 #include "textureGl.h"
 
 #include <array>
@@ -29,6 +31,9 @@ TextureGl::TextureGl(const TextureResource &descriptor, const std::vector<void *
 
 void TextureGl::create(const TextureResource &descriptor, const std::vector<void *> &data) {
 	int chanels = 4;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    unsigned memoryFormat = GL_RGBA;
+#endif
 	auto getFormat = [](int nrComponents) {
 	GLenum format = GL_RGBA;
 		if (nrComponents == 1)
@@ -214,6 +219,9 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 		int width = descriptor.width, height = descriptor.height, nrComponents = descriptor.channels;
 		createTexture(descriptor.texType, getInternalFormat(nrComponents, descriptor.isFloat), 
 			getFormat(nrComponents), width, height, descriptor.depth, descriptor.isFloat, data);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        memoryFormat = getInternalFormat(nrComponents, descriptor.isFloat);
+#endif
 		mWidth = width;
 		mHeight = height;
 		mDepth = descriptor.depth;
@@ -230,6 +238,9 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 		datas.push_back((void *)data);
 		createTexture(descriptor.texType, getInternalFormat2(descriptor.pixelType, descriptor.isFloat),
 			getFormat2(descriptor.pixelType), descriptor.width, descriptor.height, descriptor.depth, descriptor.isFloat, datas);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        memoryFormat = getInternalFormat2(descriptor.pixelType, descriptor.isFloat);
+#endif
 		mWidth = descriptor.width;
 		mHeight = descriptor.height;
 		mDepth = descriptor.depth;
@@ -251,6 +262,23 @@ void TextureGl::create(const TextureResource &descriptor, const std::vector<void
 	glTexParameteri(target, GL_TEXTURE_WRAP_S, wrap(descriptor.wrapS));
 	glTexParameteri(target, GL_TEXTURE_WRAP_T, wrap(descriptor.wrapT));
 	if (descriptor.texType==TextureType::TEXTURE_3D || descriptor.texType==TextureType::TEXTURE_CUBE) glTexParameteri(target, GL_TEXTURE_WRAP_R, wrap(descriptor.wrapR));
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    mMemoryLayout = {};
+    mMemoryLayout.width = static_cast<uint32_t>(mWidth);
+    mMemoryLayout.height = static_cast<uint32_t>(mHeight);
+    mMemoryLayout.volume = descriptor.texType == TextureType::TEXTURE_3D;
+    mMemoryLayout.depth = mMemoryLayout.volume ? std::max(1, descriptor.depth) : 1;
+    mMemoryLayout.layers = descriptor.texType == TextureType::TEXTURE_CUBE ? 6 :
+        descriptor.texType == TextureType::TEXTURE_2D_ARRAY ? std::max(1, descriptor.depth) : 1;
+    mMemoryLayout.bytesPerTexel = TextureBytesPerTexelGl(memoryFormat);
+    if (mMipCount > 1 || descriptor.useMipmap) {
+        auto largest = std::max({mMemoryLayout.width, mMemoryLayout.height, mMemoryLayout.volume ? mMemoryLayout.depth : 1u});
+        while (largest > 1) { ++mMemoryLayout.levels; largest >>= 1; }
+    }
+    const char* memoryName = !descriptor.path.empty() ? descriptor.path.c_str() :
+        !descriptor.pathTexture.empty() ? descriptor.pathTexture.front().c_str() : "Generated texture";
+    TrackTextureMemoryGl(mMemory, target, texId, mMemoryLayout, memoryName);
+#endif
 	glBindTexture(getType(descriptor.texType), 0);
 
 	id = texId;
@@ -266,7 +294,7 @@ TextureGl::~TextureGl() {
 
 
 //std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool generateMipmap) {
-//	auto tex = std::make_shared<TextureGl>();
+//	auto tex = IKIGAI::MEMORY::MakeShared<TextureGl, IKIGAI::MEMORY::Category::Texture>();
 //
 //	unsigned int textureID;
 //	glGenTextures(1, &textureID);
@@ -425,7 +453,7 @@ std::shared_ptr<TextureGl> TextureGl::Create(const std::string& path, bool genMi
 	TextureResource res;
 	res.useMipmap = genMipmap;
 	res.pathTexture.push_back(path);
-	//auto tex = std::make_shared<TextureDx12>(res, std::vector<void*>{data});
+	//auto tex = IKIGAI::MEMORY::MakeShared<TextureDx12, IKIGAI::MEMORY::Category::Texture>(res, std::vector<void*>{data});
 	return Create(res, allocator, deleter);
 }
 
@@ -529,6 +557,22 @@ void TextureGl::generateMips() {
 		glGenerateMipmap(GL_TEXTURE_3D);
 #endif
 	}
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    const bool generatedMips = mType == TextureType::TEXTURE_2D || mType == TextureType::TEXTURE_CUBE
+#ifndef USING_GLES
+        || mType == TextureType::TEXTURE_3D
+#endif
+        ;
+    if (generatedMips) {
+        mMemoryLayout.levels = 1;
+        auto largest = std::max({mMemoryLayout.width, mMemoryLayout.height, mMemoryLayout.volume ? mMemoryLayout.depth : 1u});
+        while (largest > 1) { ++mMemoryLayout.levels; largest >>= 1; }
+        const auto target = mType == TextureType::TEXTURE_CUBE ? GL_TEXTURE_CUBE_MAP :
+            mType == TextureType::TEXTURE_3D ? GL_TEXTURE_3D : GL_TEXTURE_2D;
+        TrackTextureMemoryGl(mMemory, target, id, mMemoryLayout, mPath.empty() ? nullptr : mPath.c_str());
+    }
+#endif
+
 }
 
 void TextureGl::bindImage(uint32_t unit, uint32_t mip_level, uint32_t layer, unsigned access, unsigned format) {
@@ -552,6 +596,9 @@ void TextureGl::recreate(const TextureResource& descriptor, const std::vector<st
     ++mRevision;
 	// Удаляем старый GPU-ресурс
 	glDeleteTextures(1, &id);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    mMemory.reset();
+#endif
 	id = 0;
 
 	auto& _d = const_cast<TextureResource&>(descriptor);
@@ -628,7 +675,7 @@ std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const Te
 	// Загружаем текстурные данные
 	std::vector<void*> textureData;
 	if (!_d.pathTexture.empty()) {
-		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(false);
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
 		const auto& path = _d.pathTexture[0];
 		int w = 0, h = 0, c = 0;
 		auto* data = IKIGAI::UTILS::STBiLoad(path.c_str(), &w, &h, &c, 0);
@@ -667,7 +714,7 @@ std::shared_ptr<TextureAtlasGl> TextureAtlasGl::CreateAtlasFromResource(const Te
 	bool needFree = false;
 
 	if (_d.colorData.empty() && !fileData.empty()) {
-		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(false);
+		IKIGAI::UTILS::STBiSetFlipVerticallyOnLoad(true);
 		int w = 0, h = 0, c = 0;
 		const auto& fData = fileData[0];
 		auto* data = _d.isFloat

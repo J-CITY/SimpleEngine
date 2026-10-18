@@ -50,6 +50,8 @@ namespace IKIGAI::RENDER {
 		virtual MaterialResource getDescriptor() = 0;
 
 		virtual void set(const std::string& name, const UniformData& data) = 0;
+		BindlessResourceHandle setBindlessTexture(const std::string& tableName,
+			const std::string& indexUniform, std::shared_ptr<TextureInterface> texture);
 		virtual UniformData& get(const std::string& name) = 0;
 
 		virtual void create(const MaterialResource& res) = 0;

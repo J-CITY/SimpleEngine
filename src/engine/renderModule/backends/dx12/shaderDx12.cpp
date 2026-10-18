@@ -1,3 +1,4 @@
+#include "utilsModule/memory/resourceAllocator.h"
 #include "shaderDx12.h"
 
 #ifdef DX12_BACKEND
@@ -116,15 +117,25 @@ void AssignPushConstantRegisters(ShaderReflection& reflection) {
 	}
 }
 
-std::string CompileSpirvStageToHlsl(ShaderType type, spv::ExecutionModel model, const std::vector<uint32_t>& spirv, const ShaderReflection& reflection) {
+std::string CompileSpirvStageToHlsl(ShaderType type, spv::ExecutionModel model, const std::vector<uint32_t>& spirv, const ShaderReflection& reflection, bool bindless) {
 	spirv_cross::CompilerHLSL compiler(spirv);
 	spirv_cross::CompilerHLSL::Options options;
-	options.shader_model = kHlslShaderModel;
+	options.shader_model = bindless ? 66 : kHlslShaderModel;
 	options.flatten_matrix_vertex_input_semantics = true;
-	options.force_storage_buffer_as_uav = true;
+	options.force_storage_buffer_as_uav = !bindless;
 	compiler.set_hlsl_options(options);
 
 	const auto resources = compiler.get_shader_resources();
+	// Descriptor arrays occupy consecutive HLSL registers. Give each global
+	// table its own space so a Vulkan binding 1 cannot alias array binding 0.
+	if (bindless) for (const auto& uniform : reflection.mUniforms) {
+		if (!(uniform.mShaderMask & static_cast<size_t>(type)) || (!uniform.mRuntimeArray && uniform.mDescriptorCount<=1)) continue;
+		spirv_cross::HLSLResourceBinding binding{};binding.stage=model;
+		binding.desc_set=uniform.mSet;binding.binding=uniform.mBind;
+		binding.srv.register_space=binding.uav.register_space=binding.sampler.register_space=100+static_cast<uint32_t>(uniform.mBind);
+		binding.srv.register_binding=binding.uav.register_binding=binding.sampler.register_binding=0;
+		compiler.add_hlsl_resource_binding(binding);
+	}
 	if (!resources.push_constant_buffers.empty()) {
 		const auto id = resources.push_constant_buffers[0].id;
 		const bool hadBinding = compiler.has_decoration(id, spv::DecorationBinding);
@@ -218,7 +229,7 @@ std::shared_ptr<ShaderDx12> ShaderDx12::Create(const ShaderResource& resource) {
 		}
 	}
 
-	return std::make_shared<ShaderDx12>(res);
+	return IKIGAI::MEMORY::MakeShared<ShaderDx12, IKIGAI::MEMORY::Category::Shader>(res);
 }
 
 ShaderDx12::ShaderDx12() {
@@ -251,11 +262,13 @@ void ShaderDx12::recompile(const ShaderResource& res) {
 }
 
 void ShaderDx12::create(const ShaderResource& res) {
+    configureResourceInterface(res);
 	mPath = res.path;
 	mShaderPaths = res.getPaths();
 	mReflection = ShaderReflection();
 
 	ShaderResource local = res;
+    if (!local.sources.empty() && !local.useBinary) local.spirvSources.clear();
 	const std::vector<std::string> defines;
 
 	if (!local.spirvSources.empty()) {
@@ -300,7 +313,7 @@ void ShaderDx12::create(const ShaderResource& res) {
 		if (spirv == local.spirvSources.end() || spirv->second.empty()) {
 			continue;
 		}
-		const auto hlsl = CompileSpirvStageToHlsl(stage.type, stage.model, spirv->second, mReflection);
+		const auto hlsl = CompileSpirvStageToHlsl(stage.type, stage.model, spirv->second, mReflection, bindingMode()==ShaderBindingMode::Bindless);
 		mBlobs[stage.type] = d3dUtil::CompileShaderFromHlsl(hlsl, L"main", stage.profile);
 	}
 
@@ -310,6 +323,8 @@ void ShaderDx12::create(const ShaderResource& res) {
 void ShaderDx12::buildRootSignature() {
 	std::vector<CD3DX12_DESCRIPTOR_RANGE> texTables;
 	std::vector<CD3DX12_DESCRIPTOR_RANGE> uavTables;
+    std::vector<CD3DX12_DESCRIPTOR_RANGE> samplerTables;
+    samplerTables.reserve(mReflection.mUniforms.size());
 	texTables.reserve(mReflection.mUniforms.size());
 	uavTables.reserve(mReflection.mUniforms.size());
 
@@ -332,6 +347,28 @@ void ShaderDx12::buildRootSignature() {
 		const auto bind = static_cast<UINT>(uniform.mBind);
 		const auto set = static_cast<UINT>(uniform.mSet);
 
+        if (isBindlessResource(uniform)) {
+            const auto caps=DriverInterface::Get()->bindlessCapabilities();
+            const auto count=descriptorCount(uniform);
+            const bool texture=IsTexture(uniform.mType);
+            const bool buffer=uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER;
+            if (uniform.mSet!=0 || (!texture&&!buffer) || (texture && count>caps.maxSampledTextures) || (buffer && count>caps.maxStorageBuffers) || (uniform.mRuntimeArray && !caps.runtimeArrays))
+                throw std::runtime_error("Unsupported bindless table: "+uniform.mName);
+            CD3DX12_DESCRIPTOR_RANGE range;
+            range.Init(texture || uniform.mReadOnly ? D3D12_DESCRIPTOR_RANGE_TYPE_SRV : D3D12_DESCRIPTOR_RANGE_TYPE_UAV,count,0,100+bind);
+            texTables.push_back(range);
+            CD3DX12_ROOT_PARAMETER root;root.InitAsDescriptorTable(1,&texTables.back(),visibility);
+            uniform.mRootId=slotRootParameters.size();slotRootParameters.push_back(root);
+            rootKeys.push_back({RootKind::TABLE,bind,set,visibility});
+            if (texture) {
+                CD3DX12_DESCRIPTOR_RANGE sampler;sampler.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,count,0,100+bind);
+                samplerTables.push_back(sampler);
+                CD3DX12_ROOT_PARAMETER samplerRoot;samplerRoot.InitAsDescriptorTable(1,&samplerTables.back(),visibility);
+                uniform.mSamplerRootId=slotRootParameters.size();slotRootParameters.push_back(samplerRoot);
+                rootKeys.push_back({RootKind::TABLE,bind,set,visibility});
+            }
+            continue;
+        }
 		if (uniform.mType == ShaderReflection::UniformType::UNIFORM_BUFFER) {
 			const int existing = findRoot(RootKind::CBV, bind, set, visibility);
 			if (existing >= 0) {
@@ -344,18 +381,20 @@ void ShaderDx12::buildRootSignature() {
 			rootKeys.push_back({RootKind::CBV, bind, set, visibility});
 			slotRootParameters.push_back(elem);
 		} else if (uniform.mType == ShaderReflection::UniformType::STORAGE_BUFFER || uniform.mType == ShaderReflection::UniformType::IMAGE_3D || uniform.mType == ShaderReflection::UniformType::IMAGE_2D) {
-			const int existing = findRoot(RootKind::UAV, bind, set, visibility);
+			const bool readOnlyBuffer=bindingMode()==ShaderBindingMode::Bindless && uniform.mReadOnly && uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER;
+			const auto kind=readOnlyBuffer?RootKind::SRV:RootKind::UAV;
+			const int existing = findRoot(kind, bind, set, visibility);
 			if (existing >= 0) {
 				uniform.mRootId = static_cast<size_t>(existing);
 				continue;
 			}
 			CD3DX12_DESCRIPTOR_RANGE uavTable;
-			uavTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, bind, set);
+			uavTable.Init(readOnlyBuffer?D3D12_DESCRIPTOR_RANGE_TYPE_SRV:D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, bind, set);
 			uavTables.push_back(uavTable);
 			CD3DX12_ROOT_PARAMETER elem;
 			elem.InitAsDescriptorTable(1, &uavTables.back(), visibility);
 			uniform.mRootId = slotRootParameters.size();
-			rootKeys.push_back({RootKind::UAV, bind, set, visibility});
+			rootKeys.push_back({kind, bind, set, visibility});
 			slotRootParameters.push_back(elem);
 		} else if (IsTexture(uniform.mType)) {
 			const int existing = findRoot(RootKind::TABLE, bind, set, visibility);
@@ -393,11 +432,11 @@ void ShaderDx12::buildRootSignature() {
 		}
 	}
 
-	auto staticSamplers = DriverDx12::GetStaticSamplers();
+	auto staticSamplers = bindingMode()==ShaderBindingMode::Bindless ? std::vector<CD3DX12_STATIC_SAMPLER_DESC>{} : DriverDx12::GetStaticSamplers();
 	// SPIRV-Cross uses the combined image binding for both tN and sN.
 	// Imported programs may use bindings beyond the historical fixed list.
 	for (const auto& uniform : mReflection.mUniforms) {
-		if (!IsTexture(uniform.mType)) continue;
+		if (!IsTexture(uniform.mType) || isBindlessResource(uniform)) continue;
 		const auto bind = static_cast<UINT>(uniform.mBind);
 		const auto set = static_cast<UINT>(uniform.mSet);
 		auto existing = std::find_if(staticSamplers.begin(), staticSamplers.end(),
@@ -484,6 +523,7 @@ void ShaderDx12::buildRootSignature() {
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
 		IID_PPV_ARGS(mRootSignature.GetAddressOf())));
+	TrackGpuObjectDx12(mRootSignature.Get(), d3dUtil::GetDriver()->getDevice().Get(), PROFILER::GpuResourceKind::Shader, mPath.c_str());
 }
 
 #endif

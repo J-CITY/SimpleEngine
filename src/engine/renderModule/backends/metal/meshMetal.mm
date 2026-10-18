@@ -1,3 +1,4 @@
+#include "utilsModule/memory/resourceAllocator.h"
 #ifdef METAL_BACKEND
 #include "meshMetal.h"
 
@@ -6,8 +7,26 @@
 
 #include "driverMetal.h"
 #include "metalVertexLayout.h"
+#include "../interface/universalMesh.h"
 
 namespace IKIGAI::RENDER {
+	std::shared_ptr<MeshInterface> CreateMeshMetal(const MeshData& data, unsigned materialIndex) {
+		class CustomMeshMetal final : public UniversalMesh {
+		public:
+			CustomMeshMetal(const MeshData& data,unsigned materialIndex) : UniversalMesh(data,materialIndex) {
+				for (const auto& stream : data.streams) {
+					auto buffer = std::make_shared<VertexBufferMetal>(stream.count,mLayout.stream(stream.binding).stride);
+					buffer->setData(stream.bytes.data(),stream.count,buffer->getStride());
+					mStreams.emplace_back(stream.binding,buffer);
+				}
+				if (!data.indices.empty()) {
+					auto buffer = std::make_shared<IndexBufferMetal>(data.indices.size(),sizeof(uint32_t));
+					buffer->setData(data.indices.data(),data.indices.size(),sizeof(uint32_t)); mIndexBuffer = buffer;
+				}
+			}
+		};
+		return IKIGAI::MEMORY::MakeShared<CustomMeshMetal, IKIGAI::MEMORY::Category::Mesh>(data,materialIndex);
+	}
 
 	MeshMetal::MeshMetal(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, unsigned materialIndex) {
 		init(vertices, indices, materialIndex);
@@ -104,9 +123,9 @@ namespace IKIGAI::RENDER {
 
 	std::shared_ptr<MeshInterface> CreateMeshMetal(const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, size_t offset, unsigned materialIndex) {
 		if (offset != 0) {
-			return std::make_shared<MeshMetal>(vertices, indices, offset, materialIndex);
+			return IKIGAI::MEMORY::MakeShared<MeshMetal, IKIGAI::MEMORY::Category::Mesh>(vertices, indices, offset, materialIndex);
 		}
-		return std::make_shared<MeshMetal>(vertices, indices, materialIndex);
+		return IKIGAI::MEMORY::MakeShared<MeshMetal, IKIGAI::MEMORY::Category::Mesh>(vertices, indices, materialIndex);
 	}
 
 }

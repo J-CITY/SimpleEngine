@@ -1,6 +1,14 @@
+#include "utilsModule/memory/resourceAllocator.h"
 
 
 #include "driverVk.h"
+#include "vertexFormatsVk.h"
+#include "captureModule/screenshot.h"
+#ifdef IKIGAI_USE_STREAMLINE
+#include "../streamlineRuntime.h"
+#include <SDL3/SDL.h>
+#include <vulkan/vulkan_win32.h>
+#endif
 #include "vulkanLoader.h"
 #if defined(__APPLE__)
 #include <dlfcn.h>
@@ -138,6 +146,9 @@ std::string DriverVk::State::getName() {
 }
 
 DriverVk::VolkInitializer::VolkInitializer() {
+#ifdef IKIGAI_USE_STREAMLINE
+    try{Runtime=AcquireStreamline(sl::RenderAPI::eVulkan);}catch(const std::exception& e){std::cerr<<"STREAMLINE_UNAVAILABLE "<<e.what()<<'\n';}
+#endif
 #if defined(__APPLE__)
 	if (const char* path = FindVulkanLoaderPath()) {
 		void* module = dlopen(path, RTLD_NOW | RTLD_LOCAL);
@@ -157,11 +168,17 @@ DriverVk::VolkInitializer::VolkInitializer() {
 }
 
 DriverVk::DriverVk() {
+    #ifdef IKIGAI_USE_STREAMLINE
+    mDlssRuntime=mVolkInit.Runtime;
+    #endif
 	UtilityVk::mDriver = this;
 	DriverVk::init();
 }
 
 DriverVk::~DriverVk() {
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    if (mMemorySampler) mMemorySampler->disable();
+#endif
 	if (working) {
 		DriverVk::end();
 	}
@@ -171,13 +188,36 @@ DriverVk::~DriverVk() {
 	wait();
 
 	mShuttingDown = true;
+    mFrameGeneration.reset();
+    #ifdef IKIGAI_USE_STREAMLINE
+    for(auto& [_,ctx]:mSwapchains){
+        if(ctx.sdkDestroy){
+            mCurrentState.mFrameBuffer.reset();
+            for(auto& frame:ctx.frames)frame.mFrameBuffer.reset();
+            for(auto& frame:ctx.frames)frame.destroyDeferred.clear();
+            ctx.frames.clear();ctx.sdkDestroy();ctx.sdkDestroy={};
+        }
+        if(ctx.sdkDestroySurface&&*ctx.surface){
+            mCurrentState.mFrameBuffer.reset();
+            for(auto& frame:ctx.frames)frame.mFrameBuffer.reset();
+            for(auto& frame:ctx.frames)frame.destroyDeferred.clear();ctx.frames.clear();
+            ctx.swapchain=nullptr;
+            auto surface=ctx.surface.release();ctx.sdkDestroySurface(surface);ctx.sdkDestroySurface={};
+        }
+    }
+    if(mDlssRuntime)std::static_pointer_cast<StreamlineRuntime>(mDlssRuntime)->close();
+    #endif
 	mVertexBuffer.reset();
+    mBindlessFrameResources.clear();mBindlessTables.clear();mVertexStreams.clear();
 	mIndexBuffer.reset();
 	mUniformBuffers.clear();
 	mStorageBuffers.clear();
 	mTextures.clear();
 	mCurrentState = {};
 	mStates.clear();
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    mGpuPipelines.clear();
+#endif
     mRayTracingFrameResources.clear();
 	for (auto& [_, ctx] : mSwapchains) {
 		for (auto& frame : ctx.frames) {
@@ -185,6 +225,7 @@ DriverVk::~DriverVk() {
 		}
 	}
 	mSwapchains.clear();
+	mDlssRuntime.reset();
 
 #if defined(DEBUG) || defined(_DEBUG)
 	if (mAllocator) {
@@ -196,6 +237,14 @@ DriverVk::~DriverVk() {
 	}
 #endif
 	if (mAllocator) {
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        const auto snapshot = PROFILER::GpuMemoryProfiler::instance().captureSnapshot();
+        const auto live = std::count_if(snapshot.allocations.begin(), snapshot.allocations.end(),
+            [this](const auto& record) { return record.info.backend == PROFILER::GpuBackend::Vulkan &&
+                record.info.device == reinterpret_cast<uintptr_t>(mAllocator); });
+        LOG_INFO << "GPU_MEMORY_SHUTDOWN backend=vulkan records=" << live;
+        std::cerr << "GPU_MEMORY_SHUTDOWN backend=vulkan records=" << live << std::endl;
+#endif
 		vmaDestroyAllocator(mAllocator);
 		mAllocator = nullptr;
 	}
@@ -243,6 +292,7 @@ void DriverVk::init() {
 
 	auto extensions = win.getSDLVulkanExtentions();
 	extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    configureUpscalerInstanceExtensions(extensions);
 	if (enableValidation) {
 		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
@@ -372,6 +422,11 @@ void DriverVk::init() {
 		VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 		VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
 	};
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    const bool memoryBudget = std::any_of(all_device_extensions.begin(), all_device_extensions.end(),
+        [](const auto& extension) { return std::string_view(extension.extensionName) == VK_EXT_MEMORY_BUDGET_EXTENSION_NAME; });
+    if (memoryBudget) device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+#endif
 	for (const auto& device_extension : all_device_extensions) {
 		if (std::string_view(device_extension.extensionName) == "VK_KHR_portability_subset") {
 			device_extensions.push_back("VK_KHR_portability_subset");
@@ -385,7 +440,11 @@ void DriverVk::init() {
 	//	device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 	//}
 
-	auto queuePriority = {1.0f};
+    std::vector<float> queuePriority(1,1.f);
+#if defined(IKIGAI_USE_FSR_FRAME_GENERATION) || defined(IKIGAI_USE_STREAMLINE)
+    if(mPhysicalDevice.getQueueFamilyProperties().at(mQueueFamilyIndex).queueCount>=4)
+        queuePriority.assign(4,1.f);
+#endif
 
 	vk::DeviceQueueCreateInfo queueInfo{};
 	queueInfo.setQueueFamilyIndex(mQueueFamilyIndex);
@@ -395,12 +454,61 @@ void DriverVk::init() {
 		vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT
 	>();
     configureRayTracing(device_extensions);
-    if(mRayTracingCapabilities.AccelerationStructure) {
+    VkPhysicalDeviceVulkan12Features bindlessFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    VkPhysicalDeviceFeatures2 bindlessQuery{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    bindlessQuery.pNext=&bindlessFeatures;vkGetPhysicalDeviceFeatures2(*mPhysicalDevice,&bindlessQuery);
+    mRTCoreFeatures.runtimeDescriptorArray=bindlessFeatures.runtimeDescriptorArray;
+    mRTCoreFeatures.shaderSampledImageArrayNonUniformIndexing=bindlessFeatures.shaderSampledImageArrayNonUniformIndexing;
+    mRTCoreFeatures.shaderStorageBufferArrayNonUniformIndexing=bindlessFeatures.shaderStorageBufferArrayNonUniformIndexing;
+    const auto bindlessLimits=mPhysicalDevice.getProperties().limits;
+    mBindlessCapabilities.sampledTextures=bindlessFeatures.shaderSampledImageArrayNonUniformIndexing;
+    mBindlessCapabilities.storageBuffers=bindlessFeatures.shaderStorageBufferArrayNonUniformIndexing;
+    mBindlessCapabilities.nonUniformIndexing=mBindlessCapabilities.sampledTextures;
+    mBindlessCapabilities.runtimeArrays=bindlessFeatures.runtimeDescriptorArray;
+    mBindlessCapabilities.maxSampledTextures=std::min({bindlessLimits.maxPerStageDescriptorSamplers,bindlessLimits.maxPerStageDescriptorSampledImages,bindlessLimits.maxDescriptorSetSamplers,bindlessLimits.maxDescriptorSetSampledImages});
+    mBindlessCapabilities.maxStorageBuffers=std::min(bindlessLimits.maxPerStageDescriptorStorageBuffers,bindlessLimits.maxDescriptorSetStorageBuffers);
+    configureUpscalerExtensions(device_extensions);
+    configureStreamlineExtensions(device_extensions,false);
+    VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT fgAtomics{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT};
+#ifdef IKIGAI_USE_FSR_FRAME_GENERATION
+    const auto availableFgExtensions=mPhysicalDevice.enumerateDeviceExtensionProperties();
+    if(std::any_of(availableFgExtensions.begin(),availableFgExtensions.end(),[](const auto& e){return std::string_view(e.extensionName)==VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME;})){
+        VkPhysicalDeviceFeatures2 fgSupport{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};fgSupport.pNext=&fgAtomics;
+        vkGetPhysicalDeviceFeatures2(*mPhysicalDevice,&fgSupport);fgAtomics.sparseImageInt64Atomics=VK_FALSE;
+        if(fgAtomics.shaderImageInt64Atomics){
+            device_extensions.push_back(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME);
+            auto* tail=reinterpret_cast<VkBaseOutStructure*>(&mRTCoreFeatures);
+            while(tail->pNext)tail=tail->pNext;
+            tail->pNext=reinterpret_cast<VkBaseOutStructure*>(&fgAtomics);
+        }
+    }
+#endif
+    VkPhysicalDeviceOpticalFlowFeaturesNV opticalFlow{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPTICAL_FLOW_FEATURES_NV};
+    std::vector<vk::DeviceQueueCreateInfo> queueInfos{queueInfo};
+    const float opticalPriority=1.f;
+#ifdef IKIGAI_USE_DLSS_FRAME_GENERATION
+    if(mDlssRuntime&&std::any_of(all_device_extensions.begin(),all_device_extensions.end(),[](const auto& e){return std::string_view(e.extensionName)==VK_NV_OPTICAL_FLOW_EXTENSION_NAME;})){
+        const auto families=mPhysicalDevice.getQueueFamilyProperties();
+        for(uint32_t i=0;i<families.size();++i)if((families[i].queueFlags&vk::QueueFlagBits::eOpticalFlowNV)&&!(families[i].queueFlags&(vk::QueueFlagBits::eGraphics|vk::QueueFlagBits::eCompute))){
+            VkPhysicalDeviceFeatures2 support{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};support.pNext=&opticalFlow;
+            vkGetPhysicalDeviceFeatures2(*mPhysicalDevice,&support);
+            if(opticalFlow.opticalFlow){
+                mOpticalFlowFamily=i;
+                if(std::none_of(device_extensions.begin(),device_extensions.end(),[](auto name){return std::string_view(name)==VK_NV_OPTICAL_FLOW_EXTENSION_NAME;}))device_extensions.push_back(VK_NV_OPTICAL_FLOW_EXTENSION_NAME);
+                vk::DeviceQueueCreateInfo extra{};extra.setQueueFamilyIndex(i).setQueueCount(1).setPQueuePriorities(&opticalPriority);queueInfos.push_back(extra);
+                auto* tail=reinterpret_cast<VkBaseOutStructure*>(&mRTCoreFeatures);while(tail->pNext)tail=tail->pNext;
+                tail->pNext=reinterpret_cast<VkBaseOutStructure*>(&opticalFlow);
+            }
+            break;
+        }
+    }
+#endif
+    if(mRayTracingCapabilities.AccelerationStructure || mRTCoreFeatures.shaderFloat16 || mRTCoreFeatures.timelineSemaphore || mRTCoreFeatures.shaderSampledImageArrayNonUniformIndexing || mRTCoreFeatures.shaderStorageBufferArrayNonUniformIndexing) {
         deviceFeatures.get<vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>().pNext=&mRTCoreFeatures;
     }
 
 	vk::DeviceCreateInfo deviceInfo{};
-	deviceInfo.setQueueCreateInfos(queueInfo);
+	deviceInfo.setQueueCreateInfos(queueInfos);
 	deviceInfo.setPEnabledExtensionNames(device_extensions);
 
 	//if (features.contains(Feature::Raytracing))
@@ -424,12 +532,46 @@ void DriverVk::init() {
 		allocatorCreateInfo.instance = *mInstance;
 		allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
 		allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        if (memoryBudget) allocatorCreateInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+#endif
         if(mRayTracingCapabilities.AccelerationStructure) allocatorCreateInfo.flags|=VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
 		const VkResult allocatorResult = vmaCreateAllocator(&allocatorCreateInfo, &mAllocator);
 		if (allocatorResult != VK_SUCCESS) {
 			throw std::runtime_error("vmaCreateAllocator failed");
 		}
+
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        try {
+            const auto allocator = mAllocator;
+            mMemorySampler = std::make_shared<PROFILER::GpuMemorySampler>([allocator, memoryBudget, sampleIndex = uint32_t{0}]() mutable {
+                // VMA refreshes the driver budget here; advance its cache only on demand.
+                vmaSetCurrentFrameIndex(allocator, ++sampleIndex);
+                const VkPhysicalDeviceMemoryProperties* properties = nullptr;
+                vmaGetMemoryProperties(allocator, &properties);
+                VmaBudget budgets[VK_MAX_MEMORY_HEAPS]{};
+                vmaGetHeapBudgets(allocator, budgets);
+                std::vector<PROFILER::GpuHeapSnapshot> result;
+                result.reserve(properties->memoryHeapCount);
+                for (uint32_t i = 0; i < properties->memoryHeapCount; ++i) {
+                    PROFILER::GpuHeapSnapshot heap;
+                    heap.backend = PROFILER::GpuBackend::Vulkan;
+                    heap.device = reinterpret_cast<uintptr_t>(allocator); heap.heap = i;
+                    heap.deviceLocal = (properties->memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;
+                    heap.capacityBytes = properties->memoryHeaps[i].size;
+                    heap.allocationBytes = budgets[i].statistics.allocationBytes;
+                    heap.reservedBytes = budgets[i].statistics.blockBytes;
+                    heap.allocationCount = budgets[i].statistics.allocationCount;
+                    heap.processUsageBytes = budgets[i].usage; heap.budgetBytes = budgets[i].budget;
+                    heap.driverBudget = memoryBudget;
+                    result.push_back(heap);
+                }
+                return result;
+            });
+            PROFILER::GpuMemoryProfiler::instance().registerSampler(mMemorySampler);
+        } catch (...) { mMemorySampler.reset(); }
+#endif
 
 #if defined(DEBUG) || defined(_DEBUG)
 		VmaTotalStatistics stats{};
@@ -440,6 +582,9 @@ void DriverVk::init() {
 	}
 
 	mQueue = mDevice.getQueue(mQueueFamilyIndex, 0);
+    if(queuePriority.size()>=4)for(unsigned i=0;i<3;++i)
+        vkGetDeviceQueue(*mDevice,mQueueFamilyIndex,i+1,&mPresentationQueues[i]);
+    bindStreamlineDevice();
 
 //#if defined(SKYGFX_PLATFORM_WINDOWS)
 //	auto surface_info = vk::Win32SurfaceCreateInfoKHR()
@@ -459,10 +604,28 @@ void DriverVk::init() {
 
 	//mSurface = vk::raii::SurfaceKHR(mInstance, surfaceInfo);
 	mCurrentWindowID = win.getId();
-	VkSurfaceKHR surface = win.createVulkanSurface(*mInstance);
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+#ifdef IKIGAI_USE_STREAMLINE
+    std::function<void(VkSurfaceKHR)> destroySurface;
+    if(mDlssRuntime){
+        auto runtime=std::static_pointer_cast<StreamlineRuntime>(mDlssRuntime);
+        auto get=runtime->symbol<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+        auto create=reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(get(*mInstance,"vkCreateWin32SurfaceKHR"));
+        auto destroy=reinterpret_cast<PFN_vkDestroySurfaceKHR>(get(*mInstance,"vkDestroySurfaceKHR"));
+        VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+        info.hinstance=GetModuleHandleW(nullptr);
+        info.hwnd=static_cast<HWND>(SDL_GetPointerProperty(SDL_GetWindowProperties(win.getSDLWindow()),SDL_PROP_WINDOW_WIN32_HWND_POINTER,nullptr));
+        if(!create||!destroy||create(*mInstance,&info,nullptr,&surface)!=VK_SUCCESS)throw std::runtime_error("Streamline Win32 surface creation failed");
+        destroySurface=[this,runtime,destroy](VkSurfaceKHR s){destroy(*mInstance,s,nullptr);};
+    }else
+#endif
+    surface=win.createVulkanSurface(*mInstance);
 
 	SwapchainContextVk ctx;
 	ctx.surface = vk::raii::SurfaceKHR(mInstance, surface);
+#ifdef IKIGAI_USE_STREAMLINE
+    ctx.sdkDestroySurface=std::move(destroySurface);
+#endif
 	mSwapchains[mCurrentWindowID] = std::move(ctx);
 
 
@@ -555,6 +718,7 @@ void DriverVk::begin() {
     mRayTracingFrameResources.clear();
 	// Previous frame's fence has already signaled (submit waits before begin).
 	mFrameDescriptorSets.clear();
+    mBindlessFrameResources.clear();
     mDescriptorPoolIndex=0;
 
 	setDirty(Dirty::VERTEX_BUFFER);
@@ -597,7 +761,11 @@ void DriverVk::end() {
 	deactivateRenderPass();
 
 	auto tex = std::static_pointer_cast<TextureVk>(getCurrentFrame().mFrameBuffer->getTextures()[0]);
-	tex->setState(getCurrentFrame().mCommandBuffer, vk::ImageLayout::ePresentSrcKHR);
+    const auto& presenting=getCurrentSwapchainContext();
+    // FSR exposes virtual backbuffers consumed as sampled images by its
+    // presenter; Streamline and native WSI expose presentation images.
+    const auto finalLayout=presenting.sdkSwapchain?(presenting.streamline?vk::ImageLayout::eTransferSrcOptimal:vk::ImageLayout::eShaderReadOnlyOptimal):vk::ImageLayout::ePresentSrcKHR;
+	tex->setState(getCurrentFrame().mCommandBuffer, finalLayout);
 
 	//UtilityVk::SetImageMemoryBarrier(getCurrentFrame().mCommandBuffer, tex->mImagePtr, vk::ImageAspectFlagBits::eColor, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR);
 
@@ -704,30 +872,21 @@ vk::raii::Pipeline DriverVk::createState(const State& pipeline_state) {
 	std::vector<vk::VertexInputBindingDescription> vertex_input_binding_descriptions;
 	std::vector<vk::VertexInputAttributeDescription> vertex_input_attribute_descriptions;
 
-	//for (size_t i = 0; i < pipeline_state.mShader->getReflection().size(); i++) {
-		//const auto& input_layout = pipeline_state.input_layouts.at(i);
-
-		//static const std::unordered_map<InputLayout::Rate, vk::VertexInputRate> InputRateMap = {
-		//	{InputLayout::Rate::Vertex, vk::VertexInputRate::eVertex},
-		//	{InputLayout::Rate::Instance, vk::VertexInputRate::eInstance},
-		//};
-
-		auto vertex_input_binding_description = vk::VertexInputBindingDescription()
-			.setInputRate(vk::VertexInputRate::eVertex)
-			.setBinding((uint32_t)0);
-
-		vertex_input_binding_descriptions.push_back(vertex_input_binding_description);
-
-		for (const auto& param : pipeline_state.mShader->getReflection().mInputParams) {
-			auto vertex_input_attribute_description = vk::VertexInputAttributeDescription()
-				.setBinding((uint32_t)0)
-				.setLocation(param.mLocation)
-				.setFormat(FormatMap.at(param.mFormat))
-				.setOffset((uint32_t)param.mOffset);
-
-			vertex_input_attribute_descriptions.push_back(vertex_input_attribute_description);
-		}
-	//}
+    validateVertexInputs(*pipeline_state.mShader);
+    if (pipeline_state.mShader->vertexFetchMode()==VertexFetchMode::Pulling) {
+        if (!pipeline_state.mShader->getReflection().mInputParams.empty()) throw std::runtime_error("Pulling shader must not declare vertex attributes");
+    } else if (mVertexLayout) {
+        for (const auto& stream : mVertexLayout->streams) {
+            const auto rate = stream.rate == VertexInputRate::PerInstance ? vk::VertexInputRate::eInstance : vk::VertexInputRate::eVertex;
+            vertex_input_binding_descriptions.emplace_back(stream.binding,stream.stride,rate);
+        }
+        for (const auto& attribute : mVertexLayout->attributes)
+            vertex_input_attribute_descriptions.emplace_back(attribute.location,attribute.binding,NativeVertexFormat(attribute.format),attribute.offset);
+    } else {
+        vertex_input_binding_descriptions.emplace_back(0,0,vk::VertexInputRate::eVertex);
+        for (const auto& param : pipeline_state.mShader->getReflection().mInputParams)
+            vertex_input_attribute_descriptions.emplace_back(param.mLocation,0,FormatMap.at(param.mFormat),param.mOffset);
+    }
 
 	// TODO: use dynamic state for InputLayout
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_vertex_input_dynamic_state.html
@@ -736,7 +895,7 @@ vk::raii::Pipeline DriverVk::createState(const State& pipeline_state) {
 		.setVertexBindingDescriptions(vertex_input_binding_descriptions)
 		.setVertexAttributeDescriptions(vertex_input_attribute_descriptions);
 
-	auto dynamic_states = {
+	std::vector<vk::DynamicState> dynamic_states = {
 		vk::DynamicState::eViewport,
 		vk::DynamicState::eScissor,
 		vk::DynamicState::ePrimitiveTopology,
@@ -752,6 +911,8 @@ vk::raii::Pipeline DriverVk::createState(const State& pipeline_state) {
 		vk::DynamicState::eColorBlendEnableEXT,
 		vk::DynamicState::eStencilTestEnable
 	};
+    if (pipeline_state.mShader->vertexFetchMode()==VertexFetchMode::Pulling)
+        std::erase(dynamic_states,vk::DynamicState::eVertexInputBindingStride);
 
 	auto pipeline_dynamic_state_create_info = vk::PipelineDynamicStateCreateInfo()
 		.setDynamicStates(dynamic_states);
@@ -785,7 +946,14 @@ vk::raii::Pipeline DriverVk::createState(const State& pipeline_state) {
 		graphics_pipeline_create_info.setPTessellationState(&pipeline_tessellation_state_create_info);
 	}
 
-	return mDevice.createGraphicsPipeline(nullptr, graphics_pipeline_create_info);
+    auto pipeline = mDevice.createGraphicsPipeline(nullptr, graphics_pipeline_create_info);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    const auto handle = PROFILER::GpuHandleValue(static_cast<VkPipeline>(*pipeline));
+    try { mGpuPipelines.emplace(handle, PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+        reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*mDevice)), handle,
+        PROFILER::GpuResourceKind::Pipeline, "Graphics pipeline")); } catch (...) { PROFILER::GpuMemoryProfiler::instance().noteDroppedRecord(); }
+#endif
+    return pipeline;
 }
 
 
@@ -794,10 +962,20 @@ static vk::IndexType GetIndexTypeFromStride(size_t stride) {
 }
 
 void DriverVk::EnsureVertexBuffers(vk::raii::CommandBuffer& cmdlist) {
+    if (mCurrentState.mShader && mCurrentState.mShader->vertexFetchMode()==VertexFetchMode::Pulling) return;
 	if (!isDirty(Dirty::VERTEX_BUFFER))
 		return;
 	clearDirty(Dirty::VERTEX_BUFFER);
 
+    if (mVertexLayout) {
+        for (const auto& [binding,buffer] : mVertexStreams) {
+            const auto native=std::static_pointer_cast<VertexBufferVk>(buffer);
+            const vk::Buffer handle=*native->getBuffer();
+            const vk::DeviceSize offset=0,stride=buffer->getStride();
+            cmdlist.bindVertexBuffers2(binding,handle,offset,nullptr,stride);
+        }
+        return;
+    }
 	if (!mVertexBuffer || !*mVertexBuffer->getBuffer()) {
 		LOG_ERROR << "DriverVk: vertex buffer is not set or empty";
 		return;
@@ -1017,11 +1195,11 @@ void DriverVk::EnsureBlendMode(vk::raii::CommandBuffer& cmdlist) {
 
 const static std::unordered_map<DepthFunction, vk::CompareOp> CompareOpMap = {
 	{DepthFunction::ALWAYS, vk::CompareOp::eAlways},
-	{DepthFunction::EQUAL, vk::CompareOp::eNever},
+	{DepthFunction::NEVER, vk::CompareOp::eNever},
 	{DepthFunction::LESS, vk::CompareOp::eLess},
 	{DepthFunction::EQUAL, vk::CompareOp::eEqual},
 	{DepthFunction::NOT_EQUAL, vk::CompareOp::eNotEqual},
-	{DepthFunction::LESS, vk::CompareOp::eLessOrEqual},
+	{DepthFunction::LESS_EQUAL, vk::CompareOp::eLessOrEqual},
 	{DepthFunction::GREATER, vk::CompareOp::eGreater},
 	{DepthFunction::GREATER_EQUAL, vk::CompareOp::eGreaterOrEqual}
 };
@@ -1053,7 +1231,7 @@ void DriverVk::EnsureStencilMode(vk::raii::CommandBuffer& cmdlist) {
 void DriverVk::EnsureGraphicsPipelineState(vk::raii::CommandBuffer& cmdlist) {
 	// The pipeline depends on the current shader and framebuffer, which can change between draws
 	// (setShader/setFrameBuffer do not raise the dirty flag), so compare by name as well.
-	const auto name = mCurrentState.getName();
+	const auto name = mCurrentState.getName() + ":" + vertexLayoutKey();
 	if (!isDirty(Dirty::PIPELINE) && name == mBoundPipelineName)
 		return;
 	clearDirty(Dirty::PIPELINE);
@@ -1065,6 +1243,7 @@ void DriverVk::EnsureGraphicsPipelineState(vk::raii::CommandBuffer& cmdlist) {
 
 	const auto& pipeline = mStates.at(name);
 	cmdlist.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline);
+    setDirty(Dirty::VERTEX_BUFFER);
 	mBoundPipelineName = name;
 
 	graphics_pipeline_ignore_bindings.clear();
@@ -1187,9 +1366,17 @@ void DriverVk::createSwapchain(unsigned int windowID, uint32_t width, uint32_t h
 		.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
 		.setOldSwapchain(*ctx.swapchain);
 
+    ctx.lastCreateInfo=swapchain_info;
 	ctx.swapchain = mDevice.createSwapchainKHR(swapchain_info);
 
 	auto backbuffers = ctx.swapchain.getImages();
+    createSwapchainFrames(windowID,backbuffers);
+}
+
+void DriverVk::createSwapchainFrames(unsigned windowID,const std::vector<vk::Image>& backbuffers) {
+    auto& ctx=mSwapchains.at(windowID);
+    const auto format=mSurfaceFormat.format;
+    mCurrentState.mFrameBuffer.reset();
 
 	// Texture destruction enqueues VMA images into the current frame. Keep all
 	// queues alive until every old framebuffer has released its depth image.
@@ -1218,7 +1405,7 @@ void DriverVk::createSwapchain(unsigned int windowID, uint32_t width, uint32_t h
 		frame.mCommandBuffer = std::move(command_buffers.at(0));
 
 		
-		auto frameTexture = std::make_shared<TextureVk>(ctx.width, ctx.height, format, backbuffer);
+		auto frameTexture = IKIGAI::MEMORY::MakeShared<TextureVk, IKIGAI::MEMORY::Category::Texture>(ctx.width, ctx.height, format, backbuffer);
 		TextureResource depthRes;
 		depthRes.width = ctx.width;
 		depthRes.height = ctx.height;
@@ -1227,10 +1414,10 @@ void DriverVk::createSwapchain(unsigned int windowID, uint32_t width, uint32_t h
 		depthRes.useMipmap = false;
 		depthRes.texType = TextureType::DEPTH;
 		depthRes.pixelType = PixelFormat::DEPTH_32_FLOAT_STENCIL_8_UINT;
-		auto frameDepth = std::make_shared<TextureVk>(depthRes, std::vector<void*>{});
+		auto frameDepth = IKIGAI::MEMORY::MakeShared<TextureVk, IKIGAI::MEMORY::Category::Texture>(depthRes, std::vector<void*>{});
 		frame.mFrameBuffer = std::make_shared<FrameBufferVk>(std::vector<std::shared_ptr<TextureInterface>>{frameTexture}, frameDepth);
 
-		//frame.swapchain_texture = std::make_shared<TextureVk>(ctx.width, ctx.height, format, backbuffer);
+		//frame.swapchain_texture = IKIGAI::MEMORY::MakeShared<TextureVk, IKIGAI::MEMORY::Category::Texture>(ctx.width, ctx.height, format, backbuffer);
 		//frame.swapchain_target = std::make_shared<RenderTargetVk>(frame.swapchain_texture);
 
 		ctx.frames.push_back(std::move(frame));
@@ -1243,9 +1430,11 @@ void DriverVk::createSwapchain(unsigned int windowID, uint32_t width, uint32_t h
 void DriverVk::nextFrame() {
 	const auto& image_acquired_semaphore = getCurrentSwapchainContext().frames.at(mSemaphoreIndex).mImageAcquiredSemaphore;
 
-	auto res = getCurrentSwapchainContext().swapchain.acquireNextImage(UINT64_MAX, *image_acquired_semaphore);
-
-	mFrameIndex = res.value;
+    auto& ctx=getCurrentSwapchainContext();
+    if(ctx.sdkAcquire){
+        auto result=ctx.sdkAcquire(*image_acquired_semaphore,&mFrameIndex);
+        if(result!=VK_SUCCESS&&result!=VK_SUBOPTIMAL_KHR)throw std::runtime_error("SDK acquire image failed: "+std::to_string(result));
+    }else mFrameIndex=ctx.swapchain.acquireNextImage(UINT64_MAX,*image_acquired_semaphore).value;
 }
 
 
@@ -1343,6 +1532,11 @@ void DriverVk::destroyDeferred(VulkanObject&& object) {
 	if (it == mSwapchains.end() || it->second.frames.empty() || mFrameIndex >= it->second.frames.size()) {
 		return;
 	}
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    std::visit([](auto& resource) {
+        if constexpr (requires { resource.markPendingRelease(); }) resource.markPendingRelease();
+    }, object);
+#endif
 	it->second.frames[mFrameIndex].destroyDeferred.push_back(std::move(object));
 }
 
@@ -1453,7 +1647,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 
 	bool needsUpdate = false;
 	for (const auto& required : required_descriptor_bindings) {
-		if (!ignore_bindings.contains(required.binding)) {
+		if (required.descriptorCount>1 || !ignore_bindings.contains(required.binding)) {
 			needsUpdate = true;
 			break;
 		}
@@ -1468,6 +1662,18 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 		if (required.descriptorType != vk::DescriptorType::eCombinedImageSampler && required.descriptorType != vk::DescriptorType::eStorageImage) {
 			continue;
 		}
+        if (required.descriptorCount>1) {
+            const auto& uniforms=mCurrentState.mShader->getReflection().mUniforms;
+            const auto u=std::find_if(uniforms.begin(),uniforms.end(),[&](const auto& v){return v.mBind==required.binding;});
+            const auto& table=bindlessTable(*u,required.descriptorCount);
+            for (uint32_t i=0;i<required.descriptorCount;++i) {
+                auto texture=std::static_pointer_cast<TextureVk>(table.get(i).texture);
+                if (!texture) throw std::runtime_error("Bindless texture table contains buffer entries");
+                if (texture->mCurrentState!=vk::ImageLayout::eGeneral) deactivateRenderPass();
+                texture->setState(cmdlist,vk::ImageLayout::eGeneral);
+            }
+            continue;
+        }
 		auto texture = mTextures.at(required.binding);
 		if (texture->mCurrentState != vk::ImageLayout::eGeneral) {
 			deactivateRenderPass();
@@ -1477,11 +1683,13 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 
 	struct BufferWrite {
 		uint32_t binding = 0;
+        uint32_t element = 0;
 		vk::DescriptorType type = vk::DescriptorType::eUniformBuffer;
 		vk::DescriptorBufferInfo info;
 	};
 	struct ImageWrite {
 		uint32_t binding = 0;
+        uint32_t element = 0;
         vk::DescriptorType type = vk::DescriptorType::eCombinedImageSampler;
 		vk::DescriptorImageInfo info;
 	};
@@ -1491,11 +1699,29 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 	images.reserve(required_descriptor_bindings.size());
 
 	for (const auto& required : required_descriptor_bindings) {
+        if (required.descriptorCount>1) {
+            const auto& uniforms=mCurrentState.mShader->getReflection().mUniforms;
+            const auto u=std::find_if(uniforms.begin(),uniforms.end(),[&](const auto& v){return v.mBind==required.binding;});
+            const auto& table=bindlessTable(*u,required.descriptorCount);
+            for (uint32_t i=0;i<required.descriptorCount;++i) {
+                const auto entry=table.get(i);mBindlessFrameResources.push_back(entry);
+                if (required.descriptorType==vk::DescriptorType::eCombinedImageSampler) {
+                    auto t=std::static_pointer_cast<TextureVk>(entry.texture);
+                    images.push_back({required.binding,i,required.descriptorType,vk::DescriptorImageInfo(*t->mSampler,*t->mImageView,vk::ImageLayout::eGeneral)});
+                } else {
+                    auto b=std::static_pointer_cast<StorageBufferVk>(entry.buffer);
+                    if (!b) throw std::runtime_error("Bindless buffer table contains texture entries");
+                    buffers.push_back({required.binding,i,required.descriptorType,vk::DescriptorBufferInfo(*b->getBuffer(),0,b->getSizeByte())});
+                }
+            }
+            continue;
+        }
+
 		const uint32_t binding = required.binding;
 		if (required.descriptorType == vk::DescriptorType::eCombinedImageSampler || required.descriptorType == vk::DescriptorType::eStorageImage) {
 			auto texture = mTextures.at(binding);
 			images.push_back(ImageWrite{
-				binding, required.descriptorType,
+				binding, 0, required.descriptorType,
 				vk::DescriptorImageInfo()
 					.setSampler(*texture->mSampler)
 					.setImageView(*texture->mImageView)
@@ -1505,7 +1731,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 			auto buffer = mUniformBuffers.at(binding);
 			const vk::DeviceSize range = buffer->getSizeByte() > 0 ? buffer->getSizeByte() : VK_WHOLE_SIZE;
 			buffers.push_back(BufferWrite{
-				binding,
+				binding, 0,
 				vk::DescriptorType::eUniformBuffer,
 				vk::DescriptorBufferInfo().setBuffer(*buffer->getBuffer()).setOffset(0).setRange(range)
 			});
@@ -1513,7 +1739,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 			auto buffer = mStorageBuffers.at(binding);
 			const vk::DeviceSize range = buffer->getSizeByte() > 0 ? buffer->getSizeByte() : VK_WHOLE_SIZE;
 			buffers.push_back(BufferWrite{
-				binding,
+				binding, 0,
 				vk::DescriptorType::eStorageBuffer,
 				vk::DescriptorBufferInfo().setBuffer(*buffer->getBuffer()).setOffset(0).setRange(range)
 			});
@@ -1553,6 +1779,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 		writes.push_back(vk::WriteDescriptorSet()
 			.setDstSet(set)
 			.setDstBinding(image.binding)
+            .setDstArrayElement(image.element)
 			.setDescriptorCount(1)
 			.setDescriptorType(image.type)
 			.setImageInfo(image.info));
@@ -1561,6 +1788,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 		writes.push_back(vk::WriteDescriptorSet()
 			.setDstSet(set)
 			.setDstBinding(buffer.binding)
+            .setDstArrayElement(buffer.element)
 			.setDescriptorCount(1)
 			.setDescriptorType(buffer.type)
 			.setBufferInfo(buffer.info));
@@ -1571,7 +1799,7 @@ void DriverVk::PushDescriptors(vk::raii::CommandBuffer& cmdlist, vk::PipelineBin
 
 void DriverVk::resize(size_t width, size_t height) {
 	auto found = mSwapchains.find(mCurrentWindowID);
-	if (found == mSwapchains.end() || !*found->second.swapchain) {
+	if (found == mSwapchains.end() || (!*found->second.swapchain&&!found->second.sdkSwapchain)) {
 		mWidth = static_cast<uint32_t>(width);
 		mHeight = static_cast<uint32_t>(height);
 		return;
@@ -1589,12 +1817,15 @@ void DriverVk::resize(size_t width, size_t height) {
 		mHeight = targetHeight;
 		return;
 	}
+    if(mFrameGeneration)mFrameGeneration->suspend();
 	end();
 	wait();
+    if(mFrameGeneration)mFrameGeneration->waitForPresents();
 	mDevice.waitIdle();
 	mWidth = targetWidth;
 	mHeight = targetHeight;
-	createSwapchain(mCurrentWindowID, mWidth, mHeight);
+    if(ctx.sdkResize){auto resize=ctx.sdkResize;resize(mWidth,mHeight);}
+    else createSwapchain(mCurrentWindowID, mWidth, mHeight);
 	nextFrame();
 	begin();
 }
@@ -1637,7 +1868,8 @@ void DriverVk::setShader(std::shared_ptr<ShaderInterface> shader) {
 
 void DriverVk::setVertexBuffer(const std::shared_ptr<VertexBufferInterface> buffer) {
 	setDirty(Dirty::VERTEX_BUFFER);
-	mVertexBuffer = std::static_pointer_cast<VertexBufferVk>(buffer);
+	resetVertexStreams();
+    mVertexBuffer = std::static_pointer_cast<VertexBufferVk>(buffer);
 }
 
 void DriverVk::setIndexBuffer(const std::shared_ptr<IndexBufferInterface> buffer) {
@@ -1771,18 +2003,22 @@ void DriverVk::clear(bool clearColor, bool clearDepth, bool clearStencil) {
 }
 
 void DriverVk::draw(uint32_t vertex_count, uint32_t vertex_offset, uint32_t instance_count) {
+    if (!vertex_count || !instance_count) return;
+    validateVertexDraw({vertex_count,vertex_offset,instance_count});
 	EnsureGraphicsState(false);
 	getCurrentFrame().mCommandBuffer.draw(vertex_count, instance_count, vertex_offset, 0);
 }
 
 std::vector<float> DriverVk::readTexture(std::shared_ptr<TextureInterface> texture,unsigned mip,unsigned layer) {
-    if(texture->getFormat()!=PixelFormat::RGBA_FLOAT && texture->getFormat()!=PixelFormat::R_FLOAT && texture->getType()!=TextureType::DEPTH) throw std::runtime_error("Vulkan float readback requires RGBA_FLOAT, R_FLOAT or depth");
+    const bool unorm=texture->getFormat()==PixelFormat::RGBA_INT || texture->getFormat()==PixelFormat::BGRA_INT;
+    if(!unorm&&texture->getFormat()!=PixelFormat::RGBA_FLOAT && texture->getFormat()!=PixelFormat::RG_FLOAT && texture->getFormat()!=PixelFormat::R_FLOAT && texture->getType()!=TextureType::DEPTH) throw std::runtime_error("Unsupported Vulkan readback format");
     auto t=std::static_pointer_cast<TextureVk>(texture);
     const uint32_t w=std::max<size_t>(1,t->getWidth()>>mip),h=std::max<size_t>(1,t->getHeight()>>mip);
     const bool depth=t->getType()==TextureType::DEPTH;
     const bool red=t->getFormat()==PixelFormat::R_FLOAT && !depth;
-    std::vector<float> values(static_cast<size_t>(w)*h*((depth||red)?1:4));
-    auto buffer=UtilityVk::CreateBuffer(values.size()*sizeof(float),vk::BufferUsageFlagBits::eTransferDst,UtilityVk::MemoryUsage::Staging);
+    const unsigned channels=depth||red?1:texture->getFormat()==PixelFormat::RG_FLOAT?2:4;
+    std::vector<float> values(static_cast<size_t>(w)*h*channels);
+    auto buffer=UtilityVk::CreateBuffer(values.size()*(unorm?1:sizeof(float)),vk::BufferUsageFlagBits::eTransferDst,UtilityVk::MemoryUsage::Staging);
     const auto old=t->mCurrentState;
     UtilityVk::OneTimeSubmit([&](const auto& cmd) {
         t->setState(cmd,vk::ImageLayout::eTransferSrcOptimal);
@@ -1794,7 +2030,9 @@ std::vector<float> DriverVk::readTexture(std::shared_ptr<TextureInterface> textu
     void* mapped=nullptr;
     if(vmaMapMemory(mAllocator,buffer.allocation(),&mapped)!=VK_SUCCESS) throw std::runtime_error("Readback map failed");
     vmaInvalidateAllocation(mAllocator,buffer.allocation(),0,VK_WHOLE_SIZE);
-    std::memcpy(values.data(),mapped,values.size()*sizeof(float));vmaUnmapMemory(mAllocator,buffer.allocation());
+    if(unorm){const auto* bytes=static_cast<const uint8_t*>(mapped);for(size_t i=0;i<values.size();++i)values[i]=bytes[i]/255.f;}
+    else std::memcpy(values.data(),mapped,values.size()*sizeof(float));
+    vmaUnmapMemory(mAllocator,buffer.allocation());
     if(red) {std::vector<float> rgba(static_cast<size_t>(w)*h*4,0);for(size_t i=0;i<values.size();++i) {rgba[i*4]=values[i];rgba[i*4+3]=1;}return rgba;}
     return values;
 }
@@ -1804,11 +2042,17 @@ void DriverVk::dispatch(uint32_t x,uint32_t y,uint32_t z) {
     auto& cmd=getCurrentFrame().mCommandBuffer;
     auto shader=mCurrentState.mShader;
     if(!*shader->mComputeShaderModule) throw std::runtime_error("Dispatch requires compute shader");
-    const std::string key="compute:"+std::to_string(reinterpret_cast<uintptr_t>(shader.get()));
+    const std::string key="compute:"+std::to_string(shader->getId());
     if(!mStates.contains(key)) {
         auto stage=vk::PipelineShaderStageCreateInfo().setStage(vk::ShaderStageFlagBits::eCompute).setModule(*shader->mComputeShaderModule).setPName("main");
         auto info=vk::ComputePipelineCreateInfo().setStage(stage).setLayout(*shader->mPipelineLayout);
         mStates.emplace(key,mDevice.createComputePipeline(nullptr,info));
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+        const auto handle = PROFILER::GpuHandleValue(static_cast<VkPipeline>(*mStates.at(key)));
+        try { mGpuPipelines.emplace(handle, PROFILER::TrackGpuObject(PROFILER::GpuBackend::Vulkan,
+            reinterpret_cast<std::uintptr_t>(static_cast<VkDevice>(*mDevice)), handle,
+            PROFILER::GpuResourceKind::Pipeline, "Compute pipeline")); } catch (...) { PROFILER::GpuMemoryProfiler::instance().noteDroppedRecord(); }
+#endif
     }
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute,*mStates.at(key));
     std::unordered_set<uint32_t> ignored;
@@ -1819,6 +2063,8 @@ void DriverVk::dispatch(uint32_t x,uint32_t y,uint32_t z) {
 }
 
 void DriverVk::drawIndexed(uint32_t index_count, uint32_t index_offset, uint32_t instance_count) {
+    if (!index_count || !instance_count) return;
+    validateVertexDraw({index_count,index_offset,instance_count,0,0,true});
 	EnsureGraphicsState(true);
 	getCurrentFrame().mCommandBuffer.drawIndexed(index_count, instance_count, index_offset, 0, 0);
 }
@@ -1833,24 +2079,45 @@ void DriverVk::setClearColor(float r, float g, float b, float a) {
 
 
 void DriverVk::submit() {
-	if (auto* imgui = IKIGAI::IMGUI::Get()) {
+	if (!mPresentationUIRendered)if (auto* imgui = IKIGAI::IMGUI::Get()) {
 		imgui->renderDrawData();
 	}
 	end();
+	if (IKIGAI::CAPTURE::ScreenshotService::Get().pending()) {
+        const bool bgra=mSurfaceFormat.format==vk::Format::eB8G8R8A8Unorm || mSurfaceFormat.format==vk::Format::eB8G8R8A8Srgb;
+        IKIGAI::CAPTURE::ScreenshotService::Get().captureTexture(*this,getCurrentFrame().mFrameBuffer->getTextures().at(0),bgra);
+    }
 
 	const auto& render_complete_semaphore = getCurrentFrame().mRenderCompleteSemaphore;
+	latencySubmitEnd();
 
 	vk::PresentInfoKHR presentInfo{};
 	presentInfo.setWaitSemaphores(*render_complete_semaphore);
-	presentInfo.setSwapchains(*getCurrentSwapchainContext().swapchain);
+    auto& ctx=getCurrentSwapchainContext();
+    const vk::SwapchainKHR presentedSwapchain=ctx.sdkSwapchain?vk::SwapchainKHR(ctx.sdkSwapchain):*ctx.swapchain;
+    presentInfo.setSwapchains(presentedSwapchain);
 	presentInfo.setImageIndices(mFrameIndex);
+#ifdef IKIGAI_USE_STREAMLINE
+    if(mDlssRuntime&&!ctx.streamline)std::static_pointer_cast<StreamlineRuntime>(mDlssRuntime)->commonPresentBefore();
+#endif
 
-	auto present_result = mQueue.presentKHR(presentInfo);
+    if(ctx.sdkPresent){
+#ifdef IKIGAI_USE_STREAMLINE
+        if(mDlssRuntime)std::static_pointer_cast<StreamlineRuntime>(mDlssRuntime)->marker(sl::PCLMarker::ePresentStart);
+#endif
+        const auto result=ctx.sdkPresent(reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo));
+        if(result!=VK_SUCCESS&&result!=VK_SUBOPTIMAL_KHR)throw std::runtime_error("SDK present failed: "+std::to_string(result));
+    }else {auto present_result=mQueue.presentKHR(presentInfo);(void)present_result;}
+#ifdef IKIGAI_USE_STREAMLINE
+    if(mDlssRuntime&&!ctx.streamline)std::static_pointer_cast<StreamlineRuntime>(mDlssRuntime)->commonPresentAfter();
+    if(mDlssRuntime)std::static_pointer_cast<StreamlineRuntime>(mDlssRuntime)->marker(sl::PCLMarker::ePresentEnd);
+#endif
 
 	mSemaphoreIndex = (mSemaphoreIndex + 1) % getCurrentSwapchainContext().frames.size();
 
 
 	wait();
+    if(mFrameGeneration){mFrameGeneration->waitForPresents();mFrameGeneration->afterPresent();mFrameGenerationStatus=mFrameGeneration->status();}
 	nextFrame();
 	begin();
 }
@@ -1965,5 +2232,17 @@ void DriverVk::resetFrameBuffer() {
 	setFrameBuffer(nullptr);
 }
 
+
+void IKIGAI::RENDER::DriverVk::draw(const DrawArguments& args) {
+    if (!args.count || !args.instanceCount) return;
+    validateVertexDraw(args);
+    EnsureGraphicsState(args.indexed);
+    auto& cmd=getCurrentFrame().mCommandBuffer;
+    if (args.indexed) cmd.drawIndexed(args.count,args.instanceCount,args.first,args.baseVertex,args.firstInstance);
+    else cmd.draw(args.count,args.instanceCount,args.first,args.firstInstance);
+}
+
+
+IKIGAI::RENDER::BindlessCapabilities IKIGAI::RENDER::DriverVk::bindlessCapabilities() const { return mBindlessCapabilities; }
 #endif
 

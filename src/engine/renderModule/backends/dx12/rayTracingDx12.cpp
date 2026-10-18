@@ -573,6 +573,7 @@ std::shared_ptr<RayTracingProgram> DriverDx12::createRayProgram(const RayTracing
 		desc.pRootSignature = data.Root.Get();
 		desc.CS = { data.Modules[0]->GetBufferPointer(), data.Modules[0]->GetBufferSize() };
 		check(mDevice->CreateComputePipelineState(&desc, IID_PPV_ARGS(&data.ComputeState)), "DXR compute pipeline");
+		TrackGpuObjectDx12(data.ComputeState.Get(), mDevice.Get(), PROFILER::GpuResourceKind::Pipeline, "Ray-query/compute pipeline");
 		mRayPrograms[key] = output;
 		return output;
 	}
@@ -646,6 +647,7 @@ std::shared_ptr<RayTracingProgram> DriverDx12::createRayProgram(const RayTracing
 		state.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>()->SetRootSignature(data.LocalRoot.Get());
 	state.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>()->Config(resource.MaxRecursionDepth);
 	check(mRayDevice->CreateStateObject(state, IID_PPV_ARGS(&data.State)), "CreateStateObject DXR");
+	TrackGpuObjectDx12(data.State.Get(), mDevice.Get(), PROFILER::GpuResourceKind::Pipeline, "Ray-tracing pipeline");
 	ComPtr<ID3D12StateObjectProperties> properties;
 	check(data.State.As(&properties), "DXR state properties");
 	const UINT stride = UINT(aligned(32 + data.RecordSize, 64));

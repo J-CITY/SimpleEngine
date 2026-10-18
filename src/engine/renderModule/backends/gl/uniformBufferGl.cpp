@@ -7,6 +7,9 @@ IKIGAI::RENDER::UniformBufferGl::UniformBufferGl(const void* data, size_t sz) : 
 
 	bind();
 	glBufferData(GL_UNIFORM_BUFFER, sz, nullptr, GL_STATIC_DRAW);
+#if IKIGAI_ENABLE_MEMORY_TRACKING
+    TrackBufferMemoryGl(mMemory, GL_UNIFORM_BUFFER, mId, PROFILER::GpuResourceKind::UniformBuffer);
+#endif
 	unbind();
 
 //#ifndef USING_GLES
