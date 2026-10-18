@@ -1,3 +1,4 @@
+#if USE_LUA
 #include "luaBinder.h"
 
 #include <sol/sol.hpp>
@@ -16,3 +17,4 @@ void LuaBinder::CallBinders(sol::state& p_luaState) {
 	LuaComponentBinder::BindComponent(L);
 	LuaGlobalsBinder::BindGlobals(L);
 }
+#endif

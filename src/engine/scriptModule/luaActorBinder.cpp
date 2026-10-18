@@ -1,3 +1,4 @@
+#if USE_LUA
 #include "luaActorBinder.h"
 
 #include <sol/sol.hpp>
@@ -109,3 +110,5 @@ void IKIGAI::SCRIPTING::LuaActorBinder::BindActor(sol::state & p_luaState) {
 		//)
 	);
 }
+
+#endif

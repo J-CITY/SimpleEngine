@@ -1,4 +1,10 @@
 #include "scene.h"
+#if USE_PHYSICS_3D
+#include "coreModule/ecs/systems/physics3dSystem.h"
+#endif
+#if USE_PHYSICS_2D
+#include "coreModule/ecs/systems/physics2dSystem.h"
+#endif
 
 #include <algorithm>
 
@@ -12,10 +18,11 @@
 #include "coreModule/ecs/components/cameraComponent.h"
 #include "coreModule/ecs/components/skeletalComponent.h"
 #include "coreModule/ecs/components/skeletalAnimationComponent.h"
-#include "physicsModule/broadPhase.h"
+#include "renderModule/spatial/frustumBvh.h"
 #include "renderModule/backends/interface/meshInterface.h"
 #include "utilsModule/log/loggerDefine.h"
 #include <unordered_map>
+#include <unordered_set>
 
 namespace IKIGAI
 {
@@ -36,22 +43,91 @@ namespace IKIGAI
 using namespace IKIGAI;
 using namespace IKIGAI::SCENE_SYSTEM;
 
+struct BVHData {
+	UTILS::Ref<ECS::Object> obj;
+	std::shared_ptr<RENDER::MeshInterface> mesh;
+
+	BVHData(UTILS::Ref<ECS::Object> obj,
+		std::shared_ptr<RENDER::MeshInterface> mesh): obj(obj), mesh(mesh) {}
+
+	const ECS::Transform& getTransform() {
+		return obj->mTransform->getTransform();
+	}
+};
+
+struct Scene::SpatialIndex {
+    RENDER::FrustumBvh<std::shared_ptr<BVHData>> meshesTree;
+    std::unordered_map<ECS::Object::Id, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
+};
+Scene::Scene(ECS2::World* world,PhysicsFactories physics) : mPhysicsFactories(std::move(physics)),mWorld(world) {}
+void Scene::setPhysicsFactories(PhysicsFactories physics) {
+#if USE_PHYSICS_2D
+    if(mPhysics2D)throw std::logic_error("Configure physics before creating the scene's world");
+#endif
+#if USE_PHYSICS_3D
+    if(mPhysics3D)throw std::logic_error("Configure physics before creating the scene's world");
+#endif
+    mPhysicsFactories=std::move(physics);
+}
+#if USE_PHYSICS_3D
+PHYSICS::PhysicWorld& Scene::physics3d() {
+    if(!mPhysics3D) mPhysics3D=std::make_unique<ECS::Physics3DSystem>(*this,mPhysicsFactories.physics3d?mPhysicsFactories.physics3d():std::make_unique<PHYSICS::World>());
+    return mPhysics3D->simulation();
+}
+void Scene::stepPhysics3D(std::chrono::duration<double> dt) {
+    physics3d();
+    ECS2::CommandBuffer commands;
+    mPhysics3D->onFixedUpdate(getWorld(),commands,dt);
+    commands.execute();
+}
+#ifdef USE_EDITOR
+void Scene::drawPhysics3DDebug() {if(mPhysics3D)mPhysics3D->drawDebug();}
+#endif
+#endif
+#if USE_PHYSICS_2D
+PHYSICS2D::World& Scene::physics2d() {
+    if(!mPhysics2D) mPhysics2D=std::make_unique<ECS::Physics2DSystem>(*this,mPhysicsFactories.physics2d?mPhysicsFactories.physics2d():std::make_unique<PHYSICS2D::World>());
+    return mPhysics2D->simulation();
+}
+void Scene::stepPhysics2D(std::chrono::duration<double> dt) {
+    physics2d();
+    ECS2::CommandBuffer commands;
+    mPhysics2D->onFixedUpdate(getWorld(),commands,dt);
+    commands.execute();
+}
+#ifdef USE_EDITOR
+void Scene::drawPhysics2DDebug() {if(mPhysics2D)mPhysics2D->drawDebug();}
+#endif
+#endif
+Scene::SpatialIndex& Scene::spatial() { if (!mSpatial) mSpatial = std::make_unique<SpatialIndex>(); return *mSpatial; }
+ECS2::World& Scene::getWorld() const { return mWorld ? *mWorld : RESOURCES::ServiceManager::Get<ECS2::World>(); }
+
+
 void Scene::init() {
 	
 }
 
-Scene::Scene(const Descriptor& _descriptor) {
+COROUTINE::CoroutineScope& Scene::coroutines() {
+    if (!mCoroutineScope) mCoroutineScope = std::make_unique<COROUTINE::CoroutineScope>(
+        RESOURCES::ServiceManager::Get<COROUTINE::Scheduler>());
+    return *mCoroutineScope;
+}
+void Scene::cancelTasks() { mCoroutineScope.reset(); }
+
+Scene::Scene(const Descriptor& _descriptor) : Scene() {
 	for (const auto& object : _descriptor.Objects) {
 		createObject(object);
 	}
 }
 
 Scene::~Scene() {
+    cancelTasks();
 	// The spatial index owns mesh references; release them before the GPU driver.
 	for (const auto& object : objects) {
 		if (auto component = object->getComponent<ECS::ModelRenderer>()) {
 			removeFromBVH(component.get());
 		}
+        object->dispose();
 	}
 	objects.clear();
 }
@@ -76,9 +152,13 @@ bool Scene::getIsExecute() const {
 }
 
 void Scene::update(std::chrono::duration<double> dt) {
-	for (auto& o : objects) {
-		o->onUpdate(dt);
-	}
+    for (auto& o : objects) o->onUpdate(dt);
+    // A scene owns its particle instances through its objects. No render pass ticks them.
+    for (auto& o : objects) if(o->getIsActive()) {
+        if(auto c=o->getComponent<ECS::ParticleSystem2DComponent>()) c->tick(dt.count());
+        if(auto c=o->getComponent<ECS::ParticleSystem3DComponent>()) c->tick(dt.count());
+        if(auto c=o->getComponent<ECS::SpriteParticleComponent>()) c->tick(dt.count());
+    }
 }
 
 void Scene::fixedUpdate(std::chrono::duration<double> dt) {
@@ -98,7 +178,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject() {
 }
 
 std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ECS2::Entity actorID, const std::string& name, const std::string& tag) {
-	objects.push_back(std::make_shared<ECS::Object>(actorID, name, tag));
+	objects.push_back(MEMORY::MakeShared<ECS::Object, MEMORY::Category::Node>(actorID, name, tag, &getWorld()));
 	auto& instance = objects.back();
 	if (isExecute) {
 		instance->setActive(true);
@@ -117,7 +197,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ECS2::Entity actorID, c
 }
 
 std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::Object::Descriptor& data) {
-	objects.push_back(std::make_shared<ECS::Object>(data));
+	objects.push_back(MEMORY::MakeShared<ECS::Object, MEMORY::Category::Node>(data, &getWorld()));
 	auto& instance = objects.back();
 	if (isExecute) {
 		instance->setActive(data.IsActive);
@@ -140,7 +220,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::Object::Desc
 
 
 std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const std::string& name, const std::string& tag) {
-	objects.push_back(std::make_shared<ECS::Object>(RESOURCES::ServiceManager::Get<ECS2::World>().createEntity(), name, tag));
+	objects.push_back(MEMORY::MakeShared<ECS::Object, MEMORY::Category::Node>(getWorld().createEntity(), name, tag, &getWorld()));
 	auto& instance = objects.back();
 	if (isExecute) {
 		instance->setActive(true);
@@ -151,21 +231,6 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const std::string& name
 	}
 	return instance;
 }
-
-struct BVHData {
-	UTILS::Ref<ECS::Object> obj;
-	std::shared_ptr<RENDER::MeshInterface> mesh;
-
-	BVHData(UTILS::Ref<ECS::Object> obj,
-		std::shared_ptr<RENDER::MeshInterface> mesh): obj(obj), mesh(mesh) {}
-
-	const ECS::Transform& getTransform() {
-		return obj->mTransform->getTransform();
-	}
-};
-
-PHYSICS::BVHTree<RENDER::BoundingSphere, std::shared_ptr<BVHData>> meshesTree;
-std::unordered_map<ECS::Object::Id, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
 
 //TODO: move to utils
 RENDER::BoundingSphere getGlobalBoundingSphere(const RENDER::BoundingSphere& boundingSphere, const ECS::Transform& transform) {
@@ -205,8 +270,8 @@ void Scene::addToBVH(UTILS::WeakPtr<ECS::ComponentBase> component) {
 		auto gbs = getGlobalBoundingSphere(modelBoundingSphere, modelRenderer->obj->mTransform->getTransform());
 		for (auto mesh : model->getMeshes()) {
 			auto node = std::make_shared<BVHData>(component->obj, mesh);
-			meshesTree.Insert(node, gbs);
-			objectToBVHElements[component->obj->getID()].push_back(node);
+			spatial().meshesTree.upsert(node, gbs);
+			spatial().objectToBVHElements[component->obj->getID()].push_back(node);
 		}
 	}
 }
@@ -219,11 +284,11 @@ void Scene::removeFromBVH(UTILS::WeakPtr<ECS::ComponentBase> component) {
 		return;
 	}
 
-	if (objectToBVHElements.contains(component->obj->getID())) {
-		for (auto e : objectToBVHElements[component->obj->getID()]) {
-			meshesTree.Remove(e);
+	if (spatial().objectToBVHElements.contains(component->obj->getID())) {
+		for (auto e : spatial().objectToBVHElements[component->obj->getID()]) {
+			spatial().meshesTree.remove(e);
 		}
-		objectToBVHElements.erase(component->obj->getID());
+		spatial().objectToBVHElements.erase(component->obj->getID());
 	}
 }
 
@@ -249,11 +314,148 @@ void Scene::postLoad() {
 	isSceneReady = true;
 }
 
+void Scene::postLoadObject(ECS::Object& object) {
+    object.componentAddedEvent.add(std::bind(&Scene::addToBVH, this, std::placeholders::_1));
+    object.componentRemovedEvent.add(std::bind(&Scene::removeFromBVH, this, std::placeholders::_1));
+    object.componentChangedEvent.add(std::bind(&Scene::updateInBVH, this, std::placeholders::_1));
+    if (auto component = object.getComponent<ECS::ModelRenderer>()) addToBVH(component.get());
+}
+
+std::shared_ptr<ECS::Object> Scene::createDeferredObject(const ECS::Object::Descriptor& descriptor) {
+    auto shell = descriptor;
+    shell.Components.clear();
+    shell.IsActive = false;
+    objects.push_back(MEMORY::MakeShared<ECS::Object, MEMORY::Category::Node>(shell, &getWorld(), true));
+    return objects.back();
+}
+
+void Scene::removeLastObject() {
+    if (objects.empty()) return;
+    if (auto component = objects.back()->getComponent<ECS::ModelRenderer>()) removeFromBVH(component.get());
+    objects.back()->detachFromParent();
+    objects.back()->dispose();
+    objects.pop_back();
+}
+
+const DOCUMENT::Instance* Scene::prefabFor(int objectId) const {
+    for (const auto& instance : prefabInstances)
+        for (auto [local, id] : DOCUMENT::ReadMap(instance.entry)) if (id == objectId) return &instance;
+    return nullptr;
+}
+bool Scene::isPrefabRoot(int objectId) const {
+    const auto* instance = prefabFor(objectId);
+    return instance && DOCUMENT::Id(instance->entry.at("Id")) == objectId;
+}
+nlohmann::json Scene::serializeObjects() const {
+    auto result = nlohmann::json::array();
+    std::vector<std::shared_ptr<ECS::Object>> stack;
+    for (auto it = objects.rbegin(); it != objects.rend(); ++it) if (!(*it)->hasParent()) stack.push_back(*it);
+    std::unordered_set<int> visited;
+    while (!stack.empty()) {
+        auto object = stack.back(); stack.pop_back();
+        if (!visited.insert(object->getIDInt()).second) throw std::runtime_error("Scene hierarchy contains a cycle or duplicate ID");
+        auto json = UTILS::ToJson(object->getDescriptor());
+        if (json.isErr()) throw std::runtime_error(json.unwrapErr().text);
+        result.push_back(json.unwrap());
+        auto children = object->getChildren();
+        for (auto it = children.rbegin(); it != children.rend(); ++it) stack.push_back(*it);
+    }
+    if (visited.size() != objects.size()) throw std::runtime_error("Scene contains orphaned or cyclic objects");
+    return result;
+}
+void Scene::capturePrefabBaselines() {
+    const auto descriptors = serializeObjects();
+    for (auto& instance : prefabInstances) {
+        std::unordered_set<int> owned;
+        for (auto [local, id] : DOCUMENT::ReadMap(instance.entry)) owned.insert(id);
+        instance.baseline = nlohmann::json::array();
+        for (const auto& object : descriptors) if (owned.contains(DOCUMENT::Id(object.at("Id"))))
+            instance.baseline.push_back(object);
+    }
+}
+void Scene::unpackPrefab(int rootId) {
+    std::erase_if(prefabInstances, [rootId](const auto& instance) { return DOCUMENT::Id(instance.entry.at("Id")) == rootId; });
+}
+std::shared_ptr<ECS::Object> Scene::appendDocument(const DOCUMENT::Expanded& document) {
+    const auto first = objects.size();
+    const auto firstInstance = prefabInstances.size();
+    std::vector<ECS::Object::Descriptor> descriptors;
+    auto combined = serializeObjects();
+    for (auto value : document.objects) {
+        combined.push_back(value);
+        auto descriptor = UTILS::FromJson<ECS::Object::Descriptor>(value);
+        if (descriptor.isErr()) throw std::runtime_error(descriptor.unwrapErr().text);
+        descriptors.push_back(descriptor.unwrap());
+    }
+    DOCUMENT::Validate(combined);
+    try {
+        for (const auto& descriptor : descriptors) createDeferredObject(descriptor);
+        for (std::size_t i = 0; i < descriptors.size(); ++i) {
+            auto& object = objects[first + i];
+            object->setVisible(descriptors[i].IsVisible);
+            for (const auto& component : descriptors[i].Components) object->addSerializedComponent(component);
+        }
+        for (std::size_t i = 0; i < descriptors.size(); ++i) {
+            if (descriptors[i].ParentId > 0) objects[first + i]->setParent(
+                findObjectByID(ECS2::Entity(ECS2::Entity::ID(descriptors[i].ParentId))));
+            objects[first + i]->setPendingActive(descriptors[i].IsActive);
+        }
+        for (std::size_t i = first; i < objects.size(); ++i) postLoadObject(*objects[i]);
+        for (const auto& source : document.instances) {
+            auto instance = source;
+            instance.baseline = nlohmann::json::array();
+            const auto ids = DOCUMENT::ReadMap(instance.entry);
+            for (auto value : serializeObjects()) {
+                const int id = DOCUMENT::Id(value.at("Id"));
+                if (std::any_of(ids.begin(), ids.end(), [id](auto pair) { return pair.second == id; }))
+                    instance.baseline.push_back(std::move(value));
+            }
+            prefabInstances.push_back(std::move(instance));
+        }
+        for (std::size_t i = first; i < objects.size(); ++i) objects[i]->activateLoaded();
+        if (!document.instances.empty()) return findObjectByID(ECS2::Entity(ECS2::Entity::ID(
+            DOCUMENT::Id(document.instances.front().entry.at("Id")))));
+        return first < objects.size() ? objects[first] : nullptr;
+    } catch (...) {
+        while (objects.size() > first) removeLastObject();
+        prefabInstances.resize(firstInstance);
+        throw;
+    }
+}
+void Scene::destroySubtree(int rootId) {
+    auto root = findObjectByID(ECS2::Entity(ECS2::Entity::ID(rootId)));
+    if (!root) return;
+    std::unordered_set<int> ids;
+    std::vector<std::shared_ptr<ECS::Object>> stack{root};
+    while (!stack.empty()) {
+        auto object = stack.back(); stack.pop_back();
+        if (!ids.insert(object->getIDInt()).second) continue;
+        for (auto child : object->getChildren()) stack.push_back(child);
+    }
+    for (auto& object : objects) if (ids.contains(object->getIDInt())) object->detachFromParent();
+    for (auto& object : objects) if (ids.contains(object->getIDInt())) {
+        if (auto component = object->getComponent<ECS::ModelRenderer>()) removeFromBVH(component.get());
+        object->dispose();
+    }
+    std::erase_if(objects, [&](const auto& object) { return ids.contains(object->getIDInt()); });
+    std::erase_if(prefabInstances, [&](const auto& instance) { return ids.contains(DOCUMENT::Id(instance.entry.at("Id"))); });
+}
+void Scene::restoreObjectPosition(int rootId, std::size_t objectIndex, int siblingIndex) {
+    auto root = findObjectByID(ECS2::Entity(ECS2::Entity::ID(rootId)));
+    if (!root) return;
+    std::erase(objects, root);
+    objects.insert(objects.begin() + std::min(objectIndex, objects.size()), root);
+    if (auto parent = root->getParent()) {
+        const int last = static_cast<int>(parent->getChildren().size()) - 1;
+        root->setParentInPos(parent, std::min(siblingIndex, last));
+    }
+}
+
 std::shared_ptr<ECS::Object> Scene::createObjectAfter(ECS::Object::Id parentId, const std::string& name, const std::string& tag) {
 	const auto iter = std::ranges::find_if(objects, [parentId](auto& e) {
 		return e->getID() == parentId;
 	});
-	auto resIt = objects.insert(iter+1, std::make_shared<ECS::Object>(RESOURCES::ServiceManager::Get<ECS2::World>().createEntity(), name, tag));
+	auto resIt = objects.insert(iter+1, MEMORY::MakeShared<ECS::Object, MEMORY::Category::Node>(getWorld().createEntity(), name, tag, &getWorld()));
 	return *resIt;
 }
 
@@ -261,7 +463,7 @@ std::shared_ptr<ECS::Object> Scene::createObjectBefore(ECS::Object::Id parentId,
 	const auto iter = std::ranges::find_if(objects, [parentId](auto& e) {
 		return e->getID() == parentId;
 	});
-	auto resIt = objects.insert(iter, std::make_shared<ECS::Object>(RESOURCES::ServiceManager::Get<ECS2::World>().createEntity(), name, tag));
+	auto resIt = objects.insert(iter, MEMORY::MakeShared<ECS::Object, MEMORY::Category::Node>(getWorld().createEntity(), name, tag, &getWorld()));
 	return *resIt;
 }
 
@@ -346,7 +548,7 @@ std::span<std::shared_ptr<IKIGAI::ECS::Object>> Scene::getObjects() {
 
 
 IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
-	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	auto cm = getWorld().getComponentManager();
 	for (auto& camera : cm->getComponentsArray<ECS::CameraComponent>()) {
 		//for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::CameraComponent>()) {
 		if (camera.obj->getIsActive()) {
@@ -371,7 +573,7 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData(std::vector<int>* obj
 	if(objectIds) {
 		objectIds->clear();
 	}
-	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	auto cm = getWorld().getComponentManager();
 	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
 		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
@@ -431,7 +633,7 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 		objectIds->clear();
 	}
 
-	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	auto cm = getWorld().getComponentManager();
 	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
 		//for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
@@ -556,10 +758,10 @@ namespace {
 		std::vector<IKIGAI::RENDER::RenderChunk> chunks;
 		std::unordered_map<IKIGAI::ECS2::Entity, size_t> objToChunk;
 
-		void init() {
+		void init(ECS2::World& world) {
 			chunks.push_back({nullptr, nullptr}); // Main chunk (index 0)
 
-			auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+			auto cm = world.getComponentManager();
 			std::unordered_map<IKIGAI::ECS2::Entity, size_t> rtMap;
 
 			for (auto& rt : cm->getComponentsArray<IKIGAI::ECS::RenderTargetComponent>()) {
@@ -601,10 +803,10 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledBVHDrawa
 		std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 	) {
 	ChunkContext ctx;
-	ctx.init();
+	ctx.init(getWorld());
 
 	std::vector<std::shared_ptr<BVHData>> toDraw;
-	meshesTree.GetNodeToDraw(toDraw, frustum);
+	spatial().meshesTree.query(RENDER::frustumPredicate(frustum),[&](const auto& payload){toDraw.push_back(payload);});
 
 	for (const auto& meshData : toDraw) {
 		auto owner = meshData->obj;
@@ -674,9 +876,9 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortFrustumCulledDrawable
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
 	ChunkContext ctx;
-	ctx.init();
+	ctx.init(getWorld());
 
-	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	auto cm = getWorld().getComponentManager();
 	for (const auto& modelRenderer : cm->getComponentsArray<ECS::ModelRenderer>()) {
 		auto owner = modelRenderer.obj;
 
@@ -764,9 +966,9 @@ std::vector<IKIGAI::RENDER::RenderChunk> Scene::findAndSortDrawables
 	std::shared_ptr<RENDER::MaterialInterface> defaultMaterial
 ) {
 	ChunkContext ctx;
-	ctx.init();
+	ctx.init(getWorld());
 
-	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	auto cm = getWorld().getComponentManager();
 	for (auto& modelRenderer : cm->getComponentsArray<ECS::ModelRenderer>()) {
 		if (modelRenderer.obj->getIsVisible() && modelRenderer.obj->getIsActive() && modelRenderer.obj->getName() != "Skybox") {
 			if (auto model = modelRenderer.getModel()) {

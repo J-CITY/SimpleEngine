@@ -1,3 +1,4 @@
+#if USE_LUA
 #pragma once
 
 namespace sol {
@@ -10,3 +11,5 @@ namespace IKIGAI::SCRIPTING {
 		static void BindComponent(sol::state& p_luaState);
 	};
 }
+
+#endif

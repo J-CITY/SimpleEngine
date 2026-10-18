@@ -1,3 +1,4 @@
+#if USE_LUA
 #include "luaMathsBinder.h"
 
 
@@ -26,7 +27,7 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		sol::meta_function::addition, sol::resolve<Vector2f(const Vector2f&) const>(&Vector2f::operator+),
 		sol::meta_function::subtraction, sol::resolve<Vector2f(const Vector2f&) const>(&Vector2f::operator-),
 		sol::meta_function::unary_minus, sol::resolve<Vector2f() const>(&Vector2f::operator-),
-		sol::meta_function::multiplication, static_cast<Vector2f(Vector2f::*)(float)>(&Vector2f::operator*), //SOL do not support this - sol::resolve<Vector2f(float)>(&Vector2f::operator*),
+		sol::meta_function::multiplication, static_cast<Vector2f(Vector2f::*)(float) const>(&Vector2f::operator*),
 		sol::meta_function::division, &Vector2f::operator/,
 		sol::meta_function::to_string, [](const Vector2f& target) { return "(" + std::to_string(target.x) + "," + std::to_string(target.y) + ")"; },
 		"Length", &Vector2f::length,
@@ -277,3 +278,5 @@ void LuaMathsBinder::BindMaths(sol::state & p_luaState) {
 		"w", sol::property(&QuaternionF::getW, &QuaternionF::setW)
 		);
 }
+
+#endif

@@ -8,10 +8,20 @@
 
 #include "resourceModule/serializerInterface.h"
 #include "utilsModule/ref.h"
+#include "coroutineModule/coroutineScope.h"
+#include "sceneDocument.h"
 
 namespace IKIGAI::GUI {
 	class GuiObject;
 }
+#if USE_PHYSICS_3D
+namespace IKIGAI::ECS { class Physics3DSystem; }
+namespace IKIGAI::PHYSICS { class PhysicWorld; }
+#endif
+#if USE_PHYSICS_2D
+namespace IKIGAI::ECS {class Physics2DSystem;}
+namespace IKIGAI::PHYSICS2D {class World;}
+#endif
 
 namespace IKIGAI::RENDER {
 	class Camera;
@@ -23,6 +33,14 @@ namespace IKIGAI::RENDER {
 }
 
 namespace IKIGAI::SCENE_SYSTEM {
+    struct PhysicsFactories {
+#if USE_PHYSICS_2D
+        std::function<std::unique_ptr<PHYSICS2D::World>()> physics2d;
+#endif
+#if USE_PHYSICS_3D
+        std::function<std::unique_ptr<PHYSICS::PhysicWorld>()> physics3d;
+#endif
+    };
 	class  Scene: public RESOURCES::Serializable {
 	public:
 		struct Descriptor {
@@ -38,7 +56,8 @@ namespace IKIGAI::SCENE_SYSTEM {
 		};
 		class IdGenerator_: public IdGenerator<ECS::Object> {};
 
-		Scene() = default;
+        explicit Scene(ECS2::World* world = nullptr, PhysicsFactories physics = {});
+        void setPhysicsFactories(PhysicsFactories physics);
 		Scene(const Descriptor& _descriptor);
 		virtual ~Scene();
 
@@ -49,6 +68,20 @@ namespace IKIGAI::SCENE_SYSTEM {
 		void update(std::chrono::duration<double> dt);
 		void fixedUpdate(std::chrono::duration<double> dt);
 		void lateUpdate(std::chrono::duration<double> dt);
+#if USE_PHYSICS_3D
+        PHYSICS::PhysicWorld& physics3d();
+        void stepPhysics3D(std::chrono::duration<double> dt);
+#ifdef USE_EDITOR
+        void drawPhysics3DDebug();
+#endif
+#endif
+#if USE_PHYSICS_2D
+        PHYSICS2D::World& physics2d();
+        void stepPhysics2D(std::chrono::duration<double> dt);
+#ifdef USE_EDITOR
+        void drawPhysics2DDebug();
+#endif
+#endif
 
 		std::shared_ptr<ECS::Object> createObject();
 		std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");
@@ -133,8 +166,36 @@ namespace IKIGAI::SCENE_SYSTEM {
 
 		bool isSceneReady = false;
 		void postLoad();
+        void postLoadObject(ECS::Object& object);
+        ECS2::World& getWorld() const;
+        std::shared_ptr<ECS::Object> createDeferredObject(const ECS::Object::Descriptor& descriptor);
+        void removeLastObject();
+        COROUTINE::CoroutineScope& coroutines();
+        void cancelTasks();
+        std::vector<DOCUMENT::Instance> prefabInstances;
+        std::shared_ptr<void> lifetime = std::make_shared<int>(0);
+        const DOCUMENT::Instance* prefabFor(int objectId) const;
+        bool isPrefabRoot(int objectId) const;
+        nlohmann::json serializeObjects() const;
+        void capturePrefabBaselines();
+        void unpackPrefab(int rootId);
+        std::shared_ptr<ECS::Object> appendDocument(const DOCUMENT::Expanded& document);
+        void destroySubtree(int rootId);
+        void restoreObjectPosition(int rootId, std::size_t objectIndex, int siblingIndex);
 
 	private:
+        PhysicsFactories mPhysicsFactories;
+#if USE_PHYSICS_3D
+        std::unique_ptr<ECS::Physics3DSystem> mPhysics3D;
+#endif
+#if USE_PHYSICS_2D
+        std::unique_ptr<ECS::Physics2DSystem> mPhysics2D;
+#endif
+        struct SpatialIndex;
+        std::unique_ptr<SpatialIndex> mSpatial;
+        SpatialIndex& spatial();
+        ECS2::World* mWorld = nullptr;
+        std::unique_ptr<COROUTINE::CoroutineScope> mCoroutineScope;
 		bool isExecute = false;
 		std::vector<std::shared_ptr<ECS::Object>> objects;
 

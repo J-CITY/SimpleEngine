@@ -1,3 +1,4 @@
+#if USE_LUA
 #pragma once
 
 #include <memory>
@@ -30,3 +31,5 @@ namespace IKIGAI::SCRIPTING {
 		bool checkOk;
 	};
 }
+
+#endif

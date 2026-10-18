@@ -1,3 +1,4 @@
+#if USE_LUA
 #include "scriptInterpreter.h"
 
 #include <string>
@@ -101,3 +102,5 @@ void ScriptInterpreter::refreshAll() {
 bool ScriptInterpreter::isOk() const {
 	return checkOk;
 }
+
+#endif

@@ -1,3 +1,4 @@
+#if USE_LUA
 #include "luaGlobalsBinder.h"
 
 #include <sol/sol.hpp>
@@ -11,6 +12,7 @@
 #include <resourceModule/serviceManager.h>
 
 #include "utilsModule/log/loggerDefine.h"
+#include "windowModule/window/window.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::SCRIPTING;
@@ -204,6 +206,7 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	p_luaState["Inputs"]["GetMouseButtonDown"] = [](EMouseButton p_button) { return IKIGAI::RESOURCES::ServiceManager::Get<InputManager>().isMouseButtonPressed(p_button); };
 	p_luaState["Inputs"]["GetMouseButtonUp"] = [](EMouseButton p_button) { return IKIGAI::RESOURCES::ServiceManager::Get<InputManager>().isMouseButtonReleased(p_button); };
 	
+	p_luaState["Inputs"]["HasFocus"] = []() { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::WINDOW::Window>().hasFocus(); };
 	p_luaState["Inputs"]["GetMousePos"] = []()
 	{
 		auto mousePos = IKIGAI::RESOURCES::ServiceManager::Get<InputManager>().getMousePosition();
@@ -236,3 +239,5 @@ void LuaGlobalsBinder::BindGlobals(sol::state & p_luaState) {
 	//p_luaState["Resources"]["GetTexture"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::TextureLoader>().CreateFromFile(p_resPath); };
 	p_luaState["Resources"]["GetMaterial"] = [](const std::string& p_resPath) { return IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::RESOURCES::MaterialLoader>().Create(p_resPath); };
 }
+
+#endif

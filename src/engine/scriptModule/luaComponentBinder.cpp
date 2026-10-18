@@ -1,3 +1,4 @@
+#if USE_LUA
 #include "luaComponentBinder.h"
 
 #include <sol/sol.hpp>
@@ -146,3 +147,5 @@ void LuaComponentBinder::BindComponent(sol::state & p_luaState)
 		sol::base_classes, sol::bases<LightComponent>()
 		);
 }
+
+#endif
