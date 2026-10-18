@@ -84,9 +84,17 @@ def create_assets_link(build_dir):
         print(f"Warning: Failed to create assets link: {e}")
 
 
-def ensure_environment(platform_arg, skip_setup, render_sdks=None, graphics_backends=(), generator='Visual Studio 17 2022'):
+def ensure_environment(platform_arg, skip_setup, render_sdks=None, graphics_backends=(), generator='Visual Studio 17 2022', use_lua=True, use_ikigai_script=True):
     if skip_setup:
         return
+    scripting_deps = []
+    if use_lua:
+        scripting_deps.extend((('3rd/lua', 'lua.h'), ('3rd/sol', 'include/sol/sol.hpp')))
+    if use_ikigai_script:
+        scripting_deps.append(('3rd/IkigaiScript', 'SimpleScript/Library/ikigaiScript.h'))
+    missing = [path for path, header in scripting_deps if not os.path.isfile(os.path.join(ROOT_DIR, path, header))]
+    if missing:
+        subprocess.run(['git', 'submodule', 'update', '--init', '--recursive', '--', *missing], cwd=ROOT_DIR, check=True)
     if platform_arg == "mac":
         ensure_mac_brew_packages()
     if is_environment_ready(ROOT_DIR, platform_arg):
@@ -95,7 +103,7 @@ def ensure_environment(platform_arg, skip_setup, render_sdks=None, graphics_back
         return
     print("Environment is not ready. Running utils/setup_env.py...")
     setup_environment(platform_arg, render_sdks=render_sdks, graphics_backends=graphics_backends,
-                      generator=generator)
+                      generator=generator, use_lua=use_lua, use_ikigai_script=use_ikigai_script)
 
 
 def format_command(command):
@@ -154,7 +162,9 @@ def resolve_engine_features(platform, use_editor, use_file_watcher):
     return use_editor, use_file_watcher
 
 
-def append_engine_feature_cmake_args(command, use_editor, use_file_watcher):
+def append_engine_feature_cmake_args(command, use_editor, use_file_watcher, use_lua=True, use_ikigai_script=True):
+    command.append('-DUSE_LUA=' + ('ON' if use_lua else 'OFF'))
+    command.append('-DUSE_IKIGAI_SCRIPT=' + ('ON' if use_ikigai_script else 'OFF'))
     command.append('-DUSE_EDITOR=' + ('ON' if use_editor else 'OFF'))
     command.append('-DUSE_FILE_WATCHER=' + ('ON' if use_file_watcher else 'OFF'))
 
@@ -212,6 +222,8 @@ def append_graphics_cmake_args(command, platform, backends):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--use-lua", type=_optional_bool, nargs="?", const=True, default=True)
+    parser.add_argument("--use-ikigai-script", type=_optional_bool, nargs="?", const=True, default=True)
     parser.add_argument(
         '-c', type=str, default="vs22",
         help='Generator: vs22, vs19 (Windows); xcode (macOS, default on mac is Unix Makefiles)',
@@ -300,7 +312,7 @@ def main():
         sdk_generator = 'Visual Studio 16 2019' if args.c == 'vs19' else 'Visual Studio 17 2022'
         if platform_arg == 'quest' and (args.use_editor is False or args.use_file_watcher is not None):
             print('Note: Quest build has no editor or file watcher; --use-editor / --use_file_watcher are ignored.')
-        ensure_environment(platform_arg, args.skip_setup, render_sdks, graphics_backends or (), sdk_generator)
+        ensure_environment(platform_arg, args.skip_setup, render_sdks, graphics_backends or (), sdk_generator, args.use_lua, args.use_ikigai_script)
 
         if platform_arg == 'win':
             build_dir = args.b if args.b else './windows/build'
@@ -320,7 +332,7 @@ def main():
 
             append_graphics_cmake_args(command, platform_arg, graphics_backends)
             command.append(f'-DENGINE_WIN_SUBSYSTEM={args.s}')
-            append_engine_feature_cmake_args(command, use_editor, use_file_watcher)
+            append_engine_feature_cmake_args(command, use_editor, use_file_watcher, args.use_lua, args.use_ikigai_script)
             command.extend(render_sdks.cmake_flags())
             if (render_sdks.fsr_sr or render_sdks.fsr_fg) and 'vulkan' in graphics_backends:
                 from utils.build.fidelityfx_vulkan import runtime_path
@@ -349,7 +361,7 @@ def main():
             if use_xcode:
                 command.extend(['-G', 'Xcode'])
             append_graphics_cmake_args(command, platform_arg, graphics_backends)
-            append_engine_feature_cmake_args(command, use_editor, use_file_watcher)
+            append_engine_feature_cmake_args(command, use_editor, use_file_watcher, args.use_lua, args.use_ikigai_script)
             run_logged(command, check=True)
             create_assets_link(build_dir)
             create_assets_link(output_dir)
@@ -369,7 +381,7 @@ def main():
                 f'-DCMAKE_BUILD_TYPE={build_type}',
             ]
             append_graphics_cmake_args(command, platform_arg, graphics_backends)
-            append_engine_feature_cmake_args(command, use_editor, use_file_watcher)
+            append_engine_feature_cmake_args(command, use_editor, use_file_watcher, args.use_lua, args.use_ikigai_script)
             run_logged(command, check=True)
             create_assets_link(build_dir)
             create_assets_link(output_dir)
@@ -387,7 +399,7 @@ def main():
                 '-DCMAKE_SYSTEM_NAME=iOS',
             ]
             append_graphics_cmake_args(command, platform_arg, graphics_backends)
-            append_engine_feature_cmake_args(command, use_editor, use_file_watcher)
+            append_engine_feature_cmake_args(command, use_editor, use_file_watcher, args.use_lua, args.use_ikigai_script)
             run_logged(command, check=True)
             project = os.path.abspath(os.path.join(build_dir, 'IkigaiEngine.xcodeproj'))
             print(f"Xcode project: {project}")
@@ -406,7 +418,7 @@ def main():
                     f'-DENGINE_RUNTIME_OUTPUT_DIRECTORY={output_dir}',
                     f'-DCMAKE_BUILD_TYPE={build_type}',
                 ]
-                append_engine_feature_cmake_args(command, use_editor, use_file_watcher)
+                append_engine_feature_cmake_args(command, use_editor, use_file_watcher, args.use_lua, args.use_ikigai_script)
                 run_logged(command, env=emsdk_env, check=True, shell=(os.name == 'nt'))
                 create_assets_link(build_dir)
                 create_assets_link(output_dir)
@@ -430,6 +442,8 @@ def main():
                 output_dir,
                 es_ver=args.es_ver,
                 abis=abis,
+                use_lua=args.use_lua,
+                use_ikigai_script=args.use_ikigai_script,
                 use_editor=use_editor,
                 use_file_watcher=use_file_watcher,
             )
@@ -447,7 +461,7 @@ def main():
             default_abi = 'arm64-v8a,armeabi-v7a'
             abi_arg = args.abi if args.abi != default_abi else 'arm64-v8a'
             abis = [part.strip() for part in abi_arg.split(',') if part.strip()]
-            generate_quest(ROOT_DIR, output_dir, abis=abis)
+            generate_quest(ROOT_DIR, output_dir, abis=abis, use_lua=args.use_lua, use_ikigai_script=args.use_ikigai_script)
             if args.build:
                 gradlew_name = 'gradlew.bat' if os.name == 'nt' else 'gradlew'
                 gradlew = os.path.join(output_dir, gradlew_name)
