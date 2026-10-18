@@ -1,13 +1,14 @@
 #include "commandHistory.h"
 #include <iostream>
+#include "sceneModule/sceneManager.h"
 
 namespace IKIGAI::EDITOR {
 
 	void CommandHistory::addCommand(std::unique_ptr<ICommand> cmd) {
+        cmd->execute();
 		if (mCurrentIndex < static_cast<int>(mCommands.size()) - 1) {
 			mCommands.erase(mCommands.begin() + mCurrentIndex + 1, mCommands.end());
 		}
-		cmd->execute();
 		mCommands.push_back(std::move(cmd));
 		mCurrentIndex++;
 	}
@@ -21,13 +22,16 @@ namespace IKIGAI::EDITOR {
 
 	void CommandHistory::redo() {
 		if (mCurrentIndex < static_cast<int>(mCommands.size()) - 1) {
-			mCurrentIndex++;
-			mCommands[mCurrentIndex]->execute();
+            mCommands[mCurrentIndex + 1]->execute();
+            mCurrentIndex++;
 		}
 	}
 
 	ReflectionChangePropertyCommand::ReflectionChangePropertyCommand(std::shared_ptr<ECS::Object> obj, const std::string& compType, const std::string& fieldName, UTILS::Any oldVal, UTILS::Any newVal)
 		: mObject(obj), mComponentTypeName(compType), mFieldName(fieldName), mOldValue(std::move(oldVal)), mNewValue(std::move(newVal)) {
+        auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
+        mSceneLifetime = scene.lifetime;
+        mObjectId = obj->getIDInt();
 	}
 
 	void ReflectionChangePropertyCommand::execute() {
@@ -43,7 +47,10 @@ namespace IKIGAI::EDITOR {
 	}
 
 	void ReflectionChangePropertyCommand::applyValue(const UTILS::Any& val) {
-		if (!mObject) return;
+        if (mSceneLifetime.expired()) return;
+        auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
+        mObject = scene.findObjectByID(ECS2::Entity(ECS2::Entity::ID(mObjectId)));
+        if (!mObject) return;
 		auto components = mObject->getComponents();
 		for (auto& [typeIdx, comp] : components) {
 			if (comp && comp->getTypeidName() == mComponentTypeName) {

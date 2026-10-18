@@ -6,6 +6,9 @@
 #include <nlohmann/json.hpp>
 #include <serdepp/adaptor/nlohmann_json.hpp>
 #include "result.h"
+#include "scriptModule/scriptFeatures.h"
+#include "physics2dModule/features.h"
+#include "physicsModule/features.h"
 #include "resourceModule/serviceManager.h"
 #include "resourceModule/fileSystem/fileSystem.h"
 
@@ -83,6 +86,9 @@ namespace IKIGAI::UTILS {
 	Result<T, JsonError> FromJson(nlohmann::json& data) {
 		try {
 			data = ApplyPatches(data).unwrap();
+            SCRIPTING::ValidateScriptFeatures(data);
+            PHYSICS2D::validateFeatures(data);
+            PHYSICS::validateFeatures(data);
 			auto obj = serde::deserialize<T>(data);
 			return Ok(obj);
 		} catch (std::exception& e) {
@@ -94,6 +100,9 @@ namespace IKIGAI::UTILS {
 	Result<JsonOk, JsonError> FromJson(T& obj, nlohmann::json& data) {
 		try {
 			data = ApplyPatches(data).unwrap();
+            SCRIPTING::ValidateScriptFeatures(data);
+            PHYSICS2D::validateFeatures(data);
+            PHYSICS::validateFeatures(data);
 			obj = serde::deserialize<T>(data);
 			return Ok(JsonOk());
 		} catch (std::exception& e) {

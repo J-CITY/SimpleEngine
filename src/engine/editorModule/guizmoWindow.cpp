@@ -1,4 +1,5 @@
 #include "guizmoWindow.h"
+#include "prefabEditor.h"
 #ifdef USE_EDITOR
 #include "editorRender.h"
 #include "IconsFontAwesome5.h"
@@ -228,7 +229,7 @@ void GuizmoWindow::draw() {
 
 void GuizmoWindow::drawGuizmo(int w, int h) {
 	const auto selectObject = EditorRender::GlobalState.mSelectObject;
-	if (!selectObject) {
+	if (!selectObject || PREFABS::Locked(*selectObject)) {
 		return;
 	}
 

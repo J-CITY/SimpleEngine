@@ -1,4 +1,5 @@
 #include "componentManagerWindow.h"
+#include "prefabEditor.h"
 
 #ifdef USE_EDITOR
 #include <functional>
@@ -382,6 +383,11 @@ void ComponentManagerWindow::draw() {
 		return;
 	}
 
+    if (PREFABS::Member(*selectObject)) {
+        ImGui::TextWrapped("Prefab instance: use Component Inspector V2. Unpack to edit its contents.");
+        ImGui::End();
+        return;
+    }
 	static std::map<std::string, std::string> iconComp = {
 		{"TransformComponent", ICON_FA_GLOBE},
 		{"SpotLight", ICON_FA_LIGHTBULB},
@@ -398,6 +404,7 @@ void ComponentManagerWindow::draw() {
 		{"ModelRenderer", ICON_FA_CUBE},
 		{"PhysicsComponent", ICON_FA_WEIGHT},
 		{"ScriptComponent", ICON_FA_CODE},
+        {"IkigaiScriptComponent", ICON_FA_CODE},
 		{"Skeletal", ICON_FA_SKULL},
 	};
 
@@ -429,7 +436,7 @@ void ComponentManagerWindow::draw() {
 	for (auto& [_, component] : components) {
 		auto title = iconComp[component->getName()] + std::string(" ") + component->getName();
 		bool needDelComponent = true;
-		if (ImGui::CollapsingHeader(title.c_str(), &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
+		if (ImGui::CollapsingHeader(title.c_str(), PREFABS::Member(*selectObject) ? nullptr : &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
 			if (!needDelComponent) {
 				removeComponentFromObject(selectObject, component->getTypeidName());
 				break;
@@ -698,7 +705,7 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 	auto title = iconStr + std::string(" ") + compName;
 
 	bool needDelComponent = true;
-	if (ImGui::CollapsingHeader(title.c_str(), &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
+	if (ImGui::CollapsingHeader(title.c_str(), PREFABS::Member(*selectObject) ? nullptr : &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
 		if (!needDelComponent) {
 			removeComponentFromObject2(selectObject, typeIdName);
 			return;
@@ -890,11 +897,18 @@ void ComponentInspectorWindow::draw() {
 		{"ModelRenderer", ICON_FA_CUBE},
 		{"PhysicsComponent", ICON_FA_WEIGHT},
 		{"ScriptComponent", ICON_FA_CODE},
+        {"IkigaiScriptComponent", ICON_FA_CODE},
 		{"Skeletal", ICON_FA_SKULL},
 	};
 
+    const auto* instance = PREFABS::Manager().getCurrentScene().prefabFor(selectObject->getIDInt());
+    if (instance) ImGui::TextWrapped("Prefab: %s", instance->entry.at("Prefab").get<std::string>().c_str());
+    ImGui::BeginDisabled(PREFABS::Locked(*selectObject));
 	drawObjectInfo(selectObject);
+    ImGui::EndDisabled();
+    ImGui::BeginDisabled(instance != nullptr);
 	drawAddComponent(selectObject);
+    ImGui::EndDisabled();
 
 	auto components = selectObject->getComponents();
 	for (auto& [_, component] : components) {
@@ -903,7 +917,9 @@ void ComponentInspectorWindow::draw() {
 		auto iconIt = iconComp.find(compName);
 		auto iconStr = (iconIt != iconComp.end()) ? iconIt->second : ICON_FA_GLOBE;
 
+        ImGui::BeginDisabled(instance && (PREFABS::Locked(*selectObject) || compName != "TransformComponent"));
 		drawComponent(selectObject, component, compName, typeIdName, iconStr);
+        ImGui::EndDisabled();
 	}
 	ImGui::End();
 }

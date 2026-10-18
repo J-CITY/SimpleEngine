@@ -25,6 +25,7 @@ namespace IKIGAI::EDITOR {
 		void addCommand(std::unique_ptr<ICommand> cmd);
 		void undo();
 		void redo();
+        void clear() { mCommands.clear(); mCurrentIndex = -1; }
 		const std::vector<std::unique_ptr<ICommand>>& getCommands() const { return mCommands; }
 		int getCurrentIndex() const { return mCurrentIndex; }
 	};
@@ -35,6 +36,8 @@ namespace IKIGAI::EDITOR {
 		std::string mFieldName;
 		UTILS::Any mOldValue;
 		UTILS::Any mNewValue;
+        std::weak_ptr<void> mSceneLifetime;
+        int mObjectId = 0;
 
 	public:
 		ReflectionChangePropertyCommand(std::shared_ptr<ECS::Object> obj, const std::string& compType, const std::string& fieldName, UTILS::Any oldVal, UTILS::Any newVal);

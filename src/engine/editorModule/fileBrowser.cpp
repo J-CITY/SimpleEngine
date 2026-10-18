@@ -1,4 +1,5 @@
 #include "fileBrowser.h"
+#include "prefabEditor.h"
 
 #include "editorRender.h"
 
@@ -290,7 +291,11 @@ void FileBrowserWindow::drawFolder(std::string_view path)
 			//if (!(src_flags))
 			//	ImGui::Text("Moving \"%s\"", names[n]);
 			int a = 0;
-			if (extType == File::FileType::IMAGE) {
+			if (entry.path.ends_with(".prefab.json")) {
+                const auto prefabPath = ToVirtualPath(entry.path);
+                ImGui::SetDragDropPayload("DND_PREFAB_PATH", prefabPath.c_str(), prefabPath.size() + 1);
+                ImGui::TextUnformatted(entry.name.c_str());
+            } else if (extType == File::FileType::IMAGE) {
 				ImGui::SetDragDropPayload("DND_IMAGE_DATA", &a, sizeof(int));
 				//TODO: set global state
 				//dndStringPayload = imPath;

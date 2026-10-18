@@ -1,6 +1,7 @@
 #include "physics2dModule/physics2d.h"
 #include "physicsCommon/surface.h"
 #include "physicsModule/physicWorld.h"
+#include <serdepp/adaptor/nlohmann_json.hpp>
 #include <iostream>
 #include <stdexcept>
 using namespace IKIGAI;
@@ -272,7 +273,7 @@ void contracts() {
 int main() {
 	try {
         const MATH::Vector2f original {1.25f,-2.5f};
-        const auto json=serde::serialize<nlohmann::json>(original);
+        auto json=serde::serialize<nlohmann::json>(original);
         const auto restored=serde::deserialize<MATH::Vector2f>(json);
         check(json.contains("X")&&json.contains("Y"),"Vector2 serialization layout changed");
         near(restored.x,original.x,1e-6f,"Vector2 serde X roundtrip");

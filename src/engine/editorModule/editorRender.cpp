@@ -1,4 +1,5 @@
 #include "editorRender.h"
+#include "prefabEditor.h"
 
 #include "resourceEditorWindow.h"
 #include "timelineAnimationWindow.h"
@@ -8,6 +9,7 @@
 #include "cameraControlWindow.h"
 #include "componentManagerWindow.h"
 #include "treeWindow.h"
+#include "profillerWindow.h"
 #include <list>
 #include "fileBrowser.h"
 #include "statWindow.h"
@@ -30,12 +32,14 @@ using namespace IKIGAI::EDITOR;
 
 struct EditorRender::Internal {
 	std::unique_ptr<MenuBar> mMenu;
+	ProfillerWindow mProfiler;
 
 	std::list<std::unique_ptr<EditorWindow>> mWindows;
 	std::list<std::unique_ptr<EditorWindow>> mResWindows;
 
 	Internal() {
 		mMenu = std::make_unique<MenuBar>();
+		mProfiler.setOpen(false);
 
 		mWindows.push_back(std::make_unique<CameraControlWindow>());
 		mWindows.push_back(std::make_unique<ComponentManagerWindow>());
@@ -103,15 +107,33 @@ EditorRender::EditorRender() {
 }
 
 void EditorRender::draw() {
+    static std::weak_ptr<void> historyScene;
+    auto& manager = PREFABS::Manager();
+    if (manager.hasCurrentScene() && historyScene.expired()) {
+        GlobalState.mCommandHistory.clear();
+        GlobalState.mSelectObject.reset();
+        historyScene = manager.getCurrentScene().lifetime;
+    }
+    if (GlobalState.mSelectObject && !GlobalState.mSelectObject->isAlive()) GlobalState.mSelectObject.reset();
+    PREFABS::CompletePending();
 	if (ImGui::IsKeyPressed(ImGuiKey_Z, false) && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift) {
-		GlobalState.mCommandHistory.undo();
+		PREFABS::Try([] { GlobalState.mCommandHistory.undo(); });
 	}
 	if ((ImGui::IsKeyPressed(ImGuiKey_Y, false) && ImGui::GetIO().KeyCtrl) ||
 		(ImGui::IsKeyPressed(ImGuiKey_Z, false) && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift)) {
-		GlobalState.mCommandHistory.redo();
+		PREFABS::Try([] { GlobalState.mCommandHistory.redo(); });
 	}
 
 	mData->mMenu->draw();
+	if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("Window")) {
+			bool profilerOpen = mData->mProfiler.isOpen();
+			if (ImGui::MenuItem("Profiler", nullptr, &profilerOpen)) mData->mProfiler.setOpen(profilerOpen);
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
+	mData->mProfiler.draw();
 	for (auto& win : mData->mWindows) {
 		win->draw();
 	}

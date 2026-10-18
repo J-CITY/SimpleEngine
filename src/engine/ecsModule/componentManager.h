@@ -376,7 +376,9 @@ namespace IKIGAI::ECS2 {
 			ComponentType id = getComponentType<T>();
 			
 			// Check Archetype first
-			const Record& record = mEntityRecords[entity];
+            const auto recordIt = mEntityRecords.find(entity);
+            if (recordIt == mEntityRecords.end()) return nullptr;
+			const Record& record = recordIt->second;
 			const auto& archetype = record.archetype;
 
 			auto it = archetype->mComponentArrays.find(id);
@@ -444,7 +446,9 @@ namespace IKIGAI::ECS2 {
 			ComponentType id = getComponentType<T>();
 
 			// Archetype check
-			const Record& record = mEntityRecords[entity];
+            const auto recordIt = mEntityRecords.find(entity);
+            if (recordIt == mEntityRecords.end()) return false;
+			const Record& record = recordIt->second;
 			const auto& archetype = record.archetype;
 			if (archetype->mComponentArrays.contains(id)) return true;
 
@@ -479,6 +483,12 @@ namespace IKIGAI::ECS2 {
 		}
 
 		void destroyEntity(Entity entity) {
+            const auto it = mEntityRecords.find(entity);
+            if (it == mEntityRecords.end()) return;
+            auto archetype = it->second.archetype;
+            for (auto& [type, array] : mSparseArrays) array->entityDestroyed(entity);
+            if (archetype) for (auto& [type, array] : archetype->mComponentArrays) array->entityDestroyed(entity);
+            mRelationManager.onEntityDestroyed(entity);
 			mEntityRecords.erase(entity);
 		}
 

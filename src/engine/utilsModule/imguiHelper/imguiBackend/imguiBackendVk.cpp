@@ -16,6 +16,8 @@ namespace IKIGAI::IMGUI {
 
 namespace {
 	class ImGuiBackendVulkan final : public IKIGAI::IMGUI::IImGuiBackend {
+        ImGui_ImplVulkan_PipelineInfo mPipelineInfo{};
+        VkFormat mColorFormat=VK_FORMAT_B8G8R8A8_UNORM,mDepthFormat=VK_FORMAT_D32_SFLOAT_S8_UINT;
 	public:
 		bool init(IKIGAI::WINDOW::Window& window, IKIGAI::RENDER::DriverInterface& driver) override {
 			IKIGAI::IMGUI::ConfigureImGuiContext();
@@ -77,6 +79,8 @@ namespace {
 				return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance*>(vulkanInstance)), functionName);
 			}, &initInfo.Instance);
 
+            mPipelineInfo=initInfo.PipelineInfoMain;
+            mPipelineInfo.PipelineRenderingCreateInfo.pColorAttachmentFormats=&mColorFormat;
 			return ImGui_ImplVulkan_Init(&initInfo);
 		}
 
@@ -101,12 +105,22 @@ namespace {
 			ImGui::Render();
 		}
 
-		void renderDrawData() override {
+        void renderDrawData() override {renderDrawDataTo({});}
+		void renderDrawDataTo(std::shared_ptr<IKIGAI::RENDER::FrameBufferInterface> target) override {
 			auto* driverVk = IKIGAI::RENDER::UtilityVk::GetDriver();
 			if (!driverVk || !ImGui::GetDrawData()) {
 				return;
 			}
-			driverVk->resetFrameBuffer();
+            const auto format=target?VK_FORMAT_R8G8B8A8_UNORM:static_cast<VkFormat>(driverVk->mSurfaceFormat.format);
+            const auto depth=target&&!target->getDepth()?VK_FORMAT_UNDEFINED:VK_FORMAT_D32_SFLOAT_S8_UINT;
+            if(format!=mColorFormat||depth!=mDepthFormat){
+                driverVk->deactivateRenderPass();
+                mColorFormat=format;mDepthFormat=depth;
+                mPipelineInfo.PipelineRenderingCreateInfo.depthAttachmentFormat=depth;
+                mPipelineInfo.PipelineRenderingCreateInfo.stencilAttachmentFormat=depth;
+                ImGui_ImplVulkan_CreateMainPipeline(&mPipelineInfo);
+            }
+            if(target)driverVk->setFrameBuffer(target);else driverVk->resetFrameBuffer();
 			driverVk->activateRenderPass();
 			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *driverVk->getCurrentFrame().mCommandBuffer);
 			ImGuiIO& io = ImGui::GetIO();

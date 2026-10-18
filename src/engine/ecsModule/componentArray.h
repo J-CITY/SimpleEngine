@@ -37,16 +37,14 @@ namespace IKIGAI::ECS2 {
 			const size_t indexOfRemovedEntity = entityToIndexInArray[entity];
 			const size_t indexOfLastElement = size - 1;
 			auto component = std::move(componentArray[indexOfRemovedEntity]);
-			auto moveElem = std::move(componentArray[indexOfLastElement]);
-			componentArray[indexOfRemovedEntity] = std::move(moveElem);
-			// Update cb ptr
-			componentArray[indexOfRemovedEntity].getControlBlock()->mPtr = &componentArray[indexOfRemovedEntity];
-
-			// Update map to point to moved spot
-			// Update map to point to moved spot
-			const Entity entityOfLastElement = indexToEntity.back();
-			entityToIndexInArray[entityOfLastElement] = indexOfRemovedEntity;
-			indexToEntity[indexOfRemovedEntity] = entityOfLastElement;
+            component.getControlBlock()->mPtr = nullptr;
+            if (indexOfRemovedEntity != indexOfLastElement) {
+                componentArray[indexOfRemovedEntity] = std::move(componentArray[indexOfLastElement]);
+                componentArray[indexOfRemovedEntity].getControlBlock()->mPtr = &componentArray[indexOfRemovedEntity];
+                const Entity entityOfLastElement = indexToEntity.back();
+                entityToIndexInArray[entityOfLastElement] = indexOfRemovedEntity;
+                indexToEntity[indexOfRemovedEntity] = entityOfLastElement;
+            }
 			entityToIndexInArray.erase(entity);
 			indexToEntity.pop_back();
 			size--;

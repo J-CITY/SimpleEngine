@@ -47,7 +47,7 @@
 //#include "utilsModule/imguiWidgets/ImGuiFileBrowser.h"
 //#include "utilsModule/imguiWidgets/imgui_widget_flamegraph.h"
 //#include "utilsModule/imguiWidgets/TextEditor.h"
-#include "utilsModule/profiler/profiler.h"
+#include "profilerModule/profiler.h"
 using namespace IKIGAI;
 using namespace IKIGAI::DEBUG;
 
@@ -2543,6 +2543,7 @@ void DebugRender::drawComponentInspector() {
 		{ "ModelRenderer", ICON_FA_CUBE },
 		{ "PhysicsComponent", ICON_FA_WEIGHT },
 		{ "ScriptComponent", ICON_FA_CODE },
+        { "IkigaiScriptComponent", ICON_FA_CODE },
 		{ "Skeletal", ICON_FA_SKULL },
 	};
 

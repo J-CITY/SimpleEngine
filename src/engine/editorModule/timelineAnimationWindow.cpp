@@ -988,7 +988,7 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id& id, IK
 				switch (wType) {
 				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
 					if constexpr (std::is_same_v<decltype(prop.getPropType()), IKIGAI::MATH::Vector4f>) {
-						ObjProps[lineName, cm] = Prop{
+						ObjProps[lineName] = Prop{
 							name, id, comp->getName(), propName,
 							IKIGAI::ANIMATION::AnimationProperty(lineName,
 							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {

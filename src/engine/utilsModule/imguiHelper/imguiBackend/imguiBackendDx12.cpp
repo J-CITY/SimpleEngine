@@ -59,7 +59,8 @@ namespace {
 			ImGui::Render();
 		}
 
-		void renderDrawData() override {
+        void renderDrawData() override {renderDrawDataTo({});}
+		void renderDrawDataTo(std::shared_ptr<IKIGAI::RENDER::FrameBufferInterface> target) override {
 			auto* driverDx12 = IKIGAI::RENDER::d3dUtil::GetDriver();
 			if (!driverDx12 || !ImGui::GetDrawData()) {
 				return;
@@ -67,15 +68,16 @@ namespace {
 			ImGuiIO& io = ImGui::GetIO();
 			// The last graph pass may target a float texture. Engine framebuffer
 			// state is lazy, while ImGui records commands directly into this list.
-			auto frame = driverDx12->getDefaultFrameBuffer();
+            auto frame=target?std::static_pointer_cast<IKIGAI::RENDER::FrameBufferDx12>(target):driverDx12->getDefaultFrameBuffer();
 			auto command = driverDx12->getCommandList().Get();
 			for (const auto& texture : frame->getTextures()) {
 				std::static_pointer_cast<IKIGAI::RENDER::TextureDx12>(texture)->setState(command, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			}
-			std::static_pointer_cast<IKIGAI::RENDER::TextureDx12>(frame->getDepth())->setState(command, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+            if(frame->getDepth())std::static_pointer_cast<IKIGAI::RENDER::TextureDx12>(frame->getDepth())->setState(command, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 			const auto color = frame->getTexHeap()->GetCPUDescriptorHandleForHeapStart();
-			const auto depth = frame->getDepthHeap()->GetCPUDescriptorHandleForHeapStart();
-			command->OMSetRenderTargets(1, &color, FALSE, &depth);
+            D3D12_CPU_DESCRIPTOR_HANDLE depth{};
+            if(frame->getDepth())depth=frame->getDepthHeap()->GetCPUDescriptorHandleForHeapStart();
+			command->OMSetRenderTargets(1, &color, FALSE, frame->getDepth()?&depth:nullptr);
             auto* drawData=ImGui::GetDrawData();
             // Node editor draw commands may have an unbounded clip rect. Clamp
             // before the DX12 backend converts floats to signed LONG scissors.
