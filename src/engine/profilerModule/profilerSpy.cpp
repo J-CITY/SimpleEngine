@@ -5,10 +5,10 @@
 using namespace IKIGAI;
 using namespace IKIGAI::PROFILER;
 
-ProfilerSpy::ProfilerSpy(const std::string & p_name) :
-	mName(p_name),
-	mStart(std::chrono::steady_clock::now()),
-	mThreadId(std::hash<std::thread::id>{}(std::this_thread::get_id())) {
+ProfilerSpy::ProfilerSpy(const std::string& p_name)
+	: mName(p_name)
+	, mStart(std::chrono::steady_clock::now())
+	, mThreadId(std::hash<std::thread::id> { }(std::this_thread::get_id())) {
 	Profiler::IncreaseLevel();
 }
 

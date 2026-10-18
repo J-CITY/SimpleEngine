@@ -1,8 +1,8 @@
 #include "profiler.h"
+#include "profilerReport.h"
+#include "profilerSpy.h"
 #include <map>
 #include <string>
-#include "profilerSpy.h"
-#include "profilerReport.h"
 
 using namespace IKIGAI;
 using namespace IKIGAI::PROFILER;
@@ -32,7 +32,7 @@ ProfilerReport Profiler::GenerateReport() {
 	report.mTime = elapsed.count();
 
 	std::multimap<double, std::string, std::greater<double>> sortedHistory;
-	
+
 	for (auto& data : __ELPASED_HISTORY) {
 		sortedHistory.insert(std::pair<double, std::string>(data.second, data.first));
 	}
@@ -88,7 +88,8 @@ void Profiler::Save(ProfilerSpy& p_spy) {
 		__CALLS_COUNTER[p_spy.mName] = 1;
 	}
 	std::chrono::duration<double> start = mFrameStart - p_spy.mStart;
-	__WORKING_THREADS_CALLS[std::this_thread::get_id()].push_back({ p_spy.mName , start.count(), delta,  __WORKING_THREADS_LEVEL[std::this_thread::get_id()]});
+	__WORKING_THREADS_CALLS[std::this_thread::get_id()].push_back(
+		{ p_spy.mName, start.count(), delta, __WORKING_THREADS_LEVEL[std::this_thread::get_id()] });
 
 	__SAVE_MUTEX.unlock();
 }
@@ -113,7 +114,7 @@ void Profiler::IncreaseLevel() {
 	__SAVE_MUTEX.lock();
 	if (__WORKING_THREADS_LEVEL.count(std::this_thread::get_id()) == 0) {
 		__WORKING_THREADS_LEVEL[std::this_thread::get_id()] = 0;
-		__WORKING_THREADS_CALLS[std::this_thread::get_id()] = {};
+		__WORKING_THREADS_CALLS[std::this_thread::get_id()] = { };
 	}
 	else {
 		__WORKING_THREADS_LEVEL[std::this_thread::get_id()]++;
