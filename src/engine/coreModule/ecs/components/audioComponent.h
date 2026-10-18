@@ -22,6 +22,8 @@ namespace IKIGAI::ECS {
 			std::string AudioPath;
 		};
 		AudioComponent(UTILS::Ref<ECS::Object> _obj);
+        void onStart() override;
+        void onDestroy() override;
 
 		AudioComponent(UTILS::Ref<ECS::Object> _obj, std::string& path);
 		AudioComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor);

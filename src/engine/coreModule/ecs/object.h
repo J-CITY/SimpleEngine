@@ -49,9 +49,14 @@ namespace IKIGAI::ECS {
 		using Id = ECS2::Entity;
 		using ObjPtr = std::shared_ptr<Object>;
 
-		Object(ECS2::Entity actorID, const std::string& name, const std::string& tag);
-		explicit Object(const Descriptor& actorID);
+        Object(ECS2::Entity actorID, const std::string& name, const std::string& tag, ECS2::World* world = nullptr);
+        explicit Object(const Descriptor& actorID, ECS2::World* world = nullptr, bool deferred = false);
+        ECS2::World& getWorld() const { return *mWorld; }
+        void addSerializedComponent(const ComponentsDescriptorType& descriptor);
+        void setPendingActive(bool active) { mIsActive = active; }
+        void activateLoaded();
 		~Object();
+        void dispose();
 
 		[[nodiscard]] const std::string& getName() const;
 		[[nodiscard]] const std::string& getTag() const;
@@ -95,25 +100,29 @@ namespace IKIGAI::ECS {
 
 		template<typename T, typename ...Args>
 		inline UTILS::WeakPtr<T> addComponent(Args&& ...args) {
+            if (mDisposed || mDisposing) throw std::logic_error("Cannot add a component to a disposed object");
 			static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 			
 			if (auto found = getComponent<T>(); !found) {
 				auto instance = T(*this, args...);
-				if (getIsActive()) {
+				if (!mDeferred && getIsActive()) {
 					//TODO: call systems methods
 					instance.onAwake();
 					instance.onEnable();
 					instance.onStart();
 				}
 				//ComponentManager::GetInstance().addComponent<T>(getID(), instance);
-				RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->addComponent<T>(getID(), std::move(instance));
+				getWorld().getComponentManager()->addComponent<T>(getID(), std::move(instance));
 
 				auto component = getComponent<T>();
 				componentAddedEvent.run(component);
 				//TODO: move it to ScriptComponent::onStart()
+#if USE_LUA
+
 				if constexpr (std::is_same_v<T, ScriptComponent>) {
-					ScriptComponentEvents::createdEvent.run(component);
+					if (!mDeferred) ScriptComponentEvents::createdEvent.run(component);
 				}
+#endif
 				mComponents[std::type_index(typeid(T))] = component;
 				return component;
 			}
@@ -136,38 +145,46 @@ namespace IKIGAI::ECS {
 				return false;
 			}
 			//TODO: move it to ScriptComponent::onStart()
+#if USE_LUA
+
 			if constexpr (std::is_same<T, ScriptComponent>::value) {
 				ScriptComponentEvents::destroyedEvent.run(result);
 			}
+#endif
+#if USE_IKIGAI_SCRIPT
+            if constexpr (std::is_same_v<T, IkigaiScriptComponent>) result->onDestroy();
+#endif
 			componentRemovedEvent.run(result);
 			//ComponentManager::GetInstance().removeComponent<T>(getID());
-			RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->removeComponents<T>(getID());
+			getWorld().getComponentManager()->removeComponents<T>(getID());
 			mComponents.erase(std::type_index(typeid(T)));
 			return true;
 		}
 		
 		template<typename T>
 		inline UTILS::WeakPtr<T> getComponent() const {
+            if (mDisposed) return nullptr;
 			static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 
 			//if (ComponentManager::GetInstance().checkComponent<T>(getID())) {
 			//	return ComponentManager::GetInstance().getComponent<T>(getID());
 			//}
-			if (RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->checkComponent<T>(getID())) {
-				return RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->getComponent<T>(getID());
+			if (getWorld().getComponentManager()->checkComponent<T>(getID())) {
+				return getWorld().getComponentManager()->getComponent<T>(getID());
 			}
 			return nullptr;
 		}
 
 		template<typename T>
 		inline UTILS::WeakPtr<ComponentBase> getComponentBase() const {
+            if (mDisposed) return nullptr;
 			static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 
 			//if (ComponentManager::GetInstance().checkComponent<T>(getID())) {
 			//	return ComponentManager::GetInstance().getComponentBase<T>(getID());
 			//}
-			if (RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->checkComponent<T>(getID())) {
-				return RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->getComponentBase<T>(getID());
+			if (getWorld().getComponentManager()->checkComponent<T>(getID())) {
+				return getWorld().getComponentManager()->getComponentBase<T>(getID());
 			}
 
 			return nullptr;
@@ -175,7 +192,7 @@ namespace IKIGAI::ECS {
 
 		auto getComponents() const {
 			//return ComponentManager::GetInstance().getComponents(getID());
-			//return RESOURCES::ServiceManager::Get<ECS2::World>().getComponentManager()->getComponents(getID());
+			//return getWorld().getComponentManager()->getComponents(getID());
 			return mComponents;
 		}
 
@@ -206,6 +223,10 @@ namespace IKIGAI::ECS {
 		void setParentId(int _id);
 
 	protected:
+        ECS2::World* mWorld = nullptr;
+        bool mDeferred = false;
+        bool mDisposed = false;
+        bool mDisposing = false;
 		//Id_ id;
 		ECS2::Entity mEntity;
 		std::string mName;

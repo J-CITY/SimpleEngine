@@ -4,41 +4,58 @@
 
 #include "resourceModule/audioSourceManager.h"
 
-
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, std::string& path): ComponentBase(_obj) {
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, std::string& path)
+	: ComponentBase(_obj) {
 	__NAME__ = "AudioComponent";
 	res = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().CreateFromFile(path);
 }
 
-AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor) : ComponentBase(_obj)
-{
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor)
+	: ComponentBase(_obj) {
 	__NAME__ = "AudioComponent";
-	res = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().CreateFromFile(descriptor.AudioPath);
+	if (!descriptor.AudioPath.empty()) {
+		const auto prepared = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().loadResource(
+			descriptor.AudioPath, descriptor.AudioPath.ends_with(".sound") ? RESOURCES::ELoadingType::RESOURCE : RESOURCES::ELoadingType::FILE);
+		// Decode/cache the sample once; every component keeps its own voice.
+		if (prepared)
+			res = std::make_shared<AUDIO::SoundResource>(prepared->path, prepared->data);
+	}
 }
 
-AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj) : ComponentBase(_obj) {
+AudioComponent::AudioComponent(UTILS::Ref<ECS::Object> _obj)
+	: ComponentBase(_obj) {
 	__NAME__ = "AudioComponent";
 }
 
 std::string AudioComponent::getSourcePath() const {
+	if (!res)
+		return { };
 	return res->path;
 }
 void AudioComponent::setSourcePath(std::string val) {
 	res = RESOURCES::ServiceManager::Get<RESOURCES::AudioSourceLoader>().CreateFromFile(val);
 }
 
-std::string AudioComponent::getSoundPath()  const {
-	return res->data.pathSoundSource;
+void AudioComponent::onStart() {
+	if (res && !res->id)
+		AUDIO::AudioManagerAL::GetInstance().addSource(*res);
 }
-void AudioComponent::setSoundPath(std::string)
-{
-	//TODO
+void AudioComponent::onDestroy() {
+	if (res && res->id)
+		AUDIO::AudioManagerAL::GetInstance().stop(*res);
 }
 
-bool AudioComponent::getIs3D()  const {
+std::string AudioComponent::getSoundPath() const {
+	return res->data.pathSoundSource;
+}
+void AudioComponent::setSoundPath(std::string) {
+	// TODO
+}
+
+bool AudioComponent::getIs3D() const {
 	return res->data.is3D;
 }
 void AudioComponent::setIs3D(bool val) {
@@ -47,7 +64,7 @@ void AudioComponent::setIs3D(bool val) {
 	AUDIO::AudioManagerAL::GetInstance().play(*res);
 }
 
-bool AudioComponent::getIsLooped()  const {
+bool AudioComponent::getIsLooped() const {
 	return res->data.isLooped;
 }
 void AudioComponent::setIsLooped(bool val) {
@@ -55,7 +72,7 @@ void AudioComponent::setIsLooped(bool val) {
 	AUDIO::AudioManagerAL::GetInstance().setLoop(*res, val);
 }
 
-float AudioComponent::getVolume()  const {
+float AudioComponent::getVolume() const {
 	return res->data.volume;
 }
 void AudioComponent::setVolume(float val) {
@@ -77,21 +94,23 @@ AUDIO::SoundStatus AudioComponent::getState() const {
 void AudioComponent::setState(AUDIO::SoundStatus val) {
 	auto prev = res->data.state;
 	res->data.state = val;
-	switch (res->data.state)
-	{
-	case AUDIO::SoundStatus::PLAY:
-		{
-			if (prev == AUDIO::SoundStatus::PAUSE) {
-				AUDIO::AudioManagerAL::GetInstance().unpause(*res);
-			}
-			else {
-				AUDIO::AudioManagerAL::GetInstance().play(*res);
-			}
-			break;
+	switch (res->data.state) {
+	case AUDIO::SoundStatus::PLAY: {
+		if (prev == AUDIO::SoundStatus::PAUSE) {
+			AUDIO::AudioManagerAL::GetInstance().unpause(*res);
 		}
-	case AUDIO::SoundStatus::PAUSE: AUDIO::AudioManagerAL::GetInstance().pause(*res); break;
-	case AUDIO::SoundStatus::STOP: AUDIO::AudioManagerAL::GetInstance().stop(*res); break;
-	default: ;
+		else {
+			AUDIO::AudioManagerAL::GetInstance().play(*res);
+		}
+		break;
+	}
+	case AUDIO::SoundStatus::PAUSE:
+		AUDIO::AudioManagerAL::GetInstance().pause(*res);
+		break;
+	case AUDIO::SoundStatus::STOP:
+		AUDIO::AudioManagerAL::GetInstance().stop(*res);
+		break;
+	default:;
 	}
 }
 
@@ -102,7 +121,8 @@ AudioComponent::Descriptor AudioComponent::getDescriptor() const {
 	return descriptor;
 }
 
-AudioListenerComponent::AudioListenerComponent(UTILS::Ref<ECS::Object> obj): ComponentBase(obj) {
+AudioListenerComponent::AudioListenerComponent(UTILS::Ref<ECS::Object> obj)
+	: ComponentBase(obj) {
 	__NAME__ = "AudioListenerComponent";
 }
 
@@ -111,57 +131,3 @@ AudioListenerComponent::Descriptor AudioListenerComponent::getDescriptor() const
 	descriptor.Type = GetType<AudioListenerComponent>();
 	return descriptor;
 }
-//#include <rttr/registration>
-//
-//RTTR_REGISTRATION
-//{
-//	rttr::registration::class_<IKIGAI::ECS::AudioListenerComponent>("AudioListenerComponent")
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-//	);
-//
-//rttr::registration::class_<IKIGAI::ECS::AudioComponent>("AudioComponent")
-//(
-//	rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
-//	)
-//	.property("Source", &IKIGAI::ECS::AudioComponent::getSourcePath, &IKIGAI::ECS::AudioComponent::setSourcePath)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-//	)
-//	.property("Sound", &IKIGAI::ECS::AudioComponent::getSoundPath, &IKIGAI::ECS::AudioComponent::setSoundPath)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS,MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
-//	)
-//	.property("3D", &IKIGAI::ECS::AudioComponent::getIs3D, &IKIGAI::ECS::AudioComponent::setIs3D)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
-//	)
-//	.property("Loop", &IKIGAI::ECS::AudioComponent::getIsLooped, &IKIGAI::ECS::AudioComponent::setIsLooped)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
-//	)
-//	.property("Volume", &IKIGAI::ECS::AudioComponent::getVolume, &IKIGAI::ECS::AudioComponent::setVolume)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT),
-//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 100.0f }),
-//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 1.0f)
-//	)
-//	.property("Pan", &IKIGAI::ECS::AudioComponent::getPan, &IKIGAI::ECS::AudioComponent::setPan)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT),
-//		rttr::metadata(EditorMetaInfo::EDIT_RANGE, Pair { 0.0f, 100.0f }),
-//		rttr::metadata(EditorMetaInfo::EDIT_STEP, 1.0f)
-//	)
-//	.property("State", &IKIGAI::ECS::AudioComponent::getState, &IKIGAI::ECS::AudioComponent::setState)
-//	(
-//		rttr::metadata(MetaInfo::FLAGS, MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
-//		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::COMBO)
-//	);
-//}
-

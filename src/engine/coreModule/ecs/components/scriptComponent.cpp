@@ -1,3 +1,4 @@
+#if USE_LUA
 
 #include "../object.h"
 #include "scriptComponent.h"
@@ -57,3 +58,5 @@ ScriptComponent::Descriptor ScriptComponent::getDescriptor() const {
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
 //	);
 //}
+
+#endif

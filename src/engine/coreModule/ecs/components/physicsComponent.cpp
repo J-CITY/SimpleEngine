@@ -1,4 +1,5 @@
 #include "physicsComponent.h"
+#if USE_PHYSICS_3D
 
 #include "transform.h"
 
@@ -33,3 +34,5 @@ PhysicsComponent::Descriptor PhysicsComponent::getDescriptor() const {
 //		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 //	);
 //}
+
+#endif // USE_PHYSICS_3D

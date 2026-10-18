@@ -22,6 +22,8 @@ namespace IKIGAI::ECS {
 		IKI_CLASS(Name= RenderTargetComponent::Descriptor)
 		struct Descriptor : public ComponentBase::Descriptor {
 			IKI_GENERATED_BODY(RenderTargetComponent::Descriptor)
+            IKI_PROPERTY(SEREALIZE(name="RenderTargetComponentType"))
+            std::string Type = "class IKIGAI::ECS::RenderTargetComponent";
 			IKI_PROPERTY(SEREALIZE(name="FlowType"))
 			IKIGAI::ECS::RenderFlowType flowType = IKIGAI::ECS::RenderFlowType::NODE;
 			IKI_PROPERTY(SEREALIZE(name = "FrameBuffer"))

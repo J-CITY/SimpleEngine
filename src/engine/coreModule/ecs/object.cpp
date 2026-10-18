@@ -59,7 +59,8 @@ Object::Descriptor Object::getDescriptor() const {
 	return d;
 }
 
-Object::Object(ECS2::Entity actorID, const std::string& name, const std::string& tag) :
+Object::Object(ECS2::Entity actorID, const std::string& name, const std::string& tag, ECS2::World* world) :
+    mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>()),
 	mEntity(actorID),
 	mName(name),
 	mTag(tag) {
@@ -85,10 +86,12 @@ void AddComponent(const Desc& data, ECS::Object* obj) {
 }
 
 //TODO: set mParent? when call this
-Object::Object(const Descriptor& _descriptor): mEntity(ECS2::Entity::ID(_descriptor.Id)), mName(_descriptor.Name), mTag(_descriptor.Tag) {
+Object::Object(const Descriptor& _descriptor, ECS2::World* world, bool deferred):
+    mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>()), mDeferred(deferred),
+    mEntity(ECS2::Entity::ID(_descriptor.Id)), mName(_descriptor.Name), mTag(_descriptor.Tag) {
 	setActive(_descriptor.IsActive);
 	setVisible(_descriptor.IsVisible);
-	RESOURCES::ServiceManager::Get<ECS2::World>().registerEntity(mEntity);
+    getWorld().registerEntity(mEntity);
 	for (auto& component : _descriptor.Components) {
 		std::visit(overloaded{[this](auto& arg) {AddComponent(arg, this);}}, component);
 		mTransform = getComponent<TransformComponent>();
@@ -96,12 +99,25 @@ Object::Object(const Descriptor& _descriptor): mEntity(ECS2::Entity::ID(_descrip
 }
 
 Object::~Object() {
+    dispose();
+}
+
+void Object::dispose() {
+    if (mDisposed || mDisposing) return;
+    mDisposing = true;
+    // Callbacks still need to read this object's components during disposal.
 	if (mIsActive) {
 		onDisable();
 	}
 	if (mIsReady) {
 		onDestroy();
 	}
+#if USE_IKIGAI_SCRIPT
+    else if (auto script = getComponent<IkigaiScriptComponent>()) {
+        // An inactive loaded object can be awake without ever reaching OnStart.
+        script->onDestroy();
+    }
+#endif
 
 	destroyedEvent.run(*this);
 
@@ -117,7 +133,13 @@ Object::~Object() {
 			componentRemovedEvent.run(val.get());
 		}
 	}
-	RESOURCES::ServiceManager::Get<ECS2::World>().destroyEntity(mEntity);
+    getWorld().destroyEntity(mEntity);
+    mComponents.clear();
+    mTransform = nullptr;
+    mDisposed = true;
+    mIsDestroyed = true;
+    mIsActive = false;
+    mDisposing = false;
 	//ComponentManager::GetInstance().entityDestroyed(getID());
 }
 
@@ -135,6 +157,20 @@ void Object::setName(const std::string& val) {
 
 void Object::setTag(const std::string& val) {
 	mTag = val;
+}
+
+void Object::addSerializedComponent(const ComponentsDescriptorType& descriptor) {
+    std::visit([this](const auto& data) { AddComponent(data, this); }, descriptor);
+    mTransform = getComponent<TransformComponent>();
+}
+
+void Object::activateLoaded() {
+    mDeferred = false;
+#if USE_LUA
+    if (auto script = getComponent<ScriptComponent>()) ScriptComponentEvents::createdEvent.run(script);
+#endif
+    for (auto& [key, component] : mComponents) if (component) component->onAwake();
+    if (getIsActive()) { onEnable(); onStart(); }
 }
 
 void Object::setActive(bool val) {
@@ -206,6 +242,8 @@ void Object::detachFromParent() {
 			return e.get() == this;
 		}));
 	}
+    mParent.reset();
+    if (auto transform = getComponent<TransformComponent>()) transform->removeParent();
 }
 
 bool Object::hasParent() const {
@@ -318,6 +356,7 @@ void Object::onLateUpdate(std::chrono::duration<double> dt) {
 }
 
 void Object::recursiveActiveUpdate() {
+    if (mDeferred) return;
 	bool mIsActive = getIsActive();
 
 	if (mIsActive) {

@@ -1,3 +1,4 @@
+#if USE_LUA
 #pragma once
 
 #include <sol/sol.hpp>
@@ -68,3 +69,5 @@ namespace IKIGAI::ECS {
 }
 
 #include "generated/scriptComponent.generated.h"
+
+#endif

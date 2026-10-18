@@ -1,10 +1,12 @@
 #pragma once
+#if USE_PHYSICS_3D
 
 #include "component.h"
 #include <functional>
 #include <renderModule/objects/boundingSphere.h>
 #include <physicsModule/body.h>
 #include "physicsModule/narrowPhase.h"
+#include "physics3dLease.h"
 #include "utilsModule/reflection/reflection_macros.h"
 
 namespace IKIGAI
@@ -51,6 +53,9 @@ namespace IKIGAI::ECS {
 		//std::unique_ptr<PHYSICS::CollisionPrimitive> collider;
 
 		CollisionType collisionType = CollisionType::NONE;
+        std::shared_ptr<Physics3DLease> runtime;
+        void onDisable() override { runtime.reset(); }
+        void onDestroy() override { runtime.reset(); }
 
 		[[nodiscard]] Descriptor getDescriptor() const;
 	private:
@@ -75,3 +80,5 @@ namespace IKIGAI::ECS {
 }
 
 #include "generated/physicsComponent.generated.h"
+
+#endif // USE_PHYSICS_3D
