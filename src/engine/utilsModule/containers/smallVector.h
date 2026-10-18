@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <iterator>
 #include <limits>
@@ -90,7 +91,11 @@ public:
         }
         return *this;
     }
-    SmallVector& operator=(SmallVector&& other) {
+    SmallVector& operator=(SmallVector&& other) noexcept(
+        (Traits::propagate_on_container_move_assignment::value || Traits::is_always_equal::value) &&
+        (!Traits::propagate_on_container_move_assignment::value || std::is_nothrow_copy_assignable_v<Allocator>) &&
+        noexcept(std::declval<const Allocator&>() == std::declval<const Allocator&>()) &&
+        (N == 0 || NothrowRelocation)) {
         if (this == &other) return *this;
         resetStorage();
         if constexpr (Traits::propagate_on_container_move_assignment::value) mAllocator = other.mAllocator;
@@ -333,8 +338,13 @@ private:
             other.clear();
         }
     }
-    [[no_unique_address]] Allocator mAllocator;
-    alignas(T) std::byte mInline[sizeof(T) * (N ? N : 1)];
+#if __has_cpp_attribute(msvc::no_unique_address)
+    [[msvc::no_unique_address]]
+#elif __has_cpp_attribute(no_unique_address)
+    [[no_unique_address]]
+#endif
+    Allocator mAllocator;
+    alignas(T) std::byte mInline[N ? sizeof(T) * N : 1];
     T* mData = inlineData();
     size_type mSize = 0;
     size_type mCapacity = N;

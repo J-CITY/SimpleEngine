@@ -3,8 +3,17 @@
 #include <SDL3/SDL.h>
 #endif
 #include <memory>
-namespace IKIGAI::ECS2
-{
+
+namespace IKIGAI::UI { 
+	class ViewHost;
+}
+namespace IKIGAI::NETWORK { 
+	class NetworkRuntime; 
+}
+namespace IKIGAI::COROUTINE {
+	class Scheduler;
+}
+namespace IKIGAI::ECS2 {
 	class World;
 }
 
@@ -17,11 +26,13 @@ namespace IKIGAI
 	}
 }
 #endif
+
 namespace IKIGAI {
 	namespace EVENT {
 		class EventBroadcaster;
 	}
 }
+
 namespace IKIGAI
 {
 	namespace TASK
@@ -48,10 +59,14 @@ namespace IKIGAI
 		class SkeletonLoader;
 		class ModelLoader;
 		class TextureLoader;
+        class ParticleLoader;
 		class MaterialLoader;
 		class ShaderLoader;
 		class AudioSourceLoader;
+		class FontLoader;
 		class FileSystem;
+        class PlayerProfileService;
+        class ContentService;
 	}
 }
 
@@ -151,25 +166,35 @@ namespace IKIGAI {
 			std::unique_ptr<INPUT_SYSTEM::InputManager>   inputManager;
 			std::unique_ptr<INPUT_SYSTEM::InputActions>   inputActions;
 			std::unique_ptr<RENDER::DriverInterface>         driver;
+#if USE_LUA
 			std::unique_ptr<SCRIPTING::ScriptInterpreter> scriptInterpreter;
+#endif
 			std::unique_ptr<RENDER::Renderer> render;
 			std::unique_ptr<RENDER::GameRendererInterface> renderer;
 			std::unique_ptr<SCENE_SYSTEM::SceneManager>   sceneManager;
 			std::unique_ptr<AUDIO::AudioManager>          audioManager;
 			std::unique_ptr<RESOURCES::AudioSourceLoader>     audioSourceLoader;
-			std::unique_ptr<PHYSICS::PhysicWorld>         physicsManger;
 			std::unique_ptr<TASK::TaskSystem>             taskManger;
+			std::unique_ptr<COROUTINE::Scheduler>        coroutineScheduler;
 			std::unique_ptr<EVENT::EventBroadcaster>      eventBroadcaster;
 			std::unique_ptr<ECS2::World>      world;
+#if USE_JSON_VIEWS && !defined(OCULUS)
+            std::unique_ptr<UI::ViewHost> viewHost;
+#endif
 
 #ifdef USE_EDITOR
 			std::unique_ptr<IKIGAI::EDITOR::EditorRender> editorRender;
 #endif
 			std::unique_ptr<RESOURCES::ModelLoader>    modelManager;
 			std::unique_ptr<RESOURCES::TextureLoader>  textureManager;
+            std::unique_ptr<RESOURCES::ParticleLoader> particleManager;
 			std::unique_ptr<RESOURCES::ShaderLoader>   shaderManager;
 			std::unique_ptr<RESOURCES::MaterialLoader> materialManager;
+			std::unique_ptr<RESOURCES::FontLoader> fontManager;
 			std::unique_ptr<RESOURCES::FileSystem>     fileSystem;
+            std::unique_ptr<RESOURCES::PlayerProfileService> playerProfiles;
+            std::unique_ptr<RESOURCES::ContentService> content;
+            std::shared_ptr<NETWORK::NetworkRuntime> network;
 
 			std::unique_ptr<RESOURCES::SkeletonLoader> skeletonLoader;
 			std::unique_ptr<RESOURCES::SkeletonStateGraphLoader> skeletalStateGraphLoader;

@@ -1,17 +1,19 @@
 #include "app.h"
+#include "uiModule/viewHost.h"
 #include "captureModule/screenshot.h"
-
+#include "coroutineModule/scheduler.h"
+#include "profilerModule/profiler.h"
+#include "profilerModule/profilerSpy.h"
 #include <iostream>
 #include <cmath>
 #include <stdexcept>
-
 #include "coreModule/ecs/componentManager.h"
 #include "editorModule/editorRender.h"
-#include "physicsModule/physicWorld.h"
 #include "renderModule/gameRendererInterface.h"
 #include "renderModule/render.h"
 #include "resourceModule/fileWatcher.h"
 #include "resourceModule/serviceManager.h"
+#include "networkModule/networkRuntime.h"
 #include "resourceModule/parser/assimpParser.h"
 #include "sceneModule/sceneManager.h"
 #include "taskModule/taskSystem.h"
@@ -31,10 +33,6 @@
 #endif
 
 using namespace IKIGAI::CORE;
-
-//IKIGAI::PROFILER::Profiler profiler;
-
-//TODO: move gamepad and my imgui widgets
 
 namespace
 {
@@ -96,41 +94,8 @@ void App::run() {
 #endif
 }
 
-//#include "../../../core/assets.hpp"
-//#include "../../../core/graphics-wrapper.hpp"
-//#include "../../../core/log.hpp"
-//#include "../../../core/perspective-camera.hpp"
-//#include "../../../core/sdl-wrapper.hpp"
-//#include "../../../application/opengl/opengl-mesh.hpp"
-//#include "../../../application/opengl/opengl-pipeline.hpp"
-//#include "../../../application/opengl/opengl-texture.hpp"
-
-#ifdef USE_SDL
-//ast::PerspectiveCamera createCamera()
-//{
-//	std::pair<uint32_t, uint32_t> displaySize{ ast::sdl::getDisplaySize() };
-//
-//	return ast::PerspectiveCamera(static_cast<float>(displaySize.first), static_cast<float>(displaySize.second));
-//}
-
-//glm::mat4 createMeshTransform()
-//{
-//	glm::mat4 identity{ 1.0f };
-//	glm::vec3 position{ 0.0f, 0.0f, 0.0f };
-//	glm::vec3 rotationAxis{ 0.0f, 1.0f, 0.0f };
-//	glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
-//	float rotationDegrees{ 45.0f };
-//
-//	return glm::translate(identity, position) *
-//		glm::rotate(identity, glm::radians(rotationDegrees), rotationAxis) *
-//		glm::scale(identity, scale);
-//}
-#endif
-//std::shared_ptr<IKIGAI::RENDER::MaterialGl> material;
-//std::shared_ptr<IKIGAI::RENDER::ModelGl> model;
-//std::shared_ptr<IKIGAI::RENDER::TextureGl> tex;
-
 bool App::runMainLoop() {
+	core.network->poll();
 	static int webFrame = 0;
 	const int frame = webFrame++;
 #ifdef __EMSCRIPTEN__
@@ -153,73 +118,9 @@ bool App::runMainLoop() {
 	timer.update();
 	const auto frameDt = timer.getDeltaTime();
 	static bool init = false;
-	if (!init)
-	{
-//#ifdef WIN32
-//		glewInit();
-//#endif
-//#ifdef USE_SDL
-//		auto sz = core.window->getDrawableSize();
-//		//ast::log(logTag, "Created OpenGL context with viewport size: " + std::to_string(viewportWidth) + " x " + std::to_string(viewportHeight));
-//
-//		glClearDepthf(1.0f);
-//		glEnable(GL_DEPTH_TEST);
-//		glDepthFunc(GL_LEQUAL);
-//		glEnable(GL_CULL_FACE);
-//		glViewport(0, 0, sz.first, sz.second);
-//#endif
-
-		//material = std::make_shared<RENDER::MaterialGl>();
-		//
-		//std::string objFilename = "assets/models/crate.obj";
-		//std::string texFilename = "assets/textures/crate.png";
-		//std::string vshaderFilename = "assets/shaders/opengl/default.vert";
-		//std::string fshaderFilename = "assets/shaders/opengl/default.frag";
-		//
-        ////std::string path = SDL_AndroidGetInternalStoragePath();
-		////path += "/";
-		//
-		////if android
-		////gHelperObject->ExtractAssetReturnFilename("assets/models/crate.obj", objFilename, false);
-		////gHelperObject->ExtractAssetReturnFilename("assets/shaders/opengl/default.vert", vshaderFilename, false);
-		////gHelperObject->ExtractAssetReturnFilename("assets/shaders/opengl/default.frag", fshaderFilename, false);
-		////gHelperObject->ExtractAssetReturnFilename("assets/textures/crate.png", texFilename, false);
-		//
-		////auto shader = std::make_shared<RENDER::ShaderGl>(path + "assets/shaders/opengl/default.vert", path + "assets/shaders/opengl/default.frag");
-		//auto shader = std::make_shared<RENDER::ShaderGl>(vshaderFilename, fshaderFilename);
-		////tex = RENDER::TextureGl::Create(path + "assets/textures/crate.png", true);
-		//tex = RENDER::TextureGl::Create(texFilename, true);
-		//material->setShader(shader);
-		//material->mUniformData["u_sampler"] = tex;
-		//
-		////model = std::make_shared<RENDER::ModelGl>(path + "assets/models/crate.obj");
-		//model = std::make_shared<RENDER::ModelGl>(objFilename);
-		//RESOURCES::AssimpParser parser;
-		//IKIGAI::RESOURCES::ModelParserFlags flags = IKIGAI::RESOURCES::ModelParserFlags::TRIANGULATE;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::GEN_SMOOTH_NORMALS;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::FLIP_UVS;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::GEN_UV_COORDS;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::CALC_TANGENT_SPACE;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::JOIN_IDENTICAL_VERTICES;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::IMPROVE_CACHE_LOCALITY;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::FIND_INVALID_DATA;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::FIND_INSTANCES;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::OPTIMIZE_MESHES;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::OPTIMIZE_GRAPH;
-		//flags |= IKIGAI::RESOURCES::ModelParserFlags::DEBONE;
-		////parser.LoadModel(path + "assets/models/crate.obj", model, flags);
-		//parser.LoadModel(objFilename, model, flags);
-
+	if (!init) {
 		init = true;
 	}
-	//static ast::PerspectiveCamera camera = createCamera();
-	//static ast::OpenGLPipeline defaultPipeline = ast::OpenGLPipeline("default");
-	//static ast::OpenGLMesh mesh = ast::OpenGLMesh(ast::assets::loadOBJFile("assets/models/crate.obj"));
-	//static glm::mat4 meshTransform = createMeshTransform();
-	//static ast::OpenGLTexture texture = ast::OpenGLTexture(ast::assets::loadBitmap("assets/textures/crate.png"));
-
-
-	//std::cout << model->getMeshes()[0]->getIndexCount() << std::endl;
 	step("pollEvent");
 	core.window->pollEvent();
     CAPTURE::ScreenshotService::Get().status();
@@ -227,49 +128,13 @@ bool App::runMainLoop() {
     if(core.inputManager && core.inputManager->wasKeyPressedThisFrame(INPUT_SYSTEM::EKey::KEY_F12))
         CAPTURE::ScreenshotService::Get().request();
 #endif
-	/*
-	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-#ifdef USE_SDL
-	const glm::mat4 mvp{
-		camera.getProjectionMatrix() *
-		camera.getViewMatrix() *
-		meshTransform };
-#endif
-	//defaultPipeline.render(mesh, texture, mvp);
-	auto _s = std::static_pointer_cast<RENDER::ShaderGl>(material->getShader());
-	material->bind(tex, true);
-	//_s->bind();
-
-	model->getMeshes()[0]->bind();
-	//std::static_pointer_cast<RENDER::MeshGl>(model->getMeshes()[0])->mVertexBuffer->bind(*material->getShader());
-	//std::static_pointer_cast<RENDER::MeshGl>(model->getMeshes()[0])->mIndexBuffer->bind(*material->getShader());
-	// // Activate the 'a_vertexPosition' attribute and specify how it should be configured.
-	//glEnableVertexAttribArray(0);
-	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
-	//// Activate the 'a_texCoord' attribute and specify how it should be configured.
-	//glEnableVertexAttribArray(1);
-	//glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoord));
-#ifdef USE_SDL
-	_s->setMat4("u_mvp", mvp);
-#endif
-	//tex->bind(0);
-
-	glDrawElements(GL_TRIANGLES, model->getMeshes()[0]->getIndexCount(), GL_UNSIGNED_INT, (GLvoid*)0);
-
-	//glDisableVertexAttribArray(0);
-	//glDisableVertexAttribArray(1);
-	//std::static_pointer_cast<RENDER::MeshGl>(model->getMeshes()[0])->mVertexBuffer->unbind();
-	//std::static_pointer_cast<RENDER::MeshGl>(model->getMeshes()[0])->mIndexBuffer->unbind();
-	model->getMeshes()[0]->unbind();
-
-	//_s->unbind();
-	material->unbind();
-	*/
-
-
-	//profiler.Update(TIME::Timer::GetInstance().getDeltaTime().count());
+	
 	step("preUpdate");
+	{
+		auto coroutineProfile = IKIGAI::PROFILER::Profiler::IsEnabled()
+			? std::make_unique<IKIGAI::PROFILER::ProfilerSpy>("CoroutineScheduler::tick") : nullptr;
+		core.coroutineScheduler->tick(frameDt, timer.getDeltaTimeUnscaled());
+	}
 	preUpdate(frameDt);
 	step("update");
 	update(frameDt);
@@ -290,9 +155,20 @@ bool App::isRunning() const {
 
 void App::preUpdate(std::chrono::duration<double> dt) {
 	core.window->preUpdate();
+#if USE_PHYSICS_3D && defined(USE_EDITOR)
+    if(core.sceneManager->hasCurrentScene()&&!core.sceneManager->isEditingLocked())
+        core.sceneManager->getCurrentScene().drawPhysics3DDebug();
+#endif
+#if USE_PHYSICS_2D && defined(USE_EDITOR)
+    if(core.sceneManager->hasCurrentScene()&&!core.sceneManager->isEditingLocked())
+        core.sceneManager->getCurrentScene().drawPhysics2DDebug();
+#endif
+#if USE_JSON_VIEWS && !defined(OCULUS)
+    if (core.viewHost && !core.sceneManager->isEditingLocked()) core.viewHost->draw();
+#endif
 #ifdef USE_EDITOR
 #ifndef OCULUS
-	if (core.editorRender) {
+	if (core.editorRender && !core.sceneManager->isEditingLocked()) {
 		core.editorRender->draw();
 	}
 #endif
@@ -301,10 +177,9 @@ void App::preUpdate(std::chrono::duration<double> dt) {
 
 void App::update(std::chrono::duration<double> dt) {
     auto* frameDriver=RENDER::DriverInterface::Get();
-    if(frameDriver)frameDriver->latencyFrameBegin();
-	//PROFILER_EVENT();
-	//core.renderer->getUBO().setSubData(static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count()), 
-	//	3 * sizeof(MATHGL::Matrix4) + sizeof(MATHGL::Vector3));
+    if(frameDriver) {
+		frameDriver->latencyFrameBegin();
+	}
 
 #ifdef USE_FILE_WATCHER
 	static std::chrono::duration<double> fwwait = std::chrono::milliseconds(0);
@@ -315,23 +190,19 @@ void App::update(std::chrono::duration<double> dt) {
 			RESOURCES::FileWatcher::getInstance()->update();
 		});
 	}
-	RESOURCES::FileWatcher::getInstance()->applyUpdate();
+    if (!core.sceneManager->isEditingLocked() && !core.sceneManager->isPreparingLoadingScene())
+        RESOURCES::FileWatcher::getInstance()->applyUpdate();
 #endif
 
+    const bool simulate = !core.sceneManager->isEditingLocked() && core.sceneManager->hasCurrentScene();
 	const auto fixedDt = TIME::Timer::GetInstance().getFixedDeltaTime();
-	m_fixedTimeAccumulator += dt;
+    if (simulate) m_fixedTimeAccumulator += dt;
+    else m_fixedTimeAccumulator = std::chrono::duration<double>::zero();
 	constexpr int kMaxFixedStepsPerFrame = 8;
 	int fixedSteps = 0;
 	while (m_fixedTimeAccumulator >= fixedDt && fixedSteps < kMaxFixedStepsPerFrame) {
 		m_fixedTimeAccumulator -= fixedDt;
 		++fixedSteps;
-
-		WebLog("physics fixed step");
-		core.physicsManger->startFrame();
-		const auto fixedDuration = static_cast<float>(fixedDt.count());
-		if (fixedDuration > 0.0f) {
-			core.physicsManger->runPhysics(fixedDuration);
-		}
 
 		if (core.sceneManager->hasCurrentScene()) {
 			auto& currentScene = core.sceneManager->getCurrentScene();
@@ -344,6 +215,12 @@ void App::update(std::chrono::duration<double> dt) {
 			WebLog("ecs runFixedUpdate");
 			systemManager->runFixedUpdate(fixedDt);
 			WebLog("ecs runFixedUpdate done");
+#if USE_PHYSICS_3D
+            currentScene.stepPhysics3D(fixedDt);
+#endif
+#if USE_PHYSICS_2D
+            currentScene.stepPhysics2D(fixedDt);
+#endif
 		}
 	}
 	if (m_fixedTimeAccumulator >= fixedDt) {
@@ -353,7 +230,7 @@ void App::update(std::chrono::duration<double> dt) {
 	}
 
 #if defined(USE_SDL) || defined(OCULUS)
-	if (RESOURCES::ServiceManager::Check<INPUT_SYSTEM::InputActions>() && RESOURCES::ServiceManager::Check<ECS2::World>()) {
+	if (simulate && RESOURCES::ServiceManager::Check<INPUT_SYSTEM::InputActions>() && RESOURCES::ServiceManager::Check<ECS2::World>()) {
 		auto& actions = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputActions>();
 		actions.prepareMaps(RESOURCES::ServiceManager::Get<ECS2::World>());
 		actions.resolve(dt);
@@ -361,7 +238,7 @@ void App::update(std::chrono::duration<double> dt) {
 #endif
 
     bool presentationAllowed=true;
-	if (core.sceneManager->hasCurrentScene()) {
+	if (simulate) {
 		WebLog("scene update");
 		auto& currentScene = core.sceneManager->getCurrentScene();
 
@@ -376,6 +253,9 @@ void App::update(std::chrono::duration<double> dt) {
 		WebLog("ecs runLateUpdate");
 		systemManager->runLateUpdate(dt);
 		WebLog("ecs runLateUpdate done");
+    } else {
+        core.sceneManager->updateLoadingScene(TIME::Timer::GetInstance().getDeltaTimeUnscaled());
+    }
 #ifndef OCULUS
 		WebLog("window update");
         if(frameDriver){frameDriver->latencySimulationEnd();frameDriver->latencySubmitBegin();}
@@ -394,7 +274,6 @@ void App::update(std::chrono::duration<double> dt) {
 		if(presentationAllowed)core.renderer->renderScene();
 		WebLog("renderScene done");
 #endif
-	}
 #ifndef __EMSCRIPTEN__
 	RESOURCES::ServiceManager::Get<TASK::TaskSystem>().waitSync();
 #endif
@@ -432,14 +311,9 @@ void App::update(std::chrono::duration<double> dt) {
 }
 
 void App::postUpdate(std::chrono::duration<double> dt) {
-	//PROFILER_EVENT();
-	//core.window->pollEvent();
-//#ifdef OPENGL_BACKEND
-//	core.debugRender->draw(core);
-//#endif
-//	core.debugRender->postDraw();
 	WebLog("window draw");
 	core.window->draw();
+    core.sceneManager->notifyPresented();
 	WebLog("window draw done");
 #if defined(USE_SDL) || defined(OCULUS)
 	if (RESOURCES::ServiceManager::Check<INPUT_SYSTEM::InputManager>()) {

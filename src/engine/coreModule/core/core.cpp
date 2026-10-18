@@ -1,87 +1,93 @@
 #include "core.h"
+#if USE_PHYSICS_3D
+#include "coreModule/ecs/components/physics3dComponent.h"
+#endif
+#if USE_PHYSICS_2D
+#include "coreModule/ecs/components/cloth2dComponent.h"
+#include "coreModule/ecs/components/forceField2dComponent.h"
+#endif
+#include "captureModule/screenshot.h"
+#include "coreModule/ecs/components/particleSystemComponent.h"
+#include "coroutineModule/scheduler.h"
+#include "resourceModule/particleManager.h"
+#include "uiModule/viewHost.h"
+#include "utilsModule/log/loggerDefine.h"
 
 #include "resourceModule/serviceManager.h"
 #include "windowModule/window/window.h"
 #include "windowModule/windowManager.h"
 #include <stdexcept>
-#include <utilsModule/log/logger.h>
-#include <utilsModule/jsonLoader.h>
 #include <utilsModule/contentRoot.h>
+#include <utilsModule/jsonLoader.h>
+#include <utilsModule/log/logger.h>
 
 #include "../config.h"
+#include "../ecs/systems/audioSystem.h"
+#include "../ecs/systems/inputSystem.h"
+#include "../ecs/systems/logicSystem.h"
+#include "../ecs/systems/scriptSystem.h"
+#include "coreModule/gui/components/vectorComponents.h"
+#include "networkModule/networkRuntime.h"
+#include "resourceModule/audioSourceManager.h"
+#include "resourceModule/contentService.h"
+#include "resourceModule/fileSystem/storage.h"
+#include "resourceModule/fontManager.h"
 #include "resourceModule/materialManager.h"
 #include "resourceModule/modelManager.h"
+#include "resourceModule/playerProfile.h"
 #include "resourceModule/serviceManager.h"
 #include "resourceModule/shaderManager.h"
-#include "resourceModule/audioSourceManager.h"
 #include "resourceModule/textureManager.h"
+#include "windowModule/inputManager/inputActions.h"
+#include "windowModule/inputManager/inputManager.h"
 #include <audioModule/audioManager.h>
 #include <debugModule/debugRender.h>
-#include <physicsModule/physicWorld.h>
+#include <renderModule/backends/interface/driverInterface.h>
+#include <renderModule/gameRendererInterface.h>
 #include <resourceModule/fileSystem/fileSystem.h>
+#include <sceneModule/sceneManager.h>
 #include <taskModule/taskSystem.h>
 #include <utilsModule/pathGetter.h>
-#include "windowModule/inputManager/inputManager.h"
-#include "windowModule/inputManager/inputActions.h"
-#include <sceneModule/sceneManager.h>
-#include "../ecs/systems/audioSystem.h"
-#include "../ecs/systems/scriptSystem.h"
-#include "../ecs/systems/logicSystem.h"
-#include "../ecs/systems/inputSystem.h"
-#include <renderModule/gameRendererInterface.h>
-#include <renderModule/backends/interface/driverInterface.h>
 
-#include <coreModule/ecs/components/scriptComponent.h>
 #include "coreModule/ecs/components/batchComponent.h"
 #include "coreModule/ecs/components/renderTargetComponent.h"
 #include "ecsModule/world.h"
 #include "editorModule/editorRender.h"
+#include "renderModule/backends/driverFactory.h"
 #include "renderModule/gameRenderer.h"
 #include "renderModule/render.h"
 #include "resourceModule/skeletonAnimationManager.h"
 #include "resourceModule/skeletonBlendspaceManager.h"
 #include "resourceModule/skeletonManager.h"
 #include "resourceModule/skeletonStateGraphManager.h"
+#include <coreModule/ecs/components/scriptComponent.h>
 #include <renderModule/gameRenderer.h>
-#include "renderModule/backends/driverFactory.h"
-
-
-//namespace IKIGAI
-//{
-//	namespace ECS
-//	{
-//		class InputComponent;
-//		class LogicComponent;
-//		class AmbientSphereLight;
-//		class AmbientLight;
-//	}
-//}
 
 using namespace IKIGAI;
 using namespace IKIGAI::CORE;
 
-
-Core:: Core(
+Core::Core(
 #ifdef DX12_BACKEND
 	HINSTANCE hInstance
 #endif
 #ifdef OCULUS
-		android_app* app
+	android_app* app
 #endif
-)
+	)
 #ifdef DX12_BACKEND
-: hInstance(hInstance)
+	: hInstance(hInstance)
 #endif
 #ifdef OCULUS
-: androidApp(app)
+	: androidApp(app)
 #endif
 {
 	UTILS::InitContentRoot();
 	if (Config::ROOT.empty()) {
 		std::cerr << "Content root not found (expected assets/engine/ near cwd or executable). "
-			<< "Run: python3 utils/sync_assets.py ensure. "
-			<< "For Xcode, set scheme Working Directory to mac/build_xcode (with assets symlink).\n";
-	} else {
+				  << "Run: python3 utils/sync_assets.py ensure. "
+				  << "For Xcode, set scheme Working Directory to mac/build_xcode (with assets symlink).\n";
+	}
+	else {
 		std::cout << "Content root: " << Config::ROOT << "\n";
 	}
 	std::cout << "Create Core\n";
@@ -91,22 +97,65 @@ Core:: Core(
 
 	fileSystem = std::make_unique<RESOURCES::FileSystem>();
 	RESOURCES::ServiceManager::Set<RESOURCES::FileSystem>(fileSystem.get());
-	//fileSystem->addNativeFileSystem(".", "/");
+	if (Config::CONTENT_RELEASE.empty()) {
+		// fileSystem->addNativeFileSystem(".", "/");
 #ifdef OCULUS
-	fileSystem->addAndroidAssetFileSystem("engine", "/", app->activity->assetManager, app);
-	fileSystem->addAndroidAssetFileSystem("game", "/", app->activity->assetManager, app);
+		fileSystem->addAndroidAssetFileSystem("engine", "/", app->activity->assetManager, app);
+		fileSystem->addAndroidAssetFileSystem("game", "/", app->activity->assetManager, app);
 #elif defined(__ANDROID__)
-	// APK assets root is the repo assets/ folder. SDL_IOFromFile reads engine/ and game/.
-	fileSystem->addSdlFileSystem("engine", "/");
-	fileSystem->addSdlFileSystem("game", "/");
+		// APK assets root is the repo assets/ folder. SDL_IOFromFile reads engine/ and game/.
+		fileSystem->addSdlFileSystem("engine", "/");
+		fileSystem->addSdlFileSystem("game", "/");
 #elif defined(__APPLE__) && TARGET_OS_IPHONE
-	fileSystem->addSdlFileSystem(Config::ROOT + Config::ENGINE_ASSETS_PATH, "/", true);
-	fileSystem->addSdlFileSystem(Config::ROOT + Config::USER_ASSETS_PATH, "/", true);
+		fileSystem->addSdlFileSystem(Config::ROOT + Config::ENGINE_ASSETS_PATH, "/", true);
+		fileSystem->addSdlFileSystem(Config::ROOT + Config::USER_ASSETS_PATH, "/", true);
 #else
-	fileSystem->addNativeFileSystem(Config::ROOT + Config::ENGINE_ASSETS_PATH, "/");
-	fileSystem->addNativeFileSystem(Config::ROOT + Config::USER_ASSETS_PATH, "/");
+		fileSystem->addNativeFileSystem(Config::ROOT + Config::ENGINE_ASSETS_PATH, "/");
+		fileSystem->addNativeFileSystem(Config::ROOT + Config::USER_ASSETS_PATH, "/");
 #endif
-
+	}
+	auto storageRoot = Config::STORAGE_ROOT.empty()
+#if defined(OCULUS) && !defined(USE_SDL)
+		? std::filesystem::path(app->activity->internalDataPath)
+#else
+		? RESOURCES::STORAGE::AppDataPath(Config::ORGANIZATION, Config::APPLICATION)
+#endif
+		: std::filesystem::u8path(Config::STORAGE_ROOT);
+	std::shared_ptr<RESOURCES::STORAGE::UserStorage> userStorage;
+#ifdef USE_SDL
+	if (Config::STORAGE_ROOT.empty())
+		userStorage = std::make_shared<RESOURCES::STORAGE::UserStorage>(Config::ORGANIZATION, Config::APPLICATION);
+	else
+#endif
+		userStorage = std::make_shared<RESOURCES::STORAGE::UserStorage>(storageRoot);
+	playerProfiles = std::make_unique<RESOURCES::PlayerProfileService>(*fileSystem, std::move(userStorage));
+	const auto profiles = playerProfiles->list();
+	if (std::find(profiles.begin(), profiles.end(), Config::PROFILE_ID) == profiles.end())
+		playerProfiles->create(Config::PROFILE_ID);
+	playerProfiles->select(Config::PROFILE_ID);
+	RESOURCES::ServiceManager::Set<RESOURCES::PlayerProfileService>(playerProfiles.get());
+	network = std::make_shared<NETWORK::NetworkRuntime>();
+	RESOURCES::ServiceManager::Set<NETWORK::NetworkRuntime>(network.get());
+	std::string contentPlatform = "linux";
+#if defined(__EMSCRIPTEN__)
+	contentPlatform = "web";
+#elif defined(__ANDROID__)
+	contentPlatform = "android";
+#elif defined(_WIN32)
+	contentPlatform = "windows";
+#elif defined(__APPLE__) && TARGET_OS_IPHONE
+	contentPlatform = "ios";
+#elif defined(__APPLE__)
+	contentPlatform = "macos";
+#endif
+	content = std::make_unique<RESOURCES::ContentService>(*fileSystem, storageRoot / "content", contentPlatform);
+	if (!Config::CONTENT_RELEASE.empty()) {
+		content->stageLocal(std::filesystem::u8path(Config::CONTENT_RELEASE));
+		content->activate(nlohmann::json::parse(RESOURCES::STORAGE::Read(std::filesystem::u8path(Config::CONTENT_RELEASE))));
+	}
+	else
+		content->restore();
+	RESOURCES::ServiceManager::Set<RESOURCES::ContentService>(content.get());
 
 	RESOURCES::ModelLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
 	RESOURCES::TextureLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
@@ -116,16 +165,18 @@ Core:: Core(
 	auto renderSettings = IKIGAI::UTILS::FromJson<RENDER::RenderSettings>("/Configs/render.json");
 	if (renderSettings.isErr()) {
 		LOG_ERROR << renderSettings.unwrapErr().text;
-		RENDER::DriverInterface::settings = {};
-	} else {
+		RENDER::DriverInterface::settings = { };
+	}
+	else {
 		RENDER::DriverInterface::settings = renderSettings.unwrap();
 	}
 	const auto configuredBackend = RENDER::DriverInterface::settings.backend;
 	RENDER::ResolveRenderBackend(RENDER::DriverInterface::settings);
 	if (configuredBackend != RENDER::DriverInterface::settings.backend) {
 		std::cout << "Render backend: " << RENDER::BackendToString(RENDER::DriverInterface::settings.backend)
-			<< " (asset config: " << RENDER::BackendToString(configuredBackend) << ")\n";
-	} else {
+				  << " (asset config: " << RENDER::BackendToString(configuredBackend) << ")\n";
+	}
+	else {
 		std::cout << "Render backend: " << RENDER::BackendToString(configuredBackend) << "\n";
 	}
 
@@ -139,9 +190,10 @@ Core:: Core(
 	window = windowManager->createMainWindow(windowSettings);
 
 	std::cout << "Create Window\n";
-	
+
 	modelManager = std::make_unique<RESOURCES::ModelLoader>();
 	textureManager = std::make_unique<RESOURCES::TextureLoader>();
+	particleManager = std::make_unique<RESOURCES::ParticleLoader>();
 	shaderManager = std::make_unique<RESOURCES::ShaderLoader>();
 	materialManager = std::make_unique<RESOURCES::MaterialLoader>();
 	sceneManager = std::make_unique<SCENE_SYSTEM::SceneManager>(Config::ENGINE_ASSETS_PATH);
@@ -158,11 +210,26 @@ Core:: Core(
 	render = std::make_unique<RENDER::Renderer>(driver.get(), std::make_unique<RENDER::ImmediateExecutor>());
 
 	std::cout << "Create driver\n";
+
+#if USE_LUA
 	scriptInterpreter = std::make_unique<SCRIPTING::ScriptInterpreter>(Config::ROOT + Config::USER_ASSETS_PATH + "scripts/");
+#endif
 	audioManager = std::make_unique<AUDIO::AudioManager>();
 	audioSourceLoader = std::make_unique<RESOURCES::AudioSourceLoader>();
-	physicsManger = std::make_unique<PHYSICS::PhysicWorld>(256);
 	taskManger = std::make_unique<TASK::TaskSystem>();
+	coroutineScheduler = std::make_unique<COROUTINE::Scheduler>();
+	coroutineScheduler->setErrorHandler([](const COROUTINE::TaskHandle& task) {
+		try {
+			task.rethrowIfFailed();
+		}
+		catch (const std::exception& error) {
+			LOG_ERROR << "Coroutine '" << task.name() << "' failed: " << error.what();
+		}
+		catch (...) {
+			LOG_ERROR << "Coroutine '" << task.name() << "' failed with an unknown exception";
+		}
+	});
+	RESOURCES::ServiceManager::Set<COROUTINE::Scheduler>(coroutineScheduler.get());
 	eventBroadcaster = std::make_unique<EVENT::EventBroadcaster>();
 	world = std::make_unique<ECS2::World>();
 
@@ -182,29 +249,56 @@ Core:: Core(
 		compMgr->registerComponent<ECS::AudioListenerComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::CameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::VrCameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		//compMgr->registerComponent<ECS::ArCameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		// compMgr->registerComponent<ECS::ArCameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::DirectionalLight>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::InputComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::LogicComponent>(IKIGAI::ECS2::StorageType::Sparse);
+#if USE_IKIGAI_SCRIPT
+		compMgr->registerComponent<ECS::IkigaiScriptComponent>(IKIGAI::ECS2::StorageType::Sparse);
+#endif
 		compMgr->registerComponent<ECS::MaterialRenderer>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::ModelRenderer>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::PointLight>(IKIGAI::ECS2::StorageType::Sparse);
+
+#if USE_LUA
 		compMgr->registerComponent<ECS::ScriptComponent>(IKIGAI::ECS2::StorageType::Sparse);
+#endif
 		compMgr->registerComponent<ECS::Skeletal>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpotLight>(IKIGAI::ECS2::StorageType::Sparse);
+#if USE_PHYSICS_3D
 		compMgr->registerComponent<ECS::PhysicsComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Physics3DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SoftBody3DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Cloth3DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Fluid3DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ForceField3DComponent>(ECS2::StorageType::Sparse);
+#endif
+#if USE_PHYSICS_2D
+		compMgr->registerComponent<ECS::Physics2DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SoftBody2DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Fluid2DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Joint2DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ForceField2DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Cloth2DComponent>(ECS2::StorageType::Sparse);
+#endif
 		compMgr->registerComponent<ECS::ModelLODRenderer>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::BatchComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::RenderTargetComponent>(IKIGAI::ECS2::StorageType::Sparse);
 
 		compMgr->registerComponent<ECS::SkeletalComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SkeletalAnimationComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		//GUI
+		// GUI
 		compMgr->registerComponent<ECS::RootGuiComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpriteComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpriteAnimateComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpriteParticleComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ParticleSystem2DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ParticleSystem3DComponent>(ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::LabelComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SdfTextComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VectorShapeComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VectorPathComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VectorCanvasComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::InteractionComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::ClipComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::ScrollComponent>(IKIGAI::ECS2::StorageType::Sparse);
@@ -212,57 +306,18 @@ Core:: Core(
 		compMgr->registerComponent<ECS::SpineComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::ChunkModelRenderer>(IKIGAI::ECS2::StorageType::Sparse);
 
+#if USE_LUA
+
 		sysMgr->registerSystem<ECS::ScriptSystem>();
+#endif
 		sysMgr->registerSystem<ECS::LogicSystem>();
 		sysMgr->registerSystem<ECS::InputSystem>();
 		sysMgr->registerSystem<ECS::AudioSystem>();
 	}
 
-
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::TransformComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientLight>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AmbientSphereLight>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AudioComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::AudioListenerComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::CameraComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::VrCameraComponent>();
-	////ECS::ComponentManager::getInstance()->registerComponent<ECS::ArCameraComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::DirectionalLight>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::InputComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::LogicComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::MaterialRenderer>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::ModelRenderer>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::PointLight>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::ScriptComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::Skeletal>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::SpotLight>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::PhysicsComponent>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::ModelLODRenderer>();
-	//ECS::ComponentManager::GetInstance().registerComponent<ECS::BatchComponent>();
-	//GUI
-//#ifdef OPENGL_BACKEND
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::RootGuiComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteAnimateComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpriteParticleComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::LabelComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::InteractionComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::ClipComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::ScrollComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::LayoutComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::SpineComponent>();
-//	ECS::ComponentManager::GetInstance().registerComponent<ECS::ChunkModelRenderer>();
-//#endif
-	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::ScriptSystem>();
-	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::LogicSystem>();
-	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::InputSystem>();
-	//ECS::ComponentManager::GetInstance().getSystemManager().registerSystem<ECS::AudioSystem>();
-	//ECS::Signature signature;
-	//signature.set(static_cast<unsigned int>(ECS::ComponentManager::GetInstance().getComponentType<ECS::AudioComponent>()));
-	//ECS::ComponentManager::GetInstance().setSystemSignature<ECS::AudioSystem>(signature);
-
 	RESOURCES::ServiceManager::Set<RESOURCES::ModelLoader>(modelManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::TextureLoader>(textureManager.get());
+	RESOURCES::ServiceManager::Set<RESOURCES::ParticleLoader>(particleManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::ShaderLoader>(shaderManager.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::MaterialLoader>(materialManager.get());
 	RESOURCES::ServiceManager::Set<INPUT_SYSTEM::InputManager>(inputManager.get());
@@ -275,6 +330,8 @@ Core:: Core(
 #endif
 	RESOURCES::ServiceManager::Set<EVENT::EventBroadcaster>(eventBroadcaster.get());
 	RESOURCES::ServiceManager::Set<RENDER::Renderer>(render.get());
+	fontManager = std::make_unique<RESOURCES::FontLoader>();
+	RESOURCES::ServiceManager::Set<RESOURCES::FontLoader>(fontManager.get());
 
 	skeletonLoader = std::make_unique<RESOURCES::SkeletonLoader>();
 	skeletalStateGraphLoader = std::make_unique<RESOURCES::SkeletonStateGraphLoader>();
@@ -295,18 +352,13 @@ Core:: Core(
 #ifndef OCULUS
 	window->initImGUI();
 #endif
-	
-	//renderer->setCapability(RENDER::RenderingCapability::MULTISAMPLE, true);
+
 	RESOURCES::ServiceManager::Set<RENDER::GameRendererInterface>(static_cast<RENDER::GameRendererInterface*>(renderer.get()));
-	// Driver backends initialize in their constructors (DriverGl/DriverVk/DriverDx12/DriverMetal).
-
-//#ifdef VULKAN_BACKEND
-//	reinterpret_cast<RENDER::GameRenderer*>(renderer.get())->createVkResources();
-//#endif
-	//debugRender = std::make_unique<DEBUG::DebugRender>();
-
 #ifdef USE_EDITOR
 	editorRender = std::make_unique<EDITOR::EditorRender>();
+#endif
+#if USE_JSON_VIEWS && !defined(OCULUS)
+	viewHost = std::make_unique<UI::ViewHost>();
 #endif
 
 	sceneManager->getCurrentScene().init();
@@ -314,6 +366,25 @@ Core:: Core(
 }
 
 Core::~Core() {
+	RESOURCES::ServiceManager::Remove<RESOURCES::ContentService>();
+	RESOURCES::ServiceManager::Remove<NETWORK::NetworkRuntime>();
+	network->stop();
+	RESOURCES::ServiceManager::Remove<RESOURCES::PlayerProfileService>();
+	// Coroutine locals may reference scenes, ECS, loaders and GPU resources.
+	if (sceneManager)
+		sceneManager->shutdownLoading();
+	if (coroutineScheduler)
+		coroutineScheduler->shutdown();
+	RESOURCES::ServiceManager::Remove<COROUTINE::Scheduler>();
+	CAPTURE::ScreenshotService::Get().wait();
+	// FG owns presentation workers. Stop them while the window, UI and all
+	// tagged scene resources still exist, before ImGui destroys platform windows.
+	if (driver) {
+		driver->stopPresentation();
+	}
+#if USE_JSON_VIEWS && !defined(OCULUS)
+	viewHost.reset();
+#endif
 #ifndef OCULUS
 	if (window) {
 		window->shutdownImGUI();
@@ -324,8 +395,14 @@ Core::~Core() {
 #ifdef USE_EDITOR
 	editorRender.reset();
 #endif
-	if(sceneManager) sceneManager->unloadCurrentScene();
+	if (sceneManager) {
+		sceneManager->unloadCurrentScene();
+	}
 	world.reset();
 	renderer.reset();
+	// Font subscriptions consult the VFS during removal; release the loader
+	// explicitly before fileSystem's member destructor runs.
+	fontManager.reset();
+	RESOURCES::ServiceManager::Remove<RESOURCES::FontLoader>();
 	RENDER::DriverInterface::SetActive(nullptr);
 }
