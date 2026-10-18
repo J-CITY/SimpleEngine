@@ -198,7 +198,7 @@ float RigidBody::getInverseMass() const
 
 bool RigidBody::hasFiniteMass() const
 {
-    return inverseMass >= 0.0f;
+    return inverseMass > 0.0f;
 }
 
 void RigidBody::setInertiaTensor(const Matrix3f &inertiaTensor)

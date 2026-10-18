@@ -36,16 +36,15 @@ void Spring::ApplyForce(float dt) {
 		relVel[i] = (fabsf(relVel[i]) < 0.0000001f) ? 0.0f : relVel[i];
 	}
 
-	float x = Magnitude(relPos) - restingLength;
-	float v = Magnitude(relVel);
+	float distance = Magnitude(relPos);
+	if (distance < 1e-8f || dt <= 0) return;
+	glm::vec3 direction = relPos / distance;
+	float x = distance - restingLength;
+	float v = Dot(relVel, direction);
 
 	float F = (-k * x) + (-b * v);
 
-	if (fabs(F) > 7)
-	{
-		return;
-	}
-	glm::vec3 impulse = Normalized(relPos) * F;
-	p1->AddImpulse(impulse * p1->InvMass());
-	p2->AddImpulse(impulse*  -1.0f * p2->InvMass());
+	glm::vec3 impulse = direction * (F * dt);
+	p1->AddImpulse(impulse * -p1->InvMass());
+	p2->AddImpulse(impulse * p2->InvMass());
 }

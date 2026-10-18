@@ -1,7 +1,11 @@
 #include "cloth.h"
+#include <cmath>
+#include <stdexcept>
 
 void ClothObj::Initialize(int gridSize, float distance, const glm::vec3& position) {
-	float k = -1.0f;
+    if (gridSize < 3 || gridSize > 256 || !std::isfinite(distance) || distance <= 0)
+        throw std::invalid_argument("Cloth grid requires 3..256 vertices per side and positive spacing");
+	float k = 1.0f;
 	float b = 0.0f;
 	clothSize = gridSize;
 
@@ -18,17 +22,13 @@ void ClothObj::Initialize(int gridSize, float distance, const glm::vec3& positio
 	}
 	float halfSize = (float)(gridSize - 1) * 0.5f;
 
-	if (gridSize < 3) {
-		gridSize = 3;
-	}
-
 	// Create vertices
 	for (int x = 0; x < gridSize; ++x) {
 		for (int z = 0; z < gridSize; ++z) {
 			int i = z * gridSize + x;
 
-			float x_pos = ((float)x + position.x - halfSize) * distance;
-			float z_pos = ((float)z + position.z - halfSize) * distance;
+			float x_pos = ((float)x - halfSize) * distance + position.x;
+			float z_pos = ((float)z - halfSize) * distance + position.z;
 			
 			verts[i]->SetPosition(glm::vec3(x_pos, position.y, z_pos));
 			verts[i]->SetMass(1.0f);

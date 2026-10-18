@@ -1,4 +1,6 @@
 #include "clothParticle.h"
+#include <cmath>
+#include <stdexcept>
 
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
@@ -15,10 +17,11 @@ float Magnitude(const glm::vec3& v) {
 }
 
 glm::vec3 Normalized(const glm::vec3& v) {
-	return v * (1.0f / Magnitude(v));
+	float length = Magnitude(v);
+	return length > 1e-8f ? v / length : glm::vec3(0);
 }
 void Normalize(glm::vec3& v) {
-	v = v * (1.0f / Magnitude(v));
+	v = Normalized(v);
 }
 float MagnitudeSq(const glm::vec3& v) {
 	return Dot(v, v);
@@ -305,15 +308,16 @@ ClothParticle::ClothParticle() {
 }
 
 void ClothParticle::Update(float deltaTime) {
+    if (mass == 0) return;
 #ifdef EULER_INTEGRATION
 	oldPosition = position;
 	glm::vec3 acceleration = forces *InvMass();
 	#ifdef ACCURATE_EULER_INTEGRATION
 		glm::vec3 oldVelocity = velocity;
-		velocity = velocity * friction + acceleration * deltaTime;
+		velocity = velocity * std::pow(friction, deltaTime * 60) + acceleration * deltaTime;
 		position = position + (oldVelocity + velocity) * 0.5f * deltaTime;
 	#else
-		velocity = velocity * friction + acceleration * deltaTime;
+		velocity = velocity * std::pow(friction, deltaTime * 60) + acceleration * deltaTime;
 		position = position + velocity * deltaTime;
 	#endif
 #else
@@ -406,6 +410,7 @@ float ClothParticle::InvMass() {
 }
 
 void ClothParticle::SetMass(float m) {
+	if (!std::isfinite(m) || m < 0) throw std::invalid_argument("Invalid cloth particle mass");
 	mass = m;
 }
 

@@ -1,6 +1,8 @@
 
 
 #include "forceGenerator.h"
+#include <algorithm>
+#include <stdexcept>
 
 using namespace IKIGAI;
 using namespace IKIGAI::PHYSICS;
@@ -17,11 +19,17 @@ void ForceRegistry::updateForces(float duration)
 
 void ForceRegistry::add(RigidBody *body, ForceGenerator *fg)
 {
+    if (!body || !fg) throw std::invalid_argument("Null force registration");
+    if (std::any_of(registrations.begin(), registrations.end(), [=](auto& r) { return r.body == body && r.fg == fg; })) return;
     ForceRegistry::ForceRegistration registration;
     registration.body = body;
     registration.fg = fg;
     registrations.push_back(registration);
 }
+void ForceRegistry::remove(RigidBody* body, ForceGenerator* fg) {
+    std::erase_if(registrations, [=](auto& r) { return r.body == body && r.fg == fg; });
+}
+void ForceRegistry::clear() { registrations.clear(); }
 
 Buoyancy::Buoyancy(const Vector3f &cOfB, float maxDepth, float volume,
                    float waterHeight, float liquidDensity )
@@ -46,14 +54,14 @@ void Buoyancy::updateForce(RigidBody *body, float duration)
     // Check if we're at maximum depth
     if (depth <= waterHeight - maxDepth)
     {
-        force.y = liquidDensity * volume;
+        force.y = liquidDensity * volume * 9.81f;
         body->addForceAtBodyPoint(force, centreOfBuoyancy);
         return;
     }
 
     // Otherwise we are partly submerged
-    force.y = liquidDensity * volume *
-        (depth - maxDepth - waterHeight) / 2 * maxDepth;
+    force.y = liquidDensity * volume * 9.81f *
+        std::clamp((waterHeight + maxDepth - depth) / (2 * maxDepth), 0.0f, 1.0f);
     body->addForceAtBodyPoint(force, centreOfBuoyancy);
 }
 
@@ -94,9 +102,9 @@ void Spring::updateForce(RigidBody* body, float duration)
     Vector3f force = lws - ows;
 
     // Calculate the magnitude of the force
-    float magnitude = force.magnitude();
-    magnitude = abs(magnitude - restLength);
-    magnitude *= springConstant;
+    float length = force.magnitude();
+    if (length < 1e-8f) return;
+    float magnitude = (length - restLength) * springConstant;
 
     // Calculate the final force and apply it
     force.normalise();
@@ -121,7 +129,7 @@ void Aero::updateForceFromTensor(RigidBody *body, float duration,
 {
     // Calculate total velocity (windspeed and body's velocity).
     Vector3 velocity = body->getVelocity();
-    velocity += *windspeed;
+    if (windspeed) velocity -= *windspeed;
 
     // Calculate the velocity in body coordinates
     auto res = body->getTransform().transformInverseDirection(MATH::Vector3f{velocity.x, velocity.y, velocity.z});

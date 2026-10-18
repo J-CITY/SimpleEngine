@@ -15,12 +15,12 @@ namespace IKIGAI::PHYSICS {
     class CollisionPrimitive
     {
     public:
-        
+        virtual ~CollisionPrimitive() = default;
         friend class IntersectionTests;
         friend class CollisionDetector;
 
         
-        RigidBody * body;
+        RigidBody * body = nullptr;
 
         
         MATH::Matrix4f offset;

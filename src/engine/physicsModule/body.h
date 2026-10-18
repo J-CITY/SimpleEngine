@@ -6,17 +6,17 @@ namespace IKIGAI {
         class RigidBody {
         protected:
 
-            float inverseMass;
+            float inverseMass = 1;
 
             MATH::Matrix3f inverseInertiaTensor = MATH::Matrix3f(0.0f);
 
-            float linearDamping;
+            float linearDamping = 0.95f;
 
-            float angularDamping;
+            float angularDamping = 0.95f;
 
             MATH::Vector3f position;
 
-            MATH::QuaternionF orientation;
+            MATH::QuaternionF orientation {0, 0, 0, 1};
 
             MATH::Vector3f velocity;
 
@@ -24,11 +24,11 @@ namespace IKIGAI {
 
             MATH::Matrix3f inverseInertiaTensorWorld = MATH::Matrix3f(0.0f);
 
-            float motion;
+            float motion = 2 * MATH::SLEEP_EPS;
 
-            bool isAwake;
+            bool isAwake = true;
 
-            bool canSleep;
+            bool canSleep = true;
 
             MATH::Matrix4f transformMatrix;
 
@@ -43,6 +43,8 @@ namespace IKIGAI {
             
 
         public:
+            MATH::Vector3f getAccumulatedForce() const { return forceAccum; }
+            MATH::Vector3f getAccumulatedTorque() const { return torqueAccum; }
             void calculateDerivedData();
 
             

@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include <coreModule/ecs/components/physicsComponent.h>
 
 using namespace IKIGAI;
 using namespace IKIGAI::PHYSICS;
@@ -213,18 +212,18 @@ unsigned CollisionDetector::sphereAndSphere(
     float size = midline.magnitude();
 
     // See if it is large enough.
-    if (size <= 0.0f || size >= one.radius+two.radius)
+    if (size >= one.radius+two.radius)
     {
         return 0;
     }
 
     // We manually create the normal, because we have the
     // size to hand.
-    Vector3 normal = midline * (((float)1.0)/size);
+    Vector3 normal = size > 1e-8f ? midline * (1.0f/size) : Vector3f(1,0,0);
 
     Contact* contact = data->contacts;
     contact->contactNormal = normal;
-    contact->contactPoint = positionOne + midline * (float)0.5;
+    contact->contactPoint = (positionOne + positionTwo) * (float)0.5;
     contact->penetration = (one.radius+two.radius - size);
     contact->setBodyData(one.body, two.body,
         data->friction, data->restitution);
@@ -558,6 +557,7 @@ unsigned CollisionDetector::boxAndSphere(
     CollisionData *data
     )
 {
+    if(!data->hasMoreContacts())return 0;
     // Transform the centre of the sphere into box coordinates
     Vector3f centre = sphere.getAxis(3);
     auto res = box.transform.transformInverse(MATH::Vector3f{centre.x, centre.y, centre.z});
@@ -600,6 +600,15 @@ unsigned CollisionDetector::boxAndSphere(
 
     Contact* contact = data->contacts;
     contact->contactNormal = (closestPtWorld - centre);
+    if(dist<1e-12f) {
+        auto gap=box.halfSize;
+        gap.x-=std::abs(relCentre.x);gap.y-=std::abs(relCentre.y);gap.z-=std::abs(relCentre.z);
+        int axis=gap.y<gap.x?1:0;if(gap.z<gap[axis])axis=2;
+        contact->contactNormal=box.getAxis(axis)*(relCentre[axis]>=0?-1.0f:1.0f);
+        contact->contactPoint=centre-contact->contactNormal*gap[axis];
+        contact->penetration=sphere.radius+gap[axis];
+        contact->setBodyData(box.body,sphere.body,data->friction,data->restitution);data->addContacts(1);return 1;
+    }
     contact->contactNormal.normalise();
     contact->contactPoint = closestPtWorld;
     contact->penetration = sphere.radius - sqrt(dist);
