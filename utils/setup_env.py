@@ -171,9 +171,13 @@ def ensure_linux_packages():
         print("Warning: Neither 'apt-get' nor 'pacman' found. Please ensure dependencies are installed.")
 
 
-def update_base_submodules(root_dir):
+def update_base_submodules(root_dir, use_lua=True, use_ikigai_script=True):
     from utils.environment.sdks import SDK_NAMES
     vendor_paths = {sdk[0] for sdk in SDK_NAMES.values()}
+    if not use_lua:
+        vendor_paths.update(('3rd/lua', '3rd/sol'))
+    if not use_ikigai_script:
+        vendor_paths.add('3rd/IkigaiScript')
     paths = subprocess.run(['git', 'config', '-f', '.gitmodules', '--get-regexp',
                             r'^submodule\..*\.path$'], cwd=root_dir, capture_output=True, text=True)
     if paths.returncode not in (0, 1):
@@ -208,7 +212,7 @@ def is_environment_ready(root_dir=None, platform="win", render_sdks=None, graphi
     return render_sdks_ready(render_sdks, graphics_backends)
 
 
-def main(platform="win", render_sdks=None, graphics_backends=(), generator='Visual Studio 17 2022'):
+def main(platform="win", render_sdks=None, graphics_backends=(), generator='Visual Studio 17 2022', use_lua=True, use_ikigai_script=True):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = repo_root()
     platform = (platform or "win").lower()
@@ -216,7 +220,7 @@ def main(platform="win", render_sdks=None, graphics_backends=(), generator='Visu
     render_sdks.validate(platform, graphics_backends)
 
     print("Updating git submodules...")
-    update_base_submodules(root_dir)
+    update_base_submodules(root_dir, use_lua, use_ikigai_script)
 
     if platform == "win":
         print("\nUpdating GLEW (update_glew.py)...")
