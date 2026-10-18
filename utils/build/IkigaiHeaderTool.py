@@ -577,7 +577,14 @@ def generate_headers(all_files_data, output_dir_base, root_dir):
 
         cpp_c_content += f"}}\n\n"
 
-        out_cpp_filepath = os.path.join(output_dir_base, f"{name_no_ext}.generated.cpp")
+        feature = {'scriptComponent': 'USE_LUA', 'ikigaiScriptComponent': 'USE_IKIGAI_SCRIPT',
+                   'physics2dComponent': 'USE_PHYSICS_2D', 'forceField2dComponent': 'USE_PHYSICS_2D',
+                   'cloth2dComponent': 'USE_PHYSICS_2D',
+                   'physics3dComponent': 'USE_PHYSICS_3D',
+                   'physicsComponent': 'USE_PHYSICS_3D'}.get(name_no_ext)
+        if feature:
+            cpp_c_content = f'#if {feature}\n' + cpp_c_content + '\n#endif\n'
+        out_cpp_filepath = os.path.join(output_dir_base, f'{name_no_ext}.generated.cpp')
         for generated_path, content in ((out_filepath, cpp_h_content), (out_cpp_filepath, cpp_c_content)):
             if os.path.exists(generated_path):
                 with open(generated_path, 'r', encoding='utf-8') as f:

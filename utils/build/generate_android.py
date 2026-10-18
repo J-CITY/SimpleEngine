@@ -130,6 +130,7 @@ def generate_android(
     abis=None,
     use_editor=True,
     use_file_watcher=False,
+    use_lua=True, use_ikigai_script=True,
 ):
     if es_ver not in ES_VERSIONS:
         raise ValueError("es_ver must be one of: " + ", ".join(ES_VERSIONS))
@@ -172,6 +173,8 @@ def generate_android(
         "GLES_HEX": spec["hex"],
         "ABI_FILTERS": abi_filters,
         "CMAKE_PATH": cmake_rel,
+        "USE_LUA": "ON" if use_lua else "OFF",
+        "USE_IKIGAI_SCRIPT": "ON" if use_ikigai_script else "OFF",
         "USE_EDITOR": "ON" if use_editor else "OFF",
         "USE_FILE_WATCHER": "ON" if use_file_watcher else "OFF",
     }

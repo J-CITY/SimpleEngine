@@ -126,6 +126,7 @@ def generate_quest(
     output_dir=None,
     app_id=DEFAULT_APP_ID,
     abis=None,
+    use_lua=True, use_ikigai_script=True,
 ):
     repo_root = os.path.abspath(repo_root)
     if output_dir is None:
@@ -174,6 +175,8 @@ def generate_quest(
         "GLES_HEX": GLES_HEX,
         "ABI_FILTERS": abi_filters,
         "CMAKE_PATH": cmake_rel,
+        "USE_LUA": "ON" if use_lua else "OFF",
+        "USE_IKIGAI_SCRIPT": "ON" if use_ikigai_script else "OFF",
         "JNI_LIBS": jni_libs,
         "OPENXR_LOADER_VERSION": spec["loader"]["version"],
     }
