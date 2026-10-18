@@ -20,6 +20,14 @@ class SmallVector {
     static_assert(std::is_same_v<typename Traits::pointer, T*>);
     static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>);
     static_assert(N <= static_cast<std::size_t>(PTRDIFF_MAX) / sizeof(T));
+    // MSVC allocator_traits::construct has no conditional noexcept specifier.
+    // Inspect the allocator hook (if any), otherwise construction uses T itself.
+    static constexpr bool NothrowRelocation = [] {
+        using Argument = decltype(std::move_if_noexcept(std::declval<T&>()));
+        if constexpr (requires(Allocator& a, T* p, Argument value) { a.construct(p, std::forward<Argument>(value)); })
+            return noexcept(std::declval<Allocator&>().construct(std::declval<T*>(), std::declval<Argument>()));
+        else return std::is_nothrow_constructible_v<T, Argument>;
+    }();
 public:
     using value_type = T;
     using allocator_type = Allocator;
@@ -36,7 +44,7 @@ public:
     static constexpr size_type inline_capacity = N;
 
     SmallVector() : SmallVector(Allocator()) {}
-    explicit SmallVector(const Allocator& allocator) : mAllocator(allocator) {}
+    explicit SmallVector(const Allocator& allocator) noexcept(std::is_nothrow_copy_constructible_v<Allocator>) : mAllocator(allocator) {}
     explicit SmallVector(size_type count, const Allocator& allocator = Allocator()) : SmallVector(allocator) {
         try { resize(count); } catch (...) { resetStorage(); throw; }
     }
@@ -61,7 +69,11 @@ public:
     SmallVector(const SmallVector& other, const Allocator& allocator) requires std::is_copy_constructible_v<T>
         : SmallVector(other.begin(), other.end(), allocator) {}
     // Copy the allocator so that the emptied source retains a usable domain.
-    SmallVector(SmallVector&& other) : SmallVector(other, other.mAllocator) {}
+    SmallVector(SmallVector&& other) noexcept(
+        std::is_nothrow_copy_constructible_v<Allocator> &&
+        noexcept(std::declval<const Allocator&>() == std::declval<const Allocator&>()) &&
+        (N == 0 || NothrowRelocation))
+        : SmallVector(std::move(other), other.mAllocator) {}
     SmallVector(SmallVector&& other, const Allocator& allocator) : SmallVector(allocator) {
         try { moveFrom(other); } catch (...) { resetStorage(); throw; }
     }
