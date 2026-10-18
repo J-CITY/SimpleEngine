@@ -55,10 +55,10 @@ ios/out
 graphify-out/
 __pycache__/
 utils/__pycache__
+imgui.ini
+nodeEditor.json
 # uncomment, when add tests
-utils/validation
 utils/assets
 utils/tests
 render_assets/
-# uncomment, docs
-docs/
+
