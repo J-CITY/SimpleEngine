@@ -40,6 +40,7 @@ namespace IKIGAI {
 
 			void set(const std::string& name, const UniformData& data) override;
 			UniformData& get(const std::string& name) override;
+			const UniformData* findUniform(const std::string& name) const noexcept override;
 
 
 			MaterialResource getDescriptor() override;

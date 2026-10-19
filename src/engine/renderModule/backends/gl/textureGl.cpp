@@ -422,7 +422,10 @@ std::shared_ptr<TextureGl> TextureGl::Create(const TextureResource &descriptor, 
 			int w = 0, h = 0, c = 0;
 			void* data = _descriptor.isFloat
 				? (void*)IKIGAI::UTILS::STBiLoadfFromMemory(fData.data(), fData.size(), &w, &h, &c, 4)
-				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 0); c=4;
+				: (void*)IKIGAI::UTILS::STBiLoadFromMemory(fData.data(), fData.size(), &w, &h, &c, 4);
+			// The GPU upload below uses RGBA; requesting native RGB here while
+			// reporting four channels makes the driver read past the CPU buffer.
+			c=4;
 			if (data) {
 				textureData.push_back(data);
 				_descriptor.width = w; 

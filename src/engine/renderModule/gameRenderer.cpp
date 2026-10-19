@@ -262,36 +262,25 @@ void GameRenderer::drawDrawable(const Drawable& drawable) {
 	if (mOverrideMaterial && drawable.material) {
 		for (const auto& [key, value] : mOverrideDefaults)
 			material->set(key, value);
+		const auto copyUniform = [&](const std::string& target, const std::string& source) {
+			const auto* value = drawable.material->findUniform(source);
+			if (!value || !material->findUniform(target))
+				return false;
+			material->set(target, *value);
+			return true;
+		};
 		for (const auto& uniform : material->getShader()->getReflection().mUniforms) {
 			if (material->isEngineUniform(uniform.mName))
 				continue;
 			if (uniform.mMembers.empty()) {
-				try {
-					material->set(uniform.mName, drawable.material->get(uniform.mName));
-				} catch (const std::out_of_range&) {
-					if (uniform.mName == "u_AlbedoMap") {
-						try {
-							material->set(uniform.mName, drawable.material->get("u_DiffuseMap"));
-						} catch (const std::out_of_range&) { }
-					}
-				}
+				if (!copyUniform(uniform.mName, uniform.mName) && uniform.mName == "u_AlbedoMap")
+					copyUniform(uniform.mName, "u_DiffuseMap");
 			}
 			else
 				for (const auto& member : uniform.mMembers) {
 					const auto key = uniform.mName + member.mName;
-					try {
-						material->set(key, drawable.material->get(key));
-					} catch (const std::out_of_range&) {
-						try {
-							material->set(key, drawable.material->get(member.mName));
-						} catch (const std::out_of_range&) {
-							if (member.mName == "u_Albedo") {
-								try {
-									material->set(key, drawable.material->get("data_UBOu_Diffuse"));
-								} catch (const std::out_of_range&) { }
-							}
-						}
-					}
+					if (!copyUniform(key, key) && !copyUniform(key, member.mName) && member.mName == "u_Albedo")
+						copyUniform(key, "data_UBOu_Diffuse");
 				}
 		}
 	}
@@ -1837,16 +1826,14 @@ RenderGraphPipeline::StagesArr RenderGraphPipeline::loadStages(const std::vector
 				if (stage->mMaterial->isEngineUniform(uniform.mName))
 					continue;
 				if (uniform.mMembers.empty()) {
-					try {
-						stage->mDefaults[uniform.mName] = stage->mMaterial->get(uniform.mName);
-					} catch (const std::out_of_range&) { }
+					if (const auto* value = stage->mMaterial->findUniform(uniform.mName))
+						stage->mDefaults[uniform.mName] = *value;
 				}
 				else
 					for (const auto& member : uniform.mMembers) {
 						const auto key = uniform.mName + member.mName;
-						try {
-							stage->mDefaults[key] = stage->mMaterial->get(key);
-						} catch (const std::out_of_range&) { }
+						if (const auto* value = stage->mMaterial->findUniform(key))
+							stage->mDefaults[key] = *value;
 					}
 			}
 		}

@@ -1,5 +1,6 @@
 #pragma once
 #include <optional>
+#include <serdepp/adaptor/nlohmann_json.hpp>
 #include <serdepp/attribute/make_optional.hpp>
 #include <serdepp/serializer.hpp>
 #include <string>
@@ -564,3 +565,35 @@ struct MaterialResource : public ResourceBase {
 };
 
 } // namespace IKIGAI::RENDER
+
+namespace serde {
+// Uniform vectors and matrices share JSON object syntax. Select their shape
+// before reading; probing larger vectors first throws and inserts null fields.
+template <> struct serde_adaptor<nlohmann::json, IKIGAI::RENDER::MaterialResource::UniformType> {
+  using Variant = IKIGAI::RENDER::MaterialResource::UniformType;
+
+  static void from(nlohmann::json& json, std::string_view key, Variant& value) {
+    auto& uniform = key.empty() ? json : json.at(std::string(key));
+    if (uniform.is_number_float()) value = uniform.get<float>();
+    else if (uniform.is_number_integer()) value = uniform.get<int>();
+    else if (uniform.is_boolean()) value = uniform.get<bool>();
+    else if (uniform.is_string()) value = uniform.get<std::string>();
+    else if (uniform.is_object()) {
+      using namespace IKIGAI::MATH;
+      if (const auto data = uniform.find("Data"); data != uniform.end()) {
+        if (!data->is_array() || (data->size() != 9 && data->size() != 16))
+          throw std::runtime_error("Uniform matrix Data must contain 9 or 16 elements");
+        if (data->size() == 16) value = deserialize<Matrix4f>(uniform);
+        else value = deserialize<Matrix3f>(uniform);
+      } else if (uniform.contains("W")) value = deserialize<Vector4f>(uniform);
+      else if (uniform.contains("Z")) value = deserialize<Vector3f>(uniform);
+      else if (uniform.contains("X") && uniform.contains("Y")) value = deserialize<Vector2f>(uniform);
+      else throw std::runtime_error("Uniform object must be a vector or matrix");
+    } else throw std::runtime_error("Unsupported uniform JSON type");
+  }
+
+  static void into(nlohmann::json& json, std::string_view key, const Variant& value) {
+    std::visit([&](const auto& uniform) { serialize_to<nlohmann::json>(uniform, json, key); }, value);
+  }
+};
+}

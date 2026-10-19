@@ -53,6 +53,9 @@ namespace IKIGAI::RENDER {
 		BindlessResourceHandle setBindlessTexture(const std::string& tableName,
 			const std::string& indexUniform, std::shared_ptr<TextureInterface> texture);
 		virtual UniformData& get(const std::string& name) = 0;
+		// Optional material parameters are common across render passes.
+		// Return nullptr when absent without throwing or inserting a value.
+		virtual const UniformData* findUniform(const std::string& name) const noexcept = 0;
 
 		virtual void create(const MaterialResource& res) = 0;
 

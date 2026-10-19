@@ -102,6 +102,11 @@ namespace IKIGAI::RENDER {
     MaterialInterface::UniformData& MaterialMetal::get(const std::string& name) {
         return mUniforms.at(name);
     }
+
+    const MaterialInterface::UniformData* MaterialMetal::findUniform(const std::string& name) const noexcept {
+        const auto found = mUniforms.find(name);
+        return found == mUniforms.end() ? nullptr : &found->second;
+    }
     
     void MaterialMetal::generateUniformsData() {
         mUniforms.clear();

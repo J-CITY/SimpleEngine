@@ -496,3 +496,21 @@ public:
 #endif
 };
 }
+
+namespace serde {
+template <> struct serde_adaptor<nlohmann::json, IKIGAI::RENDER::PipelineStage::Descriptor::UniformTypeDescr> {
+	using Variant = IKIGAI::RENDER::PipelineStage::Descriptor::UniformTypeDescr;
+	static void from(nlohmann::json& json, std::string_view key, Variant& value) {
+		using MaterialUniform = IKIGAI::RENDER::MaterialResource::UniformType;
+		MaterialUniform uniform;
+		serde_adaptor<nlohmann::json, MaterialUniform>::from(json, key, uniform);
+		std::visit([&](const auto& item) {
+			if constexpr (std::is_assignable_v<Variant&, decltype(item)>) value = item;
+			else throw std::runtime_error("Pipeline uniform matrices are not supported");
+		}, uniform);
+	}
+	static void into(nlohmann::json& json, std::string_view key, const Variant& value) {
+		std::visit([&](const auto& uniform) { serialize_to<nlohmann::json>(uniform, json, key); }, value);
+	}
+};
+}

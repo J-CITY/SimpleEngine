@@ -195,35 +195,23 @@ void GameRenderer::prepareRayTracingScene(const std::vector<RenderChunk>& chunks
 			MATH::Vector2f tiling { 1, 1 }, offset { 0, 0 };
 			if (drawable.material) {
 				for (const auto* name : { "data_UBOu_Albedo", "data_UBOu_Diffuse", "u_Diffuse" })
-					try {
-						if (auto* v = std::get_if<MATH::Vector4f>(&drawable.material->get(name))) {
-							albedo = *v;
-							break;
-						}
-					} catch (const std::out_of_range&) { }
-				try {
-					if (auto* v = std::get_if<float>(&drawable.material->get("data_UBOu_Roughness")))
-						roughness = *v;
-				} catch (const std::out_of_range&) { }
-				try {
-					if (auto* v = std::get_if<float>(&drawable.material->get("data_UBOu_Metallic")))
-						metallic = *v;
-				} catch (const std::out_of_range&) { }
+					if (auto* v = std::get_if<MATH::Vector4f>(drawable.material->findUniform(name))) {
+						albedo = *v;
+						break;
+					}
+				if (auto* v = std::get_if<float>(drawable.material->findUniform("data_UBOu_Roughness")))
+					roughness = *v;
+				if (auto* v = std::get_if<float>(drawable.material->findUniform("data_UBOu_Metallic")))
+					metallic = *v;
 				for (const auto* name : { "u_AlbedoMap", "u_DiffuseMap" })
-					try {
-						if (auto* v = std::get_if<std::shared_ptr<TextureInterface>>(&drawable.material->get(name)); v && *v) {
-							albedoMap = *v;
-							break;
-						}
-					} catch (const std::out_of_range&) { }
-				try {
-					if (auto* v = std::get_if<MATH::Vector2f>(&drawable.material->get("data_UBOu_TextureTiling")))
-						tiling = *v;
-				} catch (const std::out_of_range&) { }
-				try {
-					if (auto* v = std::get_if<MATH::Vector2f>(&drawable.material->get("data_UBOu_TextureOffset")))
-						offset = *v;
-				} catch (const std::out_of_range&) { }
+					if (auto* v = std::get_if<std::shared_ptr<TextureInterface>>(drawable.material->findUniform(name)); v && *v) {
+						albedoMap = *v;
+						break;
+					}
+				if (auto* v = std::get_if<MATH::Vector2f>(drawable.material->findUniform("data_UBOu_TextureTiling")))
+					tiling = *v;
+				if (auto* v = std::get_if<MATH::Vector2f>(drawable.material->findUniform("data_UBOu_TextureOffset")))
+					offset = *v;
 			}
 			const auto* identity = mesh.get();
 			hashBytes(hash, &identity, sizeof(identity));

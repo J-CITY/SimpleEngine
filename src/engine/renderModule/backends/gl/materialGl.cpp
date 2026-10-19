@@ -211,6 +211,11 @@ IKIGAI::RENDER::MaterialInterface::UniformData& IKIGAI::RENDER::MaterialGl::get(
 	return mUniforms.at(name);
 }
 
+const IKIGAI::RENDER::MaterialInterface::UniformData* IKIGAI::RENDER::MaterialGl::findUniform(const std::string& name) const noexcept {
+	const auto found = mUniforms.find(name);
+	return found == mUniforms.end() ? nullptr : &found->second;
+}
+
 IKIGAI::RENDER::MaterialResource IKIGAI::RENDER::MaterialGl::getDescriptor() {
 	MaterialResource d;
 	d.NeedFileWatch = false;//TODO
