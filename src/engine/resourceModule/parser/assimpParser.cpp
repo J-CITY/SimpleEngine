@@ -9,6 +9,7 @@
 #include <assimp/IOStream.hpp>
 #include <assimp/IOSystem.hpp>
 #include <assimp/Importer.hpp>
+#include <assimp/config.h>
 #include <assimp/matrix4x4.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -108,6 +109,9 @@ public:
 	}
 };
 const aiScene* ReadAssetScene(Assimp::Importer& importer, const std::string& fileName, const std::vector<uint8_t>& data, unsigned int flags) {
+	// Keep FBX pre/post rotations on the actual joint. Synthetic pivot nodes
+	// otherwise separate animated channels from the skin's joint hierarchy.
+	importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
 	importer.SetIOHandler(new AssetIO(fileName, data));
 	const aiScene* scene = importer.ReadFile(fileName, flags);
 	if (!scene) {
@@ -485,6 +489,11 @@ void buildSkeletonImpl(
 			IKIGAI::SKELETON::Joint joint;
 
 			joint.name = boneName;
+			aiVector3D bindScale, bindPosition; aiQuaternion bindRotation;
+			node->mTransformation.Decompose(bindScale, bindRotation, bindPosition);
+			joint.bindPose.translation = {bindPosition.x, bindPosition.y, bindPosition.z};
+			joint.bindPose.rotation = {bindRotation.x, bindRotation.y, bindRotation.z, bindRotation.w};
+			joint.bindPose.scale = {bindScale.x, bindScale.y, bindScale.z};
 			auto& m = tempBoneList[i]->mOffsetMatrix;
 			joint.offsetTransform
 				= IKIGAI::MATH::Matrix4f(m.a1, m.a2, m.a3, m.a4, m.b1, m.b2, m.b3, m.b4, m.c1, m.c2, m.c3, m.c4, m.d1, m.d2, m.d3, m.d4);
@@ -534,6 +543,7 @@ bool AssimpParser::buildSkeleton(const aiScene* scene, SKELETON::Skeleton& outSk
 
 bool AssimpParser::LoadSkeleton(const std::string& fileName, SKELETON::Skeleton& outSkeleton) {
 	Assimp::Importer importer;
+	importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
 	const aiScene* scene = importer.ReadFile(fileName, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
 	if (!scene) {
 		return false;
@@ -640,6 +650,7 @@ bool AssimpParser::fillAnimation(
 bool AssimpParser::LoadAnimation(const std::string& fileName, SKELETON::Skeleton& skeleton, SKELETON::Animation& outAnimation, bool additive,
 	SKELETON::Animation* additiveReference) {
 	Assimp::Importer importer;
+	importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
 	const aiScene* scene = importer.ReadFile(fileName, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
 	if (!scene)
 		return false;

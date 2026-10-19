@@ -1,5 +1,6 @@
 #include "animationInstance.h"
 #include <cmath>
+#include <algorithm>
 #ifdef __EMSCRIPTEN__
 #include <iostream>
 #endif
@@ -26,7 +27,8 @@ void AnimSample::update(float dt) {
 		durationInTicks = 1.0;
 	}
 	float timeInTicks = ticksPerSecond * static_cast<float>(mGlobalTime);
-	mLocalTime = fmod(static_cast<double>(timeInTicks), durationInTicks);
+	mLocalTime = mLooping ? fmod(static_cast<double>(timeInTicks), durationInTicks)
+		: std::clamp(static_cast<double>(timeInTicks), 0.0, durationInTicks);
 	if (mLocalTime < 0.0) {
 		mLocalTime += durationInTicks;
 	}
@@ -46,17 +48,17 @@ void AnimSample::update(float dt) {
 	const uint32_t channelCount = static_cast<uint32_t>(mAnimation->channels.size());
 
 	for (int i = 0; i < mSkeleton->getNumJolts(); i++) {
+		Keyframe result = i < mSkeleton->joints().size() ? mSkeleton->joints()[i].bindPose : Keyframe{};
 		if (static_cast<uint32_t>(i) >= channelCount) {
+			mPose.keyframes[i] = result;
 			continue;
 		}
 		const AnimationChannel& channel = mAnimation->channels[i];
 
-		Keyframe result;
-
 		// Calculate interpolated translation
 		{
 			if (channel.translationKeyframes.size() == 0) {
-				result.translation = MATH::Vector3f(0.0f);
+				// Unanimated channels retain the skeleton's local bind transform.
 			}
 			else {
 				const uint32_t idx1 = findTranslationKey(channel.translationKeyframes, mLocalTime);
@@ -67,7 +69,7 @@ void AnimSample::update(float dt) {
 				}
 				else {
 					float delta = (float)(channel.translationKeyframes[idx2].time - channel.translationKeyframes[idx1].time);
-					float factor = (mLocalTime - (float)channel.translationKeyframes[idx1].time) / delta;
+					float factor = delta > 0 ? std::clamp(float((mLocalTime - channel.translationKeyframes[idx1].time) / delta), 0.f, 1.f) : 0.f;
 
 					result.translation = interpolateTranslation(
 						channel.translationKeyframes[idx1].translation, channel.translationKeyframes[idx2].translation, factor);
@@ -78,7 +80,6 @@ void AnimSample::update(float dt) {
 		// Calculate interpolated rotation
 		{
 			if (channel.rotationKeyframes.size() == 0) {
-				result.rotation = MATH::QuaternionF::Identity;
 			}
 			else {
 				const uint32_t idx1 = findRotationKey(channel.rotationKeyframes, mLocalTime);
@@ -89,7 +90,7 @@ void AnimSample::update(float dt) {
 				}
 				else {
 					float delta = (float)(channel.rotationKeyframes[idx2].time - channel.rotationKeyframes[idx1].time);
-					float factor = (mLocalTime - (float)channel.rotationKeyframes[idx1].time) / delta;
+					float factor = delta > 0 ? std::clamp(float((mLocalTime - channel.rotationKeyframes[idx1].time) / delta), 0.f, 1.f) : 0.f;
 
 					result.rotation = interpolateRotation(channel.rotationKeyframes[idx1].rotation, channel.rotationKeyframes[idx2].rotation, factor);
 				}
@@ -99,7 +100,6 @@ void AnimSample::update(float dt) {
 		// Calculate interpolated scale
 		{
 			if (channel.scaleKeyframes.size() == 0) {
-				result.scale = MATH::Vector3f(1.0f);
 			}
 			else {
 				const uint32_t idx1 = findScaleKey(channel.scaleKeyframes, mLocalTime);
@@ -110,7 +110,7 @@ void AnimSample::update(float dt) {
 				}
 				else {
 					float delta = (float)(channel.scaleKeyframes[idx2].time - channel.scaleKeyframes[idx1].time);
-					float factor = (mLocalTime - (float)channel.scaleKeyframes[idx1].time) / delta;
+					float factor = delta > 0 ? std::clamp(float((mLocalTime - channel.scaleKeyframes[idx1].time) / delta), 0.f, 1.f) : 0.f;
 
 					result.scale = interpolateScale(channel.scaleKeyframes[idx1].scale, channel.scaleKeyframes[idx2].scale, factor);
 				}
@@ -126,7 +126,7 @@ Pose* AnimSample::getPose() {
 }
 
 void AnimSample::setPlaybackRate(float rate) {
-	if (rate < 0.0f || rate > 1.0f) {
+	if (!std::isfinite(rate) || rate < 0.0f || rate > 8.0f) {
 		return;
 	}
 
@@ -135,6 +135,16 @@ void AnimSample::setPlaybackRate(float rate) {
 
 float AnimSample::playbackRate() {
 	return mPlaybackRate;
+}
+
+float AnimSample::duration() const {
+	if (!mAnimation) return 0;
+	return static_cast<float>(mAnimation->durationInTicks / (mAnimation->ticksPerSecond > 0 ? mAnimation->ticksPerSecond : 25.0));
+}
+void AnimSample::seek(float seconds) {
+	if (!std::isfinite(seconds)) return;
+	mGlobalTime = std::max(0.f, seconds);
+	update(0);
 }
 
 MATH::Vector3f AnimSample::interpolateTranslation(const MATH::Vector3f& a, const MATH::Vector3f& b, float t) {
@@ -150,7 +160,7 @@ MATH::QuaternionF AnimSample::interpolateRotation(const MATH::QuaternionF& a, co
 }
 
 uint32_t AnimSample::findTranslationKey(const std::vector<TranslationKey>& translations, double ticks) {
-	uint32_t idx = 0;
+	uint32_t idx = translations.size() > 1 ? static_cast<uint32_t>(translations.size() - 2) : 0;
 
 	for (uint32_t i = 0; i < (translations.size() - 1); i++) {
 		if (ticks < translations[i + 1].time) {
@@ -163,7 +173,7 @@ uint32_t AnimSample::findTranslationKey(const std::vector<TranslationKey>& trans
 }
 
 uint32_t AnimSample::findRotationKey(const std::vector<RotationKey>& rotations, double ticks) {
-	uint32_t idx = 0;
+	uint32_t idx = rotations.size() > 1 ? static_cast<uint32_t>(rotations.size() - 2) : 0;
 
 	for (uint32_t i = 0; i < (rotations.size() - 1); i++) {
 		if (ticks < rotations[i + 1].time) {
@@ -176,7 +186,7 @@ uint32_t AnimSample::findRotationKey(const std::vector<RotationKey>& rotations, 
 }
 
 uint32_t AnimSample::findScaleKey(const std::vector<ScaleKey>& scale, double ticks) {
-	uint32_t idx = 0;
+	uint32_t idx = scale.size() > 1 ? static_cast<uint32_t>(scale.size() - 2) : 0;
 
 	for (uint32_t i = 0; i < (scale.size() - 1); i++) {
 		if (ticks < scale[i + 1].time) {
@@ -189,6 +199,10 @@ uint32_t AnimSample::findScaleKey(const std::vector<ScaleKey>& scale, double tic
 }
 
 std::unique_ptr<IAnimationPlayable> AnimSample::clone() const {
-	return std::make_unique<AnimSample>(mSkeleton, mAnimation);
+	auto result = std::make_unique<AnimSample>(mSkeleton, mAnimation);
+	result->setLooping(mLooping);
+	result->setPlaybackRate(mPlaybackRate);
+	result->seek(static_cast<float>(mGlobalTime));
+	return result;
 }
 }

@@ -18,6 +18,8 @@
 #include "components/skeletalAnimationComponent.h"
 #include "components/skeletalComponent.h"
 #include "components/transform.h"
+#include <serdepp/adaptor/nlohmann_json.hpp>
+#include <unordered_map>
 
 
 #if USE_LUA
@@ -37,12 +39,13 @@
 #include "components/spotLight.h"
 #if USE_PHYSICS_3D
 #include "components/physics3dComponent.h"
+#include "components/thirdPersonController.h"
 #include "components/physicsComponent.h"
 
-#define IKIGAI_PHYSICS3D_COMPONENTS Physics3DComponent, SoftBody3DComponent, Cloth3DComponent, Fluid3DComponent, ForceField3DComponent,
+#define IKIGAI_PHYSICS3D_COMPONENTS Physics3DComponent, SoftBody3DComponent, Cloth3DComponent, Fluid3DComponent, ForceField3DComponent, ThirdPersonController,
 #define IKIGAI_PHYSICS3D_DESCRIPTORS                                                                                                                 \
 	Physics3DComponent::Descriptor, SoftBody3DComponent::Descriptor, Cloth3DComponent::Descriptor, Fluid3DComponent::Descriptor,                     \
-		ForceField3DComponent::Descriptor,
+		ForceField3DComponent::Descriptor, ThirdPersonController::Descriptor,
 #define IKIGAI_PHYSICS3D_LEGACY_COMPONENT PhysicsComponent,
 #define IKIGAI_PHYSICS3D_LEGACY_DESCRIPTOR PhysicsComponent::Descriptor,
 #else
@@ -101,4 +104,46 @@ using ComponentsTypeProviderType = ComponentsTypeProvider<COMPONENTS_DEF>;
 
 using ComponentsType = std::variant<COMPONENTS_DEF>;
 using ComponentsDescriptorType = std::variant<COMPONENTS_DESCRIPTOR_DEF>;
+}
+
+namespace serde {
+// Components carry a discriminator key (e.g. CameraComponentType). The generic
+// serdepp variant reader probes each alternative by deserializing it and catching
+// exceptions. Select the descriptor first so valid scenes never take that path.
+template <> struct serde_adaptor<nlohmann::json, IKIGAI::ECS::ComponentsDescriptorType> {
+	using Variant = IKIGAI::ECS::ComponentsDescriptorType;
+	using Reader = void (*)(nlohmann::json&, Variant&);
+
+	template <class... Components>
+	static auto readers(IKIGAI::ECS::ComponentsTypeProvider<Components...>) {
+		return std::unordered_map<std::string, Reader> {
+			{ IKIGAI::ECS::GetComponentName<Components>() + "Type",
+				+[](nlohmann::json& json, Variant& value) { value = deserialize<typename Components::Descriptor>(json); } }...
+		};
+	}
+
+	static void from(nlohmann::json& json, std::string_view key, Variant& value) {
+		auto& component = key.empty() ? json : json.at(std::string(key));
+		if (!component.is_object())
+			throw std::runtime_error("Component descriptor must be an object");
+		static const auto registry = readers(IKIGAI::ECS::ComponentsTypeProviderType { });
+		Reader reader = nullptr;
+		for (const auto& item : component.items()) {
+			const auto found = registry.find(item.key());
+			if (found == registry.end())
+				continue;
+			if (reader)
+				throw std::runtime_error("Component descriptor has multiple type keys");
+			reader = found->second;
+		}
+		if (!reader)
+			throw std::runtime_error("Component descriptor has no supported type key");
+		// A malformed selected descriptor is an error, not another variant to try.
+		reader(component, value);
+	}
+
+	static void into(nlohmann::json& json, std::string_view key, const Variant& value) {
+		std::visit([&](const auto& descriptor) { serialize_to<nlohmann::json>(descriptor, json, key); }, value);
+	}
+};
 }

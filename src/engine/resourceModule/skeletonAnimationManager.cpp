@@ -101,7 +101,8 @@ ResourcePtr<SKELETON::Animation> SkeletonAnimationLoader::createResource(const s
 			config = LoadConfig(path);
 			AddConfigToCache(path, config);
 		}
-		skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(config.skeletonPath);
+		skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(config.skeletonPath,
+			config.skeletonPath.ends_with(".skeleton") ? ELoadingType::RESOURCE : ELoadingType::FILE);
 		if (!skeleton) {
 			ASSERT("SkeletonAnimationLoader: AnimationLoadContext.skeleton is null");
 			return nullptr;

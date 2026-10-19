@@ -1,7 +1,9 @@
 #include "sceneLoadingSmoke.h"
 #include "captureModule/screenshot.h"
 #include "coreModule/core/app.h"
+#include "renderModule/gameRenderer.h"
 #include "resourceModule/fileSystem/fileSystem.h"
+#include "resourceModule/materialManager.h"
 #include "resourceModule/serviceManager.h"
 #include "sceneManager.h"
 
@@ -31,6 +33,30 @@ namespace {
 }
 
 void RunSceneLoadingSmoke(CORE::App& app) {
+	{
+		auto material = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource("/materials/render/portable/gbuffer.mat");
+		Require(material->findUniform("data_UBOu_Albedo") == &material->get("data_UBOu_Albedo"), "Uniform lookup lost an existing value");
+		for (unsigned i = 0; i < 1000; ++i)
+			Require(material->findUniform("__missing_optional_uniform") == nullptr, "Missing uniform must return nullptr");
+	}
+	const nlohmann::json uniformCases[] = {
+		1.5, 2, true, "/textures/example.texture", { { "X", 1 }, { "Y", 2 }, { "Z", 3 }, { "W", 4 } },
+		{ { "X", 1 }, { "Y", 2 }, { "Z", 3 } }, { { "X", 1 }, { "Y", 2 } },
+		{ { "Data", nlohmann::json::array({ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }) } },
+		{ { "Data", nlohmann::json::array({ 1, 0, 0, 0, 1, 0, 0, 0, 1 }) } }
+	};
+	for (std::size_t i = 0; i < std::size(uniformCases); ++i) {
+		auto json = uniformCases[i];
+		auto uniform = serde::deserialize<RENDER::MaterialResource::UniformType>(json);
+		Require(uniform.index() == i && json == uniformCases[i] && serde::serialize<nlohmann::json>(uniform) == uniformCases[i],
+			"Material uniform type, source JSON or round trip was corrupted");
+	}
+	for (auto direction : { nlohmann::json { { "X", 1 }, { "Y", 0 } }, nlohmann::json { { "X", 1 }, { "Y", 0 }, { "Z", 0 } } }) {
+		const auto original = direction;
+		const auto uniform = serde::deserialize<RENDER::PipelineStage::Descriptor::UniformTypeDescr>(direction);
+		Require(direction == original && serde::serialize<nlohmann::json>(uniform) == original,
+			"Pipeline vector uniform reader modified JSON while selecting its dimension");
+	}
 	auto modelJson
 		= nlohmann::json { { "PathModel", "/models/pica_pica/scene.gltf" }, { "Flags", { "TRIANGULATE", "PRE_TRANSFORM_VERTICES", "FLIP_UVS" } } };
 	auto modelConfig = UTILS::FromJson<RENDER::ModelResource>(modelJson);
@@ -41,6 +67,33 @@ void RunSceneLoadingSmoke(CORE::App& app) {
 	auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
 	auto seedFile = fs.getFile("/scenes/render-smoke.json");
 	auto seed = nlohmann::json::parse(seedFile->readStr());
+	// Probing variant alternatives used to insert null discriminator fields into
+	// valid input and throw once per rejected component. Reading must be direct.
+	for (const auto& sourceObject : seed.at("Objects")) {
+		for (const auto& sourceComponent : sourceObject.at("Components")) {
+			auto json = sourceComponent;
+			auto descriptor = serde::deserialize<ECS::ComponentsDescriptorType>(json);
+			Require(json == sourceComponent, "Component reader modified valid JSON while selecting its type");
+			auto serialized = serde::serialize<nlohmann::json>(descriptor);
+			auto restored = serde::deserialize<ECS::ComponentsDescriptorType>(serialized);
+			Require(restored.index() == descriptor.index(), "Component variant did not round trip");
+		}
+	}
+	auto expectBadComponent = [](nlohmann::json json) {
+		const auto original = json;
+		const auto result = UTILS::FromJson<ECS::ComponentsDescriptorType>(json);
+		Require(result.isErr(), "Invalid component discriminator was accepted");
+		Require(json == original, "Failed component selection modified input JSON");
+	};
+	expectBadComponent(nlohmann::json::object());
+	expectBadComponent({ { "UnknownComponentType", "Unknown" } });
+	expectBadComponent({ { "CameraComponentType", "Camera" }, { "TransformComponentType", "Transform" } });
+	expectBadComponent(nlohmann::json::array());
+	auto malformed = seed.at("Objects").at(0).at("Components").at(0);
+	malformed["LocalPosition"] = "invalid";
+	auto malformedResult = UTILS::FromJson<ECS::ComponentsDescriptorType>(malformed);
+	Require(malformedResult.isErr() && malformedResult.unwrapErr().text.find("type_error") != std::string::npos,
+		"Malformed selected descriptor must report its JSON error without trying other components");
 	auto camera = seed["Objects"][0];
 	auto object = nlohmann::json { { "Name", "Child" }, { "Id", 2 }, { "ParentId", 3 },
 		{ "Components", nlohmann::json::array({ camera["Components"][0] }) } };

@@ -32,7 +32,11 @@ std::filesystem::path Child(const std::filesystem::path& root, const std::string
 			throw std::runtime_error("Storage path traversal");
 	auto result = root / path;
 	// Reject links/junctions escaping a managed storage directory.
-	const auto base = std::filesystem::weakly_canonical(root);
+	auto base = std::filesystem::weakly_canonical(root);
+	// SDL_GetPrefPath ends in a separator. A trailing empty component must not
+	// be compared against the first component of the requested child path.
+	if (base.filename().empty() && base != base.root_path())
+		base = base.parent_path();
 	const auto resolved = std::filesystem::weakly_canonical(result);
 	auto it = resolved.begin();
 	for (const auto& part : base) {
@@ -50,6 +54,7 @@ std::filesystem::path AppDataPath(const std::string& org, const std::string& app
 		throw std::runtime_error("SDL_GetPrefPath failed");
 	auto result = std::filesystem::u8path(value);
 	SDL_free(value);
+
 	return result;
 #elif defined(_WIN32)
 	const wchar_t* value = _wgetenv(L"APPDATA");

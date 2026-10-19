@@ -34,6 +34,13 @@ void MenuBar::draw() {
 			}
             if (ImGui::BeginMenu("Scenes")) {
                 auto& manager = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>();
+#if USE_PHYSICS_3D
+                if (ImGui::MenuItem("Third Person - Parkour Playground", nullptr,
+                    manager.getCurrentSceneSourcePath() == "/games/third-person-traversal-demo.json"
+                        || manager.getCurrentSceneSourcePath() == "games/third-person-traversal-demo.json", !manager.isEditingLocked())) {
+                    PREFABS::Try([&] { manager.loadFromFileAsync("/games/third-person-traversal-demo.json"); });
+                }
+#endif
                 if (ImGui::MenuItem("Pica Pica - Hybrid PBR", nullptr,
                     manager.getCurrentSceneSourcePath() == "/scenes/pica-pica-demo.json", !manager.isEditingLocked())) {
                     PREFABS::Try([&] { manager.loadFromFileAsync("/scenes/pica-pica-demo.json"); });

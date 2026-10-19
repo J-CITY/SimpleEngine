@@ -15,6 +15,11 @@ public:
 
 	void setPlaybackRate(float rate);
 	float playbackRate();
+	void setLooping(bool value) { mLooping = value; }
+	void seek(float seconds);
+	float duration() const;
+	float time() const { return static_cast<float>(mGlobalTime); }
+	bool finished() const { return !mLooping && time() >= duration(); }
 
 private:
 	MATH::Vector3f interpolateTranslation(const MATH::Vector3f& a, const MATH::Vector3f& b, float t);
@@ -31,6 +36,7 @@ private:
 	std::shared_ptr<Skeleton> mSkeleton;
 	std::shared_ptr<Animation> mAnimation;
 	float mPlaybackRate;
-	Pose mPose;
+	Pose mPose{};
+	bool mLooping = true;
 };
 }

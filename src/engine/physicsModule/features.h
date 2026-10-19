@@ -7,7 +7,7 @@ inline void validateFeatures(const nlohmann::json& data) {
 #if !USE_PHYSICS_3D
 	if (data.is_object())
 		for (const char* key : { "Physics3DComponentType", "SoftBody3DComponentType", "Cloth3DComponentType", "Fluid3DComponentType",
-			 "ForceField3DComponentType", "PhysicsComponentType" })
+			 "ForceField3DComponentType", "PhysicsComponentType", "ThirdPersonControllerType" })
 			if (data.contains(key))
 				throw std::runtime_error("Scene requires 3D physics, but USE_PHYSICS_3D=OFF");
 	if (data.is_structured())

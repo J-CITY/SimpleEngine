@@ -83,6 +83,21 @@ template <class D> Task<> PrepareComponent(D descriptor, std::shared_ptr<SceneLo
 		if (!descriptor.SkeletalPlayablePath.empty())
 			co_await HoldResource(ServiceManager::Get<SkeletonAnimationLoader>().requestResource(descriptor.SkeletalPlayablePath), state, resources);
 	}
+#if USE_PHYSICS_3D
+	else if constexpr (std::is_same_v<D, ECS::ThirdPersonController::Descriptor>) {
+		auto file=ServiceManager::Get<FileSystem>().getFile(descriptor.Animations);
+		if(!file || !file->isValid()) throw std::runtime_error("Missing character animations: "+descriptor.Animations);
+		const auto bytes=co_await file->readAllTask(state->control);
+		const auto manifest=nlohmann::json::parse(bytes.begin(),bytes.end());
+		// Keep the shared rig alive while preparing clips, before the visual
+		// object is constructed. Otherwise each clip re-imports the entire FBX.
+		if(const auto rig=manifest.value("Skeleton",std::string{});!rig.empty())
+			co_await HoldResource(ServiceManager::Get<SkeletonLoader>().requestResource(rig,
+				rig.ends_with(".skeleton")?ELoadingType::RESOURCE:ELoadingType::FILE),state,resources);
+		for(const auto& clip : manifest.at("Clips"))
+			co_await HoldResource(ServiceManager::Get<SkeletonAnimationLoader>().requestResource(clip.at("Path").get<std::string>()),state,resources);
+	}
+#endif
 	else if constexpr (std::is_same_v<D, ECS::AudioComponent::Descriptor>) {
 		if (!descriptor.AudioPath.empty())
 			co_await HoldResource(ServiceManager::Get<AudioSourceLoader>().requestResource(

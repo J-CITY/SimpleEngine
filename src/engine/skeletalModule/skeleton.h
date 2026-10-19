@@ -10,6 +10,7 @@ struct Joint {
 	std::string name;
 	MATH::Matrix4f offsetTransform;
 	int32_t parentIndex;
+	Keyframe bindPose;
 };
 
 class Skeleton {

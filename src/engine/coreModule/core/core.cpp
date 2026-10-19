@@ -270,6 +270,7 @@ Core::Core(
 #if USE_PHYSICS_3D
 		compMgr->registerComponent<ECS::PhysicsComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::Physics3DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ThirdPersonController>(ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SoftBody3DComponent>(ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::Cloth3DComponent>(ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::Fluid3DComponent>(ECS2::StorageType::Sparse);
