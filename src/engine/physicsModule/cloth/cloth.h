@@ -8,12 +8,13 @@
 
 class ClothObj {
 public:
-//protected:
+	// protected:
 	std::vector<std::shared_ptr<ClothParticle>> verts;
 	std::vector<std::shared_ptr<Spring>> structural;
 	std::vector<std::shared_ptr<Spring>> shear;
 	std::vector<std::shared_ptr<Spring>> bend;
 	float clothSize;
+
 public:
 	// Public API
 	void Initialize(int gridSize, float distance, const glm::vec3& position);
@@ -28,5 +29,5 @@ public:
 	void Update(float dt);
 	void SolveConstraints(const std::vector<OBB>& constraints);
 	void ApplySpringForces(float dt);
-	//void Render(bool debug);
+	// void Render(bool debug);
 };

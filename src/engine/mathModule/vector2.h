@@ -49,13 +49,13 @@ template <typename T> struct Vector2 {
 	};
 	Vector2<T>()
 		: x(0)
-		, y(0) {};
+		, y(0) { };
 	Vector2<T>(T _v)
 		: x(_v)
-		, y(_v) {};
+		, y(_v) { };
 	Vector2<T>(T _x, T _y)
 		: x(_x)
-		, y(_y) {};
+		, y(_y) { };
 	operator T*() {
 		return data;
 	};

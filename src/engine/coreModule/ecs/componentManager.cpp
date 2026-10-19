@@ -2,7 +2,6 @@
 
 using namespace IKIGAI::ECS;
 
-
 ComponentManager::ComponentManager() {
 	systemManager = std::make_unique<SystemManager>();
 }
@@ -13,9 +12,9 @@ void ComponentManager::setSignature(Entity entity, Signature signature) {
 
 Signature ComponentManager::getSignature(Entity entity) {
 #ifdef __DEBUG__
-			if (!signatures.contains(entity)) {
-				throw;
-			}
+	if (!signatures.contains(entity)) {
+		throw;
+	}
 #endif
 	return signatures[entity];
 }
@@ -33,11 +32,11 @@ void ComponentManager::entityDestroyed(Entity entity) {
 }
 
 void ComponentManager::enable(Entity id) {
-	enabledComponent(id, ComponentsTypeProviderType{});
+	enabledComponent(id, ComponentsTypeProviderType { });
 }
 
 void ComponentManager::disable(Entity id) {
-	disableComponent(id, ComponentsTypeProviderType{});
+	disableComponent(id, ComponentsTypeProviderType { });
 }
 /*
 void IKIGAI::ECS::TestECS() {

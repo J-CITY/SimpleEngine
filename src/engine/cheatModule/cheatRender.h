@@ -2,12 +2,12 @@
 
 #ifdef USE_CHEATS
 namespace IKIGAI::CHEATS {
-	class CheatRender {
-	public:
-		CheatRender();
+class CheatRender {
+public:
+	CheatRender();
 
-		virtual ~CheatRender() = default;
-		void draw();
-	};
+	virtual ~CheatRender() = default;
+	void draw();
+};
 }
 #endif

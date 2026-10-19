@@ -10,6 +10,7 @@ ContentService::ContentService(FileSystem& files, std::filesystem::path root, st
 	: mFiles(files)
 	, mRoot(std::move(root))
 	, mPlatform(std::move(platform)) { }
+
 nlohmann::json ContentService::validate(const nlohmann::json& manifest) const {
 	if (manifest.at("schemaVersion") != 1 || manifest.at("minEngineVersion").get<int>() > 1)
 		throw std::runtime_error("Unsupported content schema/engine version");
@@ -38,6 +39,7 @@ nlohmann::json ContentService::validate(const nlohmann::json& manifest) const {
 	}
 	return manifest;
 }
+
 void ContentService::verify(const nlohmann::json& manifest) const {
 	validate(manifest);
 	FileSystem candidate;
@@ -45,7 +47,7 @@ void ContentService::verify(const nlohmann::json& manifest) const {
 		const auto path = STORAGE::Child(mRoot, archive.at("path").get<std::string>());
 		if (std::filesystem::file_size(path) != archive.at("size").get<uint64_t>() || STORAGE::Sha256(path) != archive.at("sha256"))
 			throw std::runtime_error("Archive integrity mismatch");
-		candidate.mountZip(path.generic_string(), "/", archive.value("deletedPaths", std::vector<std::string> {}));
+		candidate.mountZip(path.generic_string(), "/", archive.value("deletedPaths", std::vector<std::string> { }));
 	}
 	// Read every visible file to verify ZIP CRC/decompression and the catalog.
 	std::set<std::string> visible;
@@ -77,6 +79,7 @@ void ContentService::verify(const nlohmann::json& manifest) const {
 	for (const auto& [key, value] : mapping.at("textures").items())
 		resolver.texture(key);
 }
+
 void ContentService::stageLocal(const std::filesystem::path& path) {
 	const auto manifest = validate(nlohmann::json::parse(STORAGE::Read(path)));
 	for (const auto& archive : manifest.at("archives")) {
@@ -101,6 +104,7 @@ void ContentService::stageLocal(const std::filesystem::path& path) {
 	verify(manifest);
 	STORAGE::WriteTextAtomic(mRoot / "releases" / (manifest.at("releaseId").get<std::string>() + ".json"), manifest.dump(2));
 }
+
 std::vector<NETWORK::DownloadHandle> ContentService::download(
 	NETWORK::DownloadManager& manager, const nlohmann::json& trustedManifest, const std::string& baseUrl, bool allowLocalhost) {
 	const auto manifest = validate(trustedManifest);
@@ -120,13 +124,14 @@ std::vector<NETWORK::DownloadHandle> ContentService::download(
 	}
 	return result;
 }
+
 std::shared_future<void> ContentService::activate(const nlohmann::json& manifest) {
 	verify(manifest);
 	std::vector<FileSystem::MountId> next;
 	try {
 		for (const auto& archive : manifest.at("archives"))
 			next.push_back(mFiles.mountZip(STORAGE::Child(mRoot, archive.at("path").get<std::string>()).generic_string(), "/",
-				archive.value("deletedPaths", std::vector<std::string> {})));
+				archive.value("deletedPaths", std::vector<std::string> { })));
 		const auto active = mRoot / "active.json";
 		if (std::filesystem::is_regular_file(active)) {
 			try {
@@ -150,6 +155,7 @@ std::shared_future<void> ContentService::activate(const nlohmann::json& manifest
 	mRelease = manifest.at("releaseId").get<std::string>();
 	return STORAGE::CommitPersistent();
 }
+
 bool ContentService::restore() {
 	for (const auto& name : { "active.json", "previous.json" }) {
 		const auto path = mRoot / name;

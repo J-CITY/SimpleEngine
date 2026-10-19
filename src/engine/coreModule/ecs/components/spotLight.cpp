@@ -4,18 +4,20 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj) : LightComponent(_obj) {
+SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj)
+	: LightComponent(_obj) {
 	__NAME__ = "SpotLight";
 	data.type = RENDER::Light::Type::SPOT;
-	//bool initFBOFLag3 = dirShadowFBO.setupFrameBuffer(shadowRes, shadowRes, false);
+	// bool initFBOFLag3 = dirShadowFBO.setupFrameBuffer(shadowRes, shadowRes, false);
 }
 
-SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : SpotLight(_obj) {
+SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor)
+	: SpotLight(_obj) {
 	data.color = _descriptor.Color;
 	data.intensity = _descriptor.Intensity;
-    data.castShadows = _descriptor.CastShadows;
-    data.shadowNear = _descriptor.ShadowNear;
-    data.shadowFar = _descriptor.ShadowFar;
+	data.castShadows = _descriptor.CastShadows;
+	data.shadowNear = _descriptor.ShadowNear;
+	data.shadowFar = _descriptor.ShadowFar;
 	data.constant = _descriptor.Constant;
 	data.linear = _descriptor.Linear;
 	data.quadratic = _descriptor.Quadratic;
@@ -23,7 +25,7 @@ SpotLight::SpotLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor
 	data.outerCutoff = _descriptor.OuterCutoff;
 }
 
-float SpotLight::getConstant() const{
+float SpotLight::getConstant() const {
 	return data.constant;
 }
 
@@ -68,9 +70,9 @@ SpotLight::Descriptor SpotLight::getDescriptor() const {
 	descriptor.Type = GetType<SpotLight>();
 	descriptor.Color = getColor();
 	descriptor.Intensity = getIntensity();
-    descriptor.CastShadows = data.castShadows;
-    descriptor.ShadowNear = data.shadowNear;
-    descriptor.ShadowFar = data.shadowFar;
+	descriptor.CastShadows = data.castShadows;
+	descriptor.ShadowNear = data.shadowNear;
+	descriptor.ShadowFar = data.shadowFar;
 	descriptor.Constant = getConstant();
 	descriptor.Linear = getLinear();
 	descriptor.Quadratic = getQuadratic();
@@ -79,9 +81,9 @@ SpotLight::Descriptor SpotLight::getDescriptor() const {
 	return descriptor;
 }
 
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::SpotLight>("SpotLight")
 //	(
@@ -136,4 +138,4 @@ SpotLight::Descriptor SpotLight::getDescriptor() const {
 //		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 //	);
-//}
+// }

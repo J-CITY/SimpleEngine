@@ -1,10 +1,11 @@
 #include "physics2dSystem.h"
 #if USE_PHYSICS_2D
-#include "coreModule/ecs/components/physics2dComponent.h"
-#include "coreModule/ecs/components/forceField2dComponent.h"
 #include "coreModule/ecs/components/cloth2dComponent.h"
+#include "coreModule/ecs/components/forceField2dComponent.h"
+#include "coreModule/ecs/components/physics2dComponent.h"
 #include "sceneModule/scene.h"
 #include <stdexcept>
+
 #ifdef USE_EDITOR
 #include <imgui.h>
 #endif
@@ -13,27 +14,21 @@ using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 namespace P = IKIGAI::PHYSICS2D;
 namespace {
-P::Vec2 vec(MATH::Vector2f v)
-{
+P::Vec2 vec(MATH::Vector2f v) {
 	return { v.x, v.y };
 }
-float angle(const Object& o)
-{
+float angle(const Object& o) {
 	return MATH::QuaternionF::ToEulerAngles(o.mTransform->getLocalRotation()).z;
 }
-P::Vec2 position(const Object& o)
-{
+P::Vec2 position(const Object& o) {
 	auto p = o.mTransform->getLocalPosition();
 	return { p.x, p.y };
 }
-void gridDimensions(int w, int h, float spacing)
-{
+void gridDimensions(int w, int h, float spacing) {
 	if (w < 1 || h < 1 || w > 128 || h > 128 || !std::isfinite(spacing) || spacing <= 0)
 		throw std::invalid_argument("Particle grid requires 1..128 rows/columns and positive spacing");
 }
-template <class C, class Create>
-void synchronize(C& c, const std::shared_ptr<P::World>& world, Physics2DLease::Kind kind, Create create)
-{
+template <class C, class Create> void synchronize(C& c, const std::shared_ptr<P::World>& world, Physics2DLease::Kind kind, Create create) {
 	auto signature = serde::serialize<nlohmann::json>(c.getDescriptor()).dump();
 	bool valid = c.runtime && c.runtime->world.lock() == world && c.runtime->signature == signature;
 	if (valid)
@@ -64,20 +59,19 @@ void synchronize(C& c, const std::shared_ptr<P::World>& world, Physics2DLease::K
 	lease->id = create();
 	c.runtime = std::move(lease);
 }
-template <class C> void release(Object& o)
-{
+template <class C> void release(Object& o) {
 	if (auto c = o.getComponent<C>())
 		c->runtime.reset();
 }
 }
-Physics2DSystem::Physics2DSystem(SCENE_SYSTEM::Scene& scene,std::shared_ptr<P::World> simulation)
-	: mScene(scene),mSimulation(std::move(simulation))
-{
-	if(!mSimulation)throw std::invalid_argument("Physics2D factory returned null");
+Physics2DSystem::Physics2DSystem(SCENE_SYSTEM::Scene& scene, std::shared_ptr<P::World> simulation)
+	: mScene(scene)
+	, mSimulation(std::move(simulation)) {
+	if (!mSimulation)
+		throw std::invalid_argument("Physics2D factory returned null");
 	mName = "Physics2DSystem";
 }
-void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chrono::duration<double> dt)
-{
+void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chrono::duration<double> dt) {
 	auto objects = mScene.getObjects();
 	// Enumerate this scene's objects, not the global ECS arrays: a loading scene
 	// and an active scene may temporarily share ECS storage, but never physics.
@@ -102,16 +96,25 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 				auto& s = c.settings;
 				P::ForceField f;
 				f.kind = static_cast<P::ForceField::Kind>(s.Kind);
-				auto center=o.mTransform->getWorldPosition();
-				f.vector = vec(s.Vector); f.center = {center.x,center.y}; f.radius = s.Radius;
-				f.linear = s.Linear; f.quadratic = s.Quadratic; f.area = s.Area; f.density = s.Density;
-				f.waterHeight = s.WaterHeight; f.maxDepth = s.MaxDepth; f.volume = s.Volume;
-				f.gustAmplitude = s.GustAmplitude; f.gustFrequency = s.GustFrequency;
-				f.seed = static_cast<std::uint32_t>(s.Seed); f.targets = static_cast<unsigned>(s.Targets);
+				auto center = o.mTransform->getWorldPosition();
+				f.vector = vec(s.Vector);
+				f.center = { center.x, center.y };
+				f.radius = s.Radius;
+				f.linear = s.Linear;
+				f.quadratic = s.Quadratic;
+				f.area = s.Area;
+				f.density = s.Density;
+				f.waterHeight = s.WaterHeight;
+				f.maxDepth = s.MaxDepth;
+				f.volume = s.Volume;
+				f.gustAmplitude = s.GustAmplitude;
+				f.gustFrequency = s.GustFrequency;
+				f.seed = static_cast<std::uint32_t>(s.Seed);
+				f.targets = static_cast<unsigned>(s.Targets);
 				return mSimulation->forces.add(f);
 			});
-			auto center=o.mTransform->getWorldPosition();
-			mSimulation->forces.field(c.simulationId())->center = {center.x,center.y};
+			auto center = o.mTransform->getWorldPosition();
+			mSimulation->forces.field(c.simulationId())->center = { center.x, center.y };
 		}
 		if ((bool(rigid) + bool(soft) + bool(fluid) + bool(cloth)) > 1)
 			throw std::invalid_argument("An object may have only one of rigid, soft or fluid 2D components");
@@ -122,10 +125,9 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 		// are world units and independent of sprite pixel/anchor dimensions.
 		auto scale = o.mTransform->getLocalScale();
 		auto rotation = o.mTransform->getLocalRotation();
-		if (o.hasParent() || std::abs(scale.x - 1) > 1e-4f || std::abs(scale.y - 1) > 1e-4f
-			|| std::abs(rotation.x) > 1e-4f || std::abs(rotation.y) > 1e-4f)
-			throw std::invalid_argument(
-				"2D physics requires root objects, unit XY scale and rotation about Z only");
+		if (o.hasParent() || std::abs(scale.x - 1) > 1e-4f || std::abs(scale.y - 1) > 1e-4f || std::abs(rotation.x) > 1e-4f
+			|| std::abs(rotation.y) > 1e-4f)
+			throw std::invalid_argument("2D physics requires root objects, unit XY scale and rotation about Z only");
 		if (rigid) {
 			auto& c = *rigid;
 			auto& s = c.settings;
@@ -160,8 +162,8 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 				mSimulation->applyForce(b->id, c.pendingForce, b->position);
 			if (P::dot(c.pendingImpulse, c.pendingImpulse) > 0)
 				mSimulation->applyImpulse(b->id, c.pendingImpulse, b->position);
-			c.pendingForce = {};
-			c.pendingImpulse = {};
+			c.pendingForce = { };
+			c.pendingImpulse = { };
 			if (b->type == P::BodyType::Static) {
 				auto p = position(o);
 				float r = angle(o);
@@ -169,21 +171,29 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 					mSimulation->teleport(b->id, p, r);
 			}
 		}
-		if(cloth) {
-			auto& c=*cloth;
-			synchronize(c,mSimulation,Physics2DLease::Kind::Soft,[&]{
-				auto& s=c.settings;
-				P::ClothDef d;d.width=s.Width;d.height=s.Height;d.spacing=s.Spacing;d.radius=s.Radius;
-				d.particleMass=s.ParticleMass;d.stretchCompliance=s.StretchCompliance;d.shearCompliance=s.ShearCompliance;
-				d.bendCompliance=s.BendCompliance;d.pinTop=s.PinTop;d.selfCollision=s.SelfCollision;
-				auto id=mSimulation->createCloth(d);auto* sim=mSimulation->softBody(id);
-				for(auto& p:sim->particles)p.position=position(o)+P::rotate(p.position,angle(o));
+		if (cloth) {
+			auto& c = *cloth;
+			synchronize(c, mSimulation, Physics2DLease::Kind::Soft, [&] {
+				auto& s = c.settings;
+				P::ClothDef d;
+				d.width = s.Width;
+				d.height = s.Height;
+				d.spacing = s.Spacing;
+				d.radius = s.Radius;
+				d.particleMass = s.ParticleMass;
+				d.stretchCompliance = s.StretchCompliance;
+				d.shearCompliance = s.ShearCompliance;
+				d.bendCompliance = s.BendCompliance;
+				d.pinTop = s.PinTop;
+				d.selfCollision = s.SelfCollision;
+				auto id = mSimulation->createCloth(d);
+				auto* sim = mSimulation->softBody(id);
+				for (auto& p : sim->particles)
+					p.position = position(o) + P::rotate(p.position, angle(o));
 				return id;
 			});
 		}
-		auto spawn = [&](int x, int y, float spacing) {
-			return position(o) + P::rotate({ x * spacing, y * spacing }, angle(o));
-		};
+		auto spawn = [&](int x, int y, float spacing) { return position(o) + P::rotate({ x * spacing, y * spacing }, angle(o)); };
 		if (soft) {
 			auto& c = *soft;
 			auto& s = c.settings;
@@ -198,11 +208,9 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 				def.selfCollision = s.SelfCollision;
 				for (int y = 0; y < s.Height; ++y)
 					for (int x = 0; x < s.Width; ++x)
-						def.particles.push_back({ spawn(x, y, s.Spacing), {},
-							s.PinTop && y == s.Height - 1 ? 0.0f : 1 / s.ParticleMass });
+						def.particles.push_back({ spawn(x, y, s.Spacing), { }, s.PinTop && y == s.Height - 1 ? 0.0f : 1 / s.ParticleMass });
 				auto link = [&](int a, int b) {
-					def.links.push_back({ std::size_t(a), std::size_t(b),
-						P::length(def.particles[a].position - def.particles[b].position) });
+					def.links.push_back({ std::size_t(a), std::size_t(b), P::length(def.particles[a].position - def.particles[b].position) });
 				};
 				for (int y = 0; y < s.Height; ++y)
 					for (int x = 0; x < s.Width; ++x) {
@@ -250,12 +258,9 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 	for (auto& object : objects)
 		if (auto joint = object->getComponent<Joint2DComponent>()) {
 			auto owner = object->getComponent<Physics2DComponent>();
-			auto target
-				= mScene.findObjectByID(ECS2::Entity(ECS2::Entity::ID(joint->settings.PhysicsTargetId)));
-			auto other
-				= target ? target->getComponent<Physics2DComponent>() : UTILS::WeakPtr<Physics2DComponent> {};
-			if (!object->getIsActive() || !owner || !owner->runtime || !other || !other->runtime
-				|| !target->getIsActive()) {
+			auto target = mScene.findObjectByID(ECS2::Entity(ECS2::Entity::ID(joint->settings.PhysicsTargetId)));
+			auto other = target ? target->getComponent<Physics2DComponent>() : UTILS::WeakPtr<Physics2DComponent> { };
+			if (!object->getIsActive() || !owner || !owner->runtime || !other || !other->runtime || !target->getIsActive()) {
 				joint->runtime.reset();
 				continue;
 			}
@@ -282,15 +287,12 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 	for (auto& o : objects)
 		if (auto c = o->getComponent<Physics2DComponent>(); c && c->runtime)
 			if (auto b = mSimulation->body(c->simulationId()); b && b->type == P::BodyType::Dynamic) {
-				o->mTransform->setLocalPosition(
-					{ b->position.x, b->position.y, o->mTransform->getLocalPosition().z });
-				o->mTransform->setLocalRotation(
-					MATH::QuaternionF(0, 0, std::sin(b->angle / 2), std::cos(b->angle / 2)));
+				o->mTransform->setLocalPosition({ b->position.x, b->position.y, o->mTransform->getLocalPosition().z });
+				o->mTransform->setLocalRotation(MATH::QuaternionF(0, 0, std::sin(b->angle / 2), std::cos(b->angle / 2)));
 			}
 }
 #ifdef USE_EDITOR
-void Physics2DSystem::drawDebug()
-{
+void Physics2DSystem::drawDebug() {
 	auto& world = *mSimulation;
 	if (world.bodies().empty() && world.softBodies().empty() && world.fluids().empty())
 		return;
@@ -307,8 +309,8 @@ void Physics2DSystem::drawDebug()
 	}
 	ImGui::SameLine();
 	ImGui::Checkbox("Sleeping", &world.settings.sleeping);
-	ImGui::Text("Bodies: %zu  Joints: %zu  Soft: %zu  Fluids: %zu", world.bodies().size(),
-		world.joints().size(), world.softBodies().size(), world.fluids().size());
+	ImGui::Text("Bodies: %zu  Joints: %zu  Soft: %zu  Fluids: %zu", world.bodies().size(), world.joints().size(), world.softBodies().size(),
+		world.fluids().size());
 	static float zoom = 55;
 	static ImVec2 pan(0, 3);
 	static bool showGrid = true;
@@ -328,40 +330,31 @@ void Physics2DSystem::drawDebug()
 	auto* draw = ImGui::GetWindowDrawList();
 	draw->PushClipRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), true);
 	draw->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), IM_COL32(22, 27, 36, 255));
-	auto screen = [&](P::Vec2 p) {
-		return ImVec2(
-			origin.x + size.x / 2 + (p.x - pan.x) * zoom, origin.y + size.y / 2 - (p.y - pan.y) * zoom);
-	};
+	auto screen = [&](P::Vec2 p) { return ImVec2(origin.x + size.x / 2 + (p.x - pan.x) * zoom, origin.y + size.y / 2 - (p.y - pan.y) * zoom); };
 	if (showGrid) {
 		float cell = world.settings.cellSize;
-		float left = pan.x - size.x / (2 * zoom), right = pan.x + size.x / (2 * zoom),
-			  bottom = pan.y - size.y / (2 * zoom), top = pan.y + size.y / (2 * zoom);
+		float left = pan.x - size.x / (2 * zoom), right = pan.x + size.x / (2 * zoom), bottom = pan.y - size.y / (2 * zoom),
+			  top = pan.y + size.y / (2 * zoom);
 		for (float x = std::floor(left / cell) * cell; x <= right; x += cell)
 			draw->AddLine(screen({ x, bottom }), screen({ x, top }), IM_COL32(42, 49, 62, 255));
 		for (float y = std::floor(bottom / cell) * cell; y <= top; y += cell)
 			draw->AddLine(screen({ left, y }), screen({ right, y }), IM_COL32(42, 49, 62, 255));
 	}
 	auto colour = [](std::uint32_t c) { return IM_COL32(c >> 24, (c >> 16) & 255, (c >> 8) & 255, c & 255); };
-	world.debugDraw({ [&](P::Vec2 a, P::Vec2 b, std::uint32_t c) {
-						 draw->AddLine(screen(a), screen(b), colour(c), 1.5f);
-					 },
-		[&](P::Vec2 p, float radius, std::uint32_t c) {
-			draw->AddCircle(screen(p), radius * zoom, colour(c), 20, 1.5f);
-		} });
+	world.debugDraw({ [&](P::Vec2 a, P::Vec2 b, std::uint32_t c) { draw->AddLine(screen(a), screen(b), colour(c), 1.5f); },
+		[&](P::Vec2 p, float radius, std::uint32_t c) { draw->AddCircle(screen(p), radius * zoom, colour(c), 20, 1.5f); } });
 	draw->PopClipRect();
 	ImGui::End();
 }
 #endif
 
-void IKIGAI::ECS::RunPhysics2DSmoke()
-{
+void IKIGAI::ECS::RunPhysics2DSmoke() {
 	auto require = [](bool ok, const char* message) {
 		if (!ok)
 			throw std::runtime_error(message);
 	};
 	ECS2::World ecs;
-	auto registerComponent
-		= [&]<class C>() { ecs.getComponentManager()->registerComponent<C>(ECS2::StorageType::Sparse); };
+	auto registerComponent = [&]<class C>() { ecs.getComponentManager()->registerComponent<C>(ECS2::StorageType::Sparse); };
 	registerComponent.operator()<TransformComponent>();
 	registerComponent.operator()<Physics2DComponent>();
 	registerComponent.operator()<SoftBody2DComponent>();
@@ -371,17 +364,17 @@ void IKIGAI::ECS::RunPhysics2DSmoke()
 	registerComponent.operator()<Cloth2DComponent>();
 	std::weak_ptr<Physics2DLease> expired;
 	{
-		int worldsCreated=0;
+		int worldsCreated = 0;
 		SCENE_SYSTEM::PhysicsFactories factories;
-		factories.physics2d=[&] {
+		factories.physics2d = [&] {
 			++worldsCreated;
 			PHYSICS2D::CollisionPipeline pipeline;
-			pipeline.broadPhase=std::make_unique<PHYSICS2D::BvhBroadPhase2D>();
-			pipeline.neighbors=std::make_unique<PHYSICS2D::BvhNeighborSearchFactory2D>();
+			pipeline.broadPhase = std::make_unique<PHYSICS2D::BvhBroadPhase2D>();
+			pipeline.neighbors = std::make_unique<PHYSICS2D::BvhNeighborSearchFactory2D>();
 			return std::make_unique<PHYSICS2D::World>(std::move(pipeline));
 		};
-		SCENE_SYSTEM::Scene scene(&ecs,factories), otherScene(&ecs,factories);
-		require(worldsCreated==0,"Physics factory was not lazy");
+		SCENE_SYSTEM::Scene scene(&ecs, factories), otherScene(&ecs, factories);
+		require(worldsCreated == 0, "Physics factory was not lazy");
 		auto ground = scene.createObject("static floor");
 		ground->setActive(true);
 		auto g = ground->addComponent<Physics2DComponent>();
@@ -398,22 +391,23 @@ void IKIGAI::ECS::RunPhysics2DSmoke()
 		isolated->addComponent<Physics2DComponent>();
 		for (int i = 0; i < 240; ++i)
 			scene.stepPhysics2D(std::chrono::duration<double>(1.0 / 120));
-		require(std::abs(object->mTransform->getLocalPosition().y - 0.5f) < 0.03f,
-			"Physics2D Transform synchronization");
-		require(scene.physics2d().bodies().size() == 2 && otherScene.physics2d().bodies().empty(),
-			"Scene physics isolation");
-		require(worldsCreated==2,"Scene did not create independent configured worlds");
-		bool reconfigureRejected=false;
-		try {scene.setPhysicsFactories({});}catch(const std::logic_error&){reconfigureRejected=true;}
-		require(reconfigureRejected,"Scene replaced live physics strategies");
+		require(std::abs(object->mTransform->getLocalPosition().y - 0.5f) < 0.03f, "Physics2D Transform synchronization");
+		require(scene.physics2d().bodies().size() == 2 && otherScene.physics2d().bodies().empty(), "Scene physics isolation");
+		require(worldsCreated == 2, "Scene did not create independent configured worlds");
+		bool reconfigureRejected = false;
+		try {
+			scene.setPhysicsFactories({ });
+		} catch (const std::logic_error&) {
+			reconfigureRejected = true;
+		}
+		require(reconfigureRejected, "Scene replaced live physics strategies");
 		auto json = serde::serialize<nlohmann::json>(object->getDescriptor());
 		auto restored = serde::deserialize<Object::Descriptor>(json);
 		require(restored.Components.size() == 2, "Physics2D descriptor roundtrip");
 		P::Id removed = c->simulationId();
 		expired = c->runtime;
 		object->removeComponent<Physics2DComponent>();
-		require(!c && expired.expired() && !scene.physics2d().body(removed),
-			"Physics2D component removal leaked body");
+		require(!c && expired.expired() && !scene.physics2d().body(removed), "Physics2D component removal leaked body");
 		c = object->addComponent<Physics2DComponent>();
 		c->applyImpulse({ 1, 0 });
 		scene.stepPhysics2D(std::chrono::duration<double>(1.0 / 120));
@@ -435,8 +429,7 @@ void IKIGAI::ECS::RunPhysics2DSmoke()
 		f->settings.Width = 3;
 		f->settings.Height = 3;
 		scene.stepPhysics2D(std::chrono::duration<double>(1.0 / 120));
-		require(scene.physics2d().softBodies().size() == 1 && scene.physics2d().fluids().size() == 1,
-			"ECS particle components");
+		require(scene.physics2d().softBodies().size() == 1 && scene.physics2d().fluids().size() == 1, "ECS particle components");
 		expired = c->runtime;
 	}
 	require(expired.expired(), "Scene unload retained Physics2D lease");

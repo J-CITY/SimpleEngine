@@ -25,7 +25,7 @@ bool TaskSystem::initialize() {
 
 bool TaskSystem::update() {
 	if (ObjectStatus == TaskSystemStatus::ACTIVE) {
-		return 	mThreadPoolExecutor->update();
+		return mThreadPoolExecutor->update();
 	}
 	else {
 		ObjectStatus = TaskSystemStatus::SUSPEND;

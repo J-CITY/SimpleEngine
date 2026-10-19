@@ -6,7 +6,7 @@ using namespace IkigaiScript;
 using namespace IKIGAI::MATH;
 void IkigaiScriptBinder::function(const std::string& scope, const std::string& name, Lambda fn) {
 	auto* module = vm.findModuleByName(scope);
-	auto s = module ? module->scope : vm.newModule(scope, 0, {});
+	auto s = module ? module->scope : vm.newModule(scope, 0, { });
 	vm.newFunction(name, s, fn);
 }
 template <class T, int N> static void vectorType(IkigaiScriptBinder& b, IkigaiScriptInterpreter& vm, const char* name) {
@@ -31,7 +31,7 @@ template <class T, int N> static void vectorType(IkigaiScriptBinder& b, IkigaiSc
 }
 template <class T, int N> static void matrixType(IkigaiScriptBinder& b, IkigaiScriptInterpreter& vm, const char* name) {
 	b.mathName<T>(name);
-	vm.newClass(name, {},
+	vm.newClass(name, { },
 		[&b, &vm](Class* c, ScopePtr, const List& a) -> ValuePtr {
 			T v;
 			if (a.size() == 1)
@@ -44,7 +44,7 @@ template <class T, int N> static void matrixType(IkigaiScriptBinder& b, IkigaiSc
 			c->variables = b.value(v)->getClass()->variables;
 			return vm.makeValue();
 		},
-		{});
+		{ });
 	b.template method<T>("Get", [&b](T& m, const List& a) {
 		auto r = b.read<unsigned>(a.at(0)), c = b.read<unsigned>(a.at(1));
 		if (r >= N || c >= N)
@@ -83,7 +83,7 @@ void IkigaiScriptBinder::bindMaths() {
 		 { "Forward", Vector3f::Forward }, { "Up", Vector3f::Up }, { "Right", Vector3f::Right } })
 		function("Vector3", name, [this, v](const Args&) { return value(v); });
 	mathName<QuaternionF>("Quaternion");
-	vm.newClass("Quaternion", {},
+	vm.newClass("Quaternion", { },
 		[this](C* self, ScopePtr, const Args& args) -> V {
 			QuaternionF q;
 			if (args.size() == 1)
@@ -95,7 +95,7 @@ void IkigaiScriptBinder::bindMaths() {
 			self->variables = value(q)->getClass()->variables;
 			return vm.makeValue();
 		},
-		{});
+		{ });
 	function("Quaternion", "Multiply", [this](const Args& a) { return value(read<QuaternionF>(a.at(0)) * read<QuaternionF>(a.at(1))); });
 	function("Quaternion", "ToEulerAngles", [this](const Args& a) {
 		return value(QuaternionF::ToEulerAngles(read<QuaternionF>(a.at(0))) * static_cast<float>(180.0 / 3.141592653589793));

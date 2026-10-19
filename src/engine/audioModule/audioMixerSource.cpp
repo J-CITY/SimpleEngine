@@ -5,7 +5,6 @@
 using namespace IKIGAI;
 using namespace IKIGAI::AUDIO;
 
-
 AudioMixerSource::AudioMixerSource() {
 	bushandle = AudioManagerAL::GetInstance().playBus(bus);
 }
@@ -15,7 +14,7 @@ void AudioMixerSource::setPreset(const std::string& preset) {
 		return;
 	}
 	if (!presets.contains(preset)) {
-		//problem
+		// problem
 		return;
 	}
 	current = preset;

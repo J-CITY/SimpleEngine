@@ -23,7 +23,7 @@ void SystemManager::entitySignatureChanged(Entity entity, Signature entitySignat
 		auto const& type = pair.first;
 		auto const& system = pair.second;
 		auto const& systemSignature = signatures[type];
-				
+
 		if ((entitySignature & systemSignature) == systemSignature) {
 			system->getEntities().insert(entity);
 		}
@@ -41,10 +41,11 @@ void SystemManager::runSystemGroups(std::chrono::duration<double> dt) const {
 		for (auto& systemId : g.mIds) {
 			auto system = ECS::ComponentManager::GetInstance().getSystemManager().getSystem(systemId);
 #ifndef __EMSCRIPTEN__
-			auto task = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit(("___system_task___" + std::to_string(taskId)).c_str(), -1, nullptr, [dt, system]() {
-				system->onUpdate(dt);
-				system->onLateUpdate(dt);
-			});
+			auto task = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit(
+				("___system_task___" + std::to_string(taskId)).c_str(), -1, nullptr, [dt, system]() {
+					system->onUpdate(dt);
+					system->onLateUpdate(dt);
+				});
 			taskId += 1;
 			waitTasks.push_back(task);
 #else
@@ -62,9 +63,8 @@ void SystemManager::runSystemGroups(std::chrono::duration<double> dt) const {
 		for (auto& systemId : g.mIds) {
 			auto system = ECS::ComponentManager::GetInstance().getSystemManager().getSystem(systemId);
 #ifndef __EMSCRIPTEN__
-			auto task = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit(("___system_task___" + std::to_string(taskId)).c_str(), -1, nullptr, [dt, system]() {
-				system->onUpdateDelayed(dt);
-			});
+			auto task = RESOURCES::ServiceManager::Get<TASK::TaskSystem>().submit(
+				("___system_task___" + std::to_string(taskId)).c_str(), -1, nullptr, [dt, system]() { system->onUpdateDelayed(dt); });
 			taskId += 1;
 			waitTasks.push_back(task);
 #else

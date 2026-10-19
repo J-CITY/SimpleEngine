@@ -2,9 +2,8 @@
 #include <cmath>
 #include <stdexcept>
 
-#include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
-
+#include <glm/vec3.hpp>
 
 struct Line;
 
@@ -27,14 +26,14 @@ float MagnitudeSq(const glm::vec3& v) {
 	return Dot(v, v);
 }
 
-
 struct Line {
 	glm::vec3 start;
 	glm::vec3 end;
 
-	inline Line() {}
-	inline Line(const glm::vec3& s, const glm::vec3& e) :
-		start(s), end(e) { }
+	inline Line() { }
+	inline Line(const glm::vec3& s, const glm::vec3& e)
+		: start(s)
+		, end(e) { }
 };
 float LengthSq(const Line& line) {
 	return MagnitudeSq(line.start - line.end);
@@ -43,9 +42,11 @@ struct Ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
 
-	inline Ray() : direction(0.0f, 0.0f, 1.0f) {}
-	inline Ray(const glm::vec3& o, const glm::vec3& d) :
-		origin(o), direction(d) {
+	inline Ray()
+		: direction(0.0f, 0.0f, 1.0f) { }
+	inline Ray(const glm::vec3& o, const glm::vec3& d)
+		: origin(o)
+		, direction(d) {
 		NormalizeDirection();
 	}
 	inline void NormalizeDirection() {
@@ -60,8 +61,7 @@ struct RaycastResult {
 	bool hit;
 };
 
-#define CMP(x, y) \
-	(fabsf(x - y) <= std::numeric_limits<float>::epsilon() * fmaxf(1.0f, fmaxf(fabsf(x), fabsf(y))))
+#define CMP(x, y) (fabsf(x - y) <= std::numeric_limits<float>::epsilon() * fmaxf(1.0f, fmaxf(fabsf(x), fabsf(y))))
 void ResetRaycastResult(RaycastResult* outResult) {
 	if (outResult != 0) {
 		outResult->t = -1;
@@ -75,19 +75,18 @@ struct AABB {
 	glm::vec3 position;
 	glm::vec3 size; // HALF SIZE!
 
-	inline AABB() : size(1, 1, 1) { }
-	inline AABB(const glm::vec3& p, const glm::vec3& s) :
-		position(p), size(s) { }
+	inline AABB()
+		: size(1, 1, 1) { }
+	inline AABB(const glm::vec3& p, const glm::vec3& s)
+		: position(p)
+		, size(s) { }
 };
 
 bool Raycast(const OBB& obb, const Ray& ray, RaycastResult* outResult) {
 	ResetRaycastResult(outResult);
 
-	const float o[9] = {
-		obb.orientation[0][0], obb.orientation[0][1], obb.orientation[0][2],
-		obb.orientation[1][0], obb.orientation[1][1], obb.orientation[1][2],
-		obb.orientation[2][0], obb.orientation[2][1], obb.orientation[2][2]
-	};
+	const float o[9] = { obb.orientation[0][0], obb.orientation[0][1], obb.orientation[0][2], obb.orientation[1][0], obb.orientation[1][1],
+		obb.orientation[1][2], obb.orientation[2][0], obb.orientation[2][1], obb.orientation[2][2] };
 	const float size[3] = { obb.size[0], obb.size[1], obb.size[2] };
 
 	glm::vec3 p = obb.position - ray.origin;
@@ -96,17 +95,9 @@ bool Raycast(const OBB& obb, const Ray& ray, RaycastResult* outResult) {
 	glm::vec3 Y(o[3], o[4], o[5]);
 	glm::vec3 Z(o[6], o[7], o[8]);
 
-	glm::vec3 f(
-		Dot(X, ray.direction),
-		Dot(Y, ray.direction),
-		Dot(Z, ray.direction)
-	);
+	glm::vec3 f(Dot(X, ray.direction), Dot(Y, ray.direction), Dot(Z, ray.direction));
 
-	glm::vec3 e(
-		Dot(X, p),
-		Dot(Y, p),
-		Dot(Z, p)
-	);
+	glm::vec3 e(Dot(X, p), Dot(Y, p), Dot(Z, p));
 
 #if 1
 	float t[6] = { 0, 0, 0, 0, 0, 0 };
@@ -124,7 +115,7 @@ bool Raycast(const OBB& obb, const Ray& ray, RaycastResult* outResult) {
 
 	float tmin = fmaxf(fmaxf(fminf(t[0], t[1]), fminf(t[2], t[3])), fminf(t[4], t[5]));
 	float tmax = fminf(fminf(fmaxf(t[0], t[1]), fmaxf(t[2], t[3])), fmaxf(t[4], t[5]));
-#else 
+#else
 	// The above loop simplifies the below if statements
 	// this is done to make sure the sample fits into the book
 	if (CMP(f.x, 0)) {
@@ -179,12 +170,12 @@ bool Raycast(const OBB& obb, const Ray& ray, RaycastResult* outResult) {
 		outResult->point = ray.origin + ray.direction * t_result;
 
 		glm::vec3 normals[] = {
-			X,			// +x
-			X * -1.0f,	// -x
-			Y,			// +y
-			Y * -1.0f,	// -y
-			Z,			// +z
-			Z * -1.0f	// -z
+			X, // +x
+			X * -1.0f, // -x
+			Y, // +y
+			Y * -1.0f, // -y
+			Z, // +z
+			Z * -1.0f // -z
 		};
 
 		for (int i = 0; i < 6; ++i) {
@@ -199,9 +190,11 @@ struct Sphere {
 	glm::vec3 position;
 	float radius;
 
-	inline Sphere() : radius(1.0f) { }
-	inline Sphere(const glm::vec3& p, float r) :
-		position(p), radius(r) { }
+	inline Sphere()
+		: radius(1.0f) { }
+	inline Sphere(const glm::vec3& p, float r)
+		: position(p)
+		, radius(r) { }
 };
 glm::vec3 ClosestPoint(const Line& line, const glm::vec3& point) {
 	glm::vec3 lVec = line.end - line.start; // Line Vector
@@ -297,7 +290,7 @@ bool Linetest(const OBB& obb, const Line& line) {
 }
 
 ClothParticle::ClothParticle() {
-	//type = RIGIDBODY_TYPE_PARTICLE;
+	// type = RIGIDBODY_TYPE_PARTICLE;
 	friction = 0.95f;
 	bounce = 0.7f;
 	gravity = glm::vec3(0.0f, -9.82f, 0.0f);
@@ -308,18 +301,19 @@ ClothParticle::ClothParticle() {
 }
 
 void ClothParticle::Update(float deltaTime) {
-    if (mass == 0) return;
+	if (mass == 0)
+		return;
 #ifdef EULER_INTEGRATION
 	oldPosition = position;
-	glm::vec3 acceleration = forces *InvMass();
-	#ifdef ACCURATE_EULER_INTEGRATION
-		glm::vec3 oldVelocity = velocity;
-		velocity = velocity * std::pow(friction, deltaTime * 60) + acceleration * deltaTime;
-		position = position + (oldVelocity + velocity) * 0.5f * deltaTime;
-	#else
-		velocity = velocity * std::pow(friction, deltaTime * 60) + acceleration * deltaTime;
-		position = position + velocity * deltaTime;
-	#endif
+	glm::vec3 acceleration = forces * InvMass();
+#ifdef ACCURATE_EULER_INTEGRATION
+	glm::vec3 oldVelocity = velocity;
+	velocity = velocity * std::pow(friction, deltaTime * 60) + acceleration * deltaTime;
+	position = position + (oldVelocity + velocity) * 0.5f * deltaTime;
+#else
+	velocity = velocity * std::pow(friction, deltaTime * 60) + acceleration * deltaTime;
+	position = position + velocity * deltaTime;
+#endif
 #else
 	glm::vec3 velocity = position - oldPosition;
 	oldPosition = position;
@@ -328,16 +322,16 @@ void ClothParticle::Update(float deltaTime) {
 #endif
 }
 
-//void Particle::Render() {
+// void Particle::Render() {
 //	Sphere visual(position, 0.1f);
 //	::Render(visual);
-//}
+// }
 
 void ClothParticle::ApplyForces() {
 #ifdef EULER_INTEGRATION
-	forces = gravity *mass;
+	forces = gravity * mass;
 #else
-	forces = gravity *mass;
+	forces = gravity * mass;
 #endif
 }
 
@@ -346,7 +340,7 @@ void ClothParticle::SolveConstraints(const std::vector<OBB>& constraints) {
 	for (int i = 0; i < size; ++i) {
 		Line traveled(oldPosition, position);
 		if (Linetest(constraints[i], traveled)) {
-			//if (PointInOBB(position, constraints[i])) {
+			// if (PointInOBB(position, constraints[i])) {
 #ifndef EULER_INTEGRATION
 			glm::vec3 velocity = position - oldPosition;
 #endif
@@ -396,21 +390,23 @@ void ClothParticle::AddImpulse(const glm::vec3& impulse) {
 #else
 	glm::vec3 velocity = position - oldPosition;
 	velocity = velocity + impulse;
-	if (impulse.x > 0 || impulse.y > 0 || impulse.z > 0)
-	{
-		int a=0;
+	if (impulse.x > 0 || impulse.y > 0 || impulse.z > 0) {
+		int a = 0;
 	}
 	oldPosition = position - velocity;
 #endif
 }
 
 float ClothParticle::InvMass() {
-	if (mass == 0.0f) { return 0.0f; }
+	if (mass == 0.0f) {
+		return 0.0f;
+	}
 	return 1.0f / mass;
 }
 
 void ClothParticle::SetMass(float m) {
-	if (!std::isfinite(m) || m < 0) throw std::invalid_argument("Invalid cloth particle mass");
+	if (!std::isfinite(m) || m < 0)
+		throw std::invalid_argument("Invalid cloth particle mass");
 	mass = m;
 }
 

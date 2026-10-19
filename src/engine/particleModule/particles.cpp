@@ -49,7 +49,7 @@ namespace {
 	Value point(const Shape& s, uint64_t key) {
 		unsigned serial = 0;
 		auto u = [&]() { return random01(key + (++serial) * 0x9e3779b97f4a7c15ull); };
-		Value p {};
+		Value p { };
 		const float a = 2 * MATH::PI * u();
 		switch (s.type) {
 		case ShapeType::Point:
@@ -141,7 +141,7 @@ namespace {
 						matrix(r, c) /= l;
 			}
 		const auto v = matrix * MATH::Vector4f(p[0], p[1], D == 3 ? p[D - 1] : 0, position ? 1.f : 0.f);
-		std::array<float, D> out {};
+		std::array<float, D> out { };
 		out[0] = v.x;
 		out[1] = v.y;
 		if constexpr (D == 3)
@@ -155,7 +155,7 @@ MATH::Matrix4f meshTransform(const Particle<3>& p, const EmitterDefinition& e, M
 	auto transformVector = [&](MATH::Vector3f v) { return axes[0] * v.x + axes[1] * v.y + axes[2] * v.z; };
 	auto result = MATH::Matrix4f::Identity;
 	for (int c = 0; c < 3; ++c) {
-		MATH::Vector3f axis {};
+		MATH::Vector3f axis { };
 		axis[c] = std::max(0.f, p.size[c]);
 		const auto v = transformVector(p.orientation * axis);
 		for (int row = 0; row < 3; ++row)
@@ -219,7 +219,7 @@ template <int D> void Runtime<D>::restart(uint64_t seed) {
 	mHaveTransform = false;
 	mDroppedSteps = 0;
 	mEvents.clear();
-	mEventStatistics = {};
+	mEventStatistics = { };
 	mState = State::Playing;
 	mResume = State::Playing;
 	mEmitters.clear();
@@ -251,12 +251,12 @@ template <int D> float Runtime<D>::emitterAge(size_t index, double time) const {
 }
 template <int D> Value Runtime<D>::sample(const Source& s, uint64_t key, float age, float lifetime, float emitterAge, float duration) const {
 	if (s.mode == SourceMode::Parameter) {
-		Value out {};
+		Value out { };
 		const auto& p = mParameters.at(s.parameter);
 		std::copy(p.begin(), p.end(), out.begin());
 		return out;
 	}
-	Value out {};
+	Value out { };
 	float time = age;
 	if (s.domain == Domain::ParticleNormalized)
 		time = lifetime > 0 ? std::clamp(age / lifetime, 0.f, 1.f) : 0;
@@ -285,7 +285,7 @@ template <int D> void Runtime<D>::update(double dt, const MATH::Matrix4f& transf
 		return;
 	const auto p = transform * MATH::Vector4f(0, 0, 0, 1);
 	const MATH::Vector3f origin { p.x, p.y, p.z };
-	mEmitterVelocity = {};
+	mEmitterVelocity = { };
 	if (mHaveTransform && dt > 0)
 		mEmitterVelocity = (origin - mLastOrigin) / float(dt);
 	mLastOrigin = origin;
@@ -319,7 +319,7 @@ size_t Runtime<D>::spawn(
 		++state.dropped;
 		return SIZE_MAX;
 	}
-	MATH::Vector3f anchor {}, inheritedVelocity {};
+	MATH::Vector3f anchor { }, inheritedVelocity { };
 	if (context) {
 		anchor = context->event.position;
 		inheritedVelocity = context->event.velocity * context->inheritVelocity;
@@ -349,7 +349,7 @@ size_t Runtime<D>::spawn(
 	if (context)
 		p.eventDepth = context->event.depth + 1;
 	p.stepBirth = birth;
-	Value local {};
+	Value local { };
 	for (const auto& m : e.spawn)
 		if (m.type == ModuleType::Shape)
 			local = point(m.shape, p.randomKey ^ m.id);
@@ -379,7 +379,7 @@ size_t Runtime<D>::spawn(
 			p.velocity[1] += std::sin(angle) * speed;
 		}
 		else if (m.type == ModuleType::RadialVelocity) {
-			Value origin {};
+			Value origin { };
 			for (const auto& shape : e.spawn)
 				if (shape.type == ModuleType::Shape)
 					origin = shape.shape.offset;
@@ -444,10 +444,10 @@ template <int D> void Runtime<D>::updateParticle(Particle<D>& p, const EmitterDe
 	p.age += dt;
 	p.size = p.baseSize;
 	p.color = p.baseColor;
-	p.offset = {};
+	p.offset = { };
 	p.frame = 0;
 	for (const auto& m : e.update) {
-		const auto v = m.type == ModuleType::IntegrateMotion ? Value {}
+		const auto v = m.type == ModuleType::IntegrateMotion ? Value { }
 															 : sample(m.value, p.randomKey ^ m.id, p.age, p.lifetime, emitterAge, float(e.duration));
 		switch (m.type) {
 		case ModuleType::Acceleration:
@@ -550,7 +550,7 @@ template <int D> void Runtime<D>::step(float dt, size_t manualEmitter, uint32_t 
 		const auto& p = mEmitters[index].particles[slot];
 		const float remaining = std::max(0.f, p.lifetime - p.age);
 		if (remaining <= dt - offset + 1e-7f)
-			pending.push({ std::min(dt, offset + remaining), Kind::Death, index, slot, p.randomKey, {} });
+			pending.push({ std::min(dt, offset + remaining), Kind::Death, index, slot, p.randomKey, { } });
 	};
 	for (size_t index = 0; index < mEmitters.size(); ++index) {
 		auto& state = mEmitters[index];
@@ -606,7 +606,7 @@ template <int D> void Runtime<D>::step(float dt, size_t manualEmitter, uint32_t 
 
 		std::stable_sort(events.begin(), events.end(), [](auto a, auto b) { return a.offset < b.offset; });
 		if (!events.empty())
-			pending.push({ events[0].offset, Kind::Root, index, 0, hash(e.id), {} });
+			pending.push({ events[0].offset, Kind::Root, index, 0, hash(e.id), { } });
 	}
 	uint32_t eventCount = 0, childCount = 0;
 	auto dispatch = [&](size_t index, const Particle<D>& p, EventType type, float offset) {
@@ -681,7 +681,7 @@ template <int D> void Runtime<D>::step(float dt, size_t manualEmitter, uint32_t 
 		}
 		if (work.kind == Kind::Root && work.slot + 1 < roots[index].size()) {
 			const auto next = work.slot + 1;
-			pending.push({ roots[index][next].offset, Kind::Root, index, next, work.key, {} });
+			pending.push({ roots[index][next].offset, Kind::Root, index, next, work.key, { } });
 		}
 		const auto reuse = freeSlots[index].empty() ? SIZE_MAX : freeSlots[index].back();
 		const auto slot = spawn(index, work.offset, work.kind == Kind::Root ? roots[index][work.slot].age : age, live[index], work.context.get(),

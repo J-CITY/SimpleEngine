@@ -3,8 +3,8 @@
 #include <stdexcept>
 
 void ClothObj::Initialize(int gridSize, float distance, const glm::vec3& position) {
-    if (gridSize < 3 || gridSize > 256 || !std::isfinite(distance) || distance <= 0)
-        throw std::invalid_argument("Cloth grid requires 3..256 vertices per side and positive spacing");
+	if (gridSize < 3 || gridSize > 256 || !std::isfinite(distance) || distance <= 0)
+		throw std::invalid_argument("Cloth grid requires 3..256 vertices per side and positive spacing");
 	float k = 1.0f;
 	float b = 0.0f;
 	clothSize = gridSize;
@@ -29,7 +29,7 @@ void ClothObj::Initialize(int gridSize, float distance, const glm::vec3& positio
 
 			float x_pos = ((float)x - halfSize) * distance + position.x;
 			float z_pos = ((float)z - halfSize) * distance + position.z;
-			
+
 			verts[i]->SetPosition(glm::vec3(x_pos, position.y, z_pos));
 			verts[i]->SetMass(1.0f);
 			verts[i]->SetBounce(0.0f);
@@ -88,7 +88,7 @@ void ClothObj::Initialize(int gridSize, float distance, const glm::vec3& positio
 			shear.push_back(spring);
 		}
 	}
-	
+
 	// Create left to right bend springs
 	for (int x = 0; x < gridSize; ++x) {
 		for (int z = 0; z < gridSize - 2; ++z) {
@@ -188,7 +188,7 @@ void Cloth::Render(bool debug) {
 		GLboolean status;
 		glGetBooleanv(GL_LIGHTING, &status);
 		glDisable(GL_LIGHTING);
-		
+
 		glColor3f(1.0f, 0.0f, 1.0f);
 		for (int i = 0, size = structural.size(); i < size; ++i) {
 			if (structural[i].GetP1() == 0 || structural[i].GetP2() == 0) {
@@ -217,7 +217,7 @@ void Cloth::Render(bool debug) {
 
 			vec3 p1 = bend[i].GetP1()->GetPosition();
 			vec3 p2 = bend[i].GetP2()->GetPosition();
-			
+
 
 			Line l(p1, p2);
 			::Render(l);

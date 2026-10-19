@@ -3,18 +3,20 @@
 
 using namespace IKIGAI::ECS;
 
-DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj) : LightComponent(obj) {
+DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj)
+	: LightComponent(obj) {
 	__NAME__ = "DirectionalLight";
 	data.type = RENDER::Light::Type::DIRECTIONAL;
 }
 
-DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor) : DirectionalLight(obj) {
+DirectionalLight::DirectionalLight(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: DirectionalLight(obj) {
 	data.type = RENDER::Light::Type::DIRECTIONAL;
 	data.color = descriptor.Color;
 	data.intensity = descriptor.Intensity;
-    data.castShadows = descriptor.CastShadows;
-    data.shadowNear = descriptor.ShadowNear;
-    data.shadowFar = descriptor.ShadowFar;
+	data.castShadows = descriptor.CastShadows;
+	data.shadowNear = descriptor.ShadowNear;
+	data.shadowFar = descriptor.ShadowFar;
 	distance = descriptor.Distance;
 }
 
@@ -24,14 +26,14 @@ DirectionalLight::Descriptor DirectionalLight::getDescriptor() const {
 	descriptor.Color = getColor();
 	descriptor.Distance = getDistance();
 	descriptor.Intensity = getIntensity();
-    descriptor.CastShadows = data.castShadows;
-    descriptor.ShadowNear = data.shadowNear;
-    descriptor.ShadowFar = data.shadowFar;
+	descriptor.CastShadows = data.castShadows;
+	descriptor.ShadowNear = data.shadowNear;
+	descriptor.ShadowFar = data.shadowFar;
 	return descriptor;
 }
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::DirectionalLight>("DirectionalLight")
 //	(
@@ -58,4 +60,4 @@ DirectionalLight::Descriptor DirectionalLight::getDescriptor() const {
 //		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 //	);
-//}
+// }

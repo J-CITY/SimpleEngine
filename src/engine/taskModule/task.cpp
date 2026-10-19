@@ -1,6 +1,5 @@
 #include "task.h"
 
-
 #include <iostream>
 #include <random>
 #include <sstream>
@@ -21,8 +20,7 @@ bool ThreadPoolExecutor::setup(std::optional<unsigned> threadCount) {
 		for (std::uint32_t i = 0u; i < mNumThreads; ++i) {
 			mThreads[i] = std::make_unique<Thread>(i);
 		}
-	}
-	catch (...) {
+	} catch (...) {
 		terminate();
 		std::cout << "PROBLEM INIT THREAD" << std::endl;
 		return false;
@@ -93,7 +91,6 @@ size_t ThreadPoolExecutor::getThreadCounts() {
 
 //--------------------- New thread executor
 
-
 bool NewThreadExecutor::setup() {
 	return true;
 }
@@ -104,9 +101,7 @@ bool NewThreadExecutor::initialize() {
 
 // run in own thread
 bool NewThreadExecutor::update() {
-	std::erase_if(mThreads, [](const auto& e) {
-		return e->getUnfinishedWorkCount() == 0;
-	});
+	std::erase_if(mThreads, [](const auto& e) { return e->getUnfinishedWorkCount() == 0; });
 	return true;
 }
 
@@ -163,13 +158,13 @@ size_t Thread::getUnfinishedWorkCount() {
 }
 
 std::shared_ptr<ITask> Thread::addTask(std::shared_ptr<ITask>&& task) {
-	std::shared_ptr<ITask> l_result{task};
+	std::shared_ptr<ITask> l_result { task };
 	mWorkQueue.push(std::move(task));
 	return l_result;
 }
 
 std::shared_ptr<ITask> Thread::addTaskFront(std::shared_ptr<ITask>&& task) {
-	std::shared_ptr<ITask> l_result{ task };
+	std::shared_ptr<ITask> l_result { task };
 	mWorkQueue.pushFront(std::move(task));
 	return l_result;
 }
@@ -188,9 +183,9 @@ void Thread::worker(uint32_t ThreadIndex) {
 	auto _id = std::this_thread::get_id();
 	mId = std::make_pair(ThreadIndex, _id);
 	mThreadState = ThreadState::FREE;
-	
+
 	while (!mIsDone) {
-		std::shared_ptr<ITask> pTask{nullptr};
+		std::shared_ptr<ITask> pTask { nullptr };
 		if (auto res = mWorkQueue.waitPop()) {
 			pTask = res.value();
 			mThreadState = ThreadState::BUSY;

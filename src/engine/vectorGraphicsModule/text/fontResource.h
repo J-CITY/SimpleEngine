@@ -5,20 +5,24 @@
 #include <unordered_map>
 
 namespace IKIGAI::VECTOR {
+
 struct FontOptions {
 	unsigned pixelSize = 48, spread = 8, pageSize = 512;
 	uint32_t fallback = 0xFFFD;
 };
+
 struct Glyph {
 	unsigned id = 0, page = 0;
 	Vec2 uvMin { }, uvMax { }, size { }, bearing { };
 	float advance = 0;
 };
+
 struct AtlasPage {
 	unsigned size = 0, x = 1, y = 1, rowHeight = 0;
 	uint64_t revision = 1;
 	std::vector<uint8_t> pixels;
 };
+
 class FontResource {
 public:
 	FontResource(std::vector<uint8_t> bytes, FontOptions options = { });
@@ -51,20 +55,26 @@ private:
 	mutable std::mutex mMutex;
 	uint64_t mRevision = 1;
 };
+
 std::vector<uint32_t> decodeUtf8(const std::string& text);
+
 enum class TextAlign { Left, Center, Right };
+
 struct TextOptions {
 	float size = 32, wrapWidth = 0, letterSpacing = 0, lineSpacing = 1;
 	TextAlign alignment = TextAlign::Left;
 	Color color { };
 };
+
 struct TextRun {
 	unsigned page = 0;
 	Mesh mesh;
 };
+
 struct TextLayout {
 	std::vector<TextRun> runs;
 	Vec2 size { };
 };
+
 TextLayout layoutText(FontResource&, const std::string&, const TextOptions& options = { });
 }

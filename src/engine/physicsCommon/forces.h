@@ -31,7 +31,7 @@ template <class V> struct ForceField {
 	unsigned targets = All;
 	std::uint32_t mask = ~0u;
 	bool enabled = true, wake = true;
-	V vector {}, center {}, localPoint {};
+	V vector { }, center { }, localPoint { };
 	float radius = 0; // zero is unbounded
 	float linear = 0, quadratic = 1, area = 1, density = 1.225f;
 	float waterHeight = 0, maxDepth = 0.5f, volume = 1, gravity = 9.81f;
@@ -49,11 +49,11 @@ template <class V> struct ForceField {
 	}
 	V evaluate(V p, V pointVelocity, float inverseMass, double time) const {
 		if (!enabled || inverseMass <= 0)
-			return V {};
+			return V { };
 		V delta = p - center;
 		float distance2 = PHYSICS_COMMON::dot(delta, delta);
 		if (radius > 0 && distance2 > radius * radius)
-			return V {};
+			return V { };
 		switch (kind) {
 		case Kind::Force:
 			return vector;
@@ -61,13 +61,13 @@ template <class V> struct ForceField {
 			return vector * (1 / inverseMass);
 		case Kind::Buoyancy: {
 			float fraction = std::clamp((waterHeight + maxDepth - p.y) / (2 * maxDepth), 0.0f, 1.0f);
-			V force {};
+			V force { };
 			force.y = density * volume * gravity * fraction;
 			return force;
 		}
 		case Kind::Radial: {
 			float distance = std::sqrt(distance2);
-			return distance > 1e-6f ? delta * (linear / distance) : V {};
+			return distance > 1e-6f ? delta * (linear / distance) : V { };
 		}
 		case Kind::Drag:
 		case Kind::Wind: {
@@ -83,7 +83,7 @@ template <class V> struct ForceField {
 			return relative * (linear + 0.5f * density * quadratic * area * speed);
 		}
 		}
-		return V {};
+		return V { };
 	}
 };
 
@@ -117,7 +117,7 @@ public:
 		return mFields;
 	}
 	V force(Id target, unsigned kind, std::uint32_t layer, V p, V velocity, float inverseMass, double time, bool* wake = nullptr) const {
-		V result {};
+		V result { };
 		for (auto& [id, field] : mFields) {
 			if ((field.target && field.target != target) || !(field.targets & kind) || !(field.mask & layer))
 				continue;

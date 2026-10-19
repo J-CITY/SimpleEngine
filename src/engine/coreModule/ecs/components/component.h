@@ -3,76 +3,75 @@
 #include <chrono>
 #include <string>
 
-#include <utilsModule/weakPtr.h>
 #include <utilsModule/result.h>
+#include <utilsModule/weakPtr.h>
+
 
 #include "resourceModule/serializerInterface.h"
 #include "utilsModule/jsonLoader.h"
 #include "utilsModule/ref.h"
 
-//because need in all component
+// because need in all component
 #include "utilsModule/reflection/reflection.h"
 #include <serdepp/attribute/default.hpp>
 #include <serdepp/serializer.hpp>
 
 #include "ecsModule/componentManager.h"
 
-namespace IKIGAI::ECS { class Object; }
+namespace IKIGAI::ECS {
+class Object;
+}
 
 namespace IKIGAI::ECS {
 
-	class ComponentBase: public RESOURCES::Serializable, public ECS2::Component {
-		template<class T>
-		friend UTILS::Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
-	public:
+class ComponentBase : public RESOURCES::Serializable, public ECS2::Component {
+	template <class T> friend UTILS::Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
 
-		struct Descriptor {};
-		//Component();
-		ComponentBase(UTILS::Ref<ECS::Object> obj);
-		~ComponentBase() override;
+public:
+	struct Descriptor { };
+	// Component();
+	ComponentBase(UTILS::Ref<ECS::Object> obj);
+	~ComponentBase() override;
 
-		virtual void onAwake() {}
-		virtual void onStart() {}
-		
-		virtual void onEnable() {}
-		virtual void onDisable() {}
+	virtual void onAwake() { }
+	virtual void onStart() { }
 
-		virtual void onDestroy() {}
+	virtual void onEnable() { }
+	virtual void onDisable() { }
 
-		virtual void onUpdate(std::chrono::duration<double> dt) {}
-		virtual void onFixedUpdate(std::chrono::duration<double> dt) {}
-		virtual void onLateUpdate(std::chrono::duration<double> dt) {}
+	virtual void onDestroy() { }
 
-		virtual const std::string& getName() const;
-		virtual std::string getTypeidName();
+	virtual void onUpdate(std::chrono::duration<double> dt) { }
+	virtual void onFixedUpdate(std::chrono::duration<double> dt) { }
+	virtual void onLateUpdate(std::chrono::duration<double> dt) { }
 
-		const ECS::Object& getObject();
+	virtual const std::string& getName() const;
+	virtual std::string getTypeidName();
 
-		//make it private
-		//TODO: use weak_ptr
-		UTILS::Ref<ECS::Object> obj;
+	const ECS::Object& getObject();
 
-		virtual void onDeserialize(nlohmann::json& j) override {
-		}
-		virtual void onSerialize(nlohmann::json& j) override {;
-		}
+	// make it private
+	// TODO: use weak_ptr
+	UTILS::Ref<ECS::Object> obj;
 
-		//template<class T>
-		//UTILS::WeakPtr<T> getWeak() {
-		//	return UTILS::WeakPtr<T>(*this);
-		//}
-	protected:
-		std::string __NAME__;
-	};
-
-	template<class T>
-	inline std::string GetType() {
-		return "";
+	virtual void onDeserialize(nlohmann::json& j) override { }
+	virtual void onSerialize(nlohmann::json& j) override {
+		;
 	}
 
-	template<class T>
-	inline std::string GetComponentName() {
-		return "";
-	}
+	// template<class T>
+	// UTILS::WeakPtr<T> getWeak() {
+	//	return UTILS::WeakPtr<T>(*this);
+	// }
+protected:
+	std::string __NAME__;
+};
+
+template <class T> inline std::string GetType() {
+	return "";
 }
 
+template <class T> inline std::string GetComponentName() {
+	return "";
+}
+}

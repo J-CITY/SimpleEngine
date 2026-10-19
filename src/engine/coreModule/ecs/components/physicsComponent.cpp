@@ -6,8 +6,8 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-
-PhysicsComponent::PhysicsComponent(UTILS::Ref<ECS::Object> obj): ComponentBase(obj){
+PhysicsComponent::PhysicsComponent(UTILS::Ref<ECS::Object> obj)
+	: ComponentBase(obj) {
 	__NAME__ = "PhysicsComponent";
 }
 
@@ -16,9 +16,9 @@ PhysicsComponent::Descriptor PhysicsComponent::getDescriptor() const {
 	descriptor.Type = GetType<PhysicsComponent>();
 	return descriptor;
 }
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::enumeration<IKIGAI::ECS::CollisionType>("CollisionType")
 //	(
@@ -33,6 +33,6 @@ PhysicsComponent::Descriptor PhysicsComponent::getDescriptor() const {
 //	(
 //		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 //	);
-//}
+// }
 
 #endif // USE_PHYSICS_3D

@@ -3,51 +3,55 @@
 #include "resourceModule/skeletonManager.h"
 
 namespace IKIGAI::ECS {
-	SkeletalComponent::SkeletalComponent(UTILS::Ref<ECS::Object> obj) : ComponentBase(obj) {
-		__NAME__ = "SkeletalComponent";
+SkeletalComponent::SkeletalComponent(UTILS::Ref<ECS::Object> obj)
+	: ComponentBase(obj) {
+	__NAME__ = "SkeletalComponent";
+}
+
+SkeletalComponent::SkeletalComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor)
+	: ComponentBase(obj) {
+	__NAME__ = "SkeletalComponent";
+	setSkeleton(_descriptor.SkeletalPath);
+}
+
+SkeletalComponent::~SkeletalComponent() = default;
+
+void SkeletalComponent::setSkeleton(const std::string& path) {
+	mSkeletonPath = path;
+	if (!path.empty()) {
+		// TODO: calculate res file or resource
+		mSkeleton = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonLoader>().loadResource(path, RESOURCES::ELoadingType::FILE);
+	}
+	else {
+		mSkeleton = nullptr;
 	}
 
-	SkeletalComponent::SkeletalComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& _descriptor) : ComponentBase(obj) {
-		__NAME__ = "SkeletalComponent";
-		setSkeleton(_descriptor.SkeletalPath);
+	if (mSkeleton) {
+		mAnimOffset = std::make_shared<SKELETON::AnimOffset>(mSkeleton.get());
+		mAnimLocalTransform = std::make_shared<SKELETON::AnimLocalTransform>(mSkeleton.get());
+		mAnimGlobalTransform = std::make_shared<SKELETON::AnimGlobalTransform>(mSkeleton.get());
 	}
+	else {
+		mAnimOffset = nullptr;
+		mAnimLocalTransform = nullptr;
+		mAnimGlobalTransform = nullptr;
+	}
+}
 
-	SkeletalComponent::~SkeletalComponent() = default;
+SkeletalComponent::Descriptor SkeletalComponent::getDescriptor() const {
+	Descriptor desc;
+	desc.Type = GetComponentName<SkeletalComponent>();
+	desc.SkeletalPath = mSkeletonPath;
+	return desc;
+}
 
-	void SkeletalComponent::setSkeleton(const std::string& path) {
-		mSkeletonPath = path;
-		if (!path.empty()) {
-			//TODO: calculate res file or resource
-			mSkeleton = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonLoader>().loadResource(path, RESOURCES::ELoadingType::FILE);
-		} else {
-			mSkeleton = nullptr;
-		}
-		
-		if (mSkeleton) {
-			mAnimOffset = std::make_shared<SKELETON::AnimOffset>(mSkeleton.get());
-			mAnimLocalTransform = std::make_shared<SKELETON::AnimLocalTransform>(mSkeleton.get());
-			mAnimGlobalTransform = std::make_shared<SKELETON::AnimGlobalTransform>(mSkeleton.get());
-		} else {
-			mAnimOffset = nullptr;
-			mAnimLocalTransform = nullptr;
-			mAnimGlobalTransform = nullptr;
-		}
+void SkeletalComponent::onDeserialize(nlohmann::json& j) {
+	if (j.contains("SkeletonPath")) {
+		setSkeleton(j["SkeletonPath"].get<std::string>());
 	}
-	
-	SkeletalComponent::Descriptor SkeletalComponent::getDescriptor() const {
-		Descriptor desc;
-		desc.Type = GetComponentName<SkeletalComponent>();
-		desc.SkeletalPath = mSkeletonPath;
-		return desc;
-	}
+}
 
-	void SkeletalComponent::onDeserialize(nlohmann::json& j) {
-		if (j.contains("SkeletonPath")) {
-			setSkeleton(j["SkeletonPath"].get<std::string>());
-		}
-	}
-
-	void SkeletalComponent::onSerialize(nlohmann::json& j) {
-		j["SkeletonPath"] = mSkeletonPath;
-	}
+void SkeletalComponent::onSerialize(nlohmann::json& j) {
+	j["SkeletonPath"] = mSkeletonPath;
+}
 }

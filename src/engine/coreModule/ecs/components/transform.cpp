@@ -10,7 +10,7 @@
 using namespace IKIGAI::ECS;
 using namespace IKIGAI::MATH;
 
-//Transform Notifier
+// Transform Notifier
 
 TransformNotifier::NotificationHandlerID TransformNotifier::addNotificationHandler(NotificationHandler notificationHandler) {
 	NotificationHandlerID handlerID = availableHandlerID++;
@@ -28,19 +28,17 @@ bool TransformNotifier::removeNotificationHandler(const NotificationHandlerID& p
 	return notificationHandlers.erase(p_notificationHandlerID) != 0;
 }
 
-//Transform Component
+// Transform Component
 
-TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, Vector3f localPosition,
-	QuaternionF localRotation, Vector3f localScale): ComponentBase(obj) {
+TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, Vector3f localPosition, QuaternionF localRotation, Vector3f localScale)
+	: ComponentBase(obj) {
 	__NAME__ = "TransformComponent";
 	transform = std::make_shared<Transform>();
 	transform->generateMatrices(localPosition, localRotation, localScale);
 }
 
-TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor):
-	TransformComponent(obj, descriptor.LocalPosition, QuaternionF(descriptor.LocalRotation), descriptor.LocalScale)
-{
-}
+TransformComponent::TransformComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: TransformComponent(obj, descriptor.LocalPosition, QuaternionF(descriptor.LocalRotation), descriptor.LocalScale) { }
 
 TransformComponent::Descriptor TransformComponent::getDescriptor() const {
 	Descriptor descriptor;
@@ -78,34 +76,34 @@ void TransformComponent::setLocalScale(Vector3f newScale) {
 	obj->componentChangedEvent.run(this);
 }
 
-void TransformComponent::translateLocal(const Vector3f & translation) {
+void TransformComponent::translateLocal(const Vector3f& translation) {
 	transform->translateLocal(translation);
 	obj->componentChangedEvent.run(this);
 }
 
-void TransformComponent::rotateLocal(const QuaternionF & p_rotation) {
+void TransformComponent::rotateLocal(const QuaternionF& p_rotation) {
 	transform->rotateLocal(p_rotation);
 	obj->componentChangedEvent.run(this);
 }
 
-void TransformComponent::scaleLocal(const Vector3f & p_scale) {
+void TransformComponent::scaleLocal(const Vector3f& p_scale) {
 	transform->scaleLocal(p_scale);
 	obj->componentChangedEvent.run(this);
 }
 
-const Vector3f & TransformComponent::getLocalPosition() const {
+const Vector3f& TransformComponent::getLocalPosition() const {
 	return transform->getLocalPosition();
 }
 
-const QuaternionF & TransformComponent::getLocalRotation() const {
+const QuaternionF& TransformComponent::getLocalRotation() const {
 	return transform->getLocalRotation();
 }
 
-const Vector3f & TransformComponent::getLocalScale() const {
+const Vector3f& TransformComponent::getLocalScale() const {
 	return transform->getLocalScale();
 }
 
-const Vector3f & TransformComponent::getWorldPosition() const {
+const Vector3f& TransformComponent::getWorldPosition() const {
 	return transform->getWorldPosition();
 }
 
@@ -113,15 +111,15 @@ const QuaternionF& TransformComponent::getWorldRotation() const {
 	return transform->getWorldRotation();
 }
 
-const Vector3f & TransformComponent::getWorldScale() const {
+const Vector3f& TransformComponent::getWorldScale() const {
 	return transform->getWorldScale();
 }
 
-const Matrix4f & TransformComponent::getLocalMatrix() const {
+const Matrix4f& TransformComponent::getLocalMatrix() const {
 	return transform->getLocalMatrix();
 }
 
-const Matrix4f & TransformComponent::getWorldMatrix() const {
+const Matrix4f& TransformComponent::getWorldMatrix() const {
 	return transform->getWorldMatrix();
 }
 
@@ -156,27 +154,19 @@ Vector3f TransformComponent::getLocalRight() const {
 Matrix3f TransformComponent::GetNormalMatrix(const Matrix4f& model) const {
 	if (transform->getWorldScale().x == transform->getWorldScale().y && transform->getWorldScale().y == transform->getWorldScale().z) {
 		auto buf = model;
-		return Matrix3(
-			buf(0, 0), buf(0, 1), buf(0, 2),
-			buf(1, 0), buf(1, 1), buf(1, 2),
-			buf(2, 0), buf(2, 1), buf(2, 2)
-		);
+		return Matrix3(buf(0, 0), buf(0, 1), buf(0, 2), buf(1, 0), buf(1, 1), buf(1, 2), buf(2, 0), buf(2, 1), buf(2, 2));
 	}
 	else {
 		auto buf = Matrix4f::Transpose(Matrix4f::Inverse(model));
-		return  Matrix3(
-			buf(0, 0), buf(0, 1), buf(0, 2),
-			buf(1, 0), buf(1, 1), buf(1, 2),
-			buf(2, 0), buf(2, 1), buf(2, 2)
-		);
+		return Matrix3(buf(0, 0), buf(0, 1), buf(0, 2), buf(1, 0), buf(1, 1), buf(1, 2), buf(2, 0), buf(2, 1), buf(2, 2));
 	}
 }
 
-//Transform
+// Transform
 
-Transform::Transform(Vector3f localPosition, QuaternionF localRotation, Vector3f localScale) :
-	notificationHandlerID(-1),
-	parent(nullptr) {
+Transform::Transform(Vector3f localPosition, QuaternionF localRotation, Vector3f localScale)
+	: notificationHandlerID(-1)
+	, parent(nullptr) {
 	generateMatrices(localPosition, localRotation, localScale);
 }
 
@@ -222,7 +212,6 @@ bool Transform::hasParent() const {
 	return parent != nullptr;
 }
 
-
 void Transform::generateMatrices(Vector3f position, QuaternionF rotation, Vector3f scale) {
 	if (use2d) {
 		auto screenSz = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
@@ -230,13 +219,12 @@ void Transform::generateMatrices(Vector3f position, QuaternionF rotation, Vector
 
 		localMatrix = Matrix4f();
 		localMatrix *= Matrix4f::Translation(Vector3f(parentSize.x * mAnchor.x, parentSize.y * mAnchor.y, 0.0f));
-		localMatrix *= Matrix4f::Translation(Vector3f(mSize.x * -mPivot.x * localScale.x,
-			mSize.y * -mPivot.y * localScale.y, 0.0f));
+		localMatrix *= Matrix4f::Translation(Vector3f(mSize.x * -mPivot.x * localScale.x, mSize.y * -mPivot.y * localScale.y, 0.0f));
 		localMatrix *= Matrix4f::Translation(position);
 		localMatrix *= Matrix4f::Translation({ mSize.x * mPivot.x * localScale.x, mSize.y * mPivot.y * localScale.y, 0.0f });
 		localMatrix *= QuaternionF::ToMatrix4(QuaternionF::Normalize(localRotation));
 		localMatrix *= Matrix4f::Translation({ mSize.x * -mPivot.x * localScale.x, mSize.y * -mPivot.y * localScale.y, 0.0f });
-		localMatrix *= Matrix4f::Scaling(localScale/* * Vector3f(mSize.x, mSize.y, 1.0f)*/);
+		localMatrix *= Matrix4f::Scaling(localScale /* * Vector3f(mSize.x, mSize.y, 1.0f)*/);
 	}
 	else {
 		localMatrix = Matrix4f::Translation(position) * QuaternionF::ToMatrix4(QuaternionF::Normalize(rotation)) * Matrix4f::Scaling(scale);
@@ -288,11 +276,7 @@ void Transform::rotateLocal(const QuaternionF& p_rotation) {
 }
 
 void Transform::scaleLocal(const Vector3f& p_scale) {
-	setLocalScale(Vector3f(
-		localScale.x * p_scale.x,
-		localScale.y * p_scale.y,
-		localScale.z * p_scale.z
-	));
+	setLocalScale(Vector3f(localScale.x * p_scale.x, localScale.y * p_scale.y, localScale.z * p_scale.z));
 }
 
 const Vector3f& Transform::getLocalPosition() const {
@@ -386,11 +370,10 @@ void Transform::preDecomposeWorldMatrix() {
 	worldPosition.y = worldMatrix(1, 3);
 	worldPosition.z = worldMatrix(2, 3);
 
-	Vector3f columns[3] =
-	{
-		{ worldMatrix(0, 0), worldMatrix(1, 0), worldMatrix(2, 0)},
-		{ worldMatrix(0, 1), worldMatrix(1, 1), worldMatrix(2, 1)},
-		{ worldMatrix(0, 2), worldMatrix(1, 2), worldMatrix(2, 2)},
+	Vector3f columns[3] = {
+		{ worldMatrix(0, 0), worldMatrix(1, 0), worldMatrix(2, 0) },
+		{ worldMatrix(0, 1), worldMatrix(1, 1), worldMatrix(2, 1) },
+		{ worldMatrix(0, 2), worldMatrix(1, 2), worldMatrix(2, 2) },
 	};
 
 	worldScale.x = Vector3f::Length(columns[0]);
@@ -407,12 +390,8 @@ void Transform::preDecomposeWorldMatrix() {
 		columns[2] /= worldScale.z;
 	}
 
-	Matrix3 rotationMatrix
-	(
-		columns[0].x, columns[1].x, columns[2].x,
-		columns[0].y, columns[1].y, columns[2].y,
-		columns[0].z, columns[1].z, columns[2].z
-	);
+	Matrix3 rotationMatrix(
+		columns[0].x, columns[1].x, columns[2].x, columns[0].y, columns[1].y, columns[2].y, columns[0].z, columns[1].z, columns[2].z);
 
 	worldRotation = QuaternionF(rotationMatrix);
 }
@@ -422,11 +401,10 @@ void Transform::preDecomposeLocalMatrix() {
 	localPosition.y = localMatrix(1, 3);
 	localPosition.z = localMatrix(2, 3);
 
-	Vector3f columns[3] =
-	{
-		{ localMatrix(0, 0), localMatrix(1, 0), localMatrix(2, 0)},
-		{ localMatrix(0, 1), localMatrix(1, 1), localMatrix(2, 1)},
-		{ localMatrix(0, 2), localMatrix(1, 2), localMatrix(2, 2)},
+	Vector3f columns[3] = {
+		{ localMatrix(0, 0), localMatrix(1, 0), localMatrix(2, 0) },
+		{ localMatrix(0, 1), localMatrix(1, 1), localMatrix(2, 1) },
+		{ localMatrix(0, 2), localMatrix(1, 2), localMatrix(2, 2) },
 	};
 
 	localScale.x = Vector3f::Length(columns[0]);
@@ -444,10 +422,7 @@ void Transform::preDecomposeLocalMatrix() {
 	}
 
 	Matrix3 rotationMatrix(
-		columns[0].x, columns[1].x, columns[2].x,
-		columns[0].y, columns[1].y, columns[2].y,
-		columns[0].z, columns[1].z, columns[2].z
-	);
+		columns[0].x, columns[1].x, columns[2].x, columns[0].y, columns[1].y, columns[2].y, columns[0].z, columns[1].z, columns[2].z);
 
 	localRotation = QuaternionF(rotationMatrix);
 }
@@ -504,7 +479,7 @@ void TransformComponent::setLocalPosition_(Vector3f val) {
 	transform->setLocalPosition(val);
 }
 
-//In degree
+// In degree
 float TransformComponent::getLocalRotationX() const {
 	const auto rot = QuaternionF::ToEulerAngles(getLocalRotation());
 	return TO_DEGREES(rot.x);
@@ -526,34 +501,57 @@ Vector3f TransformComponent::getLocalRotationDeg() const {
 }
 
 void TransformComponent::setLocalRotationX(float val) {
-	if (val > 180.0f) { val = -180.0f + (val - 180.0f); }
-	else if (val < -180.0f) { val = 180.0f + (val + 180.0f); }
+	if (val > 180.0f) {
+		val = -180.0f + (val - 180.0f);
+	}
+	else if (val < -180.0f) {
+		val = 180.0f + (val + 180.0f);
+	}
 	const auto rot = QuaternionF::ToEulerAngles(getLocalRotation());
-	Vector3f rotVec = Vector3f{ val, TO_DEGREES(rot.y), TO_DEGREES(rot.z) };
+	Vector3f rotVec = Vector3f { val, TO_DEGREES(rot.y), TO_DEGREES(rot.z) };
 	setLocalRotation(QuaternionF({ rotVec }));
 }
 void TransformComponent::setLocalRotationY(float val) {
-	if (val > 89.0f) { val = 89.0f; }
-	else if (val < -89.0f) { val = -89.0f; }
+	if (val > 89.0f) {
+		val = 89.0f;
+	}
+	else if (val < -89.0f) {
+		val = -89.0f;
+	}
 	const auto rot = QuaternionF::ToEulerAngles(getLocalRotation());
-	Vector3f rotVec = Vector3f{ TO_DEGREES(rot.x), val, TO_DEGREES(rot.z) };
+	Vector3f rotVec = Vector3f { TO_DEGREES(rot.x), val, TO_DEGREES(rot.z) };
 	setLocalRotation(QuaternionF({ rotVec }));
 }
 void TransformComponent::setLocalRotationZ(float val) {
-	if (val > 180.0f) { val = -180.0f + (val - 180.0f); }
-	else if (val < -180.0f) { val = 180.0f + (val + 180.0f); }
+	if (val > 180.0f) {
+		val = -180.0f + (val - 180.0f);
+	}
+	else if (val < -180.0f) {
+		val = 180.0f + (val + 180.0f);
+	}
 	const auto rot = QuaternionF::ToEulerAngles(getLocalRotation());
-	Vector3f rotVec = Vector3f{ TO_DEGREES(rot.x), TO_DEGREES(rot.y), val };
+	Vector3f rotVec = Vector3f { TO_DEGREES(rot.x), TO_DEGREES(rot.y), val };
 	setLocalRotation(QuaternionF({ rotVec }));
 }
 
-
 void TransformComponent::setLocalRotationDeg(Vector3f val) {
-	if (val.x > 180.0f) { val.x = -180.0f + (val.x - 180.0f); }
-	else if (val.x < -180.0f) { val.x = 180.0f + (val.x + 180.0f); }
-	if (val.z > 180.0f) { val.z = -180.0f + (val.z - 180.0f); }
-	else if (val.z < -180.0f) { val.z = 180.0f + (val.z + 180.0f); }
-	if (val.y > 89.0f) { val.y = 89.0f; }
-	else if (val.y < -89.0f) { val.y = -89.0f; }
+	if (val.x > 180.0f) {
+		val.x = -180.0f + (val.x - 180.0f);
+	}
+	else if (val.x < -180.0f) {
+		val.x = 180.0f + (val.x + 180.0f);
+	}
+	if (val.z > 180.0f) {
+		val.z = -180.0f + (val.z - 180.0f);
+	}
+	else if (val.z < -180.0f) {
+		val.z = 180.0f + (val.z + 180.0f);
+	}
+	if (val.y > 89.0f) {
+		val.y = 89.0f;
+	}
+	else if (val.y < -89.0f) {
+		val.y = -89.0f;
+	}
 	setLocalRotation(QuaternionF({ val }));
 }

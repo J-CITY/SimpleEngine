@@ -1,9 +1,10 @@
 #include "fileWatcher.h"
 
-#include "serviceManager.h"
 #include "fileSystem/fileSystem.h"
+#include "serviceManager.h"
 #include "utilsModule/exeptions.h"
 #include <iostream>
+
 
 namespace IKIGAI::RESOURCES {
 
@@ -17,22 +18,22 @@ IKIGAI::IdGenerator<IKIGAI::EVENT::Event<>>::ID FileWatcher::add(const Path&, st
 	return EVENT::Event<FileStatus>::ID(0);
 }
 
-void FileWatcher::addDeferred(const Path&, std::function<void(FileStatus)>, std::function<void(EVENT::Event<FileStatus>::ID)>) {}
+void FileWatcher::addDeferred(const Path&, std::function<void(FileStatus)>, std::function<void(EVENT::Event<FileStatus>::ID)>) { }
 
-void FileWatcher::_remove(const std::string&, EVENT::Event<FileStatus>::ID) {}
+void FileWatcher::_remove(const std::string&, EVENT::Event<FileStatus>::ID) { }
 
-void FileWatcher::remove(const Path&, EVENT::Event<FileStatus>::ID) {}
+void FileWatcher::remove(const Path&, EVENT::Event<FileStatus>::ID) { }
 
-void FileWatcher::removeDeferred(const Path&, EVENT::Event<FileStatus>::ID) {}
+void FileWatcher::removeDeferred(const Path&, EVENT::Event<FileStatus>::ID) { }
 
-void FileWatcher::start() {}
+void FileWatcher::start() { }
 
-void FileWatcher::stop() {}
+void FileWatcher::stop() { }
 
-void FileWatcher::applyUpdate() {}
+void FileWatcher::applyUpdate() { }
 
-void FileWatcher::update() {}
-void FileWatcher::requestUpdate() {}
+void FileWatcher::update() { }
+void FileWatcher::requestUpdate() { }
 
 #else
 
@@ -88,7 +89,8 @@ void FileWatcher::removeDeferred(const Path& path, EVENT::Event<FileStatus>::ID 
 	auto& fs = ServiceManager::Get<FileSystem>();
 	const auto _path = path.string();
 	if (!fs.isFileExist(_path)) {
-		throw UTILS::EXEPTIONS::WrongPath(_path.c_str());;
+		throw UTILS::EXEPTIONS::WrongPath(_path.c_str());
+		;
 	}
 	deferredEvents.push({ QueueEvent::Action::REMOVE, _path, nullptr, nullptr, id });
 }
@@ -100,17 +102,25 @@ void FileWatcher::start() {
 void FileWatcher::stop() {
 	m_isRunning = false;
 	if (mUpdateTask.valid()) {
-		try { mUpdateTask.get(); }
-		catch (const std::exception& error) { std::cerr << "File watcher: " << error.what() << '\n'; }
+		try {
+			mUpdateTask.get();
+		} catch (const std::exception& error) {
+			std::cerr << "File watcher: " << error.what() << '\n';
+		}
 	}
 }
 
 void FileWatcher::requestUpdate() {
-	if (!m_isRunning) return;
+	if (!m_isRunning)
+		return;
 	if (mUpdateTask.valid()) {
-		if (mUpdateTask.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
-		try { mUpdateTask.get(); }
-		catch (const std::exception& error) { std::cerr << "File watcher: " << error.what() << '\n'; }
+		if (mUpdateTask.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+			return;
+		try {
+			mUpdateTask.get();
+		} catch (const std::exception& error) {
+			std::cerr << "File watcher: " << error.what() << '\n';
+		}
 	}
 	// This worker is independent of TaskSystem::waitSync at the end of a frame.
 	mUpdateTask = std::async(std::launch::async, [this] { update(); });
@@ -139,7 +149,6 @@ void FileWatcher::applyUpdate() {
 			}
 		}
 	}
-
 }
 
 void FileWatcher::update() {
@@ -147,24 +156,33 @@ void FileWatcher::update() {
 		return;
 	}
 	decltype(m_filesLastModifications) snapshot;
-	{ const std::lock_guard lock(m_mutex); snapshot = m_filesLastModifications; }
+	{
+		const std::lock_guard lock(m_mutex);
+		snapshot = m_filesLastModifications;
+	}
 	for (const auto& [path, previous] : snapshot) {
-		if (!m_isRunning) break;
+		if (!m_isRunning)
+			break;
 		// Packed assets are immutable. Cache native paths at registration so the
 		// worker performs only filesystem metadata queries, without touching VFS.
-		if (!previous.mNativePath) continue;
+		if (!previous.mNativePath)
+			continue;
 		std::error_code error;
 		const auto native = std::filesystem::u8path(*previous.mNativePath);
 		const bool exists = std::filesystem::exists(native, error);
-		if (error) continue;
-		const auto modified = exists ? std::filesystem::last_write_time(native, error) : FileTime{};
-		if (error) continue;
-		const auto size = exists ? std::filesystem::file_size(native, error) : uintmax_t{};
-		if (error || (exists && modified == previous.mLastModifyTime && size == previous.mFileSize)) continue;
+		if (error)
+			continue;
+		const auto modified = exists ? std::filesystem::last_write_time(native, error) : FileTime { };
+		if (error)
+			continue;
+		const auto size = exists ? std::filesystem::file_size(native, error) : uintmax_t { };
+		if (error || (exists && modified == previous.mLastModifyTime && size == previous.mFileSize))
+			continue;
 		const std::lock_guard lock(m_mutex);
 		const auto current = m_filesLastModifications.find(path);
 		if (current == m_filesLastModifications.end() || current->second.mNativePath != previous.mNativePath
-			|| current->second.mLastModifyTime != previous.mLastModifyTime || current->second.mFileSize != previous.mFileSize) continue;
+			|| current->second.mLastModifyTime != previous.mLastModifyTime || current->second.mFileSize != previous.mFileSize)
+			continue;
 		current->second.mLastModifyTime = modified;
 		current->second.mFileSize = size;
 		m_events.emplace_back(path, exists ? FileStatus::MODIFIED : FileStatus::DEL);

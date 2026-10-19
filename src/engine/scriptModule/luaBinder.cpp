@@ -3,10 +3,11 @@
 
 #include <sol/sol.hpp>
 
-#include "luaMathsBinder.h"
 #include "luaActorBinder.h"
 #include "luaComponentBinder.h"
 #include "luaGlobalsBinder.h"
+#include "luaMathsBinder.h"
+
 
 using namespace IKIGAI::SCRIPTING;
 

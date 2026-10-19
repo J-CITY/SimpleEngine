@@ -7,7 +7,7 @@
 namespace IKIGAI::RESOURCES::STORAGE {
 inline std::string Utf8(const std::filesystem::path& path) {
 	const auto value = path.generic_u8string();
-	return {reinterpret_cast<const char*>(value.data()), value.size()};
+	return { reinterpret_cast<const char*>(value.data()), value.size() };
 }
 // All paths are explicit native paths, never aliases that can change mid-save.
 std::filesystem::path AppDataPath(const std::string& org, const std::string& app);

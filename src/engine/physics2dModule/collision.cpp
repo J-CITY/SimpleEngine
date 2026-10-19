@@ -5,8 +5,8 @@ Aabb Body::bounds() const {
 }
 bool collide(const Body& a, const Body& b, Contact& out) {
 	COLLISION::Manifold2D manifold;
-	auto result = COLLISION::DefaultNarrowPhase2D {}.collide({ a.shape, a.position, a.angle }, { b.shape, b.position, b.angle }, manifold);
-	out = {};
+	auto result = COLLISION::DefaultNarrowPhase2D { }.collide({ a.shape, a.position, a.angle }, { b.shape, b.position, b.angle }, manifold);
+	out = { };
 	out.a = a.id;
 	out.b = b.id;
 	out.normal = manifold.normal;

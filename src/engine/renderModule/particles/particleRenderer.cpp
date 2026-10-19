@@ -155,10 +155,10 @@ void ParticleRenderer::drawWorld(SCENE_SYSTEM::Scene& scene, Renderer& renderer,
 			if (auto c = object->getComponent<ECS::SpriteParticleComponent>())
 				gather<2>(*c, items, false, transform, view);
 		}
-	draw(items, renderer, projection, {}, false);
+	draw(items, renderer, projection, { }, false);
 }
 void ParticleRenderer::draw(std::vector<Item>& items, Renderer& renderer, const Matrix4f& projection, const Scissor& clip, bool clipped) {
-	mStatistics = {};
+	mStatistics = { };
 	if (items.empty())
 		return;
 	std::stable_sort(items.begin(), items.end(), [](const auto& a, const auto& b) {

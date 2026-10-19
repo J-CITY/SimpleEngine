@@ -180,7 +180,7 @@ public:
 	IKI_PROPERTY(Name = AllowSleep, Type = bool, Getter = getAllowSleep, Setter = setAllowSleep, Flags = [USE_IN_EDITOR_COMPONENT_INSPECTOR],
 		EditWidget = BOOL)
 	static auto GetMembers() {
-		return std::tuple {};
+		return std::tuple { };
 	}
 };
 IKI_CLASS(Groups = [Component])
@@ -200,8 +200,8 @@ public:
 		float Damping = 0.5f;
 		bool PinTop = false;
 		bool SelfCollision = false;
-		std::vector<MATH::Vector3f> Vertices = {};
-		std::vector<int> Tetrahedra = {};
+		std::vector<MATH::Vector3f> Vertices = { };
+		std::vector<int> Tetrahedra = { };
 		template <class Context> static constexpr auto serde(Context& context, Descriptor& value) {
 			serde::serde_struct(context, value)
 				.field(&Descriptor::Type, "SoftBody3DComponentType")
@@ -216,8 +216,8 @@ public:
 				.field(&Descriptor::Damping, "Damping", serde::attribute::default_ { 0.5f })
 				.field(&Descriptor::PinTop, "PinTop", serde::attribute::default_ { false })
 				.field(&Descriptor::SelfCollision, "SelfCollision", serde::attribute::default_ { false })
-				.field(&Descriptor::Vertices, "Vertices", serde::attribute::default_ { std::vector<MATH::Vector3f> {} })
-				.field(&Descriptor::Tetrahedra, "Tetrahedra", serde::attribute::default_ { std::vector<int> {} });
+				.field(&Descriptor::Vertices, "Vertices", serde::attribute::default_ { std::vector<MATH::Vector3f> { } })
+				.field(&Descriptor::Tetrahedra, "Tetrahedra", serde::attribute::default_ { std::vector<int> { } });
 		}
 	};
 	explicit SoftBody3DComponent(UTILS::Ref<Object> obj);
@@ -324,7 +324,7 @@ public:
 	IKI_PROPERTY(Name = SelfCollision, Type = bool, Getter = getSelfCollision, Setter = setSelfCollision, Flags = [USE_IN_EDITOR_COMPONENT_INSPECTOR],
 		EditWidget = BOOL)
 	static auto GetMembers() {
-		return std::tuple {};
+		return std::tuple { };
 	}
 };
 IKI_CLASS(Groups = [Component])
@@ -475,7 +475,7 @@ public:
 	IKI_PROPERTY(Name = Impermeable, Type = bool, Getter = getImpermeable, Setter = setImpermeable, Flags = [USE_IN_EDITOR_COMPONENT_INSPECTOR],
 		EditWidget = BOOL)
 	static auto GetMembers() {
-		return std::tuple {};
+		return std::tuple { };
 	}
 };
 IKI_CLASS(Groups = [Component])
@@ -596,7 +596,7 @@ public:
 	IKI_PROPERTY(Name = Viscosity, Type = float, Getter = getViscosity, Setter = setViscosity, Flags = [USE_IN_EDITOR_COMPONENT_INSPECTOR],
 		EditWidget = DRAG_FLOAT)
 	static auto GetMembers() {
-		return std::tuple {};
+		return std::tuple { };
 	}
 };
 IKI_CLASS(Groups = [Component])
@@ -766,7 +766,7 @@ public:
 	IKI_PROPERTY(
 		Name = Targets, Type = int, Getter = getTargets, Setter = setTargets, Flags = [USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget = DRAG_INT)
 	static auto GetMembers() {
-		return std::tuple {};
+		return std::tuple { };
 	}
 };
 template <> inline std::string GetType<Physics3DComponent>() {

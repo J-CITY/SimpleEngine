@@ -41,9 +41,10 @@ namespace {
 			return vfspp::EntryInfo(mount.info.alias, mount.info.source, path, vfspp::EntryType::Directory);
 		if (mount.storage) {
 			const auto key = mount.storagePath(path);
-			if (!mount.storage->exists(key)) return {};
-			return vfspp::EntryInfo(mount.info.alias, "", path,
-				mount.storage->isDirectory(key) ? vfspp::EntryType::Directory : vfspp::EntryType::File);
+			if (!mount.storage->exists(key))
+				return { };
+			return vfspp::EntryInfo(
+				mount.info.alias, "", path, mount.storage->isDirectory(key) ? vfspp::EntryType::Directory : vfspp::EntryType::File);
 		}
 		if (std::dynamic_pointer_cast<vfspp::NativeFileSystem>(mount.fs)) {
 			vfspp::EntryInfo entry(mount.info.alias, mount.info.source, path);
@@ -51,7 +52,7 @@ namespace {
 			const auto relative = std::filesystem::path(path).lexically_relative(mount.info.alias).generic_string();
 			const auto status = std::filesystem::status(STORAGE::Child(std::filesystem::u8path(mount.info.source), relative), ec);
 			if (ec || (!std::filesystem::is_regular_file(status) && !std::filesystem::is_directory(status)))
-				return {};
+				return { };
 			return vfspp::EntryInfo(mount.info.alias, mount.info.source, path,
 				std::filesystem::is_directory(status) ? vfspp::EntryType::Directory : vfspp::EntryType::File);
 		}
@@ -64,7 +65,7 @@ public:
 	mutable std::recursive_mutex mutex;
 	uint64_t nextId = 1;
 	std::atomic<uint64_t> generation { 0 };
-	FileSystem::MountId add(vfspp::IFileSystemPtr fs, std::vector<std::string> deleted = {}) {
+	FileSystem::MountId add(vfspp::IFileSystemPtr fs, std::vector<std::string> deleted = { }) {
 		if (!fs->Initialize())
 			throw std::runtime_error("Cannot initialize filesystem: " + fs->BasePath());
 		std::lock_guard lock(mutex);
@@ -86,25 +87,25 @@ public:
 	std::shared_ptr<Mount> resolve(const std::string& path) const {
 		for (const auto& mount : ordered(path)) {
 			if (Reserved(path) && mount->info.alias == "/")
-				return {};
+				return { };
 			if (Entry(*mount, path))
 				return mount;
 			for (const auto& deleted : mount->info.deletedPaths)
 				if (Contains(deleted, path))
-					return {};
+					return { };
 			auto parent = std::filesystem::path(path).parent_path();
 			while (!parent.empty() && Contains(mount->info.alias, parent.generic_string())) {
 				const auto entry = Entry(*mount, parent.generic_string());
 				if (entry && !entry->IsDirectory())
-					return {};
+					return { };
 				if (parent == parent.root_path())
 					break;
 				parent = parent.parent_path();
 			}
 			if (Reserved(path))
-				return {};
+				return { };
 		}
-		return {};
+		return { };
 	}
 };
 class FileInternal {
@@ -224,11 +225,13 @@ FileSystem::MountId FileSystem::mountNative(const std::string& path, const std::
 }
 FileSystem::MountId FileSystem::mountStorage(std::shared_ptr<STORAGE::UserStorage> storage, const std::string& prefix, const std::string& alias) {
 	STORAGE::Child(storage->root(), prefix);
-	if (!storage->isDirectory(prefix)) throw std::runtime_error("Storage mount directory is missing");
+	if (!storage->isDirectory(prefix))
+		throw std::runtime_error("Storage mount directory is missing");
 	std::lock_guard lock(mInternal->mutex);
 	const auto id = mInternal->add(std::make_shared<vfspp::MemoryFileSystem>(normalizePath(alias)));
 	auto& mount = mInternal->mounts.back();
-	mount->storage = std::move(storage); mount->prefix = prefix;
+	mount->storage = std::move(storage);
+	mount->prefix = prefix;
 	mount->info.source = "storage:" + prefix;
 	return id;
 }
@@ -243,7 +246,7 @@ FileSystem::MountId FileSystem::mountZip(const std::string& path, const std::str
 			throw std::runtime_error("Invalid deletion: " + item);
 		deleted.push_back(key);
 	}
-	mz_zip_archive zip {};
+	mz_zip_archive zip { };
 	if (!mz_zip_reader_init_file(&zip, path.c_str(), 0))
 		throw std::runtime_error("Invalid ZIP: " + path);
 	struct Close {
@@ -258,7 +261,7 @@ FileSystem::MountId FileSystem::mountZip(const std::string& path, const std::str
 	if (count > 100000)
 		throw std::runtime_error("Too many ZIP entries");
 	for (mz_uint i = 0; i < count; ++i) {
-		mz_zip_archive_file_stat stat {};
+		mz_zip_archive_file_stat stat { };
 		if (!mz_zip_reader_file_stat(&zip, i, &stat))
 			throw std::runtime_error("Invalid ZIP entry");
 		const std::string raw(stat.m_filename);
@@ -342,7 +345,7 @@ std::optional<std::string> FileSystem::getAbsolutePath(const std::string& path) 
 	const auto mount = mInternal->resolve(key);
 	if (mount && std::dynamic_pointer_cast<vfspp::NativeFileSystem>(mount->fs))
 		return Entry(*mount, key)->NativePath();
-	return {};
+	return { };
 }
 std::optional<std::string> FileSystem::getFilePath(const std::string& path) const {
 	const auto key = normalizePath(path);
@@ -351,13 +354,14 @@ std::optional<std::string> FileSystem::getFilePath(const std::string& path) cons
 FileSystem::FileTime FileSystem::lastWriteTime(const std::string& path) {
 	const auto native = getAbsolutePath(path);
 	std::error_code ec;
-	return native ? std::filesystem::last_write_time(std::filesystem::u8path(*native), ec) : FileTime {};
+	return native ? std::filesystem::last_write_time(std::filesystem::u8path(*native), ec) : FileTime { };
 }
 uintmax_t FileSystem::fileSize(const std::string& path) {
 	if (const auto native = getAbsolutePath(path)) {
 		std::error_code error;
 		const auto size = std::filesystem::file_size(std::filesystem::u8path(*native), error);
-		if (!error) return size;
+		if (!error)
+			return size;
 	}
 	return getFile(path)->getSize();
 }
@@ -379,7 +383,8 @@ std::shared_ptr<File> FileSystem::getFile(const std::string& path, FileMode mode
 				auto object = std::make_shared<vfspp::MemoryFileObject>();
 				*object->GetWritableData() = mount->storage->read(mount->storagePath(key));
 				auto handle = std::make_shared<vfspp::MemoryFile>(vfspp::EntryInfo(mount->info.alias, "", key), object);
-				if (handle->Open(vfspp::IFile::FileMode::Read)) file = handle;
+				if (handle->Open(vfspp::IFile::FileMode::Read))
+					file = handle;
 			}
 		}
 		else if (std::dynamic_pointer_cast<vfspp::NativeFileSystem>(mount->fs)) {
@@ -401,11 +406,12 @@ std::shared_ptr<File> FileSystem::getLiveFile(const std::string& path) {
 std::vector<FileSystem::DirectoryEntry> FileSystem::listDirectory(const std::string& path) const {
 	const auto key = normalizePath(path);
 	if (!isDir(key))
-		return {};
+		return { };
 	std::set<std::string> candidates;
 	for (const auto& mount : mInternal->ordered(key)) {
 		if (mount->storage) {
-			if (!mount->storage->isDirectory(mount->storagePath(key))) continue;
+			if (!mount->storage->isDirectory(mount->storagePath(key)))
+				continue;
 			for (const auto& entry : mount->storage->list(mount->storagePath(key)))
 				candidates.insert(normalizePath(key + "/" + entry.name));
 		}

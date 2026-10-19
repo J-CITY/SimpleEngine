@@ -5,7 +5,6 @@
 #include <map>
 #include <memory>
 
-
 namespace IKIGAI::ECS {
 class Object;
 class ComponentBase;
@@ -63,15 +62,18 @@ private:
 		std::shared_ptr<FontResource> font;
 		uint64_t seen = 0;
 	};
+
 	struct FontPage {
 		uint64_t revision = 0;
 		std::shared_ptr<RENDER::TextureInterface> texture;
 	};
+
 	struct FontCache {
 		std::shared_ptr<FontResource> font;
 		std::vector<FontPage> pages;
 		uint64_t seen = 0, generation = 0;
 	};
+
 	struct Batch {
 		std::vector<::IKIGAI::Vertex> vertices;
 		std::vector<unsigned> indices;
@@ -84,11 +86,13 @@ private:
 		bool clipped = false, sdf = false;
 		SdfEffects effects;
 	};
+
 	struct BatchCache {
 		uint64_t hash = 0;
 		std::shared_ptr<RENDER::MeshInterface> mesh;
 		std::shared_ptr<RENDER::UniformBufferInterface> projection, effects;
 	};
+
 	std::shared_ptr<RENDER::TextureInterface> pageTexture(const std::shared_ptr<FontResource>&, unsigned, RENDER::Renderer&);
 	std::map<const ECS::ComponentBase*, ComponentCache> mComponents;
 	std::map<const FontResource*, FontCache> mFonts;

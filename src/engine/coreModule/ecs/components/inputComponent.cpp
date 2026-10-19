@@ -4,14 +4,14 @@
 
 using namespace IKIGAI::ECS;
 
-InputComponent::InputComponent(UTILS::Ref<ECS::Object> obj, std::function<void(std::chrono::duration<double>)> _inputEventFun):
-	ComponentBase(obj) {
+InputComponent::InputComponent(UTILS::Ref<ECS::Object> obj, std::function<void(std::chrono::duration<double>)> _inputEventFun)
+	: ComponentBase(obj) {
 	inputEventFun = _inputEventFun;
 	__NAME__ = "InputComponent";
 }
 
-InputComponent::InputComponent(UTILS::Ref<ECS::Object> obj) :
-	ComponentBase(obj) {
+InputComponent::InputComponent(UTILS::Ref<ECS::Object> obj)
+	: ComponentBase(obj) {
 	__NAME__ = "InputComponent";
 }
 
@@ -49,12 +49,12 @@ InputComponent::Descriptor InputComponent::getDescriptor() const {
 	descriptor.MapName = mapName;
 	return descriptor;
 }
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::InputComponent>("InputComponent")
 //	(
 //		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 //	);
-//}
+// }

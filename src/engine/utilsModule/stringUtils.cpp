@@ -4,7 +4,7 @@
 #include <ranges>
 #include <regex>
 
-using namespace IKIGAI::UTILS;
+namespace IKIGAI::UTILS {
 
 void IKIGAI::UTILS::ReplaceSubstringsInPlace(std::string& subject, const std::string& search, const std::string& replace) {
 	size_t pos = 0;
@@ -48,29 +48,25 @@ std::vector<std::string> IKIGAI::UTILS::Split(const std::string& str, char delim
 	auto to_string = [](auto&& r) {
 		const auto data = &*r.begin();
 		const auto size = static_cast<std::size_t>(std::ranges::distance(r));
-		return std::string{ data, size };
+		return std::string { data, size };
 	};
-	auto range = str |
-		std::ranges::views::split(delimiter) |
-		std::ranges::views::transform(to_string);
+	auto range = str | std::ranges::views::split(delimiter) | std::ranges::views::transform(to_string);
 
 	return { std::ranges::begin(range), std::ranges::end(range) };
 }
 
 std::string IKIGAI::UTILS::ToLower(std::string_view s) {
 	std::string data(s.begin(), s.end());
-	std::transform(data.begin(), data.end(), data.begin(),
-		[](unsigned char c) { return std::tolower(c); });
+	std::transform(data.begin(), data.end(), data.begin(), [](unsigned char c) { return std::tolower(c); });
 	return data;
 }
 std::string IKIGAI::UTILS::ToUpper(std::string_view s) {
 	std::string data(s.begin(), s.end());
-	std::transform(data.begin(), data.end(), data.begin(),
-		[](unsigned char c) { return std::toupper(c); });
+	std::transform(data.begin(), data.end(), data.begin(), [](unsigned char c) { return std::toupper(c); });
 	return data;
 }
 
-bool IKIGAI::UTILS::IsFindInString(const std::string& s, const std::string& subs)
-{
+bool IKIGAI::UTILS::IsFindInString(const std::string& s, const std::string& subs) {
 	return s.find(subs) != std::string::npos;
+}
 }

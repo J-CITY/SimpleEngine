@@ -1,7 +1,7 @@
 #if USE_LUA
 
-#include "../object.h"
 #include "scriptComponent.h"
+#include "../object.h"
 #include <scriptModule/luaBinder.h>
 
 using namespace IKIGAI;
@@ -10,16 +10,20 @@ using namespace IKIGAI::ECS;
 EVENT::Event<UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent>> ScriptComponentEvents::destroyedEvent;
 EVENT::Event<UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent>> ScriptComponentEvents::createdEvent;
 
-ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> obj) : ComponentBase(obj) {
+ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> obj)
+	: ComponentBase(obj) {
 	__NAME__ = "ScriptComponent";
 }
 
-ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> _obj, const std::string& _name) :
-	name(_name), ComponentBase(_obj) {
+ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> _obj, const std::string& _name)
+	: name(_name)
+	, ComponentBase(_obj) {
 	__NAME__ = "ScriptComponent";
 }
 
-ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : ComponentBase(_obj), name(_descriptor.Path) {
+ScriptComponent::ScriptComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor)
+	: ComponentBase(_obj)
+	, name(_descriptor.Path) {
 	__NAME__ = "ScriptComponent";
 }
 
@@ -44,9 +48,9 @@ ScriptComponent::Descriptor ScriptComponent::getDescriptor() const {
 	descriptor.Path = getScriptName();
 	return descriptor;
 }
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::ScriptComponent>("ScriptComponent")
 //	(
@@ -57,6 +61,6 @@ ScriptComponent::Descriptor ScriptComponent::getDescriptor() const {
 //		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::STRING)
 //	);
-//}
+// }
 
 #endif

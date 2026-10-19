@@ -1,83 +1,80 @@
 #include "app.h"
-#include "uiModule/viewHost.h"
 #include "captureModule/screenshot.h"
+#include "coreModule/ecs/componentManager.h"
 #include "coroutineModule/scheduler.h"
+#include "ecsModule/world.h"
+#include "editorModule/editorRender.h"
+#include "networkModule/networkRuntime.h"
 #include "profilerModule/profiler.h"
 #include "profilerModule/profilerSpy.h"
-#include <iostream>
-#include <cmath>
-#include <stdexcept>
-#include "coreModule/ecs/componentManager.h"
-#include "editorModule/editorRender.h"
 #include "renderModule/gameRendererInterface.h"
 #include "renderModule/render.h"
 #include "resourceModule/fileWatcher.h"
-#include "resourceModule/serviceManager.h"
-#include "networkModule/networkRuntime.h"
 #include "resourceModule/parser/assimpParser.h"
+#include "resourceModule/serviceManager.h"
 #include "sceneModule/sceneManager.h"
 #include "taskModule/taskSystem.h"
+#include "uiModule/viewHost.h"
 #include "utilsModule/time/time.h"
-#include "windowModule/window/window.h"
 #include "windowModule/inputManager/inputActions.h"
 #include "windowModule/inputManager/inputManager.h"
-#include "ecsModule/world.h"
+#include "windowModule/window/window.h"
+#include <cmath>
+#include <iostream>
+#include <stdexcept>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
-#include "renderModule/gameRenderer.h"
-#include "renderModule/backends/interface/driverInterface.h"
 #include "renderModule/backends/driverFactory.h"
+#include "renderModule/backends/interface/driverInterface.h"
+#include "renderModule/gameRenderer.h"
 #ifdef USE_SDL
 #include <SDL3/SDL.h>
 #endif
 
 using namespace IKIGAI::CORE;
 
-namespace
-{
-	int gWebLogFrames = 8;
+namespace {
+int gWebLogFrames = 8;
 
-	void WebLog(const char* msg)
-	{
+void WebLog(const char* msg) {
 #ifdef __EMSCRIPTEN__
-		if (gWebLogFrames <= 0) {
-			return;
-		}
-		std::cout << "[web] " << msg << std::endl;
-		std::cout.flush();
+	if (gWebLogFrames <= 0) {
+		return;
+	}
+	std::cout << "[web] " << msg << std::endl;
+	std::cout.flush();
 #endif
-	}
+}
 
 #ifdef __EMSCRIPTEN__
-	void emscriptenMainLoop(IKIGAI::CORE::App* application)
-	{
-		try {
-			application->runMainLoop();
-		} catch (const std::exception& e) {
-			std::cout << "[web] EXCEPTION in main loop: " << e.what() << std::endl;
-			std::cout.flush();
-		} catch (...) {
-			std::cout << "[web] UNKNOWN EXCEPTION in main loop" << std::endl;
-			std::cout.flush();
-		}
+void emscriptenMainLoop(IKIGAI::CORE::App* application) {
+	try {
+		application->runMainLoop();
+	} catch (const std::exception& e) {
+		std::cout << "[web] EXCEPTION in main loop: " << e.what() << std::endl;
+		std::cout.flush();
+	} catch (...) {
+		std::cout << "[web] UNKNOWN EXCEPTION in main loop" << std::endl;
+		std::cout.flush();
 	}
+}
 #endif
 } // namespace
 
-
 App::App(
 #ifdef OCULUS
-		android_app* app
+	android_app* app
 #endif
-		): core(
+	)
+	: core(
 #ifdef DX12_BACKEND
-	hInstance
+		  hInstance
 #endif
 #ifdef OCULUS
-	app
+			  app
 #endif
-) {
+	  ) {
 }
 
 App::~App() = default;
@@ -88,9 +85,7 @@ void App::run() {
 	std::cout.flush();
 	emscripten_set_main_loop_arg((em_arg_callback_func)::emscriptenMainLoop, this, 0, 1);
 #else
-	while (runMainLoop()) {
-
-	}
+	while (runMainLoop()) { }
 #endif
 }
 
@@ -106,7 +101,7 @@ bool App::runMainLoop() {
 		}
 	};
 #else
-	auto step = [](const char*) {};
+	auto step = [](const char*) { };
 #endif
 
 	step("enter");
@@ -123,16 +118,16 @@ bool App::runMainLoop() {
 	}
 	step("pollEvent");
 	core.window->pollEvent();
-    CAPTURE::ScreenshotService::Get().status();
+	CAPTURE::ScreenshotService::Get().status();
 #if defined(USE_SDL) || defined(OCULUS)
-    if(core.inputManager && core.inputManager->wasKeyPressedThisFrame(INPUT_SYSTEM::EKey::KEY_F12))
-        CAPTURE::ScreenshotService::Get().request();
+	if (core.inputManager && core.inputManager->wasKeyPressedThisFrame(INPUT_SYSTEM::EKey::KEY_F12))
+		CAPTURE::ScreenshotService::Get().request();
 #endif
-	
+
 	step("preUpdate");
 	{
-		auto coroutineProfile = IKIGAI::PROFILER::Profiler::IsEnabled()
-			? std::make_unique<IKIGAI::PROFILER::ProfilerSpy>("CoroutineScheduler::tick") : nullptr;
+		auto coroutineProfile
+			= IKIGAI::PROFILER::Profiler::IsEnabled() ? std::make_unique<IKIGAI::PROFILER::ProfilerSpy>("CoroutineScheduler::tick") : nullptr;
 		core.coroutineScheduler->tick(frameDt, timer.getDeltaTimeUnscaled());
 	}
 	preUpdate(frameDt);
@@ -156,15 +151,16 @@ bool App::isRunning() const {
 void App::preUpdate(std::chrono::duration<double> dt) {
 	core.window->preUpdate();
 #if USE_PHYSICS_3D && defined(USE_EDITOR)
-    if(core.sceneManager->hasCurrentScene()&&!core.sceneManager->isEditingLocked())
-        core.sceneManager->getCurrentScene().drawPhysics3DDebug();
+	if (core.sceneManager->hasCurrentScene() && !core.sceneManager->isEditingLocked())
+		core.sceneManager->getCurrentScene().drawPhysics3DDebug();
 #endif
 #if USE_PHYSICS_2D && defined(USE_EDITOR)
-    if(core.sceneManager->hasCurrentScene()&&!core.sceneManager->isEditingLocked())
-        core.sceneManager->getCurrentScene().drawPhysics2DDebug();
+	if (core.sceneManager->hasCurrentScene() && !core.sceneManager->isEditingLocked())
+		core.sceneManager->getCurrentScene().drawPhysics2DDebug();
 #endif
 #if USE_JSON_VIEWS && !defined(OCULUS)
-    if (core.viewHost && !core.sceneManager->isEditingLocked()) core.viewHost->draw();
+	if (core.viewHost && !core.sceneManager->isEditingLocked())
+		core.viewHost->draw();
 #endif
 #ifdef USE_EDITOR
 #ifndef OCULUS
@@ -176,8 +172,8 @@ void App::preUpdate(std::chrono::duration<double> dt) {
 }
 
 void App::update(std::chrono::duration<double> dt) {
-    auto* frameDriver=RENDER::DriverInterface::Get();
-    if(frameDriver) {
+	auto* frameDriver = RENDER::DriverInterface::Get();
+	if (frameDriver) {
 		frameDriver->latencyFrameBegin();
 	}
 
@@ -188,14 +184,16 @@ void App::update(std::chrono::duration<double> dt) {
 		fwwait = std::chrono::milliseconds(0);
 		RESOURCES::FileWatcher::getInstance()->requestUpdate();
 	}
-    if (!core.sceneManager->isEditingLocked() && !core.sceneManager->isPreparingLoadingScene())
-        RESOURCES::FileWatcher::getInstance()->applyUpdate();
+	if (!core.sceneManager->isEditingLocked() && !core.sceneManager->isPreparingLoadingScene())
+		RESOURCES::FileWatcher::getInstance()->applyUpdate();
 #endif
 
-    const bool simulate = !core.sceneManager->isEditingLocked() && core.sceneManager->hasCurrentScene();
+	const bool simulate = !core.sceneManager->isEditingLocked() && core.sceneManager->hasCurrentScene();
 	const auto fixedDt = TIME::Timer::GetInstance().getFixedDeltaTime();
-    if (simulate) m_fixedTimeAccumulator += dt;
-    else m_fixedTimeAccumulator = std::chrono::duration<double>::zero();
+	if (simulate)
+		m_fixedTimeAccumulator += dt;
+	else
+		m_fixedTimeAccumulator = std::chrono::duration<double>::zero();
 	constexpr int kMaxFixedStepsPerFrame = 8;
 	int fixedSteps = 0;
 	while (m_fixedTimeAccumulator >= fixedDt && fixedSteps < kMaxFixedStepsPerFrame) {
@@ -214,17 +212,16 @@ void App::update(std::chrono::duration<double> dt) {
 			systemManager->runFixedUpdate(fixedDt);
 			WebLog("ecs runFixedUpdate done");
 #if USE_PHYSICS_3D
-            currentScene.stepPhysics3D(fixedDt);
+			currentScene.stepPhysics3D(fixedDt);
 #endif
 #if USE_PHYSICS_2D
-            currentScene.stepPhysics2D(fixedDt);
+			currentScene.stepPhysics2D(fixedDt);
 #endif
 		}
 	}
 	if (m_fixedTimeAccumulator >= fixedDt) {
 		// Drop excess whole steps under overload, but preserve the fractional remainder.
-		m_fixedTimeAccumulator = std::chrono::duration<double>(
-			std::fmod(m_fixedTimeAccumulator.count(), fixedDt.count()));
+		m_fixedTimeAccumulator = std::chrono::duration<double>(std::fmod(m_fixedTimeAccumulator.count(), fixedDt.count()));
 	}
 
 #if defined(USE_SDL) || defined(OCULUS)
@@ -235,7 +232,7 @@ void App::update(std::chrono::duration<double> dt) {
 	}
 #endif
 
-    bool presentationAllowed=true;
+	bool presentationAllowed = true;
 	if (simulate) {
 		WebLog("scene update");
 		auto& currentScene = core.sceneManager->getCurrentScene();
@@ -251,39 +248,47 @@ void App::update(std::chrono::duration<double> dt) {
 		WebLog("ecs runLateUpdate");
 		systemManager->runLateUpdate(dt);
 		WebLog("ecs runLateUpdate done");
-    } else {
-        core.sceneManager->updateLoadingScene(TIME::Timer::GetInstance().getDeltaTimeUnscaled());
-    }
+	}
+	else {
+		core.sceneManager->updateLoadingScene(TIME::Timer::GetInstance().getDeltaTimeUnscaled());
+	}
 #ifndef OCULUS
-		WebLog("window update");
-        if(frameDriver){frameDriver->latencySimulationEnd();frameDriver->latencySubmitBegin();}
-		core.window->update();
+	WebLog("window update");
+	if (frameDriver) {
+		frameDriver->latencySimulationEnd();
+		frameDriver->latencySubmitBegin();
+	}
+	core.window->update();
 #ifdef USE_SDL
-        presentationAllowed=!(SDL_GetWindowFlags(core.window->getSDLWindow())&SDL_WINDOW_MINIMIZED);
-        if(!presentationAllowed){
-            if(frameDriver&&frameDriver->mFrameGeneration&&frameDriver->mFrameGenerationStatus.Active){
-                frameDriver->mFrameGeneration->suspend();frameDriver->mFrameGeneration->waitForPresents();
-                frameDriver->mFrameGenerationStatus=frameDriver->mFrameGeneration->status();
-            }
-            if(auto* game=dynamic_cast<RENDER::GameRenderer*>(core.renderer.get()))game->resetTemporalHistory();
-        }
+	presentationAllowed = !(SDL_GetWindowFlags(core.window->getSDLWindow()) & SDL_WINDOW_MINIMIZED);
+	if (!presentationAllowed) {
+		if (frameDriver && frameDriver->mFrameGeneration && frameDriver->mFrameGenerationStatus.Active) {
+			frameDriver->mFrameGeneration->suspend();
+			frameDriver->mFrameGeneration->waitForPresents();
+			frameDriver->mFrameGenerationStatus = frameDriver->mFrameGeneration->status();
+		}
+		if (auto* game = dynamic_cast<RENDER::GameRenderer*>(core.renderer.get()))
+			game->resetTemporalHistory();
+	}
 #endif
-		WebLog("renderScene");
-		if(presentationAllowed)core.renderer->renderScene();
-		WebLog("renderScene done");
+	WebLog("renderScene");
+	if (presentationAllowed)
+		core.renderer->renderScene();
+	WebLog("renderScene done");
 #endif
 #ifndef __EMSCRIPTEN__
 	RESOURCES::ServiceManager::Get<TASK::TaskSystem>().waitSync();
 #endif
 
-	if (presentationAllowed&&RENDER::DriverInterface::settings.backend != RENDER::RenderSettings::Backend::OPENGL) {
+	if (presentationAllowed && RENDER::DriverInterface::settings.backend != RENDER::RenderSettings::Backend::OPENGL) {
 #if defined(_WIN32) && defined(USE_SDL)
-        RENDER::FocusPresentationForSmoke(SDL_GetPointerProperty(SDL_GetWindowProperties(core.window->getSDLWindow()),SDL_PROP_WINDOW_WIN32_HWND_POINTER,nullptr));
+		RENDER::FocusPresentationForSmoke(
+			SDL_GetPointerProperty(SDL_GetWindowProperties(core.window->getSDLWindow()), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
 #endif
 		RESOURCES::ServiceManager::Get<RENDER::Renderer>().submit();
 	}
 
-	//EDITOR
+	// EDITOR
 #ifdef USE_EDITOR
 #ifndef OCULUS
 #endif
@@ -291,17 +296,13 @@ void App::update(std::chrono::duration<double> dt) {
 
 #ifndef OCULUS
 #ifndef VULKAN_BACKEND
-	//core.window->update();
+	// core.window->update();
 #endif
 #else
-	core.window->update([this](XrCompositionLayerProjectionView &layerView,
-							   render_target_t &rtarget, XrPosef &stagePose,
-							   uint32_t viewID) {
+	core.window->update([this](XrCompositionLayerProjectionView& layerView, render_target_t& rtarget, XrPosef& stagePose, uint32_t viewID) {
 		static_cast<RENDER::GameRenderer*>(core.renderer.get())->renderSceneOculus(layerView, rtarget, stagePose, viewID);
 	});
 #endif
-
-
 
 	WebLog("sceneManager update");
 	core.sceneManager->update();
@@ -311,7 +312,7 @@ void App::update(std::chrono::duration<double> dt) {
 void App::postUpdate(std::chrono::duration<double> dt) {
 	WebLog("window draw");
 	core.window->draw();
-    core.sceneManager->notifyPresented();
+	core.sceneManager->notifyPresented();
 	WebLog("window draw done");
 #if defined(USE_SDL) || defined(OCULUS)
 	if (RESOURCES::ServiceManager::Check<INPUT_SYSTEM::InputManager>()) {

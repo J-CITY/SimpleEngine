@@ -5,19 +5,18 @@
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::LogicComponent>("LogicComponent")
 //	(
 //		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE)
 //	);
-//}
+// }
 
 LogicComponent::Descriptor LogicComponent::getDescriptor() const {
 	Descriptor descriptor;
 	descriptor.Type = GetType<LogicComponent>();
 	return descriptor;
 }
-

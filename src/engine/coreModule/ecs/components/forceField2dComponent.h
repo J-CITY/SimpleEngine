@@ -173,7 +173,7 @@ public:
 	IKI_PROPERTY(
 		Name = Targets, Type = int, Getter = getTargets, Setter = setTargets, Flags = [USE_IN_EDITOR_COMPONENT_INSPECTOR], EditWidget = DRAG_INT)
 	static auto GetMembers() {
-		return std::tuple {};
+		return std::tuple { };
 	}
 };
 template <> inline std::string GetType<ForceField2DComponent>() {

@@ -2,11 +2,11 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <map>
 #include <memory>
 #include <span>
 #include <string>
-#include <future>
 
 namespace IKIGAI::NETWORK {
 class NetworkRuntime;
@@ -39,5 +39,5 @@ public:
 	void get(const HttpRequest& request, TransferControl& control, const std::function<void(const HttpResponse&)>& headers,
 		const std::function<void(std::span<const uint8_t>)>& body);
 };
-std::unique_ptr<IHttpClient> CreateHttpClient(std::shared_ptr<NetworkRuntime> runtime = {});
+std::unique_ptr<IHttpClient> CreateHttpClient(std::shared_ptr<NetworkRuntime> runtime = { });
 }

@@ -37,7 +37,8 @@ void Spring::ApplyForce(float dt) {
 	}
 
 	float distance = Magnitude(relPos);
-	if (distance < 1e-8f || dt <= 0) return;
+	if (distance < 1e-8f || dt <= 0)
+		return;
 	glm::vec3 direction = relPos / distance;
 	float x = distance - restingLength;
 	float v = Dot(relVel, direction);

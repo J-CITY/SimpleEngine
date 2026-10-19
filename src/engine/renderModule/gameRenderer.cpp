@@ -5,10 +5,10 @@
 #endif
 #include "captureModule/screenshot.h"
 
-#include <coreModule/graphicsWrapper.hpp>
 #include "backends/interface/frameBufferInterface.h"
 #include "coreModule/core/core.h"
 #include "resourceModule/serviceManager.h"
+#include <coreModule/graphicsWrapper.hpp>
 
 #include "resourceModule/materialManager.h"
 #include "resourceModule/shaderManager.h"
@@ -21,1489 +21,1738 @@
 #include "renderModule/backends/interface/storageBufferInterface.h"
 #include "renderModule/backends/interface/uniformBufferInterface.h"
 
-#include "renderModule/render.h"
-#include "renderModule/light.h"
+#include "backends/driverFactory.h"
+#include "backends/meshFactory.h"
+#include "coreModule/gui/components/spriteComponent.h"
+#include "coreModule/gui/components/vectorComponents.h"
+#include "coreModule/gui/guiObject.h"
 #include "renderModule/backends/interface/driverInterface.h"
+#include "renderModule/light.h"
+#include "renderModule/render.h"
 #include "skeletalModule/animationOffset.h"
 #include "skeletalModule/animationTransform.h"
 #include "skeletalModule/iAnimationPlayable.h"
 #include "utilsModule/jsonLoader.h"
 #include "utilsModule/log/loggerDefine.h"
 #include "utilsModule/time/time.h"
-#include <stdexcept>
+#include "vectorGraphicsModule/render/vectorRenderer.h"
 #include "windowModule/window/window.h"
-#include <iostream>
 #include <algorithm>
-#include <set>
 #include <cstring>
 #include <functional>
-#include "backends/meshFactory.h"
-#include "backends/driverFactory.h"
-#include "coreModule/gui/components/spriteComponent.h"
-#include "coreModule/gui/guiObject.h"
-#include "coreModule/gui/components/vectorComponents.h"
-#include "vectorGraphicsModule/render/vectorRenderer.h"
+#include <iostream>
+#include <set>
+#include <stdexcept>
 
 #ifdef OCULUS
-#include "util_matrix.h"
-#include "xr_linear.h"
 #include "coreModule/ecs/components/cameraComponent.h"
 #include "coreModule/ecs/object.h"
+#include "util_matrix.h"
+#include "xr_linear.h"
 #endif
 
 namespace IKIGAI::RENDER {
-	std::shared_ptr<RayTracingProgram> LoadRayTracingProgram(Renderer&,const std::string&);
+std::shared_ptr<RayTracingProgram> LoadRayTracingProgram(Renderer&, const std::string&);
 
-	GameRenderer::GameRenderer(CORE::Core& context) : mContext(context) {
-		Init();
-	}
+GameRenderer::GameRenderer(CORE::Core& context)
+	: mContext(context) {
+	Init();
+}
 
-	void GameRenderer::Init() {
-		auto& render = mContext.render;
+void GameRenderer::Init() {
+	auto& render = mContext.render;
 
-		mEmptyMaterial = nullptr;
-		//mEmptyMaterial = render->createMaterial();
-		//ShaderResource shaderRes;
-		//mEmptyMaterial->setShader(render->createShader(shaderRes));
-		//mEmptyMaterial->set("u_Diffuse", MATH::Vector4(1.f, 0.f, 1.f, 1.f));
+	mEmptyMaterial = nullptr;
+	// mEmptyMaterial = render->createMaterial();
+	// ShaderResource shaderRes;
+	// mEmptyMaterial->setShader(render->createShader(shaderRes));
+	// mEmptyMaterial->set("u_Diffuse", MATH::Vector4(1.f, 0.f, 1.f, 1.f));
 
 #if !defined(IKIGAI_GL_HAS_SSBO)
-		mLightSSBO = render->createStorageBuffer(nullptr, MAX_LIGHTS, sizeof(LightOGL));
+	mLightSSBO = render->createStorageBuffer(nullptr, MAX_LIGHTS, sizeof(LightOGL));
 #else
-		mLightSSBO = render->createStorageBuffer(nullptr, 0, 0);
+	mLightSSBO = render->createStorageBuffer(nullptr, 0, 0);
 #endif
-		mEmptyTexture = render->createTexture("/textures/empty.png");
+	mEmptyTexture = render->createTexture("/textures/empty.png");
 
-		mEngineUbo = render->createUniformBuffer<EngineUBO>({});
-		mBoneUbo = render->createUniformBuffer<BonesUBO>({});
-		mFrameUbo = render->createUniformBuffer<FrameUBO>({});
-		if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN)
-			mDrawFrameUbo = render->createUniformBuffer<FrameUBO>({});
-		mShadowUbo = render->createUniformBuffer<ShadowUBO>({});
-		mShadowPassUbo = render->createUniformBuffer<MATH::Matrix4f>({});
-		mPointShadowPassUbo = render->createUniformBuffer<PointShadowPassUBO>({});
-		mCurrentShadowUbo = render->createUniformBuffer<CurrentShadowUBO>({});
-		mFullscreenMesh = CreateMesh({Vertex({-1,-1,0},{0,0}), Vertex({3,-1,0},{2,0}), Vertex({-1,3,0},{0,2})}, {0,1,2});
+	mEngineUbo = render->createUniformBuffer<EngineUBO>({ });
+	mBoneUbo = render->createUniformBuffer<BonesUBO>({ });
+	mFrameUbo = render->createUniformBuffer<FrameUBO>({ });
+	if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN)
+		mDrawFrameUbo = render->createUniformBuffer<FrameUBO>({ });
+	mShadowUbo = render->createUniformBuffer<ShadowUBO>({ });
+	mShadowPassUbo = render->createUniformBuffer<MATH::Matrix4f>({ });
+	mPointShadowPassUbo = render->createUniformBuffer<PointShadowPassUBO>({ });
+	mCurrentShadowUbo = render->createUniformBuffer<CurrentShadowUBO>({ });
+	mFullscreenMesh = CreateMesh({ Vertex({ -1, -1, 0 }, { 0, 0 }), Vertex({ 3, -1, 0 }, { 2, 0 }), Vertex({ -1, 3, 0 }, { 0, 2 }) }, { 0, 1, 2 });
 
+	RenderGraphPipeline::Descriptor desc;
 
-		RenderGraphPipeline::Descriptor desc;
+	PipelineStage::Descriptor stageDesc;
+	stageDesc.Draw = DrawContent::FORWARD;
+	stageDesc.Name = "Forward";
+	desc.Stages.push_back(stageDesc);
 
-		PipelineStage::Descriptor stageDesc;
-		stageDesc.Draw = DrawContent::FORWARD;
-		stageDesc.Name = "Forward";
-		desc.Stages.push_back(stageDesc);
-
-		if (!DriverInterface::settings.pipeline.empty()) {
-			auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(DriverInterface::settings.pipeline);
-			if (loaded.isErr()) throw std::runtime_error("Render pipeline: " + loaded.unwrapErr().text);
-			desc = loaded.unwrap();
-		}
-		std::cout << "Render pipeline: " << DriverInterface::settings.pipeline << "; stages=" << desc.Stages.size() << std::endl;
-		setPipeline(std::make_unique<RenderGraphPipeline>(desc, *render, DriverInterface::settings.pipeline));
-        mStartupPipelineAsset = mActivePipelineAsset = DriverInterface::settings.pipeline;
+	if (!DriverInterface::settings.pipeline.empty()) {
+		auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(DriverInterface::settings.pipeline);
+		if (loaded.isErr())
+			throw std::runtime_error("Render pipeline: " + loaded.unwrapErr().text);
+		desc = loaded.unwrap();
 	}
+	std::cout << "Render pipeline: " << DriverInterface::settings.pipeline << "; stages=" << desc.Stages.size() << std::endl;
+	setPipeline(std::make_unique<RenderGraphPipeline>(desc, *render, DriverInterface::settings.pipeline));
+	mStartupPipelineAsset = mActivePipelineAsset = DriverInterface::settings.pipeline;
+}
 
 #ifdef __EMSCRIPTEN__
-	int gRendererLogFrames = 8;
-#define WEB_LOG(msg) do { if (gRendererLogFrames > 0) { std::cout << "[web] " << msg << std::endl; std::cout.flush(); } } while (0)
+int gRendererLogFrames = 8;
+#define WEB_LOG(msg)                                                                                                                                 \
+	do {                                                                                                                                             \
+		if (gRendererLogFrames > 0) {                                                                                                                \
+			std::cout << "[web] " << msg << std::endl;                                                                                               \
+			std::cout.flush();                                                                                                                       \
+		}                                                                                                                                            \
+	} while (0)
 #else
-#define WEB_LOG(msg) do {} while (0)
+#define WEB_LOG(msg)                                                                                                                                 \
+	do {                                                                                                                                             \
+	} while (0)
 #endif
 
-	void GameRenderer::renderScene() {
-		WEB_LOG("GameRenderer::renderScene");
-        if (mContext.sceneManager->isTransitioning() || !mContext.sceneManager->hasCurrentScene()) {
-            renderLoadingScene(mContext.sceneManager->getPresentedScene());
-            return;
-        }
-		auto& scene = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::SCENE_SYSTEM::SceneManager>().getCurrentScene();
-		auto& render = mContext.render;
+void GameRenderer::renderScene() {
+	WEB_LOG("GameRenderer::renderScene");
+	if (mContext.sceneManager->isTransitioning() || !mContext.sceneManager->hasCurrentScene()) {
+		renderLoadingScene(mContext.sceneManager->getPresentedScene());
+		return;
+	}
+	auto& scene = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::SCENE_SYSTEM::SceneManager>().getCurrentScene();
+	auto& render = mContext.render;
 
-		auto camera = scene.findMainCamera();
-        const auto asset = scene.renderPipelineAsset.empty() || HasCliRenderPipelineOverride()
-            ? mStartupPipelineAsset : scene.renderPipelineAsset;
-        if (asset != mActivePipelineAsset) {
-            RenderGraphPipeline::Descriptor descriptor;
-            if (asset.empty()) {
-                PipelineStage::Descriptor forward;
-                forward.Name = "Forward";
-                forward.Draw = DrawContent::FORWARD;
-                descriptor.Stages.push_back(forward);
-            } else {
-                auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(asset);
-                if (loaded.isErr()) throw std::runtime_error("Scene render pipeline: " + loaded.unwrapErr().text);
-                descriptor = loaded.unwrap();
-            }
-            auto candidate = std::make_unique<RenderGraphPipeline>(descriptor, *render, asset);
-            setPipeline(std::move(candidate));
-            mActivePipelineAsset = asset;
-            std::cout << "Scene render pipeline: " << asset << std::endl;
-        }
-        if (mRenderedScene.lock() != scene.lifetime) {
-            resetTemporalHistory();
-            mPreviousCamera = nullptr;
-            mRenderedScene = scene.lifetime;
-        }
-
-		if (auto mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera()) {
-			WEB_LOG("GameRenderer camera found");
-			auto sz = mContext.window->getPixelSize();
-			auto winWidth = sz.x;
-			auto winHeight = sz.y;
-			if (winWidth > 0 && winHeight > 0) {
-				render->getDriver()->resize(winWidth, winHeight);
-			}
-
-			const auto& transform = mainCameraComponent->obj->getTransform();
-			const auto& cameraPosition = transform->getWorldPosition();
-			const auto& cameraRotation = transform->getWorldRotation();
-			mainCameraComponent->getCamera().cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
-
-			//const auto glState = mDriver->fetchGLState();
-			renderScene(scene, *mainCameraComponent);
-			//mDriver->applyStateMask(glState);
+	auto camera = scene.findMainCamera();
+	const auto asset = scene.renderPipelineAsset.empty() || HasCliRenderPipelineOverride() ? mStartupPipelineAsset : scene.renderPipelineAsset;
+	if (asset != mActivePipelineAsset) {
+		RenderGraphPipeline::Descriptor descriptor;
+		if (asset.empty()) {
+			PipelineStage::Descriptor forward;
+			forward.Name = "Forward";
+			forward.Draw = DrawContent::FORWARD;
+			descriptor.Stages.push_back(forward);
 		}
 		else {
-			WEB_LOG("GameRenderer no camera, clear red");
-			render->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-			render->clear(true, true, false);
+			auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(asset);
+			if (loaded.isErr())
+				throw std::runtime_error("Scene render pipeline: " + loaded.unwrapErr().text);
+			descriptor = loaded.unwrap();
 		}
-		mFrameCount++;
-		WEB_LOG("GameRenderer::renderScene done");
+		auto candidate = std::make_unique<RenderGraphPipeline>(descriptor, *render, asset);
+		setPipeline(std::move(candidate));
+		mActivePipelineAsset = asset;
+		std::cout << "Scene render pipeline: " << asset << std::endl;
+	}
+	if (mRenderedScene.lock() != scene.lifetime) {
+		resetTemporalHistory();
+		mPreviousCamera = nullptr;
+		mRenderedScene = scene.lifetime;
+	}
+
+	if (auto mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera()) {
+		WEB_LOG("GameRenderer camera found");
+		auto sz = mContext.window->getPixelSize();
+		auto winWidth = sz.x;
+		auto winHeight = sz.y;
+		if (winWidth > 0 && winHeight > 0) {
+			render->getDriver()->resize(winWidth, winHeight);
+		}
+
+		const auto& transform = mainCameraComponent->obj->getTransform();
+		const auto& cameraPosition = transform->getWorldPosition();
+		const auto& cameraRotation = transform->getWorldRotation();
+		mainCameraComponent->getCamera().cacheMatrices(winWidth, winHeight, cameraPosition, cameraRotation);
+
+		// const auto glState = mDriver->fetchGLState();
+		renderScene(scene, *mainCameraComponent);
+		// mDriver->applyStateMask(glState);
+	}
+	else {
+		WEB_LOG("GameRenderer no camera, clear red");
+		render->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+		render->clear(true, true, false);
+	}
+	mFrameCount++;
+	WEB_LOG("GameRenderer::renderScene done");
 #ifdef __EMSCRIPTEN__
-		if (gRendererLogFrames > 0) {
-			--gRendererLogFrames;
-		}
+	if (gRendererLogFrames > 0) {
+		--gRendererLogFrames;
+	}
 #endif
+}
+
+void GameRenderer::renderLoadingScene(SCENE_SYSTEM::Scene* scene) {
+	auto& render = *mContext.render;
+	const auto size = mContext.window->getPixelSize();
+	if (size.x <= 0 || size.y <= 0)
+		return;
+	render.getDriver()->resize(size.x, size.y);
+	resetTemporalHistory();
+	mPreviousCamera = nullptr;
+	mSkinningPoses.clear();
+	CAPTURE::ScreenshotService::Get().setSource({ }, { });
+	if (auto& driver = *render.getDriver(); driver.mFrameGeneration) {
+		driver.mFrameGeneration->suspend();
+		driver.mFrameGenerationStatus = driver.mFrameGeneration->status();
 	}
+	render.resetFrameBuffer();
+	render.resetViewport();
+	render.resetScissor();
+	render.resetBlending();
+	render.resetDepth();
+	render.resetStencil();
+	render.setClearColor(0.f, 0.f, 0.f, 1.f);
+	render.clear(true, true, true);
+	if (scene) {
+		uboData.View = MATH::Matrix4f::Identity;
+		uboData.Projection = MATH::Matrix4f::Identity;
+		uboData.ViewportSize = { float(size.x), float(size.y) };
+		uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
+		mEngineUbo->setData(uboData);
+		renderGui(*scene);
+	}
+}
 
-    void GameRenderer::renderLoadingScene(SCENE_SYSTEM::Scene* scene) {
-        auto& render = *mContext.render;
-        const auto size = mContext.window->getPixelSize();
-        if (size.x <= 0 || size.y <= 0) return;
-        render.getDriver()->resize(size.x, size.y);
-        resetTemporalHistory();
-        mPreviousCamera = nullptr;
-        mSkinningPoses.clear();
-        CAPTURE::ScreenshotService::Get().setSource({}, {});
-        if (auto& driver = *render.getDriver(); driver.mFrameGeneration) {
-            driver.mFrameGeneration->suspend();
-            driver.mFrameGenerationStatus = driver.mFrameGeneration->status();
-        }
-        render.resetFrameBuffer();
-        render.resetViewport();
-        render.resetScissor();
-        render.resetBlending();
-        render.resetDepth();
-        render.resetStencil();
-        render.setClearColor(0.f, 0.f, 0.f, 1.f);
-        render.clear(true, true, true);
-        if (scene) {
-            uboData.View = MATH::Matrix4f::Identity;
-            uboData.Projection = MATH::Matrix4f::Identity;
-            uboData.ViewportSize = {float(size.x), float(size.y)};
-            uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
-            mEngineUbo->setData(uboData);
-            renderGui(*scene);
-        }
-    }
-
-	const GameRenderer::SkinningPose* GameRenderer::skinningPose(const Drawable& drawable) {
-		if (!drawable.skeleton || !drawable.animationPlayable || !drawable.mAnimLocalTransform || !drawable.mAnimGlobalTransform
-			|| !drawable.mAnimOffset) {
-			return nullptr;
-		}
-		if (drawable.skeleton->getNumJolts() > 128) {
-			throw std::runtime_error("Skinning supports at most 128 joints");
-		}
-		auto [iterator, inserted] = mSkinningPoses.try_emplace(drawable.mAnimOffset);
-		auto& pose = iterator->second;
-		if (!inserted && pose.Frame == mFrameCount && pose.Skeleton == drawable.skeleton && pose.Playable == drawable.animationPlayable)
-			return &pose;
-		const bool continuous
-			= !inserted && pose.Frame + 1 == mFrameCount && pose.Skeleton == drawable.skeleton && pose.Playable == drawable.animationPlayable;
-		pose.Previous = pose.Current;
-		auto* local = drawable.mAnimLocalTransform->generateTransforms(drawable.animationPlayable->getPose());
-		auto* global = drawable.mAnimGlobalTransform->generateTransforms(local);
-		auto* final = drawable.mAnimOffset->offset(global);
-		pose.Current.fill(MATH::Matrix4f::Identity);
-		std::copy_n(final->transforms, drawable.skeleton->getNumJolts(), pose.Current.begin());
-		if (!continuous)
-			pose.Previous = pose.Current;
-		BonesUBO current { }, previous { };
-		current.use = previous.use = 1;
-		for (size_t i = 0; i < 128; ++i) {
-			current.bones[i] = MATH::Matrix4f::Transpose(pose.Current[i]);
-			previous.bones[i] = MATH::Matrix4f::Transpose(pose.Previous[i]);
-		}
-		pose.CurrentUbo = mContext.render->createUniformBuffer<BonesUBO>(current);
-		pose.PreviousUbo = mContext.render->createUniformBuffer<BonesUBO>(previous);
-		pose.Frame = mFrameCount;
-		pose.Skeleton = drawable.skeleton;
-		pose.Playable = drawable.animationPlayable;
+const GameRenderer::SkinningPose* GameRenderer::skinningPose(const Drawable& drawable) {
+	if (!drawable.skeleton || !drawable.animationPlayable || !drawable.mAnimLocalTransform || !drawable.mAnimGlobalTransform
+		|| !drawable.mAnimOffset) {
+		return nullptr;
+	}
+	if (drawable.skeleton->getNumJolts() > 128) {
+		throw std::runtime_error("Skinning supports at most 128 joints");
+	}
+	auto [iterator, inserted] = mSkinningPoses.try_emplace(drawable.mAnimOffset);
+	auto& pose = iterator->second;
+	if (!inserted && pose.Frame == mFrameCount && pose.Skeleton == drawable.skeleton && pose.Playable == drawable.animationPlayable)
 		return &pose;
+	const bool continuous
+		= !inserted && pose.Frame + 1 == mFrameCount && pose.Skeleton == drawable.skeleton && pose.Playable == drawable.animationPlayable;
+	pose.Previous = pose.Current;
+	auto* local = drawable.mAnimLocalTransform->generateTransforms(drawable.animationPlayable->getPose());
+	auto* global = drawable.mAnimGlobalTransform->generateTransforms(local);
+	auto* final = drawable.mAnimOffset->offset(global);
+	pose.Current.fill(MATH::Matrix4f::Identity);
+	std::copy_n(final->transforms, drawable.skeleton->getNumJolts(), pose.Current.begin());
+	if (!continuous)
+		pose.Previous = pose.Current;
+	BonesUBO current { }, previous { };
+	current.use = previous.use = 1;
+	for (size_t i = 0; i < 128; ++i) {
+		current.bones[i] = MATH::Matrix4f::Transpose(pose.Current[i]);
+		previous.bones[i] = MATH::Matrix4f::Transpose(pose.Previous[i]);
 	}
+	pose.CurrentUbo = mContext.render->createUniformBuffer<BonesUBO>(current);
+	pose.PreviousUbo = mContext.render->createUniformBuffer<BonesUBO>(previous);
+	pose.Frame = mFrameCount;
+	pose.Skeleton = drawable.skeleton;
+	pose.Playable = drawable.animationPlayable;
+	return &pose;
+}
 
-	void GameRenderer::drawDrawable(const Drawable& drawable) {
-		auto material = mOverrideMaterial ? mOverrideMaterial : drawable.material;
-		if (!material || !drawable.mesh) return;
-		if (mOverrideMaterial && drawable.material) {
-			for (const auto& [key,value] : mOverrideDefaults) material->set(key,value);
-			for (const auto& uniform : material->getShader()->getReflection().mUniforms) {
-				if (material->isEngineUniform(uniform.mName)) continue;
-				if (uniform.mMembers.empty()) {
-					try { 
-						material->set(uniform.mName, drawable.material->get(uniform.mName)); 
-					} catch (const std::out_of_range&) {
-						if (uniform.mName == "u_AlbedoMap") {
-							try { 
-								material->set(uniform.mName,drawable.material->get("u_DiffuseMap")); 
-							} catch (const std::out_of_range&) {}
-						}
+void GameRenderer::drawDrawable(const Drawable& drawable) {
+	auto material = mOverrideMaterial ? mOverrideMaterial : drawable.material;
+	if (!material || !drawable.mesh)
+		return;
+	if (mOverrideMaterial && drawable.material) {
+		for (const auto& [key, value] : mOverrideDefaults)
+			material->set(key, value);
+		for (const auto& uniform : material->getShader()->getReflection().mUniforms) {
+			if (material->isEngineUniform(uniform.mName))
+				continue;
+			if (uniform.mMembers.empty()) {
+				try {
+					material->set(uniform.mName, drawable.material->get(uniform.mName));
+				} catch (const std::out_of_range&) {
+					if (uniform.mName == "u_AlbedoMap") {
+						try {
+							material->set(uniform.mName, drawable.material->get("u_DiffuseMap"));
+						} catch (const std::out_of_range&) { }
 					}
-				} else for (const auto& member : uniform.mMembers) {
+				}
+			}
+			else
+				for (const auto& member : uniform.mMembers) {
 					const auto key = uniform.mName + member.mName;
-					try { 
-						material->set(key, drawable.material->get(key)); 
+					try {
+						material->set(key, drawable.material->get(key));
 					} catch (const std::out_of_range&) {
-						try { 
-							material->set(key,drawable.material->get(member.mName)); 
+						try {
+							material->set(key, drawable.material->get(member.mName));
 						} catch (const std::out_of_range&) {
 							if (member.mName == "u_Albedo") {
-								try { 
-									material->set(key,drawable.material->get("data_UBOu_Diffuse")); 
-								} catch (const std::out_of_range&) {}
+								try {
+									material->set(key, drawable.material->get("data_UBOu_Diffuse"));
+								} catch (const std::out_of_range&) { }
 							}
 						}
 					}
 				}
-			}
-		}
-		WEB_LOG("drawDrawable");
-		static int skipLogs = 4;
-		const bool canDraw = material && material->hasShader() && material->getGPUInstances() > 0 && drawable.mesh;
-		if (skipLogs > 0 && !canDraw) {
-			--skipLogs;
-			IKIGAI_COUT("draw skip material=" << (material ? 1 : 0)
-				<< " shader=" << (material && material->hasShader() ? 1 : 0)
-				<< " instances=" << (material ? material->getGPUInstances() : 0)
-				<< " mesh=" << (drawable.mesh ? 1 : 0));
-		}
-		if (material->hasShader() && material->getGPUInstances() > 0) {
-			auto& render = mContext.render;
-
-			render->setDepth({material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS, material->isDepthWriting()});
-            // Pass overrides replace shaders, while the surface retains its
-            // double-sided setting (including G-buffer and shadow passes).
-            const auto& surface = drawable.material ? drawable.material : material;
-			render->setCull(surface->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
-			if (material->isBlendable()) render->setBlending({BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA});
-			else render->resetBlending();
-			//render->setCull(CullFace::NONE);
-
-			render->setShader(material->getShader());
-			material->bind(mEmptyTexture, true);
-			if (mOverrideMaterial && mActiveStage) {
-				const auto& reflection=material->getShader()->getReflection();
-				for(const auto& [name,value]:mActiveStage->mDescriptor.Uniforms) if(const auto* texture=std::get_if<std::string>(&value))
-					render->setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind,mRenderPipeline->mTextures.at(*texture));
-			}
-
-			//TODO: use render for it
-			const auto model=DriverInterface::settings.backend==RenderSettings::Backend::OPENGL?drawable.world:MATH::Matrix4f::Transpose(drawable.world);
-			render->setPushConstant(IKIGAI::RENDER::ShaderType::VERTEX, 0, sizeof(MATH::Matrix4f), &model);
-
-			const auto* pose=skinningPose(drawable);
-			if(!pose)mBoneUbo->setData(BonesUBO{});
-
-			//std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.Projection", MATH::Matrix4f::Transpose(uboData.Projection));
-			//std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.View", MATH::Matrix4f::Transpose(uboData.View));
-			const auto& reflected = material->getShader()->getReflection().mNameToUniforms;
-			if (reflected.contains("engine_UBO")) render->setUniformBuffer("engine_UBO", mEngineUbo);
-			if (reflected.contains("engine_Bones")) render->setUniformBuffer("engine_Bones",pose?pose->CurrentUbo:mBoneUbo);
-			if (reflected.contains("engine_PreviousBones")) render->setUniformBuffer("engine_PreviousBones",pose?pose->PreviousUbo:mBoneUbo);
-			if (reflected.contains("engine_Lights")) render->setStorageBuffer("engine_Lights", mLightSSBO);
-			if (reflected.contains("engine_Frame")) {
-				auto frame=mFrameData;
-				frame.PreviousModel=MATH::Matrix4f::Transpose(drawable.prevWorld);
-				if (mDrawFrameUbo) {
-					// Vulkan snapshots preserve each draw's payload. Reuse their
-					// pool instead of allocating a VMA buffer for every object.
-					mDrawFrameUbo->setData(frame);
-					render->setUniformBuffer("engine_Frame",mDrawFrameUbo);
-				} else render->setUniformBuffer("engine_Frame",render->createUniformBuffer<FrameUBO>(frame));
-			}
-			if (reflected.contains("engine_ShadowData")) render->setUniformBuffer("engine_ShadowData", mShadowUbo);
-			if (reflected.contains("engine_ShadowPass")) render->setUniformBuffer("engine_ShadowPass", mShadowPassUbo);
-			if (reflected.contains("engine_PointShadowPass")) render->setUniformBuffer("engine_PointShadowPass", mPointShadowPassUbo);
-
-			//glBindBufferBase(GL_UNIFORM_BUFFER, 0, std::static_pointer_cast<UniformBufferGl>(mEngineUbo)->getId());
-
-
-			//drawable.mesh->bind();
-			//if (drawable.mesh->getIndexCount() > 0) {
-			//	// EBO
-			//	glDrawElements(GL_TRIANGLES, drawable.mesh->getIndexCount(), GL_UNSIGNED_INT, nullptr);
-			//	
-			//}
-			//drawable.mesh->unbind();
-
-			render->draw(drawable.mesh, PrimitiveMode::TRIANGLES, material->getGPUInstances());
-			WEB_LOG("draw done");
-			//std::static_pointer_cast<ShaderGl>(material->getShader())->unbind();
-			material->unbind();
 		}
 	}
-	//TODO: split it
-	void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::CameraComponent& cameraComponent) {
-#if USE_PHYSICS_3D
-        if(!mDeformableRenderer)mDeformableRenderer=std::make_shared<DeformableRenderer>();
-        mDeformableRenderer->update(scene);
-#endif
-		uboData.View = MATH::Matrix4f::Transpose(cameraComponent.getCamera().getViewMatrix());
-		auto projection = cameraComponent.getCamera().getProjectionMatrix();
-		if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN
-			|| DriverInterface::settings.backend == RenderSettings::Backend::METAL
-			|| DriverInterface::settings.backend == RenderSettings::Backend::DIRECTX12) {
-			// OpenGL-style projection (NDC z in [-1, 1]); Vulkan/Metal clip space uses z in [0, 1].
-			// Y flip: DriverVk negative viewport height; DriverMetal flips viewport origin in applyFixedState.
-			MATH::Matrix4f clipCorrection = MATH::Matrix4f::Identity;
-			clipCorrection(2, 2) = 0.5f;
-			clipCorrection(2, 3) = 0.5f;
-			projection = clipCorrection * projection;
-		}
-		uboData.ViewPos = cameraComponent.obj->getTransform()->getWorldPosition();
-		const float previousTime = uboData.Time;
-		uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
-		auto sz = mContext.window->getPixelSize();
-        const MATH::Vector2i displaySize{int(sz.x),int(sz.y)};
-		uboData.ViewportSize = MATH::Vector2f(sz.x, sz.y);
-		uboData.FPS = static_cast<float>(TIME::Timer::GetInstance().getFPS());
-		uboData.FrameCount = static_cast<int>(mFrameCount);
-		if (mFrameCount % 60 == 0)
-			mRenderPipeline->pollSettings(*mContext.render);
-        mRenderPipeline->prepareUpscaler(*mContext.render,sz.x,sz.y);
-        auto* presentationDriver=mContext.render->getDriver();
-        const auto fgStages=std::count_if(mRenderPipeline->mStages.begin(),mRenderPipeline->mStages.end(),[](auto& s){return s->mDescriptor.Enabled&&s->mDrawContent==DrawContent::FRAME_GENERATION;});
-        if(fgStages>1)throw std::runtime_error("A pipeline can have only one active FRAME_GENERATION stage");
-        presentationDriver->prepareFrameGeneration(fgStages==1,mRenderPipeline->mRenderSize,{int(sz.x),int(sz.y)});
-		mRenderPipeline->resize(*mContext.render, sz.x, sz.y);
-		mRenderPipeline->pollResourceUpdates();
-        const bool upscaleEnabled=bool(mRenderPipeline->mUpscaler);
-        const auto renderSize=mRenderPipeline->mRenderSize;
-        uboData.ViewportSize={float(renderSize.x),float(renderSize.y)};
-		auto unjitteredViewProjection = projection * cameraComponent.getCamera().getViewMatrix();
-        const auto unjitteredProjection=projection;
-		if (mPreviousCamera != &cameraComponent) {
-			mRenderPipeline->mPresentationHistoryValid=false;
-			mRenderPipeline->mHistoryValid = false;
-            mRenderPipeline->mUpscaleHistoryValid=false;
-        }
-		else {
-			float difference = 0;
-			for (int row = 0; row < 4; ++row)
-				for (int column = 0; column < 4; ++column)
-					difference
-						= std::max(difference, std::abs(unjitteredViewProjection(row, column) - mPreviousUnjitteredViewProjection(row, column)));
-			if (difference > 2.0f) {
-				mRenderPipeline->mPresentationHistoryValid=false;
-				mRenderPipeline->mHistoryValid = false;
-                mRenderPipeline->mUpscaleHistoryValid=false;
-            }
-		}
-		const bool taaEnabled = mRenderPipeline->mDescriptor.TemporalJitter
-			&& std::any_of(mRenderPipeline->mStages.begin(), mRenderPipeline->mStages.end(),
-				[](const auto& stage) { return stage->mDescriptor.Enabled && stage->mName == "TAA"; });
-		mJitter={};
-        if(upscaleEnabled) {
-            mJitter=mRenderPipeline->mUpscaler->jitter(mFrameCount,renderSize,displaySize);
-            auto jitter=MATH::Matrix4f::Identity;
-            jitter(0,3)=2*mJitter.x/renderSize.x;
-            jitter(1,3)=(DriverInterface::settings.backend==RenderSettings::Backend::OPENGL?2.f:-2.f)*mJitter.y/renderSize.y;
-            projection=jitter*projection;
-        } else if (taaEnabled) {
-			auto halton = [](unsigned index, unsigned base) {
-				float fraction = 1, result = 0;
-				while (index) {
-					fraction /= base;
-					result += fraction * (index % base);
-					index /= base;
-				}
-				return result;
-			};
-			const auto index = static_cast<unsigned>(mFrameCount % 8) + 1;
-            mJitter={halton(index,2)-.5f,halton(index,3)-.5f};
-			auto jitter = MATH::Matrix4f::Identity;
-			jitter(0, 3) = mJitter.x * 2 / renderSize.x;
-			jitter(1, 3) = (DriverInterface::settings.backend==RenderSettings::Backend::OPENGL?2.f:-2.f)*mJitter.y/renderSize.y;
-			projection = jitter * projection;
-		}
-		uboData.Projection = MATH::Matrix4f::Transpose(projection);
-		mEngineUbo->setData(uboData);
-		const auto viewProjection = projection * cameraComponent.getCamera().getViewMatrix();
-		mFrameData.InvViewProjection = MATH::Matrix4f::Transpose(MATH::Matrix4f::Inverse(viewProjection));
-        const bool temporalValid=mRenderPipeline->mPresentationHistoryValid;
-		mFrameData.PreviousViewProjection = MATH::Matrix4f::Transpose(temporalValid ? mPreviousViewProjection : viewProjection);
-		mFrameData.PreviousModel = MATH::Matrix4f::Identity;
-		const float zeroToOne = DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? 0.0f : 1.0f;
-		mFrameData.CameraParams = { cameraComponent.getNear(), cameraComponent.getFar(), zeroToOne, zeroToOne };
-		// Jitter is expressed in texture pixels on every backend. G-buffer
-		// velocity subtracts this delta so a stationary camera has zero motion;
-		// RT denoising restores it when sampling its jittered history grid.
-		mFrameData.FrameState = { temporalValid ? 1.0f : 0.0f, std::clamp(uboData.Time - previousTime, 0.0f, .25f),
-            temporalValid?(mJitter.x-mPreviousJitter.x)/renderSize.x:0,
-            temporalValid?(mJitter.y-mPreviousJitter.y)/renderSize.y:0 };
-        const auto cameraFrameState=mFrameData.FrameState;
-		mFrameUbo->setData(mFrameData);
+	WEB_LOG("drawDrawable");
+	static int skipLogs = 4;
+	const bool canDraw = material && material->hasShader() && material->getGPUInstances() > 0 && drawable.mesh;
+	if (skipLogs > 0 && !canDraw) {
+		--skipLogs;
+		IKIGAI_COUT("draw skip material=" << (material ? 1 : 0) << " shader=" << (material && material->hasShader() ? 1 : 0)
+										  << " instances=" << (material ? material->getGPUInstances() : 0) << " mesh=" << (drawable.mesh ? 1 : 0));
+	}
+	if (material->hasShader() && material->getGPUInstances() > 0) {
+		auto& render = mContext.render;
 
-		if (cameraComponent.isFrustumLightCulling()) {
-			updateLightsInFrustum(scene, cameraComponent.getCamera().getFrustum());
+		render->setDepth({ material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS, material->isDepthWriting() });
+		// Pass overrides replace shaders, while the surface retains its
+		// double-sided setting (including G-buffer and shadow passes).
+		const auto& surface = drawable.material ? drawable.material : material;
+		render->setCull(surface->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
+		if (material->isBlendable())
+			render->setBlending({ BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA });
+		else
+			render->resetBlending();
+		// render->setCull(CullFace::NONE);
+
+		render->setShader(material->getShader());
+		material->bind(mEmptyTexture, true);
+		if (mOverrideMaterial && mActiveStage) {
+			const auto& reflection = material->getShader()->getReflection();
+			for (const auto& [name, value] : mActiveStage->mDescriptor.Uniforms)
+				if (const auto* texture = std::get_if<std::string>(&value))
+					render->setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind, mRenderPipeline->mTextures.at(*texture));
 		}
-		else {
-			updateLights(scene);
-		}
-		std::vector<float> sun;
-		for (const auto& light : mLights)
-			if (light.type == 1) {
-				sun = { light.forward[0], light.forward[1], light.forward[2], light.color[0], light.color[1], light.color[2], light.intensity };
-				break;
+
+		// TODO: use render for it
+		const auto model
+			= DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? drawable.world : MATH::Matrix4f::Transpose(drawable.world);
+		render->setPushConstant(IKIGAI::RENDER::ShaderType::VERTEX, 0, sizeof(MATH::Matrix4f), &model);
+
+		const auto* pose = skinningPose(drawable);
+		if (!pose)
+			mBoneUbo->setData(BonesUBO { });
+
+		// std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.Projection",
+		// MATH::Matrix4f::Transpose(uboData.Projection)); std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.View",
+		// MATH::Matrix4f::Transpose(uboData.View));
+		const auto& reflected = material->getShader()->getReflection().mNameToUniforms;
+		if (reflected.contains("engine_UBO"))
+			render->setUniformBuffer("engine_UBO", mEngineUbo);
+		if (reflected.contains("engine_Bones"))
+			render->setUniformBuffer("engine_Bones", pose ? pose->CurrentUbo : mBoneUbo);
+		if (reflected.contains("engine_PreviousBones"))
+			render->setUniformBuffer("engine_PreviousBones", pose ? pose->PreviousUbo : mBoneUbo);
+		if (reflected.contains("engine_Lights"))
+			render->setStorageBuffer("engine_Lights", mLightSSBO);
+		if (reflected.contains("engine_Frame")) {
+			auto frame = mFrameData;
+			frame.PreviousModel = MATH::Matrix4f::Transpose(drawable.prevWorld);
+			if (mDrawFrameUbo) {
+				// Vulkan snapshots preserve each draw's payload. Reuse their
+				// pool instead of allocating a VMA buffer for every object.
+				mDrawFrameUbo->setData(frame);
+				render->setUniformBuffer("engine_Frame", mDrawFrameUbo);
 			}
-		if (mFrameCount > 0 && sun != mEnvironmentSun) {
-			mRenderPipeline->invalidateResources({ "Environment", "SkyEnvironment" });
+			else
+				render->setUniformBuffer("engine_Frame", render->createUniformBuffer<FrameUBO>(frame));
+		}
+		if (reflected.contains("engine_ShadowData"))
+			render->setUniformBuffer("engine_ShadowData", mShadowUbo);
+		if (reflected.contains("engine_ShadowPass"))
+			render->setUniformBuffer("engine_ShadowPass", mShadowPassUbo);
+		if (reflected.contains("engine_PointShadowPass"))
+			render->setUniformBuffer("engine_PointShadowPass", mPointShadowPassUbo);
+
+		// glBindBufferBase(GL_UNIFORM_BUFFER, 0, std::static_pointer_cast<UniformBufferGl>(mEngineUbo)->getId());
+
+		// drawable.mesh->bind();
+		// if (drawable.mesh->getIndexCount() > 0) {
+		//	// EBO
+		//	glDrawElements(GL_TRIANGLES, drawable.mesh->getIndexCount(), GL_UNSIGNED_INT, nullptr);
+		//
+		// }
+		// drawable.mesh->unbind();
+
+		render->draw(drawable.mesh, PrimitiveMode::TRIANGLES, material->getGPUInstances());
+		WEB_LOG("draw done");
+		// std::static_pointer_cast<ShaderGl>(material->getShader())->unbind();
+		material->unbind();
+	}
+}
+// TODO: split it
+void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::CameraComponent& cameraComponent) {
+#if USE_PHYSICS_3D
+	if (!mDeformableRenderer)
+		mDeformableRenderer = std::make_shared<DeformableRenderer>();
+	mDeformableRenderer->update(scene);
+#endif
+	uboData.View = MATH::Matrix4f::Transpose(cameraComponent.getCamera().getViewMatrix());
+	auto projection = cameraComponent.getCamera().getProjectionMatrix();
+	if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN || DriverInterface::settings.backend == RenderSettings::Backend::METAL
+		|| DriverInterface::settings.backend == RenderSettings::Backend::DIRECTX12) {
+		// OpenGL-style projection (NDC z in [-1, 1]); Vulkan/Metal clip space uses z in [0, 1].
+		// Y flip: DriverVk negative viewport height; DriverMetal flips viewport origin in applyFixedState.
+		MATH::Matrix4f clipCorrection = MATH::Matrix4f::Identity;
+		clipCorrection(2, 2) = 0.5f;
+		clipCorrection(2, 3) = 0.5f;
+		projection = clipCorrection * projection;
+	}
+	uboData.ViewPos = cameraComponent.obj->getTransform()->getWorldPosition();
+	const float previousTime = uboData.Time;
+	uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
+	auto sz = mContext.window->getPixelSize();
+	const MATH::Vector2i displaySize { int(sz.x), int(sz.y) };
+	uboData.ViewportSize = MATH::Vector2f(sz.x, sz.y);
+	uboData.FPS = static_cast<float>(TIME::Timer::GetInstance().getFPS());
+	uboData.FrameCount = static_cast<int>(mFrameCount);
+	if (mFrameCount % 60 == 0)
+		mRenderPipeline->pollSettings(*mContext.render);
+	mRenderPipeline->prepareUpscaler(*mContext.render, sz.x, sz.y);
+	auto* presentationDriver = mContext.render->getDriver();
+	const auto fgStages = std::count_if(mRenderPipeline->mStages.begin(), mRenderPipeline->mStages.end(),
+		[](auto& s) { return s->mDescriptor.Enabled && s->mDrawContent == DrawContent::FRAME_GENERATION; });
+	if (fgStages > 1)
+		throw std::runtime_error("A pipeline can have only one active FRAME_GENERATION stage");
+	presentationDriver->prepareFrameGeneration(fgStages == 1, mRenderPipeline->mRenderSize, { int(sz.x), int(sz.y) });
+	mRenderPipeline->resize(*mContext.render, sz.x, sz.y);
+	mRenderPipeline->pollResourceUpdates();
+	const bool upscaleEnabled = bool(mRenderPipeline->mUpscaler);
+	const auto renderSize = mRenderPipeline->mRenderSize;
+	uboData.ViewportSize = { float(renderSize.x), float(renderSize.y) };
+	auto unjitteredViewProjection = projection * cameraComponent.getCamera().getViewMatrix();
+	const auto unjitteredProjection = projection;
+	if (mPreviousCamera != &cameraComponent) {
+		mRenderPipeline->mPresentationHistoryValid = false;
+		mRenderPipeline->mHistoryValid = false;
+		mRenderPipeline->mUpscaleHistoryValid = false;
+	}
+	else {
+		float difference = 0;
+		for (int row = 0; row < 4; ++row)
+			for (int column = 0; column < 4; ++column)
+				difference = std::max(difference, std::abs(unjitteredViewProjection(row, column) - mPreviousUnjitteredViewProjection(row, column)));
+		if (difference > 2.0f) {
+			mRenderPipeline->mPresentationHistoryValid = false;
+			mRenderPipeline->mHistoryValid = false;
+			mRenderPipeline->mUpscaleHistoryValid = false;
+		}
+	}
+	const bool taaEnabled = mRenderPipeline->mDescriptor.TemporalJitter
+		&& std::any_of(mRenderPipeline->mStages.begin(), mRenderPipeline->mStages.end(),
+			[](const auto& stage) { return stage->mDescriptor.Enabled && stage->mName == "TAA"; });
+	mJitter = { };
+	if (upscaleEnabled) {
+		mJitter = mRenderPipeline->mUpscaler->jitter(mFrameCount, renderSize, displaySize);
+		auto jitter = MATH::Matrix4f::Identity;
+		jitter(0, 3) = 2 * mJitter.x / renderSize.x;
+		jitter(1, 3) = (DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? 2.f : -2.f) * mJitter.y / renderSize.y;
+		projection = jitter * projection;
+	}
+	else if (taaEnabled) {
+		auto halton = [](unsigned index, unsigned base) {
+			float fraction = 1, result = 0;
+			while (index) {
+				fraction /= base;
+				result += fraction * (index % base);
+				index /= base;
+			}
+			return result;
+		};
+		const auto index = static_cast<unsigned>(mFrameCount % 8) + 1;
+		mJitter = { halton(index, 2) - .5f, halton(index, 3) - .5f };
+		auto jitter = MATH::Matrix4f::Identity;
+		jitter(0, 3) = mJitter.x * 2 / renderSize.x;
+		jitter(1, 3) = (DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? 2.f : -2.f) * mJitter.y / renderSize.y;
+		projection = jitter * projection;
+	}
+	uboData.Projection = MATH::Matrix4f::Transpose(projection);
+	mEngineUbo->setData(uboData);
+	const auto viewProjection = projection * cameraComponent.getCamera().getViewMatrix();
+	mFrameData.InvViewProjection = MATH::Matrix4f::Transpose(MATH::Matrix4f::Inverse(viewProjection));
+	const bool temporalValid = mRenderPipeline->mPresentationHistoryValid;
+	mFrameData.PreviousViewProjection = MATH::Matrix4f::Transpose(temporalValid ? mPreviousViewProjection : viewProjection);
+	mFrameData.PreviousModel = MATH::Matrix4f::Identity;
+	const float zeroToOne = DriverInterface::settings.backend == RenderSettings::Backend::OPENGL ? 0.0f : 1.0f;
+	mFrameData.CameraParams = { cameraComponent.getNear(), cameraComponent.getFar(), zeroToOne, zeroToOne };
+	// Jitter is expressed in texture pixels on every backend. G-buffer
+	// velocity subtracts this delta so a stationary camera has zero motion;
+	// RT denoising restores it when sampling its jittered history grid.
+	mFrameData.FrameState = { temporalValid ? 1.0f : 0.0f, std::clamp(uboData.Time - previousTime, 0.0f, .25f),
+		temporalValid ? (mJitter.x - mPreviousJitter.x) / renderSize.x : 0, temporalValid ? (mJitter.y - mPreviousJitter.y) / renderSize.y : 0 };
+	const auto cameraFrameState = mFrameData.FrameState;
+	mFrameUbo->setData(mFrameData);
+
+	if (cameraComponent.isFrustumLightCulling()) {
+		updateLightsInFrustum(scene, cameraComponent.getCamera().getFrustum());
+	}
+	else {
+		updateLights(scene);
+	}
+	std::vector<float> sun;
+	for (const auto& light : mLights)
+		if (light.type == 1) {
+			sun = { light.forward[0], light.forward[1], light.forward[2], light.color[0], light.color[1], light.color[2], light.intensity };
+			break;
+		}
+	if (mFrameCount > 0 && sun != mEnvironmentSun) {
+		mRenderPipeline->invalidateResources({ "Environment", "SkyEnvironment" });
+		mFrameData.FrameState.x = 0;
+		mFrameUbo->setData(mFrameData);
+	}
+	mEnvironmentSun = std::move(sun);
+
+	const auto& cameraPosition = cameraComponent.obj->getTransform()->getWorldPosition();
+	auto chunks = scene.findDrawables(cameraPosition, cameraComponent.getCamera(), nullptr, mEmptyMaterial);
+	auto shadowChunks = scene.findAndSortDrawables(cameraPosition, mEmptyMaterial);
+	for (auto i = mSkinningPoses.begin(); i != mSkinningPoses.end();)
+		if (i->second.Frame + 1 < mFrameCount)
+			i = mSkinningPoses.erase(i);
+		else
+			++i;
+	bool rayTracingActive = false, raySceneNeeded = false, progressive = false, rayLightsNeeded = false;
+	for (const auto* stages : mRenderPipeline->stageGroups())
+		for (const auto& stage : *stages)
+			if (stage->mDescriptor.Enabled && stage->mRayTracingProgram) {
+				rayTracingActive = true;
+				progressive |= stage->mDescriptor.Progressive;
+				for (const auto& [name, source] : stage->mDescriptor.Bindings) {
+					if (source == "engine_Lights")
+						rayLightsNeeded = true;
+					if (source == "@Scene" || source == "@Triangles" || source == "@Instances")
+						raySceneNeeded = true;
+				}
+			}
+	if (raySceneNeeded)
+		prepareRayTracingScene(shadowChunks);
+	if (rayTracingActive) {
+		auto lights = rayLightsNeeded ? scene.findLightData() : std::vector<LightOGL> { };
+		if (lights.empty()) {
+			lights.resize(1);
+			lights[0].type = -1;
+			lights[0].intensity = 0;
+		}
+		if (rayLightsNeeded
+			&& (lights.size() != mRayLights.size() || std::memcmp(lights.data(), mRayLights.data(), lights.size() * sizeof(LightOGL)) != 0)) {
+			mRayLightSSBO = mContext.render->createStorageBuffer(lights.data(), lights.size(), sizeof(LightOGL));
+			mRayLights = std::move(lights);
+			mRenderPipeline->mHistoryValid = false;
+			mRaySceneChanged = true;
+		}
+		float difference = 0;
+		for (int r = 0; r < 4; ++r)
+			for (int c = 0; c < 4; ++c)
+				difference = std::max(difference, std::abs(unjitteredViewProjection(r, c) - mPreviousUnjitteredViewProjection(r, c)));
+		if ((progressive && difference > 1e-6f) || !mRenderPipeline->mHistoryValid) {
+			mRaySample = 0;
+			mRenderPipeline->mHistoryValid = false;
 			mFrameData.FrameState.x = 0;
 			mFrameUbo->setData(mFrameData);
 		}
-		mEnvironmentSun = std::move(sun);
+	}
+	FrameGenerationInputs temporalCamera;
+	temporalCamera.RenderSize = renderSize;
+	temporalCamera.DisplaySize = displaySize;
+	temporalCamera.View = cameraComponent.getCamera().getViewMatrix();
+	temporalCamera.Projection = unjitteredProjection;
+	temporalCamera.PreviousViewProjection = mPreviousUnjitteredViewProjection;
+	temporalCamera.Position = uboData.ViewPos;
+	temporalCamera.Right = { temporalCamera.View(0, 0), temporalCamera.View(0, 1), temporalCamera.View(0, 2) };
+	temporalCamera.Up = { temporalCamera.View(1, 0), temporalCamera.View(1, 1), temporalCamera.View(1, 2) };
+	temporalCamera.Forward = { -temporalCamera.View(2, 0), -temporalCamera.View(2, 1), -temporalCamera.View(2, 2) };
+	temporalCamera.Jitter = mJitter;
+	temporalCamera.PreviousJitter = mPreviousJitter;
+	temporalCamera.Near = cameraComponent.getNear();
+	temporalCamera.Far = cameraComponent.getFar();
+	temporalCamera.VerticalFov = cameraComponent.getFov() * 3.14159265358979323846f / 180.f;
+	temporalCamera.DeltaMilliseconds = mFrameData.FrameState.y * 1000.f;
+	temporalCamera.RealFrameId = presentationDriver->mRealFrameId == UINT64_MAX ? mFrameCount : presentationDriver->mRealFrameId;
+	temporalCamera.Reset = cameraFrameState.x < .5f || (presentationDriver->mFrameGeneration && !presentationDriver->mFrameGenerationStatus.Active);
+	presentationDriver->setTemporalCamera(temporalCamera);
+	if (mFrameCount == 0)
+		for (const auto& chunk : chunks)
+			std::cout << "Render drawables: opaque=" << chunk.opaqueDrawablesForward.size() + chunk.opaqueDrawablesDeferred.size()
+					  << " transparent=" << chunk.transparentDrawablesForward.size() + chunk.transparentDrawablesDeferred.size() << std::endl;
+	mShadowData.LightIndices = { -1, -1, -1, 0 };
+	bool rayFrameNeeded = rayTracingActive;
+	for (const auto* stages : mRenderPipeline->stageGroups())
+		for (const auto& stage : *stages)
+			if (stage->mDescriptor.Enabled && stage->mMaterial
+				&& stage->mMaterial->getShader()->getReflection().mNameToUniforms.contains("engine_RayFrame"))
+				rayFrameNeeded = true;
+	if (rayFrameNeeded)
+		mRayFrameUbo = mContext.render->createUniformBuffer<MATH::Vector4f>({ static_cast<float>(mRaySample),
+			mRenderPipeline->mHistoryValid ? 1.f : 0.f, static_cast<float>(mFrameCount), mRaySceneChanged ? 0.f : 1.f });
+	mShadowUbo->setData(mShadowData);
 
-		const auto& cameraPosition = cameraComponent.obj->getTransform()->getWorldPosition();
-		auto chunks = scene.findDrawables(cameraPosition, cameraComponent.getCamera(), nullptr, mEmptyMaterial);
-		auto shadowChunks = scene.findAndSortDrawables(cameraPosition, mEmptyMaterial);
-		for (auto i = mSkinningPoses.begin(); i != mSkinningPoses.end();)
-			if (i->second.Frame + 1 < mFrameCount)
-				i = mSkinningPoses.erase(i);
-			else
-				++i;
-		bool rayTracingActive = false, raySceneNeeded = false, progressive = false, rayLightsNeeded = false;
-		for (const auto* stages : mRenderPipeline->stageGroups())
-			for (const auto& stage : *stages)
-				if (stage->mDescriptor.Enabled && stage->mRayTracingProgram) {
-					rayTracingActive = true;
-					progressive |= stage->mDescriptor.Progressive;
-					for (const auto& [name, source] : stage->mDescriptor.Bindings) {
-						if (source == "engine_Lights")
-							rayLightsNeeded = true;
-						if (source == "@Scene" || source == "@Triangles" || source == "@Instances")
-							raySceneNeeded = true;
-					}
-				}
-		if (raySceneNeeded)
-			prepareRayTracingScene(shadowChunks);
-		if (rayTracingActive) {
-			auto lights = rayLightsNeeded ? scene.findLightData() : std::vector<LightOGL> { };
-			if (lights.empty()) {
-				lights.resize(1);
-				lights[0].type = -1;
-				lights[0].intensity = 0;
-			}
-			if (rayLightsNeeded
-				&& (lights.size() != mRayLights.size() || std::memcmp(lights.data(), mRayLights.data(), lights.size() * sizeof(LightOGL)) != 0)) {
-				mRayLightSSBO = mContext.render->createStorageBuffer(lights.data(), lights.size(), sizeof(LightOGL));
-				mRayLights = std::move(lights);
-				mRenderPipeline->mHistoryValid = false;
-				mRaySceneChanged = true;
-			}
-			float difference = 0;
-			for (int r = 0; r < 4; ++r)
-				for (int c = 0; c < 4; ++c)
-					difference = std::max(difference, std::abs(unjitteredViewProjection(r, c) - mPreviousUnjitteredViewProjection(r, c)));
-			if ((progressive && difference > 1e-6f) || !mRenderPipeline->mHistoryValid) {
-				mRaySample = 0;
-				mRenderPipeline->mHistoryValid = false;
-				mFrameData.FrameState.x = 0;
-				mFrameUbo->setData(mFrameData);
-			}
-		}
-        FrameGenerationInputs temporalCamera;
-        temporalCamera.RenderSize=renderSize;temporalCamera.DisplaySize=displaySize;
-        temporalCamera.View=cameraComponent.getCamera().getViewMatrix();temporalCamera.Projection=unjitteredProjection;
-        temporalCamera.PreviousViewProjection=mPreviousUnjitteredViewProjection;temporalCamera.Position=uboData.ViewPos;
-        temporalCamera.Right={temporalCamera.View(0,0),temporalCamera.View(0,1),temporalCamera.View(0,2)};
-        temporalCamera.Up={temporalCamera.View(1,0),temporalCamera.View(1,1),temporalCamera.View(1,2)};
-        temporalCamera.Forward={-temporalCamera.View(2,0),-temporalCamera.View(2,1),-temporalCamera.View(2,2)};
-        temporalCamera.Jitter=mJitter;temporalCamera.PreviousJitter=mPreviousJitter;
-        temporalCamera.Near=cameraComponent.getNear();temporalCamera.Far=cameraComponent.getFar();
-        temporalCamera.VerticalFov=cameraComponent.getFov()*3.14159265358979323846f/180.f;
-        temporalCamera.DeltaMilliseconds=mFrameData.FrameState.y*1000.f;
-        temporalCamera.RealFrameId=presentationDriver->mRealFrameId==UINT64_MAX?mFrameCount:presentationDriver->mRealFrameId;
-        temporalCamera.Reset=cameraFrameState.x<.5f||(presentationDriver->mFrameGeneration&&!presentationDriver->mFrameGenerationStatus.Active);
-        presentationDriver->setTemporalCamera(temporalCamera);
-		if (mFrameCount == 0)
-			for (const auto& chunk : chunks)
-				std::cout << "Render drawables: opaque=" << chunk.opaqueDrawablesForward.size() + chunk.opaqueDrawablesDeferred.size()
-						  << " transparent=" << chunk.transparentDrawablesForward.size() + chunk.transparentDrawablesDeferred.size() << std::endl;
-		mShadowData.LightIndices = { -1, -1, -1, 0 };
-		bool rayFrameNeeded = rayTracingActive;
-		for (const auto* stages : mRenderPipeline->stageGroups())
-			for (const auto& stage : *stages)
-				if (stage->mDescriptor.Enabled && stage->mMaterial
-					&& stage->mMaterial->getShader()->getReflection().mNameToUniforms.contains("engine_RayFrame"))
-					rayFrameNeeded = true;
-		if (rayFrameNeeded)
-			mRayFrameUbo = mContext.render->createUniformBuffer<MATH::Vector4f>({ static_cast<float>(mRaySample),
-				mRenderPipeline->mHistoryValid ? 1.f : 0.f, static_cast<float>(mFrameCount), mRaySceneChanged ? 0.f : 1.f });
-		mShadowUbo->setData(mShadowData);
-
-		// Re-establish physical resources before applying disabled-stage aliases.
-		mRenderPipeline->mTextures = mRenderPipeline->mAllocatedTextures;
-		std::function<void(std::unique_ptr<PipelineStage>&)> runStage;
-		runStage = [&](std::unique_ptr<PipelineStage>& stage) {
-			if (!stage->mDescriptor.Enabled || (upscaleEnabled&&(stage->mName=="TAA"||stage->mName=="fxaa"))) {
-				if (stage->mDrawContent == DrawContent::LIGHT_ACCUMULATION) {
-					for (auto& init : mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass).InitStages)
-						runStage(init);
-					return;
-				}
-				for (const auto& [output, input] : stage->mDescriptor.Bypass)
-					mRenderPipeline->mTextures.at(output) = mRenderPipeline->mTextures.at(input);
-				if (stage->mDescriptor.Bypass.empty() && stage->mFrameBuffer) {
-					mContext.render->setFrameBuffer(stage->mFrameBuffer);
-					mContext.render->setClearColor(stage->mDescriptor.ClearValue);
-					mContext.render->clear(stage->mDescriptor.ClearColor, stage->mDescriptor.ClearDepth, false);
-					mContext.render->setFrameBuffer(nullptr);
-				}
-				return;
-			}
-			if (stage->mDescriptor.Once && stage->mExecuted)
-				return;
-			if (stage->mDescriptor.UpdateInterval < 1)
-				throw std::runtime_error("Invalid stage update interval: " + stage->mName);
-			if (stage->mDescriptor.UpdateInterval > 1 && mFrameCount == 0)
-				return;
-			if (mFrameCount % stage->mDescriptor.UpdateInterval != 0)
-				return;
+	// Re-establish physical resources before applying disabled-stage aliases.
+	mRenderPipeline->mTextures = mRenderPipeline->mAllocatedTextures;
+	std::function<void(std::unique_ptr<PipelineStage>&)> runStage;
+	runStage = [&](std::unique_ptr<PipelineStage>& stage) {
+		if (!stage->mDescriptor.Enabled || (upscaleEnabled && (stage->mName == "TAA" || stage->mName == "fxaa"))) {
 			if (stage->mDrawContent == DrawContent::LIGHT_ACCUMULATION) {
-				auto& pass = mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass);
-				bool rayShadows = false;
-				if (!pass.Descriptor.ShadowProviderStage.empty()) {
-					const auto provider = std::find_if(pass.PrepareStages.begin(), pass.PrepareStages.end(), [&](const auto& value) {
-						return value->mName == pass.Descriptor.ShadowProviderStage;
-					});
-					if (provider == pass.PrepareStages.end()) throw std::runtime_error("Unknown shadow provider stage: " + pass.Descriptor.ShadowProviderStage);
-					rayShadows = (*provider)->mDescriptor.Enabled && bool((*provider)->mRayTracingProgram);
-				}
-				for (auto& init : pass.InitStages)
+				for (auto& init : mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass).InitStages)
 					runStage(init);
-				int used = 0, shadowed = 0, rasterCaptures = 0;
-				struct RestoreCapture {
-					int& index;
-					~RestoreCapture() {
-						index = -1;
-					}
-				} restoreCapture { mCaptureLightIndex };
-				for (size_t i = 0; i < mLights.size(); ++i) {
-					const auto& light = mLights[i];
-					if (light.type < 0 || light.type > 2 || light.intensity <= 0)
-						continue;
-					const int id = i < mLightObjectIds.size() ? mLightObjectIds[i] : -1;
-					if (!pass.Descriptor.LightIds.empty()
-						&& std::find(pass.Descriptor.LightIds.begin(), pass.Descriptor.LightIds.end(), id) == pass.Descriptor.LightIds.end())
-						continue;
-					mCaptureLightIndex = static_cast<int>(i);
-					mShadowData.LightIndices = { -1, -1, -1, 0 };
-					const bool hasShadow = light.shadowEnabled && (pass.Descriptor.ShadowBudget < 0 || shadowed < pass.Descriptor.ShadowBudget);
-					float nearPlane = .1f, farPlane = 100.f;
-					bool captured = false;
-					for (auto& capture : pass.CaptureStages) {
-						const auto& type = capture->mDescriptor.ShadowType;
-						const int captureType = type == "directional" ? 1 : type == "spot" ? 2 : 0;
-						if (captureType != light.type)
-							continue;
-						if (type == "pointCube") {
-							auto scalar = [&](const std::string& key) {
-								auto it = capture->mDescriptor.Uniforms.find(key);
-								return it == capture->mDescriptor.Uniforms.end() ? std::get<float>(capture->mDefaults.at(key))
-																				 : std::get<float>(it->second);
-							};
-							nearPlane = scalar("data_UBONear");
-							farPlane = scalar("data_UBOFar");
-						}
-						else
-							farPlane = capture->mDescriptor.ShadowRange;
-						if (hasShadow && !rayShadows) {
-							runStage(capture);
-							++rasterCaptures;
-							captured = true;
-						}
-					}
-					if (light.shadowNear > 0)
-						nearPlane = light.shadowNear;
-					if (light.shadowFar > 0)
-						farPlane = light.shadowFar;
-					if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane)
-						throw std::runtime_error("Invalid per-light shadow range");
-					const bool shadowAvailable = captured || (hasShadow && rayShadows);
-					if (shadowAvailable)
-						++shadowed;
-					mCurrentShadow = { };
-					for (int c = 0; c < 4; ++c)
-						mCurrentShadow.Matrices[c] = mShadowData.Matrices[light.type == 2 ? 4 : c];
-					mCurrentShadow.CascadeSplits = mShadowData.CascadeSplits;
-					mCurrentShadow.PositionRange = { light.pos[0], light.pos[1], light.pos[2], farPlane };
-					mCurrentShadow.Settings = { mShadowData.Settings.x, nearPlane, farPlane, 0 };
-					const bool volume = pass.Descriptor.VolumeLightLimit < 0 || used < pass.Descriptor.VolumeLightLimit;
-					mCurrentShadow.LightInfo = { static_cast<float>(i), static_cast<float>(light.type), shadowAvailable ? 1.f : 0.f, volume ? 1.f : 0.f };
-					// Each queued resolve owns a distinct immutable buffer snapshot.
-					mCurrentShadowUbo = mContext.render->createUniformBuffer<CurrentShadowUBO>(mCurrentShadow);
-					for (auto& prepare : pass.PrepareStages)
-						runStage(prepare);
-					for (auto& resolve : pass.ResolveStages)
-						runStage(resolve);
-					++used;
+				return;
+			}
+			for (const auto& [output, input] : stage->mDescriptor.Bypass)
+				mRenderPipeline->mTextures.at(output) = mRenderPipeline->mTextures.at(input);
+			if (stage->mDescriptor.Bypass.empty() && stage->mFrameBuffer) {
+				mContext.render->setFrameBuffer(stage->mFrameBuffer);
+				mContext.render->setClearColor(stage->mDescriptor.ClearValue);
+				mContext.render->clear(stage->mDescriptor.ClearColor, stage->mDescriptor.ClearDepth, false);
+				mContext.render->setFrameBuffer(nullptr);
+			}
+			return;
+		}
+		if (stage->mDescriptor.Once && stage->mExecuted)
+			return;
+		if (stage->mDescriptor.UpdateInterval < 1)
+			throw std::runtime_error("Invalid stage update interval: " + stage->mName);
+		if (stage->mDescriptor.UpdateInterval > 1 && mFrameCount == 0)
+			return;
+		if (mFrameCount % stage->mDescriptor.UpdateInterval != 0)
+			return;
+		if (stage->mDrawContent == DrawContent::LIGHT_ACCUMULATION) {
+			auto& pass = mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass);
+			bool rayShadows = false;
+			if (!pass.Descriptor.ShadowProviderStage.empty()) {
+				const auto provider = std::find_if(pass.PrepareStages.begin(), pass.PrepareStages.end(),
+					[&](const auto& value) { return value->mName == pass.Descriptor.ShadowProviderStage; });
+				if (provider == pass.PrepareStages.end())
+					throw std::runtime_error("Unknown shadow provider stage: " + pass.Descriptor.ShadowProviderStage);
+				rayShadows = (*provider)->mDescriptor.Enabled && bool((*provider)->mRayTracingProgram);
+			}
+			for (auto& init : pass.InitStages)
+				runStage(init);
+			int used = 0, shadowed = 0, rasterCaptures = 0;
+			struct RestoreCapture {
+				int& index;
+				~RestoreCapture() {
+					index = -1;
 				}
-				mCaptureLightIndex = -1;
+			} restoreCapture { mCaptureLightIndex };
+			for (size_t i = 0; i < mLights.size(); ++i) {
+				const auto& light = mLights[i];
+				if (light.type < 0 || light.type > 2 || light.intensity <= 0)
+					continue;
+				const int id = i < mLightObjectIds.size() ? mLightObjectIds[i] : -1;
+				if (!pass.Descriptor.LightIds.empty()
+					&& std::find(pass.Descriptor.LightIds.begin(), pass.Descriptor.LightIds.end(), id) == pass.Descriptor.LightIds.end())
+					continue;
+				mCaptureLightIndex = static_cast<int>(i);
 				mShadowData.LightIndices = { -1, -1, -1, 0 };
-				mShadowUbo->setData(mShadowData);
-				if (!stage->mExecuted)
-					std::cout << "LIGHT_ACCUMULATION " << pass.Descriptor.Name << " lights=" << used << " shadows=" << shadowed
-						<< " shadow_provider=" << (rayShadows ? "ray" : "raster") << " raster_captures=" << rasterCaptures << std::endl;
-				stage->mExecuted = true;
-				return;
-			}
-			if (stage->mDrawContent == DrawContent::COMPUTE) {
-				if (!stage->mDescriptor.Program.empty()) {
-					runRayTracingStage(*stage);
-					return;
+				const bool hasShadow = light.shadowEnabled && (pass.Descriptor.ShadowBudget < 0 || shadowed < pass.Descriptor.ShadowBudget);
+				float nearPlane = .1f, farPlane = 100.f;
+				bool captured = false;
+				for (auto& capture : pass.CaptureStages) {
+					const auto& type = capture->mDescriptor.ShadowType;
+					const int captureType = type == "directional" ? 1 : type == "spot" ? 2 : 0;
+					if (captureType != light.type)
+						continue;
+					if (type == "pointCube") {
+						auto scalar = [&](const std::string& key) {
+							auto it = capture->mDescriptor.Uniforms.find(key);
+							return it == capture->mDescriptor.Uniforms.end() ? std::get<float>(capture->mDefaults.at(key))
+																			 : std::get<float>(it->second);
+						};
+						nearPlane = scalar("data_UBONear");
+						farPlane = scalar("data_UBOFar");
+					}
+					else
+						farPlane = capture->mDescriptor.ShadowRange;
+					if (hasShadow && !rayShadows) {
+						runStage(capture);
+						++rasterCaptures;
+						captured = true;
+					}
 				}
-				if (!stage->mMaterial || stage->mDescriptor.DispatchTexture.empty())
-					throw std::runtime_error("Compute requires material and DispatchTexture");
-				bindStage(*stage);
-				const auto target = mRenderPipeline->mTextures.at(stage->mDescriptor.DispatchTexture);
-				const auto& ref = stage->mMaterial->getShader()->getReflection();
-				auto ceilDiv = [](size_t n, uint32_t d) {
-					if (!d)
-						throw std::runtime_error("Invalid compute local size");
-					return static_cast<uint32_t>((n + d - 1) / d);
-				};
-				mContext.render->dispatch(ceilDiv(target->getWidth(), ref.mLocalSize[0]), ceilDiv(target->getHeight(), ref.mLocalSize[1]),
-					ceilDiv(std::max<size_t>(1, target->getDepth()), ref.mLocalSize[2]));
-				stage->mExecuted = true;
-				std::cout << "Pipeline compute: " << stage->mName << std::endl;
-				return;
+				if (light.shadowNear > 0)
+					nearPlane = light.shadowNear;
+				if (light.shadowFar > 0)
+					farPlane = light.shadowFar;
+				if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane)
+					throw std::runtime_error("Invalid per-light shadow range");
+				const bool shadowAvailable = captured || (hasShadow && rayShadows);
+				if (shadowAvailable)
+					++shadowed;
+				mCurrentShadow = { };
+				for (int c = 0; c < 4; ++c)
+					mCurrentShadow.Matrices[c] = mShadowData.Matrices[light.type == 2 ? 4 : c];
+				mCurrentShadow.CascadeSplits = mShadowData.CascadeSplits;
+				mCurrentShadow.PositionRange = { light.pos[0], light.pos[1], light.pos[2], farPlane };
+				mCurrentShadow.Settings = { mShadowData.Settings.x, nearPlane, farPlane, 0 };
+				const bool volume = pass.Descriptor.VolumeLightLimit < 0 || used < pass.Descriptor.VolumeLightLimit;
+				mCurrentShadow.LightInfo = { static_cast<float>(i), static_cast<float>(light.type), shadowAvailable ? 1.f : 0.f, volume ? 1.f : 0.f };
+				// Each queued resolve owns a distinct immutable buffer snapshot.
+				mCurrentShadowUbo = mContext.render->createUniformBuffer<CurrentShadowUBO>(mCurrentShadow);
+				for (auto& prepare : pass.PrepareStages)
+					runStage(prepare);
+				for (auto& resolve : pass.ResolveStages)
+					runStage(resolve);
+				++used;
 			}
-			if (stage->mDrawContent == DrawContent::RAY_TRACE) {
+			mCaptureLightIndex = -1;
+			mShadowData.LightIndices = { -1, -1, -1, 0 };
+			mShadowUbo->setData(mShadowData);
+			if (!stage->mExecuted)
+				std::cout << "LIGHT_ACCUMULATION " << pass.Descriptor.Name << " lights=" << used << " shadows=" << shadowed
+						  << " shadow_provider=" << (rayShadows ? "ray" : "raster") << " raster_captures=" << rasterCaptures << std::endl;
+			stage->mExecuted = true;
+			return;
+		}
+		if (stage->mDrawContent == DrawContent::COMPUTE) {
+			if (!stage->mDescriptor.Program.empty()) {
 				runRayTracingStage(*stage);
 				return;
 			}
-            if(stage->mDrawContent==DrawContent::FRAME_GENERATION){
-                if(DriverInterface::settings.frameGeneration.technology!=FrameGenerationType::OFF&&
-                   !presentationDriver->mFrameGenerationStatus.Supported&&stage->mDescriptor.Unsupported=="ERROR")
-                    throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
-                const auto& b=stage->mDescriptor.Bindings;
-                FrameGenerationInputs f=temporalCamera;
-                f.Color=mRenderPipeline->mTextures.at(b.at("Color"));f.UI=mRenderPipeline->mTextures.at(b.at("UI"));
-                f.Depth=mRenderPipeline->mTextures.at(b.at("Depth"));f.MotionVectors=mRenderPipeline->mTextures.at(b.at("MotionVectors"));
-                f.RenderSize=renderSize;f.DisplaySize=displaySize;f.Jitter=mJitter;f.PreviousJitter=mPreviousJitter;
-                f.View=cameraComponent.getCamera().getViewMatrix();f.Projection=unjitteredProjection;
-                f.PreviousViewProjection=mPreviousUnjitteredViewProjection;f.Position=uboData.ViewPos;
-                f.Right={f.View(0,0),f.View(0,1),f.View(0,2)};f.Up={f.View(1,0),f.View(1,1),f.View(1,2)};
-                f.Forward={-f.View(2,0),-f.View(2,1),-f.View(2,2)};
-                f.Near=cameraComponent.getNear();f.Far=cameraComponent.getFar();f.VerticalFov=cameraComponent.getFov()*3.14159265358979323846f/180.f;
-                f.DeltaMilliseconds=mFrameData.FrameState.y*1000.f;f.RealFrameId=temporalCamera.RealFrameId;
-                f.Reset=temporalCamera.Reset;
-                presentationDriver->dispatchFrameGeneration(f);
-                auto& screenshot=CAPTURE::ScreenshotService::Get();
-                if(screenshot.pending() && screenshot.textureName().empty() && presentationDriver->mFrameGeneration &&
-                   presentationDriver->mFrameGenerationStatus.Active && presentationDriver->mFrameGeneration->composesUI())
-                    screenshot.setSource(f.Color,f.UI);
-                if(stage->mDescriptor.Unsupported=="ERROR"&&!presentationDriver->mFrameGenerationStatus.Reason.empty())
-                    throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
-                stage->mExecuted=true;return;
-            }
-            if(stage->mDrawContent==DrawContent::UPSCALE && mRenderPipeline->mUpscaler) {
-                const auto& bindings=stage->mDescriptor.Bindings;
-                auto texture=[&](const char* name,bool required=true)->std::shared_ptr<TextureInterface> {
-                    auto found=bindings.find(name);
-                    if(found==bindings.end()) {
-                        if(required)throw std::runtime_error(stage->mName+": missing UPSCALE binding "+name);
-                        return {};
-                    }
-                    return mRenderPipeline->mTextures.at(found->second);
-                };
-                UpscaleFrameInputs f;
-                f.Color=texture("Color");f.Depth=texture("Depth");f.MotionVectors=texture("MotionVectors");f.Output=texture("Output");
-                f.Exposure=texture("Exposure",false);f.Reactive=texture("Reactive",false);f.Transparency=texture("Transparency",false);
-                f.RenderSize=renderSize;f.DisplaySize=displaySize;f.Jitter=mJitter;
-                f.Near=cameraComponent.getNear();f.Far=cameraComponent.getFar();
-                f.VerticalFov=cameraComponent.getFov()*3.14159265358979323846f/180.f;
-                f.DeltaMilliseconds=mFrameData.FrameState.y*1000.f;
-                f.Reset=!mRenderPipeline->mUpscaleHistoryValid;f.Sharpness=mRenderPipeline->mUpscalerSettings.sharpness;
-                try {
-                    mRenderPipeline->mUpscaler->dispatch(f);
-                    if(!stage->mExecuted||f.Reset)std::cout<<"UPSCALE_DISPATCH "<<mRenderPipeline->mUpscalerStatus.Implementation<<" reset="<<f.Reset<<'\n';
-                    mRenderPipeline->mUpscaleHistoryValid=true;stage->mExecuted=true;
-                    return;
-                } catch(const UnsupportedUpscaler& error) {
-                    if(stage->mDescriptor.Unsupported=="ERROR")throw;
-                    mRenderPipeline->mUpscalerStatus.Supported=false;
-                    mRenderPipeline->mUpscalerStatus.Reason=error.what();
-                    mRenderPipeline->mUpscalerFailed=true;mRenderPipeline->mUpscaleHistoryValid=false;
-                    std::cerr<<"UPSCALER_FALLBACK "<<error.what()<<'\n';
-                    // Draw the stage's spatial fallback for this already-rendered frame.
-                }
-            }
-			auto& render = *mContext.render;
-#if defined(OPENGL_BACKEND) && !defined(USING_GLES)
-			GLuint profileQuery = 0;
-			if (mProfileGpu && DriverInterface::settings.backend == RenderSettings::Backend::OPENGL) {
-				glGenQueries(1, &profileQuery);
-				glBeginQuery(GL_TIME_ELAPSED, profileQuery);
-			}
-#endif
-			render.setFrameBuffer(stage->mFrameBuffer);
-			const auto size
-				= stage->mFrameBuffer ? MATH::Vector2f(stage->mFrameBuffer->getWidth(), stage->mFrameBuffer->getHeight()) : MATH::Vector2f(float(sz.x),float(sz.y));
-			uboData.ViewportSize=size;mEngineUbo->setData(uboData);
-			render.setViewport({ { 0, 0 }, size });
-			render.resetScissor();
-			render.setClearColor(stage->mDescriptor.ClearValue);
-			render.clear(stage->mDescriptor.ClearColor, stage->mDescriptor.ClearDepth, false);
-            if(stage->mName=="PrepareFrameGenMotion"){
-                // G-buffer motion excludes projection jitter for both native
-                // TAA and upscalers. Frame generation uses that same motion.
-                stage->mDefaults["data_UBOJitterDelta"]=MATH::Vector2f{};
-            }
-            if(stage->mName=="PrepareFrameGenMotion"||stage->mName=="PrepareUpscaleVelocity"){
-                mFrameData.FrameState=cameraFrameState;mFrameUbo->setData(mFrameData);
-            }
-            if(stage->mDescriptor.PresentationSink&&stage->mDrawContent==DrawContent::QUAD)
-                stage->mDefaults["data_UBOCompositeUI"]=int(!(presentationDriver->mFrameGeneration&&presentationDriver->mFrameGeneration->composesUI()));
-			if (stage->mMaterial)bindStage(*stage);
-			mOverrideMaterial = stage->mDescriptor.OverrideMaterial ? stage->mMaterial : nullptr;
-			mOverrideDefaults = stage->mDefaults;
-			mActiveStage = stage.get();
-			for (const auto& [name, value] : stage->mDescriptor.Uniforms)
-				std::visit(
-					[&](const auto& v) {
-						using T = std::decay_t<decltype(v)>;
-						if constexpr (!std::is_same_v<T, std::string>) {
-							auto key = name;
-							key.erase(std::remove(key.begin(), key.end(), '.'), key.end());
-							mOverrideDefaults[key] = v;
-						}
-					},
-					value);
-			if (stage->mDrawContent == DrawContent::SHADOW) {
-				captureShadows(*stage, shadowChunks, cameraPosition, size);
-			}
-			else if (stage->mDrawContent == DrawContent::QUAD || stage->mDrawContent == DrawContent::UPSCALE) {
-				if (!stage->mMaterial)
-					throw std::runtime_error("Fullscreen stage requires Material: " + stage->mName);
-				render.draw(mFullscreenMesh, PrimitiveMode::TRIANGLES, 1);
-			}
-			else if (stage->mDrawContent == DrawContent::GUI){
-				renderGui(scene);
-                if(stage->mDescriptor.IncludeEditorUI)presentationDriver->renderPresentationUI(stage->mFrameBuffer);
-            }
-			else if (stage->mDrawContent == DrawContent::VECTOR_WORLD){renderGui(scene,true);}
-			else
-				for (auto& chunk : chunks) {
-					if (stage->mDrawContent == DrawContent::FORWARD || stage->mDrawContent == DrawContent::DEFERRED
-						|| stage->mDrawContent == DrawContent::SHADOW) {
-						for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward)
-							drawDrawable(drawable);
-						for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred)
-							drawDrawable(drawable);
-					}
-					if (stage->mDrawContent == DrawContent::FORWARD || stage->mDrawContent == DrawContent::TRANSPARENT_GEOMETRY) {
-						for (const auto& [distance, drawable] : chunk.transparentDrawablesForward)
-							drawDrawable(drawable);
-						for (const auto& [distance, drawable] : chunk.transparentDrawablesDeferred)
-							drawDrawable(drawable);
-					}
-				}
-            if(stage->mDrawContent==DrawContent::TRANSPARENT_GEOMETRY||stage->mDrawContent==DrawContent::FORWARD) {
-                if(!mParticleRenderer)mParticleRenderer=std::make_shared<ParticleRenderer>();
-                mParticleRenderer->drawWorld(scene,render,uboData.View,uboData.View*uboData.Projection);
-            }
-			mOverrideMaterial.reset();
-			mActiveStage = nullptr;
-			if (stage->mMaterial)
-				stage->mMaterial->unbind();
-			render.setFrameBuffer(nullptr);
-#if defined(OPENGL_BACKEND) && !defined(USING_GLES)
-			if (profileQuery) {
-				glEndQuery(GL_TIME_ELAPSED);
-				GLuint64 ns = 0;
-				glGetQueryObjectui64v(profileQuery, GL_QUERY_RESULT, &ns);
-				glDeleteQueries(1, &profileQuery);
-				auto& time = mGpuStageTimes[stage->mName];
-				time.first += static_cast<double>(ns) * 1e-6;
-				++time.second;
-			}
-#endif
+			if (!stage->mMaterial || stage->mDescriptor.DispatchTexture.empty())
+				throw std::runtime_error("Compute requires material and DispatchTexture");
+			bindStage(*stage);
+			const auto target = mRenderPipeline->mTextures.at(stage->mDescriptor.DispatchTexture);
+			const auto& ref = stage->mMaterial->getShader()->getReflection();
+			auto ceilDiv = [](size_t n, uint32_t d) {
+				if (!d)
+					throw std::runtime_error("Invalid compute local size");
+				return static_cast<uint32_t>((n + d - 1) / d);
+			};
+			mContext.render->dispatch(ceilDiv(target->getWidth(), ref.mLocalSize[0]), ceilDiv(target->getHeight(), ref.mLocalSize[1]),
+				ceilDiv(std::max<size_t>(1, target->getDepth()), ref.mLocalSize[2]));
 			stage->mExecuted = true;
-			if (stage->mDescriptor.Once)
-				std::cout << "Pipeline init: " << stage->mName << std::endl;
-			else if (stage->mDescriptor.UpdateInterval > 1)
-				std::cout << "Pipeline update: " << stage->mName << std::endl;
-		};
-		if (!mRenderPipeline->mIsInitialized) {
-			for (auto& stage : mRenderPipeline->mStartStages)
-				runStage(stage);
-			mRenderPipeline->mIsInitialized = true;
+			std::cout << "Pipeline compute: " << stage->mName << std::endl;
+			return;
 		}
-		for (auto& stage : mRenderPipeline->mStages)
-			runStage(stage);
-        auto& screenshot=CAPTURE::ScreenshotService::Get();
-        if(screenshot.pending() && !screenshot.textureName().empty()) {
-            const auto source=mRenderPipeline->mTextures.find(screenshot.textureName());
-            if(source==mRenderPipeline->mTextures.end())screenshot.fail("Unknown screenshot texture: "+screenshot.textureName());
-            else screenshot.setSource(source->second);
-        }
-		mRenderPipeline->advanceHistory(*mContext.render);
-		if (rayTracingActive)
-			++mRaySample;
-		mPreviousViewProjection = viewProjection;
-        mPreviousJitter=mJitter;
-		mPreviousUnjitteredViewProjection = unjitteredViewProjection;
-		mPreviousCamera = &cameraComponent;
-        mRenderPipeline->mPresentationHistoryValid=true;
-	}
-
-	void GameRenderer::captureShadows(
-		PipelineStage& active, const std::vector<RenderChunk>& shadowChunks, const MATH::Vector3f& cameraPosition, const MATH::Vector2f& size) {
-		auto* stage = &active;
+		if (stage->mDrawContent == DrawContent::RAY_TRACE) {
+			runRayTracingStage(*stage);
+			return;
+		}
+		if (stage->mDrawContent == DrawContent::FRAME_GENERATION) {
+			if (DriverInterface::settings.frameGeneration.technology != FrameGenerationType::OFF
+				&& !presentationDriver->mFrameGenerationStatus.Supported && stage->mDescriptor.Unsupported == "ERROR")
+				throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
+			const auto& b = stage->mDescriptor.Bindings;
+			FrameGenerationInputs f = temporalCamera;
+			f.Color = mRenderPipeline->mTextures.at(b.at("Color"));
+			f.UI = mRenderPipeline->mTextures.at(b.at("UI"));
+			f.Depth = mRenderPipeline->mTextures.at(b.at("Depth"));
+			f.MotionVectors = mRenderPipeline->mTextures.at(b.at("MotionVectors"));
+			f.RenderSize = renderSize;
+			f.DisplaySize = displaySize;
+			f.Jitter = mJitter;
+			f.PreviousJitter = mPreviousJitter;
+			f.View = cameraComponent.getCamera().getViewMatrix();
+			f.Projection = unjitteredProjection;
+			f.PreviousViewProjection = mPreviousUnjitteredViewProjection;
+			f.Position = uboData.ViewPos;
+			f.Right = { f.View(0, 0), f.View(0, 1), f.View(0, 2) };
+			f.Up = { f.View(1, 0), f.View(1, 1), f.View(1, 2) };
+			f.Forward = { -f.View(2, 0), -f.View(2, 1), -f.View(2, 2) };
+			f.Near = cameraComponent.getNear();
+			f.Far = cameraComponent.getFar();
+			f.VerticalFov = cameraComponent.getFov() * 3.14159265358979323846f / 180.f;
+			f.DeltaMilliseconds = mFrameData.FrameState.y * 1000.f;
+			f.RealFrameId = temporalCamera.RealFrameId;
+			f.Reset = temporalCamera.Reset;
+			presentationDriver->dispatchFrameGeneration(f);
+			auto& screenshot = CAPTURE::ScreenshotService::Get();
+			if (screenshot.pending() && screenshot.textureName().empty() && presentationDriver->mFrameGeneration
+				&& presentationDriver->mFrameGenerationStatus.Active && presentationDriver->mFrameGeneration->composesUI())
+				screenshot.setSource(f.Color, f.UI);
+			if (stage->mDescriptor.Unsupported == "ERROR" && !presentationDriver->mFrameGenerationStatus.Reason.empty())
+				throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
+			stage->mExecuted = true;
+			return;
+		}
+		if (stage->mDrawContent == DrawContent::UPSCALE && mRenderPipeline->mUpscaler) {
+			const auto& bindings = stage->mDescriptor.Bindings;
+			auto texture = [&](const char* name, bool required = true) -> std::shared_ptr<TextureInterface> {
+				auto found = bindings.find(name);
+				if (found == bindings.end()) {
+					if (required)
+						throw std::runtime_error(stage->mName + ": missing UPSCALE binding " + name);
+					return { };
+				}
+				return mRenderPipeline->mTextures.at(found->second);
+			};
+			UpscaleFrameInputs f;
+			f.Color = texture("Color");
+			f.Depth = texture("Depth");
+			f.MotionVectors = texture("MotionVectors");
+			f.Output = texture("Output");
+			f.Exposure = texture("Exposure", false);
+			f.Reactive = texture("Reactive", false);
+			f.Transparency = texture("Transparency", false);
+			f.RenderSize = renderSize;
+			f.DisplaySize = displaySize;
+			f.Jitter = mJitter;
+			f.Near = cameraComponent.getNear();
+			f.Far = cameraComponent.getFar();
+			f.VerticalFov = cameraComponent.getFov() * 3.14159265358979323846f / 180.f;
+			f.DeltaMilliseconds = mFrameData.FrameState.y * 1000.f;
+			f.Reset = !mRenderPipeline->mUpscaleHistoryValid;
+			f.Sharpness = mRenderPipeline->mUpscalerSettings.sharpness;
+			try {
+				mRenderPipeline->mUpscaler->dispatch(f);
+				if (!stage->mExecuted || f.Reset)
+					std::cout << "UPSCALE_DISPATCH " << mRenderPipeline->mUpscalerStatus.Implementation << " reset=" << f.Reset << '\n';
+				mRenderPipeline->mUpscaleHistoryValid = true;
+				stage->mExecuted = true;
+				return;
+			} catch (const UnsupportedUpscaler& error) {
+				if (stage->mDescriptor.Unsupported == "ERROR")
+					throw;
+				mRenderPipeline->mUpscalerStatus.Supported = false;
+				mRenderPipeline->mUpscalerStatus.Reason = error.what();
+				mRenderPipeline->mUpscalerFailed = true;
+				mRenderPipeline->mUpscaleHistoryValid = false;
+				std::cerr << "UPSCALER_FALLBACK " << error.what() << '\n';
+				// Draw the stage's spatial fallback for this already-rendered frame.
+			}
+		}
 		auto& render = *mContext.render;
-
-		if (!stage->mMaterial || !stage->mFrameBuffer)
-			throw std::runtime_error("Shadow stage requires material and framebuffer");
-		const auto& type = stage->mDescriptor.ShadowType;
-		const int lightType = type == "directional" ? 1 : type == "spot" ? 2 : (type == "point" || type == "pointCube") ? 0 : -2;
-		int index = mCaptureLightIndex;
-		for (size_t i = 0; index < 0 && i < mLights.size(); ++i)
-			if (mLights[i].type == lightType
-				&& (stage->mDescriptor.ShadowLightId < 0 || (i < mLightObjectIds.size() && mLightObjectIds[i] == stage->mDescriptor.ShadowLightId))) {
-				index = static_cast<int>(i);
-				break;
-			}
-		if (index >= 0) {
-			const auto& light = mLights[index];
-			MATH::Vector3f position(light.pos[0], light.pos[1], light.pos[2]);
-			auto direction = MATH::Vector3f::Normalize(MATH::Vector3f(light.forward[0], light.forward[1], light.forward[2]));
-			const bool cube = type == "pointCube";
-			const float nearPlane = mCaptureLightIndex >= 0 && light.shadowNear > 0 ? light.shadowNear
-				: cube																? std::get<float>(stage->mMaterial->get("data_UBONear"))
-																					: .1f;
-			const float range = mCaptureLightIndex >= 0 && light.shadowFar > 0 ? light.shadowFar
-				: cube														   ? std::get<float>(stage->mMaterial->get("data_UBOFar"))
-																			   : std::max(stage->mDescriptor.ShadowRange, 1.0f);
-			if (!std::isfinite(nearPlane) || !std::isfinite(range) || nearPlane <= 0 || range <= nearPlane)
-				throw std::runtime_error("Invalid point shadow near/far");
-			if (cube)
-				mShadowData.Settings.y = nearPlane;
-			const int faces = lightType == 1 ? 4 : lightType == 0 ? 6 : 1;
-			const int columns = lightType == 1 ? 2 : lightType == 0 ? 3 : 1, rows = faces / columns;
-			const int base = lightType == 1 ? 0 : lightType == 2 ? 4 : 5;
-			if (lightType == 1) {
-				mShadowData.LightIndices.x = static_cast<float>(index);
-				mShadowData.CascadeSplits = { range * .125f, range * .25f, range * .5f, range };
-			}
-			if (lightType == 2)
-				mShadowData.LightIndices.y = static_cast<float>(index);
-			if (lightType == 0) {
-				mShadowData.LightIndices.z = static_cast<float>(index);
-				mShadowData.PointPositionRange = { position.x, position.y, position.z, range };
-			}
-			const MATH::Vector3f directions[6] = { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } };
-			const MATH::Vector3f ups[6] = { { 0, -1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 }, { 0, -1, 0 }, { 0, -1, 0 } };
-			for (int face = cube ? stage->mDescriptor.ShadowFace : 0; face < (cube ? stage->mDescriptor.ShadowFace + 1 : faces); ++face) {
-				MATH::Matrix4f view, proj;
-				if (lightType == 1) {
-					const float radius = range * std::pow(2.0f, static_cast<float>(face) - 3.0f);
-					const auto eye = cameraPosition - direction * range;
-					const auto up = std::abs(direction.y) > .95f ? MATH::Vector3f(0, 0, 1) : MATH::Vector3f(0, 1, 0);
-					view = MATH::Matrix4f::CreateView(eye, cameraPosition, up);
-					proj = MATH::Matrix4f::CreateOrthographic(-radius, radius, -radius, radius, .1f, range * 2);
-				}
-				else {
-					const auto dir = lightType == 0 ? directions[face] : direction;
-					const auto up = lightType == 0 ? ups[face] : (std::abs(dir.y) > .95f ? MATH::Vector3f(0, 0, 1) : MATH::Vector3f(0, 1, 0));
-					view = MATH::Matrix4f::CreateView(position, position + dir, up);
-					const float fov = lightType == 0 ? 90.0f : std::clamp(light.outerCutoff * 2, 1.0f, 175.0f);
-					// Near is a radial cutoff, while projection clips axially.
-					proj = MATH::Matrix4f::CreatePerspective(fov, 1.0f, cube ? nearPlane / std::sqrt(3.0f) : nearPlane, range);
-				}
-				if (DriverInterface::settings.backend != RenderSettings::Backend::OPENGL) {
-					auto correction = MATH::Matrix4f::Identity;
-					correction(2, 2) = .5f;
-					correction(2, 3) = .5f;
-					proj = correction * proj;
-				}
-				// Cube addressing has the same -Y face rule on all APIs. Explicit APIs
-				// reverse the viewport Y convention; compensate only capture projection.
-				if (cube && DriverInterface::settings.backend != RenderSettings::Backend::OPENGL) {
-					auto flip = MATH::Matrix4f::Identity;
-					flip(1, 1) = -1;
-					proj = flip * proj;
-				}
-				const auto vp = MATH::Matrix4f::Transpose(proj * view);
-				mShadowData.Matrices[base + face] = vp;
-				mShadowPassUbo = render.createUniformBuffer<MATH::Matrix4f>(vp);
-				if (cube) {
-					mPointShadowPassUbo = render.createUniformBuffer<PointShadowPassUBO>(
-						{ vp, { position.x, position.y, position.z, range }, { nearPlane, range, 0, 0 } });
-					render.setViewport({ { 0, 0 }, size });
-				}
-				else
-					render.setViewport(
-						{ { size.x / columns * (face % columns), size.y / rows * (face / columns) }, { size.x / columns, size.y / rows } });
-				for (const auto& chunk : shadowChunks) {
-					for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward)
-						if (drawable.material && drawable.material->isCastShadow())
-							drawDrawable(drawable);
-					for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred)
-						if (drawable.material && drawable.material->isCastShadow())
-							drawDrawable(drawable);
-				}
-			}
+#if defined(OPENGL_BACKEND) && !defined(USING_GLES)
+		GLuint profileQuery = 0;
+		if (mProfileGpu && DriverInterface::settings.backend == RenderSettings::Backend::OPENGL) {
+			glGenQueries(1, &profileQuery);
+			glBeginQuery(GL_TIME_ELAPSED, profileQuery);
 		}
-		mShadowUbo->setData(mShadowData);
+#endif
+		render.setFrameBuffer(stage->mFrameBuffer);
+		const auto size = stage->mFrameBuffer ? MATH::Vector2f(stage->mFrameBuffer->getWidth(), stage->mFrameBuffer->getHeight())
+											  : MATH::Vector2f(float(sz.x), float(sz.y));
+		uboData.ViewportSize = size;
+		mEngineUbo->setData(uboData);
+		render.setViewport({ { 0, 0 }, size });
+		render.resetScissor();
+		render.setClearColor(stage->mDescriptor.ClearValue);
+		render.clear(stage->mDescriptor.ClearColor, stage->mDescriptor.ClearDepth, false);
+		if (stage->mName == "PrepareFrameGenMotion") {
+			// G-buffer motion excludes projection jitter for both native
+			// TAA and upscalers. Frame generation uses that same motion.
+			stage->mDefaults["data_UBOJitterDelta"] = MATH::Vector2f { };
+		}
+		if (stage->mName == "PrepareFrameGenMotion" || stage->mName == "PrepareUpscaleVelocity") {
+			mFrameData.FrameState = cameraFrameState;
+			mFrameUbo->setData(mFrameData);
+		}
+		if (stage->mDescriptor.PresentationSink && stage->mDrawContent == DrawContent::QUAD)
+			stage->mDefaults["data_UBOCompositeUI"]
+				= int(!(presentationDriver->mFrameGeneration && presentationDriver->mFrameGeneration->composesUI()));
+		if (stage->mMaterial)
+			bindStage(*stage);
+		mOverrideMaterial = stage->mDescriptor.OverrideMaterial ? stage->mMaterial : nullptr;
+		mOverrideDefaults = stage->mDefaults;
+		mActiveStage = stage.get();
+		for (const auto& [name, value] : stage->mDescriptor.Uniforms)
+			std::visit(
+				[&](const auto& v) {
+					using T = std::decay_t<decltype(v)>;
+					if constexpr (!std::is_same_v<T, std::string>) {
+						auto key = name;
+						key.erase(std::remove(key.begin(), key.end(), '.'), key.end());
+						mOverrideDefaults[key] = v;
+					}
+				},
+				value);
+		if (stage->mDrawContent == DrawContent::SHADOW) {
+			captureShadows(*stage, shadowChunks, cameraPosition, size);
+		}
+		else if (stage->mDrawContent == DrawContent::QUAD || stage->mDrawContent == DrawContent::UPSCALE) {
+			if (!stage->mMaterial)
+				throw std::runtime_error("Fullscreen stage requires Material: " + stage->mName);
+			render.draw(mFullscreenMesh, PrimitiveMode::TRIANGLES, 1);
+		}
+		else if (stage->mDrawContent == DrawContent::GUI) {
+			renderGui(scene);
+			if (stage->mDescriptor.IncludeEditorUI)
+				presentationDriver->renderPresentationUI(stage->mFrameBuffer);
+		}
+		else if (stage->mDrawContent == DrawContent::VECTOR_WORLD) {
+			renderGui(scene, true);
+		}
+		else
+			for (auto& chunk : chunks) {
+				if (stage->mDrawContent == DrawContent::FORWARD || stage->mDrawContent == DrawContent::DEFERRED
+					|| stage->mDrawContent == DrawContent::SHADOW) {
+					for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward)
+						drawDrawable(drawable);
+					for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred)
+						drawDrawable(drawable);
+				}
+				if (stage->mDrawContent == DrawContent::FORWARD || stage->mDrawContent == DrawContent::TRANSPARENT_GEOMETRY) {
+					for (const auto& [distance, drawable] : chunk.transparentDrawablesForward)
+						drawDrawable(drawable);
+					for (const auto& [distance, drawable] : chunk.transparentDrawablesDeferred)
+						drawDrawable(drawable);
+				}
+			}
+		if (stage->mDrawContent == DrawContent::TRANSPARENT_GEOMETRY || stage->mDrawContent == DrawContent::FORWARD) {
+			if (!mParticleRenderer)
+				mParticleRenderer = std::make_shared<ParticleRenderer>();
+			mParticleRenderer->drawWorld(scene, render, uboData.View, uboData.View * uboData.Projection);
+		}
+		mOverrideMaterial.reset();
+		mActiveStage = nullptr;
+		if (stage->mMaterial)
+			stage->mMaterial->unbind();
+		render.setFrameBuffer(nullptr);
+#if defined(OPENGL_BACKEND) && !defined(USING_GLES)
+		if (profileQuery) {
+			glEndQuery(GL_TIME_ELAPSED);
+			GLuint64 ns = 0;
+			glGetQueryObjectui64v(profileQuery, GL_QUERY_RESULT, &ns);
+			glDeleteQueries(1, &profileQuery);
+			auto& time = mGpuStageTimes[stage->mName];
+			time.first += static_cast<double>(ns) * 1e-6;
+			++time.second;
+		}
+#endif
+		stage->mExecuted = true;
+		if (stage->mDescriptor.Once)
+			std::cout << "Pipeline init: " << stage->mName << std::endl;
+		else if (stage->mDescriptor.UpdateInterval > 1)
+			std::cout << "Pipeline update: " << stage->mName << std::endl;
+	};
+	if (!mRenderPipeline->mIsInitialized) {
+		for (auto& stage : mRenderPipeline->mStartStages)
+			runStage(stage);
+		mRenderPipeline->mIsInitialized = true;
 	}
+	for (auto& stage : mRenderPipeline->mStages)
+		runStage(stage);
+	auto& screenshot = CAPTURE::ScreenshotService::Get();
+	if (screenshot.pending() && !screenshot.textureName().empty()) {
+		const auto source = mRenderPipeline->mTextures.find(screenshot.textureName());
+		if (source == mRenderPipeline->mTextures.end())
+			screenshot.fail("Unknown screenshot texture: " + screenshot.textureName());
+		else
+			screenshot.setSource(source->second);
+	}
+	mRenderPipeline->advanceHistory(*mContext.render);
+	if (rayTracingActive)
+		++mRaySample;
+	mPreviousViewProjection = viewProjection;
+	mPreviousJitter = mJitter;
+	mPreviousUnjitteredViewProjection = unjitteredViewProjection;
+	mPreviousCamera = &cameraComponent;
+	mRenderPipeline->mPresentationHistoryValid = true;
+}
 
-	namespace {
-#if !defined(IKIGAI_GL_HAS_SSBO)
-		void PadLightsForEsUbo(std::vector<LightOGL>& lights) {
-			if (lights.size() > MAX_LIGHTS) {
-				lights.resize(MAX_LIGHTS);
+void GameRenderer::captureShadows(
+	PipelineStage& active, const std::vector<RenderChunk>& shadowChunks, const MATH::Vector3f& cameraPosition, const MATH::Vector2f& size) {
+	auto* stage = &active;
+	auto& render = *mContext.render;
+
+	if (!stage->mMaterial || !stage->mFrameBuffer)
+		throw std::runtime_error("Shadow stage requires material and framebuffer");
+	const auto& type = stage->mDescriptor.ShadowType;
+	const int lightType = type == "directional" ? 1 : type == "spot" ? 2 : (type == "point" || type == "pointCube") ? 0 : -2;
+	int index = mCaptureLightIndex;
+	for (size_t i = 0; index < 0 && i < mLights.size(); ++i)
+		if (mLights[i].type == lightType
+			&& (stage->mDescriptor.ShadowLightId < 0 || (i < mLightObjectIds.size() && mLightObjectIds[i] == stage->mDescriptor.ShadowLightId))) {
+			index = static_cast<int>(i);
+			break;
+		}
+	if (index >= 0) {
+		const auto& light = mLights[index];
+		MATH::Vector3f position(light.pos[0], light.pos[1], light.pos[2]);
+		auto direction = MATH::Vector3f::Normalize(MATH::Vector3f(light.forward[0], light.forward[1], light.forward[2]));
+		const bool cube = type == "pointCube";
+		const float nearPlane = mCaptureLightIndex >= 0 && light.shadowNear > 0 ? light.shadowNear
+			: cube																? std::get<float>(stage->mMaterial->get("data_UBONear"))
+																				: .1f;
+		const float range = mCaptureLightIndex >= 0 && light.shadowFar > 0 ? light.shadowFar
+			: cube														   ? std::get<float>(stage->mMaterial->get("data_UBOFar"))
+																		   : std::max(stage->mDescriptor.ShadowRange, 1.0f);
+		if (!std::isfinite(nearPlane) || !std::isfinite(range) || nearPlane <= 0 || range <= nearPlane)
+			throw std::runtime_error("Invalid point shadow near/far");
+		if (cube)
+			mShadowData.Settings.y = nearPlane;
+		const int faces = lightType == 1 ? 4 : lightType == 0 ? 6 : 1;
+		const int columns = lightType == 1 ? 2 : lightType == 0 ? 3 : 1, rows = faces / columns;
+		const int base = lightType == 1 ? 0 : lightType == 2 ? 4 : 5;
+		if (lightType == 1) {
+			mShadowData.LightIndices.x = static_cast<float>(index);
+			mShadowData.CascadeSplits = { range * .125f, range * .25f, range * .5f, range };
+		}
+		if (lightType == 2)
+			mShadowData.LightIndices.y = static_cast<float>(index);
+		if (lightType == 0) {
+			mShadowData.LightIndices.z = static_cast<float>(index);
+			mShadowData.PointPositionRange = { position.x, position.y, position.z, range };
+		}
+		const MATH::Vector3f directions[6] = { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } };
+		const MATH::Vector3f ups[6] = { { 0, -1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 }, { 0, -1, 0 }, { 0, -1, 0 } };
+		for (int face = cube ? stage->mDescriptor.ShadowFace : 0; face < (cube ? stage->mDescriptor.ShadowFace + 1 : faces); ++face) {
+			MATH::Matrix4f view, proj;
+			if (lightType == 1) {
+				const float radius = range * std::pow(2.0f, static_cast<float>(face) - 3.0f);
+				const auto eye = cameraPosition - direction * range;
+				const auto up = std::abs(direction.y) > .95f ? MATH::Vector3f(0, 0, 1) : MATH::Vector3f(0, 1, 0);
+				view = MATH::Matrix4f::CreateView(eye, cameraPosition, up);
+				proj = MATH::Matrix4f::CreateOrthographic(-radius, radius, -radius, radius, .1f, range * 2);
 			}
 			else {
-				lights.resize(MAX_LIGHTS, LightOGL::Inactive());
+				const auto dir = lightType == 0 ? directions[face] : direction;
+				const auto up = lightType == 0 ? ups[face] : (std::abs(dir.y) > .95f ? MATH::Vector3f(0, 0, 1) : MATH::Vector3f(0, 1, 0));
+				view = MATH::Matrix4f::CreateView(position, position + dir, up);
+				const float fov = lightType == 0 ? 90.0f : std::clamp(light.outerCutoff * 2, 1.0f, 175.0f);
+				// Near is a radial cutoff, while projection clips axially.
+				proj = MATH::Matrix4f::CreatePerspective(fov, 1.0f, cube ? nearPlane / std::sqrt(3.0f) : nearPlane, range);
+			}
+			if (DriverInterface::settings.backend != RenderSettings::Backend::OPENGL) {
+				auto correction = MATH::Matrix4f::Identity;
+				correction(2, 2) = .5f;
+				correction(2, 3) = .5f;
+				proj = correction * proj;
+			}
+			// Cube addressing has the same -Y face rule on all APIs. Explicit APIs
+			// reverse the viewport Y convention; compensate only capture projection.
+			if (cube && DriverInterface::settings.backend != RenderSettings::Backend::OPENGL) {
+				auto flip = MATH::Matrix4f::Identity;
+				flip(1, 1) = -1;
+				proj = flip * proj;
+			}
+			const auto vp = MATH::Matrix4f::Transpose(proj * view);
+			mShadowData.Matrices[base + face] = vp;
+			mShadowPassUbo = render.createUniformBuffer<MATH::Matrix4f>(vp);
+			if (cube) {
+				mPointShadowPassUbo = render.createUniformBuffer<PointShadowPassUBO>(
+					{ vp, { position.x, position.y, position.z, range }, { nearPlane, range, 0, 0 } });
+				render.setViewport({ { 0, 0 }, size });
+			}
+			else
+				render.setViewport(
+					{ { size.x / columns * (face % columns), size.y / rows * (face / columns) }, { size.x / columns, size.y / rows } });
+			for (const auto& chunk : shadowChunks) {
+				for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward)
+					if (drawable.material && drawable.material->isCastShadow())
+						drawDrawable(drawable);
+				for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred)
+					if (drawable.material && drawable.material->isCastShadow())
+						drawDrawable(drawable);
 			}
 		}
-#endif
 	}
+	mShadowUbo->setData(mShadowData);
+}
 
-	void GameRenderer::updateLights(SCENE_SYSTEM::Scene& scene) {
-		auto lightMatrices = scene.findLightData(&mLightObjectIds);
-		if (lightMatrices.empty())
-			lightMatrices.push_back(LightOGL::Inactive());
+namespace {
 #if !defined(IKIGAI_GL_HAS_SSBO)
-		PadLightsForEsUbo(lightMatrices);
-#endif
-		mLightSSBO->setData(lightMatrices);
-		mLights = std::move(lightMatrices);
-	}
-
-	void GameRenderer::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum) {
-		auto lightMatrices = scene.findLightDataInFrustum(frustum, &mLightObjectIds);
-		if (lightMatrices.empty())
-			lightMatrices.push_back(LightOGL::Inactive());
-#if !defined(IKIGAI_GL_HAS_SSBO)
-		PadLightsForEsUbo(lightMatrices);
-#endif
-		mLightSSBO->setData(lightMatrices);
-		mLights = std::move(lightMatrices);
-	}
-
-	const RenderGraphPipeline& GameRenderer::getCurrentPipeline() const {
-		if (!mRenderPipeline) {
-			throw std::runtime_error("Render pipeline is not ready");
+	void PadLightsForEsUbo(std::vector<LightOGL>& lights) {
+		if (lights.size() > MAX_LIGHTS) {
+			lights.resize(MAX_LIGHTS);
 		}
-		return *mRenderPipeline;
+		else {
+			lights.resize(MAX_LIGHTS, LightOGL::Inactive());
+		}
 	}
+#endif
+}
 
-	void GameRenderer::setPipeline(std::unique_ptr<RenderGraphPipeline>&& renderPipeline) {
-		mRayScene.reset();mRayTopLevels.clear();mRayTriangles.reset();mRayInstances.reset();mRayLightSSBO.reset();mRayLights.clear();mRaySceneHash=0;mRaySample=0;
-		mSkinningPoses.clear();mRayAlbedoMaps.clear();mRayWhite.reset();mRayFrameUbo.reset();mRaySceneChanged=true;
-		mRenderPipeline = std::move(renderPipeline);
+void GameRenderer::updateLights(SCENE_SYSTEM::Scene& scene) {
+	auto lightMatrices = scene.findLightData(&mLightObjectIds);
+	if (lightMatrices.empty())
+		lightMatrices.push_back(LightOGL::Inactive());
+#if !defined(IKIGAI_GL_HAS_SSBO)
+	PadLightsForEsUbo(lightMatrices);
+#endif
+	mLightSSBO->setData(lightMatrices);
+	mLights = std::move(lightMatrices);
+}
+
+void GameRenderer::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum) {
+	auto lightMatrices = scene.findLightDataInFrustum(frustum, &mLightObjectIds);
+	if (lightMatrices.empty())
+		lightMatrices.push_back(LightOGL::Inactive());
+#if !defined(IKIGAI_GL_HAS_SSBO)
+	PadLightsForEsUbo(lightMatrices);
+#endif
+	mLightSSBO->setData(lightMatrices);
+	mLights = std::move(lightMatrices);
+}
+
+const RenderGraphPipeline& GameRenderer::getCurrentPipeline() const {
+	if (!mRenderPipeline) {
+		throw std::runtime_error("Render pipeline is not ready");
 	}
+	return *mRenderPipeline;
+}
+
+void GameRenderer::setPipeline(std::unique_ptr<RenderGraphPipeline>&& renderPipeline) {
+	mRayScene.reset();
+	mRayTopLevels.clear();
+	mRayTriangles.reset();
+	mRayInstances.reset();
+	mRayLightSSBO.reset();
+	mRayLights.clear();
+	mRaySceneHash = 0;
+	mRaySample = 0;
+	mSkinningPoses.clear();
+	mRayAlbedoMaps.clear();
+	mRayWhite.reset();
+	mRayFrameUbo.reset();
+	mRaySceneChanged = true;
+	mRenderPipeline = std::move(renderPipeline);
+}
 
 #ifdef OCULUS
-	void GameRenderer::renderSceneOculus(
-		XrCompositionLayerProjectionView& layerView, render_target_t& rtarget,
-		XrPosef& stagePose, uint32_t viewID) {
-		(void)stagePose;
+void GameRenderer::renderSceneOculus(XrCompositionLayerProjectionView& layerView, render_target_t& rtarget, XrPosef& stagePose, uint32_t viewID) {
+	(void)stagePose;
 
-        if (mContext.sceneManager->isTransitioning() || !mContext.sceneManager->hasCurrentScene()) {
-            const auto& rect = layerView.subImage.imageRect;
-            glBindFramebuffer(GL_FRAMEBUFFER, rtarget.fbo_id);
-            glViewport(rect.offset.x, rect.offset.y, rect.extent.width, rect.extent.height);
-            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-            glClearColor(0.f, 0.f, 0.f, 1.f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            if (auto* loading = mContext.sceneManager->getPresentedScene()) {
-                uboData.ViewportSize = {float(rect.extent.width), float(rect.extent.height)};
-                uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
-                mEngineUbo->setData(uboData);
-                renderGui(*loading);
-            }
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            return;
-        }
-
-		if (!mContext.sceneManager->hasCurrentScene()) {
-			return;
+	if (mContext.sceneManager->isTransitioning() || !mContext.sceneManager->hasCurrentScene()) {
+		const auto& rect = layerView.subImage.imageRect;
+		glBindFramebuffer(GL_FRAMEBUFFER, rtarget.fbo_id);
+		glViewport(rect.offset.x, rect.offset.y, rect.extent.width, rect.extent.height);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glClearColor(0.f, 0.f, 0.f, 1.f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		if (auto* loading = mContext.sceneManager->getPresentedScene()) {
+			uboData.ViewportSize = { float(rect.extent.width), float(rect.extent.height) };
+			uboData.Time = static_cast<float>(TIME::Timer::GetInstance().getTimeSinceStart().count());
+			mEngineUbo->setData(uboData);
+			renderGui(*loading);
 		}
-		auto& scene = mContext.sceneManager->getCurrentScene();
-		auto mainCamera = scene.findMainCamera();
-		if (!mainCamera) {
-			return;
-		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		return;
+	}
 
-		ECS::CameraComponent* cameraComp = mainCamera.get();
-		if (auto* vrCamera = dynamic_cast<ECS::VrCameraComponent*>(cameraComp)) {
-			auto eyeObject = (viewID == 0) ? vrCamera->left : vrCamera->right;
-			if (eyeObject) {
-				if (auto eyeCamera = eyeObject->getComponent<ECS::CameraComponent>()) {
-					cameraComp = eyeCamera.get();
-				}
+	if (!mContext.sceneManager->hasCurrentScene()) {
+		return;
+	}
+	auto& scene = mContext.sceneManager->getCurrentScene();
+	auto mainCamera = scene.findMainCamera();
+	if (!mainCamera) {
+		return;
+	}
+
+	ECS::CameraComponent* cameraComp = mainCamera.get();
+	if (auto* vrCamera = dynamic_cast<ECS::VrCameraComponent*>(cameraComp)) {
+		auto eyeObject = (viewID == 0) ? vrCamera->left : vrCamera->right;
+		if (eyeObject) {
+			if (auto eyeCamera = eyeObject->getComponent<ECS::CameraComponent>()) {
+				cameraComp = eyeCamera.get();
 			}
 		}
-
-		auto& window = *mContext.window;
-		const int view_x = layerView.subImage.imageRect.offset.x;
-		const int view_y = layerView.subImage.imageRect.offset.y;
-		const int view_w = layerView.subImage.imageRect.extent.width;
-		const int view_h = layerView.subImage.imageRect.extent.height;
-		window.setSize(static_cast<unsigned int>(view_w), static_cast<unsigned int>(view_h));
-
-		glBindFramebuffer(GL_FRAMEBUFFER, rtarget.fbo_id);
-		glViewport(view_x, view_y, view_w, view_h);
-		glEnable(GL_DEPTH_TEST);
-		glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		XrMatrix4x4f matP{};
-		XrMatrix4x4f matV{};
-		XrMatrix4x4f matC{};
-		XrMatrix4x4f_CreateProjectionFov(&matP, GRAPHICS_OPENGL_ES, layerView.fov,
-			cameraComp->getNear(), cameraComp->getFar());
-
-		const XrVector3f scale = {1.0f, 1.0f, 1.0f};
-		XrMatrix4x4f_CreateTranslationRotationScale(&matC, &layerView.pose.position,
-			&layerView.pose.orientation, &scale);
-		XrMatrix4x4f_InvertRigidBody(&matV, &matC);
-
-		auto toMat4 = [](const XrMatrix4x4f& from) {
-			MATH::Matrix4f to(from.m[0], from.m[1], from.m[2], from.m[3], from.m[4],
-				from.m[5], from.m[6], from.m[7], from.m[8], from.m[9],
-				from.m[10], from.m[11], from.m[12], from.m[13],
-				from.m[14], from.m[15]);
-			return MATH::Matrix4f::Transpose(to);
-		};
-		cameraComp->getCamera().cacheViewMatrix(toMat4(matV));
-		cameraComp->getCamera().cacheProjectionMatrix(toMat4(matP));
-
-		renderScene(scene, *cameraComp);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
+
+	auto& window = *mContext.window;
+	const int view_x = layerView.subImage.imageRect.offset.x;
+	const int view_y = layerView.subImage.imageRect.offset.y;
+	const int view_w = layerView.subImage.imageRect.extent.width;
+	const int view_h = layerView.subImage.imageRect.extent.height;
+	window.setSize(static_cast<unsigned int>(view_w), static_cast<unsigned int>(view_h));
+
+	glBindFramebuffer(GL_FRAMEBUFFER, rtarget.fbo_id);
+	glViewport(view_x, view_y, view_w, view_h);
+	glEnable(GL_DEPTH_TEST);
+	glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	XrMatrix4x4f matP { };
+	XrMatrix4x4f matV { };
+	XrMatrix4x4f matC { };
+	XrMatrix4x4f_CreateProjectionFov(&matP, GRAPHICS_OPENGL_ES, layerView.fov, cameraComp->getNear(), cameraComp->getFar());
+
+	const XrVector3f scale = { 1.0f, 1.0f, 1.0f };
+	XrMatrix4x4f_CreateTranslationRotationScale(&matC, &layerView.pose.position, &layerView.pose.orientation, &scale);
+	XrMatrix4x4f_InvertRigidBody(&matV, &matC);
+
+	auto toMat4 = [](const XrMatrix4x4f& from) {
+		MATH::Matrix4f to(from.m[0], from.m[1], from.m[2], from.m[3], from.m[4], from.m[5], from.m[6], from.m[7], from.m[8], from.m[9], from.m[10],
+			from.m[11], from.m[12], from.m[13], from.m[14], from.m[15]);
+		return MATH::Matrix4f::Transpose(to);
+	};
+	cameraComp->getCamera().cacheViewMatrix(toMat4(matV));
+	cameraComp->getCamera().cacheProjectionMatrix(toMat4(matP));
+
+	renderScene(scene, *cameraComp);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 #endif
 } // namespace IKIGAI::RENDER
-
 
 namespace IKIGAI::RENDER {
 // Validate resolved capture settings before a reload can mutate stages/resources.
 static void ValidatePointCube(const RenderGraphPipeline::Descriptor& desc) {
-	for(const auto& stage:desc.StartStages) if(stage.ShadowType=="pointCube")
-		throw std::runtime_error("Point cube capture must run every frame, not in StartStages");
-	std::map<std::string,std::set<int>> faces;
-	std::map<std::string,std::tuple<int,float,float>> contracts;
-	for(const auto* stages:{&desc.StartStages,&desc.Stages}) for(const auto& stage:*stages) {
-		if(stage.ShadowType!="pointCube") continue;
-		auto fail=[&] {throw std::runtime_error("Invalid pointCube contract: "+stage.Name);};
-		const auto frame=std::find_if(desc.FrameBuffers.begin(),desc.FrameBuffers.end(),[&](const auto& f){return f.Name==stage.FrameBuffer;});
-		if(stage.Draw!=DrawContent::SHADOW || stage.Once || stage.UpdateInterval!=1 || !stage.Enabled ||
-		   !stage.ClearColor || !stage.ClearDepth || stage.ClearValue.x!=1 || stage.ShadowFace<0 || stage.ShadowFace>5 ||
-		   frame==desc.FrameBuffers.end() || frame->Layer!=stage.ShadowFace || frame->Mip!=0 || frame->Textures.size()!=1 || frame->Depth.empty()) fail();
-		const auto color=std::find_if(desc.Textures.begin(),desc.Textures.end(),[&](const auto& t){return t.Name==frame->Textures[0];});
-		const auto depth=std::find_if(desc.Textures.begin(),desc.Textures.end(),[&](const auto& t){return t.Name==frame->Depth;});
-		if(color==desc.Textures.end() || depth==desc.Textures.end()) fail();
-		const auto& r=color->Resource;const auto& d=depth->Resource;
-		if(!color->Path.empty() || !depth->Path.empty() || r.texType!=TextureType::TEXTURE_CUBE || r.pixelType!=PixelFormat::R_FLOAT ||
-		   r.width<=0 || r.height!=r.width || r.depth!=6 || r.mipMapCount!=1 || r.useMipmap ||
-		   r.minFilter!=MinMagFilter::NEAREST || r.magFilter!=MinMagFilter::NEAREST ||
-		   d.texType!=TextureType::DEPTH || d.width!=r.width || d.height!=r.height) fail();
-		auto loaded=UTILS::FromJson<MaterialResource>(stage.Material);
-		if(loaded.isErr()) fail();
-		auto uniforms=loaded.unwrap().Uniforms;
-		for(const auto& [name,value]:stage.Uniforms) std::visit([&](const auto& v){uniforms[name]=v;},value);
-		auto scalar=[&](const std::string& name) {
-			if(!uniforms.contains(name) || !std::holds_alternative<float>(uniforms.at(name))) {fail();return 0.f;}
-			return std::get<float>(uniforms.at(name));
-		};
-		const float nearPlane=scalar("data_UBONear"),farPlane=scalar("data_UBOFar");
-		if(!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane<=0 || farPlane<=nearPlane) fail();
-		const auto contract=std::make_tuple(stage.ShadowLightId,nearPlane,farPlane);
-		if(contracts.contains(color->Name) && contracts.at(color->Name)!=contract) fail();
-		contracts[color->Name]=contract;
-		if(!faces[color->Name].insert(stage.ShadowFace).second) fail();
-	}
-	if(faces.size()>1) throw std::runtime_error("Only one shadowed point cubemap is supported");
-	if(!faces.empty()) for(const auto& stage:desc.Stages) if(stage.ShadowType=="point")
-		throw std::runtime_error("Point atlas and cube captures cannot share one shadow light slot");
-	for(const auto& [name,written]:faces) if(written.size()!=6) throw std::runtime_error("Point cubemap requires six capture stages: "+name);
+	for (const auto& stage : desc.StartStages)
+		if (stage.ShadowType == "pointCube")
+			throw std::runtime_error("Point cube capture must run every frame, not in StartStages");
+	std::map<std::string, std::set<int>> faces;
+	std::map<std::string, std::tuple<int, float, float>> contracts;
+	for (const auto* stages : { &desc.StartStages, &desc.Stages })
+		for (const auto& stage : *stages) {
+			if (stage.ShadowType != "pointCube")
+				continue;
+			auto fail = [&] { throw std::runtime_error("Invalid pointCube contract: " + stage.Name); };
+			const auto frame
+				= std::find_if(desc.FrameBuffers.begin(), desc.FrameBuffers.end(), [&](const auto& f) { return f.Name == stage.FrameBuffer; });
+			if (stage.Draw != DrawContent::SHADOW || stage.Once || stage.UpdateInterval != 1 || !stage.Enabled || !stage.ClearColor
+				|| !stage.ClearDepth || stage.ClearValue.x != 1 || stage.ShadowFace < 0 || stage.ShadowFace > 5 || frame == desc.FrameBuffers.end()
+				|| frame->Layer != stage.ShadowFace || frame->Mip != 0 || frame->Textures.size() != 1 || frame->Depth.empty())
+				fail();
+			const auto color = std::find_if(desc.Textures.begin(), desc.Textures.end(), [&](const auto& t) { return t.Name == frame->Textures[0]; });
+			const auto depth = std::find_if(desc.Textures.begin(), desc.Textures.end(), [&](const auto& t) { return t.Name == frame->Depth; });
+			if (color == desc.Textures.end() || depth == desc.Textures.end())
+				fail();
+			const auto& r = color->Resource;
+			const auto& d = depth->Resource;
+			if (!color->Path.empty() || !depth->Path.empty() || r.texType != TextureType::TEXTURE_CUBE || r.pixelType != PixelFormat::R_FLOAT
+				|| r.width <= 0 || r.height != r.width || r.depth != 6 || r.mipMapCount != 1 || r.useMipmap || r.minFilter != MinMagFilter::NEAREST
+				|| r.magFilter != MinMagFilter::NEAREST || d.texType != TextureType::DEPTH || d.width != r.width || d.height != r.height)
+				fail();
+			auto loaded = UTILS::FromJson<MaterialResource>(stage.Material);
+			if (loaded.isErr())
+				fail();
+			auto uniforms = loaded.unwrap().Uniforms;
+			for (const auto& [name, value] : stage.Uniforms)
+				std::visit([&](const auto& v) { uniforms[name] = v; }, value);
+			auto scalar = [&](const std::string& name) {
+				if (!uniforms.contains(name) || !std::holds_alternative<float>(uniforms.at(name))) {
+					fail();
+					return 0.f;
+				}
+				return std::get<float>(uniforms.at(name));
+			};
+			const float nearPlane = scalar("data_UBONear"), farPlane = scalar("data_UBOFar");
+			if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane)
+				fail();
+			const auto contract = std::make_tuple(stage.ShadowLightId, nearPlane, farPlane);
+			if (contracts.contains(color->Name) && contracts.at(color->Name) != contract)
+				fail();
+			contracts[color->Name] = contract;
+			if (!faces[color->Name].insert(stage.ShadowFace).second)
+				fail();
+		}
+	if (faces.size() > 1)
+		throw std::runtime_error("Only one shadowed point cubemap is supported");
+	if (!faces.empty())
+		for (const auto& stage : desc.Stages)
+			if (stage.ShadowType == "point")
+				throw std::runtime_error("Point atlas and cube captures cannot share one shadow light slot");
+	for (const auto& [name, written] : faces)
+		if (written.size() != 6)
+			throw std::runtime_error("Point cubemap requires six capture stages: " + name);
 }
 static RenderGraphPipeline::Descriptor ResolvePipelineSettings(const RenderGraphPipeline::Descriptor& descriptor) {
-	auto resolved=descriptor;
+	auto resolved = descriptor;
 	RenderGraphPipeline::SettingsDescriptor merged;
-	auto apply=[&](RenderGraphPipeline::SettingsDescriptor settings) {
-		for(const auto& group:settings.Groups) for(const auto& path:group.Materials)
-			for(const auto& [name,value]:group.Uniforms) {
-				const auto alias=group.Rename.find(path);
-				const auto key=alias!=group.Rename.end() && alias->second.contains(name)?alias->second.at(name):name;
-				settings.Materials[path][key]=value;
-			}
-		for(const auto& [path,uniforms]:settings.Materials)
-			for(const auto& [name,value]:uniforms) merged.Materials[path][name]=value;
-		for(const auto& replacement:settings.Textures) {
-			auto target=std::find_if(resolved.Textures.begin(),resolved.Textures.end(),[&](const auto& t){return t.Name==replacement.Name;});
-			if(target==resolved.Textures.end()) throw std::runtime_error("Pipeline settings reference unknown texture: "+replacement.Name);
-			*target=replacement;
+	auto apply = [&](RenderGraphPipeline::SettingsDescriptor settings) {
+		for (const auto& group : settings.Groups)
+			for (const auto& path : group.Materials)
+				for (const auto& [name, value] : group.Uniforms) {
+					const auto alias = group.Rename.find(path);
+					const auto key = alias != group.Rename.end() && alias->second.contains(name) ? alias->second.at(name) : name;
+					settings.Materials[path][key] = value;
+				}
+		for (const auto& [path, uniforms] : settings.Materials)
+			for (const auto& [name, value] : uniforms)
+				merged.Materials[path][name] = value;
+		for (const auto& replacement : settings.Textures) {
+			auto target = std::find_if(resolved.Textures.begin(), resolved.Textures.end(), [&](const auto& t) { return t.Name == replacement.Name; });
+			if (target == resolved.Textures.end())
+				throw std::runtime_error("Pipeline settings reference unknown texture: " + replacement.Name);
+			*target = replacement;
 		}
 	};
 	apply(descriptor.Settings);
-	if(!descriptor.SettingsAsset.empty()) {
-		auto result=UTILS::FromJson<RenderGraphPipeline::SettingsDescriptor>(descriptor.SettingsAsset);
-		if(result.isErr()) throw std::runtime_error("Pipeline settings asset: "+result.unwrapErr().text);
+	if (!descriptor.SettingsAsset.empty()) {
+		auto result = UTILS::FromJson<RenderGraphPipeline::SettingsDescriptor>(descriptor.SettingsAsset);
+		if (result.isErr())
+			throw std::runtime_error("Pipeline settings asset: " + result.unwrapErr().text);
 		apply(result.unwrap());
 	}
-	std::vector<std::vector<PipelineStage::Descriptor>*> groups={&resolved.StartStages,&resolved.Stages};
-	for(auto& pass:resolved.LightPasses) {
-		groups.push_back(&pass.InitStages);groups.push_back(&pass.CaptureStages);groups.push_back(&pass.PrepareStages);groups.push_back(&pass.ResolveStages);
+	std::vector<std::vector<PipelineStage::Descriptor>*> groups = { &resolved.StartStages, &resolved.Stages };
+	for (auto& pass : resolved.LightPasses) {
+		groups.push_back(&pass.InitStages);
+		groups.push_back(&pass.CaptureStages);
+		groups.push_back(&pass.PrepareStages);
+		groups.push_back(&pass.ResolveStages);
 	}
-	for(auto* stages:groups) for(auto& stage:*stages) {
-		if(!merged.Materials.contains(stage.Material)) continue;
-		auto uniforms=merged.Materials.at(stage.Material);
-		// Explicit stage values (face, roughness, quality) take precedence.
-		for(const auto& [name,value]:stage.Uniforms) uniforms[name]=value;
-		stage.Uniforms=std::move(uniforms);
-	}
-	auto validation=resolved;
-	for(const auto& pass:resolved.LightPasses) {
-		if(pass.ShadowBudget<-1 || pass.VolumeLightLimit<-1) throw std::runtime_error("Invalid light pass budget");
-		for(const auto* children:{&pass.InitStages,&pass.CaptureStages,&pass.PrepareStages,&pass.ResolveStages}) for(const auto& child:*children)
-			if(child.Draw==DrawContent::LIGHT_ACCUMULATION || child.Once || child.UpdateInterval!=1 || !child.Enabled) throw std::runtime_error("Invalid light pass child: "+child.Name);
-		validation.Stages.insert(validation.Stages.end(),pass.CaptureStages.begin(),pass.CaptureStages.end());
-		int point=0,spot=0,directional=0;
-		for(const auto& capture:pass.CaptureStages) {
-			if(capture.Draw!=DrawContent::SHADOW || capture.ShadowLightId>=0 || !capture.OverrideMaterial)
-				throw std::runtime_error("Managed capture must use the current light: "+capture.Name);
-			if(capture.ShadowType=="pointCube") ++point;
-			else if(capture.ShadowType=="spot") ++spot;
-			else if(capture.ShadowType=="directional") ++directional;
-			else throw std::runtime_error("Unsupported managed shadow type: "+capture.Name);
-			if(capture.ShadowType!="pointCube" && (!std::isfinite(capture.ShadowRange) || capture.ShadowRange<=.1f))
-				throw std::runtime_error("Invalid projected shadow range: "+capture.Name);
+	for (auto* stages : groups)
+		for (auto& stage : *stages) {
+			if (!merged.Materials.contains(stage.Material))
+				continue;
+			auto uniforms = merged.Materials.at(stage.Material);
+			// Explicit stage values (face, roughness, quality) take precedence.
+			for (const auto& [name, value] : stage.Uniforms)
+				uniforms[name] = value;
+			stage.Uniforms = std::move(uniforms);
 		}
-		if(point!=6 || spot!=1 || directional!=1) throw std::runtime_error("Managed lights require six point faces, spot and directional capture");
-		for(const auto& resolve:pass.ResolveStages)
-			if(resolve.Draw!=DrawContent::QUAD || !resolve.Additive || resolve.ClearColor || resolve.ClearDepth)
-				throw std::runtime_error("Per-light resolve must accumulate without clearing: "+resolve.Name);
+	auto validation = resolved;
+	for (const auto& pass : resolved.LightPasses) {
+		if (pass.ShadowBudget < -1 || pass.VolumeLightLimit < -1)
+			throw std::runtime_error("Invalid light pass budget");
+		for (const auto* children : { &pass.InitStages, &pass.CaptureStages, &pass.PrepareStages, &pass.ResolveStages })
+			for (const auto& child : *children)
+				if (child.Draw == DrawContent::LIGHT_ACCUMULATION || child.Once || child.UpdateInterval != 1 || !child.Enabled)
+					throw std::runtime_error("Invalid light pass child: " + child.Name);
+		validation.Stages.insert(validation.Stages.end(), pass.CaptureStages.begin(), pass.CaptureStages.end());
+		int point = 0, spot = 0, directional = 0;
+		for (const auto& capture : pass.CaptureStages) {
+			if (capture.Draw != DrawContent::SHADOW || capture.ShadowLightId >= 0 || !capture.OverrideMaterial)
+				throw std::runtime_error("Managed capture must use the current light: " + capture.Name);
+			if (capture.ShadowType == "pointCube")
+				++point;
+			else if (capture.ShadowType == "spot")
+				++spot;
+			else if (capture.ShadowType == "directional")
+				++directional;
+			else
+				throw std::runtime_error("Unsupported managed shadow type: " + capture.Name);
+			if (capture.ShadowType != "pointCube" && (!std::isfinite(capture.ShadowRange) || capture.ShadowRange <= .1f))
+				throw std::runtime_error("Invalid projected shadow range: " + capture.Name);
+		}
+		if (point != 6 || spot != 1 || directional != 1)
+			throw std::runtime_error("Managed lights require six point faces, spot and directional capture");
+		for (const auto& resolve : pass.ResolveStages)
+			if (resolve.Draw != DrawContent::QUAD || !resolve.Additive || resolve.ClearColor || resolve.ClearDepth)
+				throw std::runtime_error("Per-light resolve must accumulate without clearing: " + resolve.Name);
 	}
-	for(const auto& stage:resolved.Stages) if(stage.Draw==DrawContent::LIGHT_ACCUMULATION &&
-		std::count_if(resolved.LightPasses.begin(),resolved.LightPasses.end(),[&](const auto& p){return p.Name==stage.LightPass;})!=1)
-		throw std::runtime_error("Unknown light pass: "+stage.LightPass);
+	for (const auto& stage : resolved.Stages)
+		if (stage.Draw == DrawContent::LIGHT_ACCUMULATION
+			&& std::count_if(resolved.LightPasses.begin(), resolved.LightPasses.end(), [&](const auto& p) { return p.Name == stage.LightPass; }) != 1)
+			throw std::runtime_error("Unknown light pass: " + stage.LightPass);
 	ValidatePointCube(validation);
-    auto rejectFG=[](const auto& stages){for(const auto& stage:stages)if(stage.Draw==DrawContent::FRAME_GENERATION)
-        throw std::runtime_error("FRAME_GENERATION is allowed only in the main per-frame stage list");};
-    rejectFG(resolved.StartStages);
-    for(const auto& pass:resolved.LightPasses){rejectFG(pass.InitStages);rejectFG(pass.CaptureStages);rejectFG(pass.PrepareStages);rejectFG(pass.ResolveStages);}
-    std::set<std::string> produced,fgInputs;
-    unsigned fgCount=0;
-    for(const auto& stage:resolved.Stages){
-        if(!stage.Enabled)continue;
-        std::set<std::string> writes(stage.Writes.begin(),stage.Writes.end());
-        if(!stage.DispatchTexture.empty())writes.insert(stage.DispatchTexture);
-        if(!stage.FrameBuffer.empty()){
-            const auto frame=std::find_if(resolved.FrameBuffers.begin(),resolved.FrameBuffers.end(),[&](const auto& f){return f.Name==stage.FrameBuffer;});
-            if(frame!=resolved.FrameBuffers.end()){writes.insert(frame->Textures.begin(),frame->Textures.end());if(!frame->Depth.empty())writes.insert(frame->Depth);}
-        }
-        for(const auto& output:writes)if(fgInputs.contains(output))throw std::runtime_error("FG input is overwritten after FRAME_GENERATION: "+output);
-        if(stage.Draw==DrawContent::FRAME_GENERATION){
-            if(++fgCount>1)throw std::runtime_error("Only one main FRAME_GENERATION stage is allowed");
-            if(!writes.empty()||!stage.Material.empty()||!stage.Program.empty())throw std::runtime_error("FRAME_GENERATION must not write a framebuffer or use a shader material");
-            for(const char* key:{"Color","Depth","MotionVectors","UI"}){
-                if(!stage.Bindings.contains(key))throw std::runtime_error("Missing FG input: "+std::string(key));
-                const auto& name=stage.Bindings.at(key);
-                const auto resource=std::find_if(resolved.Textures.begin(),resolved.Textures.end(),[&](const auto& t){return t.Name==name;});
-                const bool scene=std::string_view(key)=="Color"||std::string_view(key)=="UI";
-                const auto format=scene?PixelFormat::RGBA_INT:std::string_view(key)=="Depth"?PixelFormat::DEPTH32_FLOAT:PixelFormat::RG_FLOAT;
-                const auto size=scene?RenderGraphPipeline::TextureDesc::SizeBase::DISPLAY:RenderGraphPipeline::TextureDesc::SizeBase::RENDER;
-                if(resource==resolved.Textures.end()||resource->Resource.pixelType!=format||resource->Size!=size||resource->Scale!=1||resource->Resource.width||resource->Resource.height)
-                    throw std::runtime_error("Invalid FG texture format/size: "+name);
-                if(!produced.contains(name))throw std::runtime_error("FG texture must be produced each frame before the FG stage: "+name);
-                fgInputs.insert(name);
-            }
-        }
-        if(!stage.Once&&stage.UpdateInterval==1)produced.insert(writes.begin(),writes.end());
-    }
+	auto rejectFG = [](const auto& stages) {
+		for (const auto& stage : stages)
+			if (stage.Draw == DrawContent::FRAME_GENERATION)
+				throw std::runtime_error("FRAME_GENERATION is allowed only in the main per-frame stage list");
+	};
+	rejectFG(resolved.StartStages);
+	for (const auto& pass : resolved.LightPasses) {
+		rejectFG(pass.InitStages);
+		rejectFG(pass.CaptureStages);
+		rejectFG(pass.PrepareStages);
+		rejectFG(pass.ResolveStages);
+	}
+	std::set<std::string> produced, fgInputs;
+	unsigned fgCount = 0;
+	for (const auto& stage : resolved.Stages) {
+		if (!stage.Enabled)
+			continue;
+		std::set<std::string> writes(stage.Writes.begin(), stage.Writes.end());
+		if (!stage.DispatchTexture.empty())
+			writes.insert(stage.DispatchTexture);
+		if (!stage.FrameBuffer.empty()) {
+			const auto frame = std::find_if(
+				resolved.FrameBuffers.begin(), resolved.FrameBuffers.end(), [&](const auto& f) { return f.Name == stage.FrameBuffer; });
+			if (frame != resolved.FrameBuffers.end()) {
+				writes.insert(frame->Textures.begin(), frame->Textures.end());
+				if (!frame->Depth.empty())
+					writes.insert(frame->Depth);
+			}
+		}
+		for (const auto& output : writes)
+			if (fgInputs.contains(output))
+				throw std::runtime_error("FG input is overwritten after FRAME_GENERATION: " + output);
+		if (stage.Draw == DrawContent::FRAME_GENERATION) {
+			if (++fgCount > 1)
+				throw std::runtime_error("Only one main FRAME_GENERATION stage is allowed");
+			if (!writes.empty() || !stage.Material.empty() || !stage.Program.empty())
+				throw std::runtime_error("FRAME_GENERATION must not write a framebuffer or use a shader material");
+			for (const char* key : { "Color", "Depth", "MotionVectors", "UI" }) {
+				if (!stage.Bindings.contains(key))
+					throw std::runtime_error("Missing FG input: " + std::string(key));
+				const auto& name = stage.Bindings.at(key);
+				const auto resource = std::find_if(resolved.Textures.begin(), resolved.Textures.end(), [&](const auto& t) { return t.Name == name; });
+				const bool scene = std::string_view(key) == "Color" || std::string_view(key) == "UI";
+				const auto format = scene			   ? PixelFormat::RGBA_INT
+					: std::string_view(key) == "Depth" ? PixelFormat::DEPTH32_FLOAT
+													   : PixelFormat::RG_FLOAT;
+				const auto size = scene ? RenderGraphPipeline::TextureDesc::SizeBase::DISPLAY : RenderGraphPipeline::TextureDesc::SizeBase::RENDER;
+				if (resource == resolved.Textures.end() || resource->Resource.pixelType != format || resource->Size != size || resource->Scale != 1
+					|| resource->Resource.width || resource->Resource.height)
+					throw std::runtime_error("Invalid FG texture format/size: " + name);
+				if (!produced.contains(name))
+					throw std::runtime_error("FG texture must be produced each frame before the FG stage: " + name);
+				fgInputs.insert(name);
+			}
+		}
+		if (!stage.Once && stage.UpdateInterval == 1)
+			produced.insert(writes.begin(), writes.end());
+	}
 	return resolved;
 }
 
-RenderGraphPipeline::RenderGraphPipeline(const Descriptor& descriptor, Renderer& renderer,const std::string& pipelineAsset)
-	: mDescriptor(ResolvePipelineSettings(descriptor)),mSourceDescriptor(descriptor),mPipelineAsset(pipelineAsset) {
-	if(!mPipelineAsset.empty()) mPipelineWriteTime=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(mPipelineAsset);
-	if(!descriptor.SettingsAsset.empty()) mSettingsWriteTime=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(descriptor.SettingsAsset);
+RenderGraphPipeline::RenderGraphPipeline(const Descriptor& descriptor, Renderer& renderer, const std::string& pipelineAsset)
+	: mDescriptor(ResolvePipelineSettings(descriptor))
+	, mSourceDescriptor(descriptor)
+	, mPipelineAsset(pipelineAsset) {
+	if (!mPipelineAsset.empty())
+		mPipelineWriteTime = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(mPipelineAsset);
+	if (!descriptor.SettingsAsset.empty())
+		mSettingsWriteTime = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(descriptor.SettingsAsset);
 	for (const auto& b : mDescriptor.Buffers) {
-		if (!b.Size) throw std::runtime_error("Empty pipeline buffer: " + b.Name);
-		if (b.Type == BufferType::UNIFORM) mUniformBuffers.emplace(b.Name,renderer.createUniformBuffer(nullptr,b.Size));
-		else mStorageBuffers.emplace(b.Name,renderer.createStorageBuffer(nullptr,b.Size,b.Stride));
+		if (!b.Size)
+			throw std::runtime_error("Empty pipeline buffer: " + b.Name);
+		if (b.Type == BufferType::UNIFORM)
+			mUniformBuffers.emplace(b.Name, renderer.createUniformBuffer(nullptr, b.Size));
+		else
+			mStorageBuffers.emplace(b.Name, renderer.createStorageBuffer(nullptr, b.Size, b.Stride));
 	}
 	mStartStages = loadStages(mDescriptor.StartStages);
-	for(const auto& descriptor:mDescriptor.LightPasses) {
-		if(mLightPasses.contains(descriptor.Name)) throw std::runtime_error("Duplicate light pass: "+descriptor.Name);
-		auto& pass=mLightPasses[descriptor.Name];pass.Descriptor=descriptor;
-		pass.InitStages=loadStages(descriptor.InitStages);
-		pass.CaptureStages=loadStages(descriptor.CaptureStages);
-		pass.PrepareStages=loadStages(descriptor.PrepareStages);
-		pass.ResolveStages=loadStages(descriptor.ResolveStages);
+	for (const auto& descriptor : mDescriptor.LightPasses) {
+		if (mLightPasses.contains(descriptor.Name))
+			throw std::runtime_error("Duplicate light pass: " + descriptor.Name);
+		auto& pass = mLightPasses[descriptor.Name];
+		pass.Descriptor = descriptor;
+		pass.InitStages = loadStages(descriptor.InitStages);
+		pass.CaptureStages = loadStages(descriptor.CaptureStages);
+		pass.PrepareStages = loadStages(descriptor.PrepareStages);
+		pass.ResolveStages = loadStages(descriptor.ResolveStages);
 	}
 	mStages = loadStages(mDescriptor.Stages);
 }
 
 void GameRenderer::reloadPipelineSettings(const std::string& asset) {
-	if(mRenderPipeline) mRenderPipeline->reloadSettings(*mContext.render,asset);
+	if (mRenderPipeline)
+		mRenderPipeline->reloadSettings(*mContext.render, asset);
 }
 
 void GameRenderer::printGpuProfile() const {
-	for(const auto& [stage,time]:mGpuStageTimes)
-		std::cout << "LIGHTING_GPU_STAGE " << stage << " mean_ms=" << time.first/time.second << " samples=" << time.second << std::endl;
+	for (const auto& [stage, time] : mGpuStageTimes)
+		std::cout << "LIGHTING_GPU_STAGE " << stage << " mean_ms=" << time.first / time.second << " samples=" << time.second << std::endl;
 }
 
 void RenderGraphPipeline::pollSettings(Renderer& renderer) {
-	auto& files=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-	const auto pipelineTime=mPipelineAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mPipelineAsset);
-	const auto settingsTime=mSourceDescriptor.SettingsAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mSourceDescriptor.SettingsAsset);
-	if(pipelineTime==mPipelineWriteTime && settingsTime==mSettingsWriteTime) return;
-	try {reloadSettings(renderer);}
-	catch(const std::exception& error) {std::cerr << "Pipeline settings reload failed: " << error.what() << std::endl;}
+	auto& files = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+	const auto pipelineTime = mPipelineAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mPipelineAsset);
+	const auto settingsTime
+		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+	if (pipelineTime == mPipelineWriteTime && settingsTime == mSettingsWriteTime)
+		return;
+	try {
+		reloadSettings(renderer);
+	} catch (const std::exception& error) {
+		std::cerr << "Pipeline settings reload failed: " << error.what() << std::endl;
+	}
 	// Invalid JSON is reported once per edit; the existing settings remain active.
-	mPipelineWriteTime=pipelineTime;
+	mPipelineWriteTime = pipelineTime;
 	// A successful reload may have selected a different settings asset.
-	mSettingsWriteTime=mSourceDescriptor.SettingsAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+	mSettingsWriteTime
+		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
 }
 
-void RenderGraphPipeline::reloadSettings(Renderer& renderer,const std::string& asset) {
-	auto source=mSourceDescriptor;
-	if(!mPipelineAsset.empty()) {
-		auto result=UTILS::FromJson<Descriptor>(mPipelineAsset);
-		if(result.isErr()) throw std::runtime_error("Render pipeline: "+result.unwrapErr().text);
-		source=result.unwrap();
-		auto structure=source,previous=mSourceDescriptor;
-		structure.Settings={};previous.Settings={};
-		structure.SettingsAsset.clear();previous.SettingsAsset.clear();
-		if(UTILS::ToJson(structure).unwrap()!=UTILS::ToJson(previous).unwrap())
+void RenderGraphPipeline::reloadSettings(Renderer& renderer, const std::string& asset) {
+	auto source = mSourceDescriptor;
+	if (!mPipelineAsset.empty()) {
+		auto result = UTILS::FromJson<Descriptor>(mPipelineAsset);
+		if (result.isErr())
+			throw std::runtime_error("Render pipeline: " + result.unwrapErr().text);
+		source = result.unwrap();
+		auto structure = source, previous = mSourceDescriptor;
+		structure.Settings = { };
+		previous.Settings = { };
+		structure.SettingsAsset.clear();
+		previous.SettingsAsset.clear();
+		if (UTILS::ToJson(structure).unwrap() != UTILS::ToJson(previous).unwrap())
 			throw std::runtime_error("Pipeline graph changed; restart to apply resource/stage changes. Only Settings/SettingsAsset can reload live.");
 	}
-	const auto overrideAsset=asset.empty()?mSettingsOverrideAsset:asset;
-	if(!overrideAsset.empty()) source.SettingsAsset=overrideAsset;
-	auto candidate=ResolvePipelineSettings(source);
-	std::set<std::string> changedTextures,dirty;
-	for(size_t i=0;i<candidate.Textures.size();++i) {
-		if(UTILS::ToJson(candidate.Textures[i]).unwrap()!=UTILS::ToJson(mDescriptor.Textures[i]).unwrap())
+	const auto overrideAsset = asset.empty() ? mSettingsOverrideAsset : asset;
+	if (!overrideAsset.empty())
+		source.SettingsAsset = overrideAsset;
+	auto candidate = ResolvePipelineSettings(source);
+	std::set<std::string> changedTextures, dirty;
+	for (size_t i = 0; i < candidate.Textures.size(); ++i) {
+		if (UTILS::ToJson(candidate.Textures[i]).unwrap() != UTILS::ToJson(mDescriptor.Textures[i]).unwrap())
 			changedTextures.insert(candidate.Textures[i].Name);
 	}
-	dirty=changedTextures;
-	bool changed=!dirty.empty();
-	auto updateStages=[&](StagesArr& stages,const auto& descriptors) {
-		auto descriptor=descriptors.begin();
-		for(auto& stage:stages) {
-			const auto& next=*descriptor++;
-			bool update=UTILS::ToJson(next).unwrap()!=UTILS::ToJson(stage->mDescriptor).unwrap();
+	dirty = changedTextures;
+	bool changed = !dirty.empty();
+	auto updateStages = [&](StagesArr& stages, const auto& descriptors) {
+		auto descriptor = descriptors.begin();
+		for (auto& stage : stages) {
+			const auto& next = *descriptor++;
+			bool update = UTILS::ToJson(next).unwrap() != UTILS::ToJson(stage->mDescriptor).unwrap();
 			std::set<std::string> outputs;
-			if(!next.FrameBuffer.empty()) {
-				const auto frame=std::find_if(candidate.FrameBuffers.begin(),candidate.FrameBuffers.end(),[&](const auto& f){return f.Name==next.FrameBuffer;});
-				outputs.insert(frame->Textures.begin(),frame->Textures.end());
+			if (!next.FrameBuffer.empty()) {
+				const auto frame = std::find_if(
+					candidate.FrameBuffers.begin(), candidate.FrameBuffers.end(), [&](const auto& f) { return f.Name == next.FrameBuffer; });
+				outputs.insert(frame->Textures.begin(), frame->Textures.end());
 			}
-			if(!next.DispatchTexture.empty()) outputs.insert(next.DispatchTexture);
-			outputs.insert(next.Writes.begin(),next.Writes.end());
-			for(const auto& name:outputs) if(dirty.contains(name)) update=true;
-			for(const auto& [name,value]:next.Uniforms)
-				if(const auto* texture=std::get_if<std::string>(&value);texture && dirty.contains(*texture)) update=true;
-			stage->mDescriptor=next;
-			if(update) {
-				stage->mExecuted=false;
-				dirty.insert(outputs.begin(),outputs.end());
-				changed=true;
+			if (!next.DispatchTexture.empty())
+				outputs.insert(next.DispatchTexture);
+			outputs.insert(next.Writes.begin(), next.Writes.end());
+			for (const auto& name : outputs)
+				if (dirty.contains(name))
+					update = true;
+			for (const auto& [name, value] : next.Uniforms)
+				if (const auto* texture = std::get_if<std::string>(&value); texture && dirty.contains(*texture))
+					update = true;
+			stage->mDescriptor = next;
+			if (update) {
+				stage->mExecuted = false;
+				dirty.insert(outputs.begin(), outputs.end());
+				changed = true;
 			}
 		}
 	};
-	updateStages(mStartStages,candidate.StartStages);
-	updateStages(mStages,candidate.Stages);
-	for(const auto& descriptor:candidate.LightPasses) {
-		auto& pass=mLightPasses.at(descriptor.Name);pass.Descriptor=descriptor;
-		updateStages(pass.InitStages,descriptor.InitStages);
-		updateStages(pass.CaptureStages,descriptor.CaptureStages);
-		updateStages(pass.PrepareStages,descriptor.PrepareStages);
-		updateStages(pass.ResolveStages,descriptor.ResolveStages);
+	updateStages(mStartStages, candidate.StartStages);
+	updateStages(mStages, candidate.Stages);
+	for (const auto& descriptor : candidate.LightPasses) {
+		auto& pass = mLightPasses.at(descriptor.Name);
+		pass.Descriptor = descriptor;
+		updateStages(pass.InitStages, descriptor.InitStages);
+		updateStages(pass.CaptureStages, descriptor.CaptureStages);
+		updateStages(pass.PrepareStages, descriptor.PrepareStages);
+		updateStages(pass.ResolveStages, descriptor.ResolveStages);
 	}
-	mDescriptor=std::move(candidate);mSourceDescriptor=std::move(source);
-	mSettingsOverrideAsset=overrideAsset;
-	if(changed) {
-		mHistoryValid=false;mUpscaleHistoryValid=false;mPresentationHistoryValid=false;mIsInitialized=false;
-		if(!changedTextures.empty() && mSize.x>0 && mSize.y>0) {
-			for(const auto& name:changedTextures) {mAllocatedTextures.erase(name);mTextureRevisions.erase(name);}
-			const auto size=mSize;mSize={0,0};resize(renderer,size.x,size.y);
+	mDescriptor = std::move(candidate);
+	mSourceDescriptor = std::move(source);
+	mSettingsOverrideAsset = overrideAsset;
+	if (changed) {
+		mHistoryValid = false;
+		mUpscaleHistoryValid = false;
+		mPresentationHistoryValid = false;
+		mIsInitialized = false;
+		if (!changedTextures.empty() && mSize.x > 0 && mSize.y > 0) {
+			for (const auto& name : changedTextures) {
+				mAllocatedTextures.erase(name);
+				mTextureRevisions.erase(name);
+			}
+			const auto size = mSize;
+			mSize = { 0, 0 };
+			resize(renderer, size.x, size.y);
 		}
 		std::cout << "Pipeline settings updated: " << mPipelineAsset << "; SettingsAsset=" << mSourceDescriptor.SettingsAsset << std::endl;
 	}
-	auto& files=RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-	mSettingsWriteTime=mSourceDescriptor.SettingsAsset.empty()?std::filesystem::file_time_type{}:files.lastWriteTime(mSourceDescriptor.SettingsAsset);
-	if(!mPipelineAsset.empty()) mPipelineWriteTime=files.lastWriteTime(mPipelineAsset);
+	auto& files = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
+	mSettingsWriteTime
+		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+	if (!mPipelineAsset.empty())
+		mPipelineWriteTime = files.lastWriteTime(mPipelineAsset);
 }
 
 void RenderGraphPipeline::invalidateResources(const std::vector<std::string>& resources) {
-	std::set<std::string> dirty(resources.begin(),resources.end());
-	for(auto* stages:stageGroups()) for(auto& stage:*stages) {
-		const auto& descriptor=stage->mDescriptor;
-		std::set<std::string> outputs;
-		if(!descriptor.FrameBuffer.empty()) {
-			const auto frame=std::find_if(mDescriptor.FrameBuffers.begin(),mDescriptor.FrameBuffers.end(),[&](const auto& f){return f.Name==descriptor.FrameBuffer;});
-			outputs.insert(frame->Textures.begin(),frame->Textures.end());
+	std::set<std::string> dirty(resources.begin(), resources.end());
+	for (auto* stages : stageGroups())
+		for (auto& stage : *stages) {
+			const auto& descriptor = stage->mDescriptor;
+			std::set<std::string> outputs;
+			if (!descriptor.FrameBuffer.empty()) {
+				const auto frame = std::find_if(mDescriptor.FrameBuffers.begin(), mDescriptor.FrameBuffers.end(),
+					[&](const auto& f) { return f.Name == descriptor.FrameBuffer; });
+				outputs.insert(frame->Textures.begin(), frame->Textures.end());
+			}
+			if (!descriptor.DispatchTexture.empty())
+				outputs.insert(descriptor.DispatchTexture);
+			bool update = false;
+			for (const auto& name : outputs)
+				if (dirty.contains(name))
+					update = true;
+			for (const auto& [name, value] : descriptor.Uniforms)
+				if (const auto* texture = std::get_if<std::string>(&value); texture && dirty.contains(*texture))
+					update = true;
+			if (update) {
+				stage->mExecuted = false;
+				dirty.insert(outputs.begin(), outputs.end());
+			}
 		}
-		if(!descriptor.DispatchTexture.empty()) outputs.insert(descriptor.DispatchTexture);
-		bool update=false;
-		for(const auto& name:outputs) if(dirty.contains(name)) update=true;
-		for(const auto& [name,value]:descriptor.Uniforms)
-			if(const auto* texture=std::get_if<std::string>(&value);texture && dirty.contains(*texture)) update=true;
-		if(update) {stage->mExecuted=false;dirty.insert(outputs.begin(),outputs.end());}
-	}
-	mHistoryValid=false;mUpscaleHistoryValid=false;mIsInitialized=false;
+	mHistoryValid = false;
+	mUpscaleHistoryValid = false;
+	mIsInitialized = false;
 }
 
 void RenderGraphPipeline::pollResourceUpdates() {
 	std::vector<std::string> changed;
-	for(const auto& texture:mDescriptor.Textures) if(texture.Persistent && mAllocatedTextures.contains(texture.Name)) {
-		const auto revision=mAllocatedTextures.at(texture.Name)->getRevision();
-		auto [found,inserted]=mTextureRevisions.emplace(texture.Name,revision);
-		if(!inserted && found->second!=revision) {changed.push_back(texture.Name);found->second=revision;}
-	}
-	if(!changed.empty()) invalidateResources(changed);
+	for (const auto& texture : mDescriptor.Textures)
+		if (texture.Persistent && mAllocatedTextures.contains(texture.Name)) {
+			const auto revision = mAllocatedTextures.at(texture.Name)->getRevision();
+			auto [found, inserted] = mTextureRevisions.emplace(texture.Name, revision);
+			if (!inserted && found->second != revision) {
+				changed.push_back(texture.Name);
+				found->second = revision;
+			}
+		}
+	if (!changed.empty())
+		invalidateResources(changed);
 }
 
-void RenderGraphPipeline::prepareUpscaler(Renderer& renderer,int width,int height) {
-    if(width<=0||height<=0)return;
-    const auto settings=DriverInterface::settings.upscaler;
-    if(!std::isfinite(settings.sharpness)||settings.sharpness<0||settings.sharpness>1)throw std::runtime_error("Upscaler sharpness must be in [0,1]");
-    auto* upscaleStage=static_cast<PipelineStage*>(nullptr);
-    for(auto& stage:mStages)if(stage->mDescriptor.Enabled&&stage->mDrawContent==DrawContent::UPSCALE) {
-        if(upscaleStage)throw std::runtime_error("A pipeline can have only one active UPSCALE stage");
-        upscaleStage=stage.get();
-    }
-    mRenderSize={width,height};
-    const bool changed=!mUpscalerSettingsLoaded||settings.technology!=mUpscalerSettings.technology||settings.quality!=mUpscalerSettings.quality;
-    mUpscalerSettings=settings;
-    if(changed) {mUpscalerSettingsLoaded=true;mUpscalerFailed=false;mUpscaler.reset();mUpscaleHistoryValid=false;mHistoryValid=false;mPresentationHistoryValid=false;}
-    if(mUpscalerFailed)mUpscaler.reset();
-    if(settings.technology==UpscalerType::OFF||!upscaleStage) {
-        if(settings.technology!=UpscalerType::OFF&&!upscaleStage&&changed)
-            std::cerr<<"UPSCALER_FALLBACK pipeline has no enabled UPSCALE stage\n";
-        mUpscaler.reset();mUpscalerStatus={false,false,UpscalerType::OFF,"Native AA",{}};return;
-    }
-    if(mUpscalerFailed)return;
-    try {
-        if(!mUpscaler) {
-            if(settings.technology==UpscalerType::AUTO) {
-                try {mUpscaler=renderer.getDriver()->createUpscaler(UpscalerType::DLSS);}
-                catch(const UnsupportedUpscaler&) {mUpscaler=renderer.getDriver()->createUpscaler(UpscalerType::FSR);}
-            } else mUpscaler=renderer.getDriver()->createUpscaler(settings.technology);
-        }
-        const MATH::Vector2i display{width,height};
-        auto render=mUpscaler->renderSize(display,settings.quality);
-        if(render.x<=0||render.y<=0||render.x>width||render.y>height)throw UnsupportedUpscaler("SDK returned invalid render size");
-        mUpscaler->configure(render,display,settings.quality);mRenderSize=render;
-        mUpscalerStatus=mUpscaler->capabilities();
-    } catch(const UnsupportedUpscaler& error) {
-        mUpscaler.reset();mUpscalerFailed=true;mUpscalerStatus={false,false,settings.technology,{},error.what()};
-        if(upscaleStage->mDescriptor.Unsupported=="ERROR")throw;
-        std::cerr<<"UPSCALER_FALLBACK "<<error.what()<<'\n';
-    }
+void RenderGraphPipeline::prepareUpscaler(Renderer& renderer, int width, int height) {
+	if (width <= 0 || height <= 0)
+		return;
+	const auto settings = DriverInterface::settings.upscaler;
+	if (!std::isfinite(settings.sharpness) || settings.sharpness < 0 || settings.sharpness > 1)
+		throw std::runtime_error("Upscaler sharpness must be in [0,1]");
+	auto* upscaleStage = static_cast<PipelineStage*>(nullptr);
+	for (auto& stage : mStages)
+		if (stage->mDescriptor.Enabled && stage->mDrawContent == DrawContent::UPSCALE) {
+			if (upscaleStage)
+				throw std::runtime_error("A pipeline can have only one active UPSCALE stage");
+			upscaleStage = stage.get();
+		}
+	mRenderSize = { width, height };
+	const bool changed
+		= !mUpscalerSettingsLoaded || settings.technology != mUpscalerSettings.technology || settings.quality != mUpscalerSettings.quality;
+	mUpscalerSettings = settings;
+	if (changed) {
+		mUpscalerSettingsLoaded = true;
+		mUpscalerFailed = false;
+		mUpscaler.reset();
+		mUpscaleHistoryValid = false;
+		mHistoryValid = false;
+		mPresentationHistoryValid = false;
+	}
+	if (mUpscalerFailed)
+		mUpscaler.reset();
+	if (settings.technology == UpscalerType::OFF || !upscaleStage) {
+		if (settings.technology != UpscalerType::OFF && !upscaleStage && changed)
+			std::cerr << "UPSCALER_FALLBACK pipeline has no enabled UPSCALE stage\n";
+		mUpscaler.reset();
+		mUpscalerStatus = { false, false, UpscalerType::OFF, "Native AA", { } };
+		return;
+	}
+	if (mUpscalerFailed)
+		return;
+	try {
+		if (!mUpscaler) {
+			if (settings.technology == UpscalerType::AUTO) {
+				try {
+					mUpscaler = renderer.getDriver()->createUpscaler(UpscalerType::DLSS);
+				} catch (const UnsupportedUpscaler&) {
+					mUpscaler = renderer.getDriver()->createUpscaler(UpscalerType::FSR);
+				}
+			}
+			else
+				mUpscaler = renderer.getDriver()->createUpscaler(settings.technology);
+		}
+		const MATH::Vector2i display { width, height };
+		auto render = mUpscaler->renderSize(display, settings.quality);
+		if (render.x <= 0 || render.y <= 0 || render.x > width || render.y > height)
+			throw UnsupportedUpscaler("SDK returned invalid render size");
+		mUpscaler->configure(render, display, settings.quality);
+		mRenderSize = render;
+		mUpscalerStatus = mUpscaler->capabilities();
+	} catch (const UnsupportedUpscaler& error) {
+		mUpscaler.reset();
+		mUpscalerFailed = true;
+		mUpscalerStatus = { false, false, settings.technology, { }, error.what() };
+		if (upscaleStage->mDescriptor.Unsupported == "ERROR")
+			throw;
+		std::cerr << "UPSCALER_FALLBACK " << error.what() << '\n';
+	}
 }
 
 void RenderGraphPipeline::resize(Renderer& renderer, int width, int height) {
-	if (width <= 0 || height <= 0 || (mSize.x == width && mSize.y == height && mAllocatedRenderSize==mRenderSize)) return;
-    if(mRenderSize.x<=0||mRenderSize.y<=0)mRenderSize={width,height};
-	auto previous=std::move(mAllocatedTextures);
+	if (width <= 0 || height <= 0 || (mSize.x == width && mSize.y == height && mAllocatedRenderSize == mRenderSize))
+		return;
+	if (mRenderSize.x <= 0 || mRenderSize.y <= 0)
+		mRenderSize = { width, height };
+	auto previous = std::move(mAllocatedTextures);
 	mTextures.clear();
 	for (const auto& t : mDescriptor.Textures) {
-		if (t.Name.empty() || mTextures.contains(t.Name) || !(t.Scale > 0)) throw std::runtime_error("Invalid/duplicate pipeline texture: " + t.Name);
-		if(t.Persistent && previous.contains(t.Name) && (t.Size==TextureDesc::SizeBase::FIXED || (t.Resource.width&&t.Resource.height))) {
-			mTextures[t.Name]=previous.at(t.Name);
-			if(t.History)mTextures[t.Name+"Previous"]=previous.at(t.Name+"Previous");
+		if (t.Name.empty() || mTextures.contains(t.Name) || !(t.Scale > 0))
+			throw std::runtime_error("Invalid/duplicate pipeline texture: " + t.Name);
+		if (t.Persistent && previous.contains(t.Name) && (t.Size == TextureDesc::SizeBase::FIXED || (t.Resource.width && t.Resource.height))) {
+			mTextures[t.Name] = previous.at(t.Name);
+			if (t.History)
+				mTextures[t.Name + "Previous"] = previous.at(t.Name + "Previous");
 			continue;
 		}
 		auto resource = t.Resource;
-        if(t.Size==TextureDesc::SizeBase::FIXED&&(!resource.width||!resource.height))throw std::runtime_error("FIXED texture needs explicit dimensions: "+t.Name);
-        const auto base=t.Size==TextureDesc::SizeBase::RENDER?mRenderSize:MATH::Vector2i{width,height};
-		if (!resource.width) resource.width = std::max(1,static_cast<int>(base.x*t.Scale));
-		if (!resource.height) resource.height = std::max(1,static_cast<int>(base.y*t.Scale));
-		auto create = [&]() { return t.Path.empty() ? renderer.createTexture(resource) : RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(t.Path); };
+		if (t.Size == TextureDesc::SizeBase::FIXED && (!resource.width || !resource.height))
+			throw std::runtime_error("FIXED texture needs explicit dimensions: " + t.Name);
+		const auto base = t.Size == TextureDesc::SizeBase::RENDER ? mRenderSize : MATH::Vector2i { width, height };
+		if (!resource.width)
+			resource.width = std::max(1, static_cast<int>(base.x * t.Scale));
+		if (!resource.height)
+			resource.height = std::max(1, static_cast<int>(base.y * t.Scale));
+		auto create = [&]() {
+			return t.Path.empty() ? renderer.createTexture(resource)
+								  : RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(t.Path);
+		};
 		mTextures[t.Name] = create();
-		if (!mTextures[t.Name]) throw std::runtime_error("Cannot allocate pipeline texture: " + t.Name);
+		if (!mTextures[t.Name])
+			throw std::runtime_error("Cannot allocate pipeline texture: " + t.Name);
 		if (t.History) {
-			if (!t.Path.empty()) throw std::runtime_error("History textures must be render targets");
-			mTextures[t.Name+"Previous"] = create();
+			if (!t.Path.empty())
+				throw std::runtime_error("History textures must be render targets");
+			mTextures[t.Name + "Previous"] = create();
 		}
 	}
 	mAllocatedTextures = mTextures;
-	mSize = {width,height};
-    mAllocatedRenderSize=mRenderSize;mUpscaleHistoryValid=false;mPresentationHistoryValid=false;
+	mSize = { width, height };
+	mAllocatedRenderSize = mRenderSize;
+	mUpscaleHistoryValid = false;
+	mPresentationHistoryValid = false;
 	mHistoryValid = false;
 	mIsInitialized = false;
 	rebuildFrameBuffers(renderer);
-	const bool history=std::any_of(mDescriptor.Textures.begin(),mDescriptor.Textures.end(),[](const auto& t){return t.History;});
-	if(history) {
-		auto current=std::move(mFrameBuffers);
-		for(const auto& t:mDescriptor.Textures) if(t.History) std::swap(mAllocatedTextures.at(t.Name),mAllocatedTextures.at(t.Name+"Previous"));
+	const bool history = std::any_of(mDescriptor.Textures.begin(), mDescriptor.Textures.end(), [](const auto& t) { return t.History; });
+	if (history) {
+		auto current = std::move(mFrameBuffers);
+		for (const auto& t : mDescriptor.Textures)
+			if (t.History)
+				std::swap(mAllocatedTextures.at(t.Name), mAllocatedTextures.at(t.Name + "Previous"));
 		rebuildFrameBuffers(renderer);
-		mAlternateFrameBuffers=std::move(mFrameBuffers);mFrameBuffers=std::move(current);
-		for(const auto& t:mDescriptor.Textures) if(t.History) std::swap(mAllocatedTextures.at(t.Name),mAllocatedTextures.at(t.Name+"Previous"));
-		for(auto* stages:stageGroups()) for(auto& stage:*stages)
-			stage->mFrameBuffer=stage->mDescriptor.FrameBuffer.empty()?nullptr:mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+		mAlternateFrameBuffers = std::move(mFrameBuffers);
+		mFrameBuffers = std::move(current);
+		for (const auto& t : mDescriptor.Textures)
+			if (t.History)
+				std::swap(mAllocatedTextures.at(t.Name), mAllocatedTextures.at(t.Name + "Previous"));
+		for (auto* stages : stageGroups())
+			for (auto& stage : *stages)
+				stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
 	}
 }
 
 void RenderGraphPipeline::rebuildFrameBuffers(Renderer& renderer) {
 	mFrameBuffers.clear();
 	for (const auto& f : mDescriptor.FrameBuffers) {
-		if (mFrameBuffers.contains(f.Name)) throw std::runtime_error("Duplicate framebuffer: " + f.Name);
+		if (mFrameBuffers.contains(f.Name))
+			throw std::runtime_error("Duplicate framebuffer: " + f.Name);
 		std::vector<std::shared_ptr<TextureInterface>> colors;
-		for (const auto& name : f.Textures) colors.push_back(mAllocatedTextures.at(name));
+		for (const auto& name : f.Textures)
+			colors.push_back(mAllocatedTextures.at(name));
 		auto depth = f.Depth.empty() ? nullptr : mAllocatedTextures.at(f.Depth);
-		if (colors.empty() && !depth) throw std::runtime_error("Empty framebuffer: " + f.Name);
-		const auto w=std::max<size_t>(1,(depth ? depth->getWidth() : colors.front()->getWidth()) >> f.Mip);
-		const auto h=std::max<size_t>(1,(depth ? depth->getHeight() : colors.front()->getHeight()) >> f.Mip);
-		if(depth && f.Mip) throw std::runtime_error("Depth attachment mip views are not supported");
-		for(const auto& texture:colors) {
-			if(f.Mip>=texture->getMipCount() || (texture->getType()==TextureType::TEXTURE_CUBE ? f.Layer>=6 : f.Layer!=0)) throw std::runtime_error("Invalid framebuffer subresource: "+f.Name);
-			if(std::max<size_t>(1,texture->getWidth()>>f.Mip)!=w || std::max<size_t>(1,texture->getHeight()>>f.Mip)!=h) throw std::runtime_error("Framebuffer size mismatch: "+f.Name);
+		if (colors.empty() && !depth)
+			throw std::runtime_error("Empty framebuffer: " + f.Name);
+		const auto w = std::max<size_t>(1, (depth ? depth->getWidth() : colors.front()->getWidth()) >> f.Mip);
+		const auto h = std::max<size_t>(1, (depth ? depth->getHeight() : colors.front()->getHeight()) >> f.Mip);
+		if (depth && f.Mip)
+			throw std::runtime_error("Depth attachment mip views are not supported");
+		for (const auto& texture : colors) {
+			if (f.Mip >= texture->getMipCount() || (texture->getType() == TextureType::TEXTURE_CUBE ? f.Layer >= 6 : f.Layer != 0))
+				throw std::runtime_error("Invalid framebuffer subresource: " + f.Name);
+			if (std::max<size_t>(1, texture->getWidth() >> f.Mip) != w || std::max<size_t>(1, texture->getHeight() >> f.Mip) != h)
+				throw std::runtime_error("Framebuffer size mismatch: " + f.Name);
 		}
-		mFrameBuffers[f.Name] = renderer.createFrameBuffer(colors,depth,f.Mip,f.Layer);
+		mFrameBuffers[f.Name] = renderer.createFrameBuffer(colors, depth, f.Mip, f.Layer);
 	}
-	for (auto* stages : stageGroups()) for (auto& stage : *stages)
-		stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+	for (auto* stages : stageGroups())
+		for (auto& stage : *stages)
+			stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
 }
 
 std::vector<RenderGraphPipeline::StagesArr*> RenderGraphPipeline::stageGroups() {
-	std::vector<StagesArr*> groups={&mStartStages,&mStages};
-	for(auto& [name,pass]:mLightPasses) {
-		groups.push_back(&pass.InitStages);groups.push_back(&pass.CaptureStages);groups.push_back(&pass.PrepareStages);groups.push_back(&pass.ResolveStages);
+	std::vector<StagesArr*> groups = { &mStartStages, &mStages };
+	for (auto& [name, pass] : mLightPasses) {
+		groups.push_back(&pass.InitStages);
+		groups.push_back(&pass.CaptureStages);
+		groups.push_back(&pass.PrepareStages);
+		groups.push_back(&pass.ResolveStages);
 	}
 	return groups;
 }
 
 void RenderGraphPipeline::advanceHistory(Renderer& renderer) {
-	bool changed=false;
-	for (const auto& texture : mDescriptor.Textures) if (texture.History) {
-		std::swap(mAllocatedTextures.at(texture.Name),mAllocatedTextures.at(texture.Name+"Previous"));
-		changed=true;
-	}
-	mHistoryValid=true;
+	bool changed = false;
+	for (const auto& texture : mDescriptor.Textures)
+		if (texture.History) {
+			std::swap(mAllocatedTextures.at(texture.Name), mAllocatedTextures.at(texture.Name + "Previous"));
+			changed = true;
+		}
+	mHistoryValid = true;
 	if (changed) {
-		std::swap(mFrameBuffers,mAlternateFrameBuffers);
-		for(auto* stages:stageGroups()) for(auto& stage:*stages)
-			stage->mFrameBuffer=stage->mDescriptor.FrameBuffer.empty()?nullptr:mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+		std::swap(mFrameBuffers, mAlternateFrameBuffers);
+		for (auto* stages : stageGroups())
+			for (auto& stage : *stages)
+				stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
 	}
 }
 
@@ -1511,66 +1760,94 @@ RenderGraphPipeline::StagesArr RenderGraphPipeline::loadStages(const std::vector
 	StagesArr result;
 	std::set<std::string> names;
 	for (const auto& desc : descriptors) {
-		if (!names.insert(desc.Name).second) throw std::runtime_error("Duplicate pipeline stage: " + desc.Name);
+		if (!names.insert(desc.Name).second)
+			throw std::runtime_error("Duplicate pipeline stage: " + desc.Name);
 		auto stage = std::make_unique<PipelineStage>();
-        if(desc.Draw==DrawContent::FRAME_GENERATION){
-            if(desc.Once||desc.UpdateInterval!=1||!desc.PresentationSink)throw std::runtime_error("FRAME_GENERATION must be a per-frame presentation sink");
-            if(desc.Unsupported!="BYPASS"&&desc.Unsupported!="ERROR")throw std::runtime_error("Invalid FRAME_GENERATION unsupported policy");
-            for(const char* key:{"Color","Depth","MotionVectors","UI"})if(!desc.Bindings.contains(key))throw std::runtime_error("Missing FRAME_GENERATION binding: "+std::string(key));
-        }
-		stage->mDescriptor=desc;
-		stage->mName=desc.Name;
-		stage->mDrawContent=desc.Draw;
-		stage->mBufferLinks=desc.BufferLinks;
-        if(desc.Draw==DrawContent::UPSCALE) {
-            if(desc.Once||desc.UpdateInterval!=1||!desc.Program.empty())throw std::runtime_error("UPSCALE must execute once each frame: "+desc.Name);
-            if(desc.Unsupported!="ERROR"&&desc.Unsupported!="BYPASS")throw std::runtime_error("Unknown UPSCALE Unsupported policy");
-            for(const char* key:{"Color","Depth","MotionVectors","Output"})if(!desc.Bindings.contains(key))throw std::runtime_error("Missing UPSCALE binding: "+std::string(key));
-            if(desc.Material.empty()||desc.FrameBuffer.empty())throw std::runtime_error("UPSCALE needs fallback Material/FrameBuffer");
-            const auto output=desc.Bindings.at("Output");
-            const auto resource=std::find_if(mDescriptor.Textures.begin(),mDescriptor.Textures.end(),[&](const auto& t){return t.Name==output;});
-            if(resource==mDescriptor.Textures.end()||!resource->Resource.storage||resource->Size!=TextureDesc::SizeBase::DISPLAY)
-                throw std::runtime_error("UPSCALE output must be a DISPLAY storage texture");
-            if(resource->Scale!=1||resource->Resource.width||resource->Resource.height)
-                throw std::runtime_error("UPSCALE output must follow the complete display extent");
-            const auto frame=std::find_if(mDescriptor.FrameBuffers.begin(),mDescriptor.FrameBuffers.end(),[&](const auto& f){return f.Name==desc.FrameBuffer;});
-            if(frame==mDescriptor.FrameBuffers.end()||frame->Textures!=std::vector<std::string>{output}||!frame->Depth.empty())
-                throw std::runtime_error("UPSCALE fallback framebuffer must contain its output only");
-        }
-		if(desc.Draw==DrawContent::RAY_TRACE||(desc.Draw==DrawContent::COMPUTE&&!desc.Program.empty())) {
-			if(desc.Program.empty()||!desc.Material.empty())throw std::runtime_error("RAY_TRACE requires Program and does not accept Material: "+desc.Name);
-			if(desc.LaunchX<=0||desc.LaunchY<=0||desc.LaunchZ<=0||desc.RaygenRecord<0||desc.HitGroupOffset<0)throw std::runtime_error("Invalid RT launch/record: "+desc.Name);
-			if(desc.Unsupported!="ERROR"&&desc.Unsupported!="BYPASS")throw std::runtime_error("Unknown RT Unsupported policy: "+desc.Name);
-			auto& renderer=RESOURCES::ServiceManager::Get<Renderer>();
-			if(desc.Enabled) {
+		if (desc.Draw == DrawContent::FRAME_GENERATION) {
+			if (desc.Once || desc.UpdateInterval != 1 || !desc.PresentationSink)
+				throw std::runtime_error("FRAME_GENERATION must be a per-frame presentation sink");
+			if (desc.Unsupported != "BYPASS" && desc.Unsupported != "ERROR")
+				throw std::runtime_error("Invalid FRAME_GENERATION unsupported policy");
+			for (const char* key : { "Color", "Depth", "MotionVectors", "UI" })
+				if (!desc.Bindings.contains(key))
+					throw std::runtime_error("Missing FRAME_GENERATION binding: " + std::string(key));
+		}
+		stage->mDescriptor = desc;
+		stage->mName = desc.Name;
+		stage->mDrawContent = desc.Draw;
+		stage->mBufferLinks = desc.BufferLinks;
+		if (desc.Draw == DrawContent::UPSCALE) {
+			if (desc.Once || desc.UpdateInterval != 1 || !desc.Program.empty())
+				throw std::runtime_error("UPSCALE must execute once each frame: " + desc.Name);
+			if (desc.Unsupported != "ERROR" && desc.Unsupported != "BYPASS")
+				throw std::runtime_error("Unknown UPSCALE Unsupported policy");
+			for (const char* key : { "Color", "Depth", "MotionVectors", "Output" })
+				if (!desc.Bindings.contains(key))
+					throw std::runtime_error("Missing UPSCALE binding: " + std::string(key));
+			if (desc.Material.empty() || desc.FrameBuffer.empty())
+				throw std::runtime_error("UPSCALE needs fallback Material/FrameBuffer");
+			const auto output = desc.Bindings.at("Output");
+			const auto resource
+				= std::find_if(mDescriptor.Textures.begin(), mDescriptor.Textures.end(), [&](const auto& t) { return t.Name == output; });
+			if (resource == mDescriptor.Textures.end() || !resource->Resource.storage || resource->Size != TextureDesc::SizeBase::DISPLAY)
+				throw std::runtime_error("UPSCALE output must be a DISPLAY storage texture");
+			if (resource->Scale != 1 || resource->Resource.width || resource->Resource.height)
+				throw std::runtime_error("UPSCALE output must follow the complete display extent");
+			const auto frame = std::find_if(
+				mDescriptor.FrameBuffers.begin(), mDescriptor.FrameBuffers.end(), [&](const auto& f) { return f.Name == desc.FrameBuffer; });
+			if (frame == mDescriptor.FrameBuffers.end() || frame->Textures != std::vector<std::string> { output } || !frame->Depth.empty())
+				throw std::runtime_error("UPSCALE fallback framebuffer must contain its output only");
+		}
+		if (desc.Draw == DrawContent::RAY_TRACE || (desc.Draw == DrawContent::COMPUTE && !desc.Program.empty())) {
+			if (desc.Program.empty() || !desc.Material.empty())
+				throw std::runtime_error("RAY_TRACE requires Program and does not accept Material: " + desc.Name);
+			if (desc.LaunchX <= 0 || desc.LaunchY <= 0 || desc.LaunchZ <= 0 || desc.RaygenRecord < 0 || desc.HitGroupOffset < 0)
+				throw std::runtime_error("Invalid RT launch/record: " + desc.Name);
+			if (desc.Unsupported != "ERROR" && desc.Unsupported != "BYPASS")
+				throw std::runtime_error("Unknown RT Unsupported policy: " + desc.Name);
+			auto& renderer = RESOURCES::ServiceManager::Get<Renderer>();
+			if (desc.Enabled) {
 				try {
-					const auto caps=renderer.getDriver()->rayTracingCapabilities();
-					if(desc.Draw==DrawContent::COMPUTE?!caps.RayQuery:!caps.Pipeline)throw UnsupportedRayTracing("required ray tracing capability unavailable on selected backend/GPU");
-					stage->mRayTracingProgram=LoadRayTracingProgram(renderer,desc.Program);
-					if(stage->mRayTracingProgram->isRayQuery()!=(desc.Draw==DrawContent::COMPUTE))throw std::runtime_error("RT program kind disagrees with Draw: "+desc.Name);
-				} catch(const UnsupportedRayTracing& error) {
-					if(desc.Unsupported=="ERROR")throw std::runtime_error("RAY_TRACE stage "+desc.Name+": "+error.what());
-					for(const auto& output:desc.Writes)if(!desc.Bypass.contains(output))throw std::runtime_error("Unsupported RT stage needs explicit Bypass for output "+output);
-					std::cout<<"RAY_TRACING_FALLBACK "<<desc.Name<<": "<<error.what()<<"\n";
+					const auto caps = renderer.getDriver()->rayTracingCapabilities();
+					if (desc.Draw == DrawContent::COMPUTE ? !caps.RayQuery : !caps.Pipeline)
+						throw UnsupportedRayTracing("required ray tracing capability unavailable on selected backend/GPU");
+					stage->mRayTracingProgram = LoadRayTracingProgram(renderer, desc.Program);
+					if (stage->mRayTracingProgram->isRayQuery() != (desc.Draw == DrawContent::COMPUTE))
+						throw std::runtime_error("RT program kind disagrees with Draw: " + desc.Name);
+				} catch (const UnsupportedRayTracing& error) {
+					if (desc.Unsupported == "ERROR")
+						throw std::runtime_error("RAY_TRACE stage " + desc.Name + ": " + error.what());
+					for (const auto& output : desc.Writes)
+						if (!desc.Bypass.contains(output))
+							throw std::runtime_error("Unsupported RT stage needs explicit Bypass for output " + output);
+					std::cout << "RAY_TRACING_FALLBACK " << desc.Name << ": " << error.what() << "\n";
 				}
 			}
 		}
 		if (!desc.Material.empty()) {
 			try {
-				stage->mMaterial=RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(desc.Material);
+				stage->mMaterial = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource(desc.Material);
 			} catch (const std::exception& error) {
 				std::cerr << "Pipeline stage " << desc.Name << " (" << desc.Material << "): " << error.what() << std::endl;
 				throw;
 			}
-			if (!stage->mMaterial || !stage->mMaterial->hasShader()) throw std::runtime_error("Invalid stage material: " + desc.Material);
-			for(const auto& uniform:stage->mMaterial->getShader()->getReflection().mUniforms) {
-				if(stage->mMaterial->isEngineUniform(uniform.mName)) continue;
-				if(uniform.mMembers.empty()) {
-					try { stage->mDefaults[uniform.mName]=stage->mMaterial->get(uniform.mName); } catch(const std::out_of_range&) {}
-				} else for(const auto& member:uniform.mMembers) {
-					const auto key=uniform.mName+member.mName;
-					try { stage->mDefaults[key]=stage->mMaterial->get(key); } catch(const std::out_of_range&) {}
+			if (!stage->mMaterial || !stage->mMaterial->hasShader())
+				throw std::runtime_error("Invalid stage material: " + desc.Material);
+			for (const auto& uniform : stage->mMaterial->getShader()->getReflection().mUniforms) {
+				if (stage->mMaterial->isEngineUniform(uniform.mName))
+					continue;
+				if (uniform.mMembers.empty()) {
+					try {
+						stage->mDefaults[uniform.mName] = stage->mMaterial->get(uniform.mName);
+					} catch (const std::out_of_range&) { }
 				}
+				else
+					for (const auto& member : uniform.mMembers) {
+						const auto key = uniform.mName + member.mName;
+						try {
+							stage->mDefaults[key] = stage->mMaterial->get(key);
+						} catch (const std::out_of_range&) { }
+					}
 			}
 		}
 		result.push_back(std::move(stage));
@@ -1579,182 +1856,314 @@ RenderGraphPipeline::StagesArr RenderGraphPipeline::loadStages(const std::vector
 }
 
 void GameRenderer::bindStage(PipelineStage& stage) {
-	auto& renderer=*mContext.render;
-	auto material=stage.mMaterial;
-	const auto& reflection=material->getShader()->getReflection();
-	for(const auto& [name,value]:stage.mDefaults) material->set(name,value);
-	for (const auto& [name,value] : stage.mDescriptor.Uniforms) {
-		std::visit([&](const auto& v) {
-			using T=std::decay_t<decltype(v)>;
-			if constexpr (!std::is_same_v<T,std::string>) {
-				auto key=name;
-				key.erase(std::remove(key.begin(),key.end(),'.'),key.end());
-				material->set(key,v);
-			}
-		},value);
+	auto& renderer = *mContext.render;
+	auto material = stage.mMaterial;
+	const auto& reflection = material->getShader()->getReflection();
+	for (const auto& [name, value] : stage.mDefaults)
+		material->set(name, value);
+	for (const auto& [name, value] : stage.mDescriptor.Uniforms) {
+		std::visit(
+			[&](const auto& v) {
+				using T = std::decay_t<decltype(v)>;
+				if constexpr (!std::is_same_v<T, std::string>) {
+					auto key = name;
+					key.erase(std::remove(key.begin(), key.end(), '.'), key.end());
+					material->set(key, v);
+				}
+			},
+			value);
 	}
 	renderer.setShader(material->getShader());
-	renderer.setDepth({material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS,material->isDepthWriting()});
+	renderer.setDepth({ material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS, material->isDepthWriting() });
 	renderer.setCull(material->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
-	if (stage.mDescriptor.Additive) renderer.setBlending({BlendMode::ONE,BlendMode::ONE});
-	else if (material->isBlendable()) renderer.setBlending({BlendMode::SRC_ALPHA,BlendMode::ONE_MINUS_SRC_ALPHA});
-	else renderer.resetBlending();
-	material->bind(mEmptyTexture,true);
-	for (const auto& [name,value] : stage.mDescriptor.Uniforms) if (const auto* texture=std::get_if<std::string>(&value))
-		{
-			if(!reflection.mNameToUniforms.contains(name)) throw std::runtime_error(stage.mName+": unknown texture uniform "+name);
-			if(!mRenderPipeline->mTextures.contains(*texture)) throw std::runtime_error(stage.mName+": unknown texture resource "+*texture);
-			renderer.setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind,mRenderPipeline->mTextures.at(*texture));
+	if (stage.mDescriptor.Additive)
+		renderer.setBlending({ BlendMode::ONE, BlendMode::ONE });
+	else if (material->isBlendable())
+		renderer.setBlending({ BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA });
+	else
+		renderer.resetBlending();
+	material->bind(mEmptyTexture, true);
+	for (const auto& [name, value] : stage.mDescriptor.Uniforms)
+		if (const auto* texture = std::get_if<std::string>(&value)) {
+			if (!reflection.mNameToUniforms.contains(name))
+				throw std::runtime_error(stage.mName + ": unknown texture uniform " + name);
+			if (!mRenderPipeline->mTextures.contains(*texture))
+				throw std::runtime_error(stage.mName + ": unknown texture resource " + *texture);
+			renderer.setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind, mRenderPipeline->mTextures.at(*texture));
 		}
-	for (const auto& [shaderName,bufferName] : stage.mBufferLinks) {
-		const auto& uniform=reflection.mUniforms.at(reflection.mNameToUniforms.at(shaderName));
-		if (uniform.mType==ShaderReflection::UniformType::UNIFORM_BUFFER) renderer.setUniformBuffer(uniform.mBind,mRenderPipeline->mUniformBuffers.at(bufferName));
-		else if (uniform.mType==ShaderReflection::UniformType::STORAGE_BUFFER) renderer.setStorageBuffer(uniform.mBind,(bufferName=="Lights" ? mLightSSBO : mRenderPipeline->mStorageBuffers.at(bufferName)));
-		else throw std::runtime_error("BufferLinks references a non-buffer uniform: " + shaderName);
+	for (const auto& [shaderName, bufferName] : stage.mBufferLinks) {
+		const auto& uniform = reflection.mUniforms.at(reflection.mNameToUniforms.at(shaderName));
+		if (uniform.mType == ShaderReflection::UniformType::UNIFORM_BUFFER)
+			renderer.setUniformBuffer(uniform.mBind, mRenderPipeline->mUniformBuffers.at(bufferName));
+		else if (uniform.mType == ShaderReflection::UniformType::STORAGE_BUFFER)
+			renderer.setStorageBuffer(uniform.mBind, (bufferName == "Lights" ? mLightSSBO : mRenderPipeline->mStorageBuffers.at(bufferName)));
+		else
+			throw std::runtime_error("BufferLinks references a non-buffer uniform: " + shaderName);
 	}
-	for (const auto& [bufferName,members] : stage.mDescriptor.BufferOverrides) {
-		const auto& uniform=reflection.mUniforms.at(reflection.mNameToUniforms.at(bufferName));
-		if (uniform.mType!=ShaderReflection::UniformType::UNIFORM_BUFFER) throw std::runtime_error("BufferOverrides requires a uniform buffer: " + bufferName);
-		std::vector<uint8_t> data(uniform.mSize,0);
-		for (const auto& [name,value] : members) {
-			const auto member=std::find_if(uniform.mMembers.begin(),uniform.mMembers.end(),[&](const auto& m){return m.mName==name;});
-			if (member==uniform.mMembers.end() || member->mArraySize>1) throw std::runtime_error("Invalid buffer member: " + name);
-			std::visit([&](const auto& v) {
-				using T=std::decay_t<decltype(v)>;
-				if constexpr (std::is_same_v<T,std::string>) throw std::runtime_error("Textures cannot be buffer members");
-				else {
-					if constexpr (std::is_same_v<T,bool>) { if(member->mOffset+4>data.size()) throw std::runtime_error("Buffer member offset mismatch: " + name); const int b=v; std::memcpy(data.data()+member->mOffset,&b,4); }
-					else { if (member->mOffset+sizeof(T)>data.size() || sizeof(T)>member->mSize) throw std::runtime_error("Buffer member size mismatch: " + name); std::memcpy(data.data()+member->mOffset,&v,sizeof(T)); }
-				}
-			},value);
+	for (const auto& [bufferName, members] : stage.mDescriptor.BufferOverrides) {
+		const auto& uniform = reflection.mUniforms.at(reflection.mNameToUniforms.at(bufferName));
+		if (uniform.mType != ShaderReflection::UniformType::UNIFORM_BUFFER)
+			throw std::runtime_error("BufferOverrides requires a uniform buffer: " + bufferName);
+		std::vector<uint8_t> data(uniform.mSize, 0);
+		for (const auto& [name, value] : members) {
+			const auto member = std::find_if(uniform.mMembers.begin(), uniform.mMembers.end(), [&](const auto& m) { return m.mName == name; });
+			if (member == uniform.mMembers.end() || member->mArraySize > 1)
+				throw std::runtime_error("Invalid buffer member: " + name);
+			std::visit(
+				[&](const auto& v) {
+					using T = std::decay_t<decltype(v)>;
+					if constexpr (std::is_same_v<T, std::string>)
+						throw std::runtime_error("Textures cannot be buffer members");
+					else {
+						if constexpr (std::is_same_v<T, bool>) {
+							if (member->mOffset + 4 > data.size())
+								throw std::runtime_error("Buffer member offset mismatch: " + name);
+							const int b = v;
+							std::memcpy(data.data() + member->mOffset, &b, 4);
+						}
+						else {
+							if (member->mOffset + sizeof(T) > data.size() || sizeof(T) > member->mSize)
+								throw std::runtime_error("Buffer member size mismatch: " + name);
+							std::memcpy(data.data() + member->mOffset, &v, sizeof(T));
+						}
+					}
+				},
+				value);
 		}
-		auto& buffer=stage.mOverrideBuffers[bufferName];
-		if (!buffer) buffer=renderer.createUniformBuffer(nullptr,data.size());
-		buffer->setData(data.data(),data.size());
-		renderer.setUniformBuffer(uniform.mBind,buffer);
+		auto& buffer = stage.mOverrideBuffers[bufferName];
+		if (!buffer)
+			buffer = renderer.createUniformBuffer(nullptr, data.size());
+		buffer->setData(data.data(), data.size());
+		renderer.setUniformBuffer(uniform.mBind, buffer);
 	}
-	for (const auto& [name,buffer] : std::map<std::string,std::shared_ptr<UniformBufferInterface>>{{"engine_RayFrame",mRayFrameUbo},{"engine_UBO",mEngineUbo},{"engine_Frame",mFrameUbo},{"engine_ShadowData",mShadowUbo},{"engine_CurrentShadow",mCurrentShadowUbo}})
-		if (reflection.mNameToUniforms.contains(name)) renderer.setUniformBuffer(name,buffer);
-	if (reflection.mNameToUniforms.contains("engine_Lights")) renderer.setStorageBuffer("engine_Lights",mLightSSBO);
+	for (const auto& [name, buffer] :
+		std::map<std::string, std::shared_ptr<UniformBufferInterface>> { { "engine_RayFrame", mRayFrameUbo }, { "engine_UBO", mEngineUbo },
+		{ "engine_Frame", mFrameUbo }, { "engine_ShadowData", mShadowUbo }, { "engine_CurrentShadow", mCurrentShadowUbo } })
+		if (reflection.mNameToUniforms.contains(name))
+			renderer.setUniformBuffer(name, buffer);
+	if (reflection.mNameToUniforms.contains("engine_Lights"))
+		renderer.setStorageBuffer("engine_Lights", mLightSSBO);
 }
 
-void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene,bool worldVectors) {
-	auto& renderer=*mContext.render;
-	auto& loader=RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>();
-	if(!mGuiSpriteMaterial) mGuiSpriteMaterial=loader.loadResource("/materials/render/portable/gui.mat");
-	if(!mGuiTextMaterial) mGuiTextMaterial=loader.loadResource("/materials/render/portable/text.mat");
-	auto projection=MATH::Matrix4f::CreateOrthographic(0,uboData.ViewportSize.x,uboData.ViewportSize.y,0,-1,1);
-	if(DriverInterface::settings.backend!=RenderSettings::Backend::OPENGL) {
-		auto correction=MATH::Matrix4f::Identity;correction(2,2)=.5f;correction(2,3)=.5f;projection=correction*projection;
+void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
+	auto& renderer = *mContext.render;
+	auto& loader = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>();
+	if (!mGuiSpriteMaterial)
+		mGuiSpriteMaterial = loader.loadResource("/materials/render/portable/gui.mat");
+	if (!mGuiTextMaterial)
+		mGuiTextMaterial = loader.loadResource("/materials/render/portable/text.mat");
+	auto projection = MATH::Matrix4f::CreateOrthographic(0, uboData.ViewportSize.x, uboData.ViewportSize.y, 0, -1, 1);
+	if (DriverInterface::settings.backend != RenderSettings::Backend::OPENGL) {
+		auto correction = MATH::Matrix4f::Identity;
+		correction(2, 2) = .5f;
+		correction(2, 3) = .5f;
+		projection = correction * projection;
 	}
-	if(!mVectorRenderer)mVectorRenderer=std::make_shared<VECTOR::VectorRenderer>();
+	if (!mVectorRenderer)
+		mVectorRenderer = std::make_shared<VECTOR::VectorRenderer>();
 	mVectorRenderer->beginFrame(worldVectors);
-	Scissor guiClip;bool guiClipped=false;
-	auto submit=[&](const std::vector<Vertex>& vertices,const std::vector<unsigned>& indices,const std::shared_ptr<TextureInterface>& texture,const std::shared_ptr<MaterialInterface>& material,const MATH::Matrix4f& transform,bool is3D,Blending blend=Blending(BlendMode::SRC_ALPHA,BlendMode::ONE_MINUS_SRC_ALPHA,BlendMode::ONE,BlendMode::ONE_MINUS_SRC_ALPHA)) {
-		if(!texture||vertices.empty()) return;
-		auto transformed=vertices;
-		for(auto& v:transformed) {auto p=transform*MATH::Vector4f(v.position.x,v.position.y,v.position.z,1);v.position={p.x,p.y,p.z};}
-		mVectorRenderer->enqueue(std::move(transformed),indices,texture,material->getShader(),is3D?uboData.View*uboData.Projection:MATH::Matrix4f::Transpose(projection),blend,{DepthFunction::ALWAYS,false},guiClip,guiClipped);
-	};
-	auto quad=[](float x,float y,float w,float h,AtlasRect uv,MATH::Vector4f color) {
-		std::vector<Vertex> vertices={Vertex({x,y,0},{uv.mX,uv.mY}),Vertex({x+w,y,0},{uv.mX+uv.mW,uv.mY}),Vertex({x+w,y+h,0},{uv.mX+uv.mW,uv.mY+uv.mH}),Vertex({x,y+h,0},{uv.mX,uv.mY+uv.mH})};
-		for(auto& vertex:vertices) vertex.m_Weights=color;
+	Scissor guiClip;
+	bool guiClipped = false;
+	auto submit
+		= [&](const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, const std::shared_ptr<TextureInterface>& texture,
+			  const std::shared_ptr<MaterialInterface>& material, const MATH::Matrix4f& transform, bool is3D,
+			  Blending blend = Blending(BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA, BlendMode::ONE, BlendMode::ONE_MINUS_SRC_ALPHA)) {
+			  if (!texture || vertices.empty())
+				  return;
+			  auto transformed = vertices;
+			  for (auto& v : transformed) {
+				  auto p = transform * MATH::Vector4f(v.position.x, v.position.y, v.position.z, 1);
+				  v.position = { p.x, p.y, p.z };
+			  }
+			  mVectorRenderer->enqueue(std::move(transformed), indices, texture, material->getShader(),
+				  is3D ? uboData.View * uboData.Projection : MATH::Matrix4f::Transpose(projection), blend, { DepthFunction::ALWAYS, false }, guiClip,
+				  guiClipped);
+		  };
+	auto quad = [](float x, float y, float w, float h, AtlasRect uv, MATH::Vector4f color) {
+		std::vector<Vertex> vertices = { Vertex({ x, y, 0 }, { uv.mX, uv.mY }), Vertex({ x + w, y, 0 }, { uv.mX + uv.mW, uv.mY }),
+			Vertex({ x + w, y + h, 0 }, { uv.mX + uv.mW, uv.mY + uv.mH }), Vertex({ x, y + h, 0 }, { uv.mX, uv.mY + uv.mH }) };
+		for (auto& vertex : vertices)
+			vertex.m_Weights = color;
 		return vertices;
 	};
-	auto sceneObjects=scene.getObjects();
-	std::vector<std::shared_ptr<ECS::Object>> objects(sceneObjects.begin(),sceneObjects.end());
-	auto canvasFor=[](auto object){while(object){if(auto canvas=object->template getComponent<ECS::VectorCanvasComponent>())return canvas;object=object->getParent();}return decltype(object->template getComponent<ECS::VectorCanvasComponent>()){};};
-	auto orderFor=[&](auto object){auto canvas=canvasFor(object);int order=canvas?canvas->Order:0,layer=canvas?canvas->SortingLayer:0;
-		if(auto c=object->template getComponent<ECS::VectorShapeComponent>())order+=c->Order;
-		else if(auto c=object->template getComponent<ECS::VectorPathComponent>())order+=c->Order;
-		else if(auto c=object->template getComponent<ECS::SdfTextComponent>())order+=c->Order;
-		return std::pair{layer,order};};
-	std::stable_sort(objects.begin(),objects.end(),[&](auto a,auto b){return orderFor(a)<orderFor(b);});
-	for(auto& object:objects) {
-		if(!object->getIsActive()||!object->getIsVisible()) continue;
-		auto canvas=canvasFor(object);bool world=canvas&&canvas->WorldSpace;
-		if(worldVectors&&!world)continue;
-		auto canvasCorrection=MATH::Matrix4f::Identity;
-		if(canvas&&canvas->DpiScale!=1.f){auto root=canvas->obj->getTransform()->getTransform().getWorldMatrix();auto scale=MATH::Matrix4f::Identity;scale(0,0)=scale(1,1)=std::clamp(canvas->DpiScale,.01f,100.f);canvasCorrection=root*scale*MATH::Matrix4f::Inverse(root);}
-		float left=0,top=0,right=uboData.ViewportSize.x,bottom=uboData.ViewportSize.y;
-		bool clipped=false;
-		for(auto ancestor=object;ancestor;ancestor=ancestor->getParent()) if(auto clip=ancestor->getComponent<ECS::ClipComponent>()) {
-			auto matrix=canvasCorrection*ancestor->getTransform()->getTransform().getWorldMatrix();
-			float minX=right,minY=bottom,maxX=left,maxY=top;
-			for(const auto& corner:{MATH::Vector4f(0,0,0,1),MATH::Vector4f(clip->mWidth,0,0,1),MATH::Vector4f(0,clip->mHeight,0,1),MATH::Vector4f(clip->mWidth,clip->mHeight,0,1)}) {
-				auto local=corner;if(worldVectors)local.y=-local.y;
-				auto point=matrix*local;
-				if(worldVectors){auto camera=MATH::Matrix4f::Transpose(uboData.View*uboData.Projection);point=camera*point;if(point.w<=1e-4f)continue;point.x=(point.x/point.w*.5f+.5f)*uboData.ViewportSize.x;point.y=(.5f-point.y/point.w*.5f)*uboData.ViewportSize.y;}
-				minX=std::min(minX,point.x);minY=std::min(minY,point.y);maxX=std::max(maxX,point.x);maxY=std::max(maxY,point.y);
-			}
-			left=std::max(left,minX);top=std::max(top,minY);right=std::min(right,maxX);bottom=std::min(bottom,maxY);clipped=true;
+	auto sceneObjects = scene.getObjects();
+	std::vector<std::shared_ptr<ECS::Object>> objects(sceneObjects.begin(), sceneObjects.end());
+	auto canvasFor = [](auto object) {
+		while (object) {
+			if (auto canvas = object->template getComponent<ECS::VectorCanvasComponent>())
+				return canvas;
+			object = object->getParent();
 		}
-		if(clipped) {
-			if(right<=left||bottom<=top) continue;
-			guiClip={{left,top},{right-left,bottom-top}};guiClipped=true;
-		} else guiClipped=false;
-        if(!worldVectors&&(object->getComponent<ECS::ParticleSystem2DComponent>()||object->getComponent<ECS::SpriteParticleComponent>())) {
-            mVectorRenderer->flushPending(renderer);
-            if(!mParticleRenderer)mParticleRenderer=std::make_shared<ParticleRenderer>();
-            mParticleRenderer->drawScreen(*object,renderer,MATH::Matrix4f::Transpose(projection),guiClip,guiClipped,canvasCorrection);
-        }
-		const auto& transform=object->getTransform()->getTransform();
-        auto animatedSprite=object->getComponent<ECS::SpriteAnimateComponent>();
-        auto plainSprite=object->getComponent<ECS::SpriteComponent>();
-        ECS::SpriteComponent* sprite=plainSprite ? plainSprite.get() : nullptr;
-        if(!sprite&&animatedSprite)sprite=animatedSprite.get();
-		if(!worldVectors&&sprite&&sprite->mTexture) {
-			const auto size=transform.getLocalSize();
-			auto uv=sprite->mTexture->getPieceUV(sprite->mTexturePiece);
-            if (animatedSprite) {
-                animatedSprite->updateAnim();uv=animatedSprite->mUVRect;
-            }
-			// Image decoders store images bottom-up; GUI coordinates grow downwards.
-			uv.mY=1-uv.mY;uv.mH=-uv.mH;
-			submit(quad(0,0,size.x,size.y,uv,sprite->mColor),{0,1,2,2,3,0},sprite->mTexture,mGuiSpriteMaterial,transform.getWorldMatrix(),sprite->mIs3D);
+		return decltype(object->template getComponent<ECS::VectorCanvasComponent>()) { };
+	};
+	auto orderFor = [&](auto object) {
+		auto canvas = canvasFor(object);
+		int order = canvas ? canvas->Order : 0, layer = canvas ? canvas->SortingLayer : 0;
+		if (auto c = object->template getComponent<ECS::VectorShapeComponent>())
+			order += c->Order;
+		else if (auto c = object->template getComponent<ECS::VectorPathComponent>())
+			order += c->Order;
+		else if (auto c = object->template getComponent<ECS::SdfTextComponent>())
+			order += c->Order;
+		return std::pair { layer, order };
+	};
+	std::stable_sort(objects.begin(), objects.end(), [&](auto a, auto b) { return orderFor(a) < orderFor(b); });
+	for (auto& object : objects) {
+		if (!object->getIsActive() || !object->getIsVisible())
+			continue;
+		auto canvas = canvasFor(object);
+		bool world = canvas && canvas->WorldSpace;
+		if (worldVectors && !world)
+			continue;
+		auto canvasCorrection = MATH::Matrix4f::Identity;
+		if (canvas && canvas->DpiScale != 1.f) {
+			auto root = canvas->obj->getTransform()->getTransform().getWorldMatrix();
+			auto scale = MATH::Matrix4f::Identity;
+			scale(0, 0) = scale(1, 1) = std::clamp(canvas->DpiScale, .01f, 100.f);
+			canvasCorrection = root * scale * MATH::Matrix4f::Inverse(root);
 		}
-		if(auto label=object->getComponent<ECS::LabelComponent>();!worldVectors&&label&&label->mFont&&label->mFont->texture) {
-			std::vector<Vertex> vertices;std::vector<unsigned> indices;float x=0;
-			for(char c:label->mLabel) {
-				const auto found=label->mFont->Characters.find(c);if(found==label->mFont->Characters.end()) continue;
-				const auto& ch=found->second;const float width=static_cast<float>(label->mFont->texture->getWidth()),height=static_cast<float>(label->mFont->texture->getHeight());
-				auto v=quad(x+ch.Bearing.x,-ch.Bearing.y,ch.Size.x,ch.Size.y,{ch.Start.x/width,ch.Start.y/height,ch.Size.x/width,ch.Size.y/height},label->color);
-				const auto base=static_cast<unsigned>(vertices.size());vertices.insert(vertices.end(),v.begin(),v.end());
-				for(unsigned index:{0,1,2,2,3,0}) indices.push_back(base+index);
-				x+=ch.Advance/64.0f;
-			}
-			submit(vertices,indices,label->mFont->texture,mGuiTextMaterial,transform.getWorldMatrix(),label->mIs3D);
-		}
-		if(auto component=object->getComponent<ECS::SpineComponent>();!worldVectors&&component&&component->spine&&component->spine->_drawable) {
-			auto* skeleton=component->spine->_drawable;
-			skeleton->submit=[&](const std::vector<SPINE::SpineVertex>& source,const SPINE::SpineRenderState& state) {
-				std::vector<Vertex> vertices;std::vector<unsigned> indices;
-				for(const auto& v:source) {
-					Vertex vertex({v.x,-v.y,0},{v.u,v.v});
-					const float alpha=skeleton->getUsePremultipliedAlpha()?v.a:1.0f;
-					vertex.m_Weights={v.r*alpha,v.g*alpha,v.b*alpha,v.a};
-					indices.push_back(static_cast<unsigned>(vertices.size()));vertices.push_back(vertex);
+		float left = 0, top = 0, right = uboData.ViewportSize.x, bottom = uboData.ViewportSize.y;
+		bool clipped = false;
+		for (auto ancestor = object; ancestor; ancestor = ancestor->getParent())
+			if (auto clip = ancestor->getComponent<ECS::ClipComponent>()) {
+				auto matrix = canvasCorrection * ancestor->getTransform()->getTransform().getWorldMatrix();
+				float minX = right, minY = bottom, maxX = left, maxY = top;
+				for (const auto& corner : { MATH::Vector4f(0, 0, 0, 1), MATH::Vector4f(clip->mWidth, 0, 0, 1), MATH::Vector4f(0, clip->mHeight, 0, 1),
+					 MATH::Vector4f(clip->mWidth, clip->mHeight, 0, 1) }) {
+					auto local = corner;
+					if (worldVectors)
+						local.y = -local.y;
+					auto point = matrix * local;
+					if (worldVectors) {
+						auto camera = MATH::Matrix4f::Transpose(uboData.View * uboData.Projection);
+						point = camera * point;
+						if (point.w <= 1e-4f)
+							continue;
+						point.x = (point.x / point.w * .5f + .5f) * uboData.ViewportSize.x;
+						point.y = (.5f - point.y / point.w * .5f) * uboData.ViewportSize.y;
+					}
+					minX = std::min(minX, point.x);
+					minY = std::min(minY, point.y);
+					maxX = std::max(maxX, point.x);
+					maxY = std::max(maxY, point.y);
 				}
-				submit(vertices,indices,SPINE::SpineTextureLoader::getTexture(state.texture),mGuiSpriteMaterial,transform.getWorldMatrix(),component->mIs3D,{state.blendSrc,state.blendDst});
-			};
-			skeleton->draw();skeleton->submit={};
+				left = std::max(left, minX);
+				top = std::max(top, minY);
+				right = std::min(right, maxX);
+				bottom = std::min(bottom, maxY);
+				clipped = true;
+			}
+		if (clipped) {
+			if (right <= left || bottom <= top)
+				continue;
+			guiClip = { { left, top }, { right - left, bottom - top } };
+			guiClipped = true;
 		}
-		if(world!=worldVectors)continue;
-		float pixelScale=1;
-		auto matrix=canvasCorrection*transform.getWorldMatrix();
-		if(world) {
-			auto camera=MATH::Matrix4f::Transpose(uboData.View*uboData.Projection);
-			auto project=[&](MATH::Vector4f p){auto v=camera*(matrix*p);if(v.w<=1e-4f)return MATH::Vector2f{};return MATH::Vector2f(v.x/v.w*uboData.ViewportSize.x*.5f,v.y/v.w*uboData.ViewportSize.y*.5f);};
-			auto origin=project({0,0,0,1}),x=project({1,0,0,1})-origin,y=project({0,1,0,1})-origin;
-			pixelScale=std::max(std::sqrt(x.x*x.x+x.y*x.y),std::sqrt(y.x*y.x+y.y*y.y));
-		}else pixelScale=std::max(std::sqrt(matrix(0,0)*matrix(0,0)+matrix(1,0)*matrix(1,0)),std::sqrt(matrix(0,1)*matrix(0,1)+matrix(1,1)*matrix(1,1)));
-		for(auto draw:mVectorRenderer->prepare(*object,pixelScale,renderer)) {
-			if(!draw.mesh||draw.mesh->indices.empty())continue;
-			auto& material=draw.sdf?mSdfMaterial:mVectorMaterial;
-			if(!material)material=loader.loadResource(draw.sdf?"/materials/render/portable/sdfText.mat":"/materials/render/portable/vector.mat");
-			std::vector<Vertex> vertices;vertices.reserve(draw.mesh->vertices.size());
-			for(auto& v:draw.mesh->vertices){auto p=matrix*MATH::Vector4f(v.position.x,world?-v.position.y:v.position.y,0,1);Vertex vertex({p.x,p.y,p.z},{v.uv.x,v.uv.y});vertex.m_Weights={v.color.r,v.color.g,v.color.b,v.color.a};vertex.normal={v.uvMin.x,v.uvMin.y,0};vertex.tangent={v.uvMax.x,v.uvMax.y,0};vertices.push_back(vertex);}
-			mVectorRenderer->enqueue(std::move(vertices),draw.mesh->indices,draw.texture,material->getShader(),world?uboData.View*uboData.Projection:MATH::Matrix4f::Transpose(projection),{BlendMode::ONE,BlendMode::ONE_MINUS_SRC_ALPHA},{world&&canvas->DepthTest?DepthFunction::LESS_EQUAL:DepthFunction::ALWAYS,false},guiClip,guiClipped,draw.sdf,draw.effects);
+		else
+			guiClipped = false;
+		if (!worldVectors && (object->getComponent<ECS::ParticleSystem2DComponent>() || object->getComponent<ECS::SpriteParticleComponent>())) {
+			mVectorRenderer->flushPending(renderer);
+			if (!mParticleRenderer)
+				mParticleRenderer = std::make_shared<ParticleRenderer>();
+			mParticleRenderer->drawScreen(*object, renderer, MATH::Matrix4f::Transpose(projection), guiClip, guiClipped, canvasCorrection);
+		}
+		const auto& transform = object->getTransform()->getTransform();
+		auto animatedSprite = object->getComponent<ECS::SpriteAnimateComponent>();
+		auto plainSprite = object->getComponent<ECS::SpriteComponent>();
+		ECS::SpriteComponent* sprite = plainSprite ? plainSprite.get() : nullptr;
+		if (!sprite && animatedSprite)
+			sprite = animatedSprite.get();
+		if (!worldVectors && sprite && sprite->mTexture) {
+			const auto size = transform.getLocalSize();
+			auto uv = sprite->mTexture->getPieceUV(sprite->mTexturePiece);
+			if (animatedSprite) {
+				animatedSprite->updateAnim();
+				uv = animatedSprite->mUVRect;
+			}
+			// Image decoders store images bottom-up; GUI coordinates grow downwards.
+			uv.mY = 1 - uv.mY;
+			uv.mH = -uv.mH;
+			submit(quad(0, 0, size.x, size.y, uv, sprite->mColor), { 0, 1, 2, 2, 3, 0 }, sprite->mTexture, mGuiSpriteMaterial,
+				transform.getWorldMatrix(), sprite->mIs3D);
+		}
+		if (auto label = object->getComponent<ECS::LabelComponent>(); !worldVectors && label && label->mFont && label->mFont->texture) {
+			std::vector<Vertex> vertices;
+			std::vector<unsigned> indices;
+			float x = 0;
+			for (char c : label->mLabel) {
+				const auto found = label->mFont->Characters.find(c);
+				if (found == label->mFont->Characters.end())
+					continue;
+				const auto& ch = found->second;
+				const float width = static_cast<float>(label->mFont->texture->getWidth()),
+							height = static_cast<float>(label->mFont->texture->getHeight());
+				auto v = quad(x + ch.Bearing.x, -ch.Bearing.y, ch.Size.x, ch.Size.y,
+					{ ch.Start.x / width, ch.Start.y / height, ch.Size.x / width, ch.Size.y / height }, label->color);
+				const auto base = static_cast<unsigned>(vertices.size());
+				vertices.insert(vertices.end(), v.begin(), v.end());
+				for (unsigned index : { 0, 1, 2, 2, 3, 0 })
+					indices.push_back(base + index);
+				x += ch.Advance / 64.0f;
+			}
+			submit(vertices, indices, label->mFont->texture, mGuiTextMaterial, transform.getWorldMatrix(), label->mIs3D);
+		}
+		if (auto component = object->getComponent<ECS::SpineComponent>();
+			!worldVectors && component && component->spine && component->spine->_drawable) {
+			auto* skeleton = component->spine->_drawable;
+			skeleton->submit = [&](const std::vector<SPINE::SpineVertex>& source, const SPINE::SpineRenderState& state) {
+				std::vector<Vertex> vertices;
+				std::vector<unsigned> indices;
+				for (const auto& v : source) {
+					Vertex vertex({ v.x, -v.y, 0 }, { v.u, v.v });
+					const float alpha = skeleton->getUsePremultipliedAlpha() ? v.a : 1.0f;
+					vertex.m_Weights = { v.r * alpha, v.g * alpha, v.b * alpha, v.a };
+					indices.push_back(static_cast<unsigned>(vertices.size()));
+					vertices.push_back(vertex);
+				}
+				submit(vertices, indices, SPINE::SpineTextureLoader::getTexture(state.texture), mGuiSpriteMaterial, transform.getWorldMatrix(),
+					component->mIs3D, { state.blendSrc, state.blendDst });
+			};
+			skeleton->draw();
+			skeleton->submit = { };
+		}
+		if (world != worldVectors)
+			continue;
+		float pixelScale = 1;
+		auto matrix = canvasCorrection * transform.getWorldMatrix();
+		if (world) {
+			auto camera = MATH::Matrix4f::Transpose(uboData.View * uboData.Projection);
+			auto project = [&](MATH::Vector4f p) {
+				auto v = camera * (matrix * p);
+				if (v.w <= 1e-4f)
+					return MATH::Vector2f { };
+				return MATH::Vector2f(v.x / v.w * uboData.ViewportSize.x * .5f, v.y / v.w * uboData.ViewportSize.y * .5f);
+			};
+			auto origin = project({ 0, 0, 0, 1 }), x = project({ 1, 0, 0, 1 }) - origin, y = project({ 0, 1, 0, 1 }) - origin;
+			pixelScale = std::max(std::sqrt(x.x * x.x + x.y * x.y), std::sqrt(y.x * y.x + y.y * y.y));
+		}
+		else
+			pixelScale = std::max(std::sqrt(matrix(0, 0) * matrix(0, 0) + matrix(1, 0) * matrix(1, 0)),
+				std::sqrt(matrix(0, 1) * matrix(0, 1) + matrix(1, 1) * matrix(1, 1)));
+		for (auto draw : mVectorRenderer->prepare(*object, pixelScale, renderer)) {
+			if (!draw.mesh || draw.mesh->indices.empty())
+				continue;
+			auto& material = draw.sdf ? mSdfMaterial : mVectorMaterial;
+			if (!material)
+				material = loader.loadResource(draw.sdf ? "/materials/render/portable/sdfText.mat" : "/materials/render/portable/vector.mat");
+			std::vector<Vertex> vertices;
+			vertices.reserve(draw.mesh->vertices.size());
+			for (auto& v : draw.mesh->vertices) {
+				auto p = matrix * MATH::Vector4f(v.position.x, world ? -v.position.y : v.position.y, 0, 1);
+				Vertex vertex({ p.x, p.y, p.z }, { v.uv.x, v.uv.y });
+				vertex.m_Weights = { v.color.r, v.color.g, v.color.b, v.color.a };
+				vertex.normal = { v.uvMin.x, v.uvMin.y, 0 };
+				vertex.tangent = { v.uvMax.x, v.uvMax.y, 0 };
+				vertices.push_back(vertex);
+			}
+			mVectorRenderer->enqueue(std::move(vertices), draw.mesh->indices, draw.texture, material->getShader(),
+				world ? uboData.View * uboData.Projection : MATH::Matrix4f::Transpose(projection), { BlendMode::ONE, BlendMode::ONE_MINUS_SRC_ALPHA },
+				{ world && canvas->DepthTest ? DepthFunction::LESS_EQUAL : DepthFunction::ALWAYS, false }, guiClip, guiClipped, draw.sdf,
+				draw.effects);
 		}
 	}
 	mVectorRenderer->flush(renderer);

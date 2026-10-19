@@ -101,9 +101,9 @@ struct DebugDraw {
 class PhysicWorld {
 public:
 	explicit PhysicWorld(unsigned maxContacts = 1024, unsigned iterations = 0);
-	explicit PhysicWorld(Settings settings, CollisionPipeline pipeline = {}, unsigned maxContacts = 1024);
+	explicit PhysicWorld(Settings settings, CollisionPipeline pipeline = { }, unsigned maxContacts = 1024);
 	explicit PhysicWorld(CollisionPipeline pipeline)
-		: PhysicWorld(Settings {}, std::move(pipeline)) { }
+		: PhysicWorld(Settings { }, std::move(pipeline)) { }
 	const CollisionPipeline& collisionPipeline() const {
 		return mPipeline;
 	}
@@ -152,7 +152,7 @@ public:
 	void applyForce(Id id, Vec3 force, Vec3 worldPoint);
 	void applyImpulse(Id id, Vec3 impulse, Vec3 worldPoint);
 	void teleport(Id id, Vec3 position, MATH::QuaternionF orientation);
-	void setVelocity(Id id, Vec3 velocity, Vec3 angular = {});
+	void setVelocity(Id id, Vec3 velocity, Vec3 angular = { });
 	void wake(Id id);
 	void step(float dt);
 	void debugDraw(const DebugDraw&) const;

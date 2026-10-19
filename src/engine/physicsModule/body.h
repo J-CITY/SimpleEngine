@@ -2,242 +2,183 @@
 #include "mathModule/math.h"
 
 namespace IKIGAI {
-    namespace PHYSICS {
-        class RigidBody {
-        protected:
+namespace PHYSICS {
+	class RigidBody {
+	protected:
+		float inverseMass = 1;
 
-            float inverseMass = 1;
+		MATH::Matrix3f inverseInertiaTensor = MATH::Matrix3f(0.0f);
 
-            MATH::Matrix3f inverseInertiaTensor = MATH::Matrix3f(0.0f);
+		float linearDamping = 0.95f;
 
-            float linearDamping = 0.95f;
+		float angularDamping = 0.95f;
 
-            float angularDamping = 0.95f;
+		MATH::Vector3f position;
 
-            MATH::Vector3f position;
+		MATH::QuaternionF orientation { 0, 0, 0, 1 };
 
-            MATH::QuaternionF orientation {0, 0, 0, 1};
+		MATH::Vector3f velocity;
 
-            MATH::Vector3f velocity;
+		MATH::Vector3f rotation;
 
-            MATH::Vector3f rotation;
+		MATH::Matrix3f inverseInertiaTensorWorld = MATH::Matrix3f(0.0f);
 
-            MATH::Matrix3f inverseInertiaTensorWorld = MATH::Matrix3f(0.0f);
+		float motion = 2 * MATH::SLEEP_EPS;
 
-            float motion = 2 * MATH::SLEEP_EPS;
+		bool isAwake = true;
 
-            bool isAwake = true;
+		bool canSleep = true;
 
-            bool canSleep = true;
+		MATH::Matrix4f transformMatrix;
 
-            MATH::Matrix4f transformMatrix;
+		MATH::Vector3f forceAccum;
 
-            MATH::Vector3f forceAccum;
+		MATH::Vector3f torqueAccum;
 
-            MATH::Vector3f torqueAccum;
+		MATH::Vector3f acceleration;
 
-            MATH::Vector3f acceleration;
+		MATH::Vector3f lastFrameAcceleration;
 
-            MATH::Vector3f lastFrameAcceleration;
+	public:
+		MATH::Vector3f getAccumulatedForce() const {
+			return forceAccum;
+		}
+		MATH::Vector3f getAccumulatedTorque() const {
+			return torqueAccum;
+		}
+		void calculateDerivedData();
 
-            
+		bool integrate(float duration);
 
-        public:
-            MATH::Vector3f getAccumulatedForce() const { return forceAccum; }
-            MATH::Vector3f getAccumulatedTorque() const { return torqueAccum; }
-            void calculateDerivedData();
+		void setMass(const float mass);
 
-            
-            bool integrate(float duration);
+		float getMass() const;
 
-             
-            void setMass(const float mass);
+		void setInverseMass(const float inverseMass);
 
-            
-            float getMass() const;
+		float getInverseMass() const;
 
-            
-            void setInverseMass(const float inverseMass);
+		bool hasFiniteMass() const;
 
-            
-            float getInverseMass() const;
+		void setInertiaTensor(const MATH::Matrix3f& inertiaTensor);
 
-            
-            bool hasFiniteMass() const;
+		void getInertiaTensor(MATH::Matrix3f* inertiaTensor) const;
 
-            
-            void setInertiaTensor(const MATH::Matrix3f& inertiaTensor);
+		MATH::Matrix3f getInertiaTensor() const;
 
-            
-            void getInertiaTensor(MATH::Matrix3f* inertiaTensor) const;
+		void getInertiaTensorWorld(MATH::Matrix3f* inertiaTensor) const;
 
-            
-            MATH::Matrix3f getInertiaTensor() const;
+		MATH::Matrix3f getInertiaTensorWorld() const;
 
-            
-            void getInertiaTensorWorld(MATH::Matrix3f* inertiaTensor) const;
+		void setInverseInertiaTensor(const MATH::Matrix3f& inverseInertiaTensor);
 
-            
-            MATH::Matrix3f getInertiaTensorWorld() const;
+		void getInverseInertiaTensor(MATH::Matrix3f* inverseInertiaTensor) const;
 
-            
-            void setInverseInertiaTensor(const MATH::Matrix3f& inverseInertiaTensor);
+		MATH::Matrix3f getInverseInertiaTensor() const;
 
-            
-            void getInverseInertiaTensor(MATH::Matrix3f* inverseInertiaTensor) const;
+		void getInverseInertiaTensorWorld(MATH::Matrix3f* inverseInertiaTensor) const;
 
-            
-            MATH::Matrix3f getInverseInertiaTensor() const;
+		MATH::Matrix3f getInverseInertiaTensorWorld() const;
 
-            
-            void getInverseInertiaTensorWorld(MATH::Matrix3f* inverseInertiaTensor) const;
+		void setDamping(const float linearDamping, const float angularDamping);
 
-            
-            MATH::Matrix3f getInverseInertiaTensorWorld() const;
+		void setLinearDamping(const float linearDamping);
 
-            
-            void setDamping(const float linearDamping, const float angularDamping);
+		float getLinearDamping() const;
 
-            
-            void setLinearDamping(const float linearDamping);
+		void setAngularDamping(const float angularDamping);
 
-            
-            float getLinearDamping() const;
+		float getAngularDamping() const;
 
-            
-            void setAngularDamping(const float angularDamping);
+		void setPosition(const MATH::Vector3f& position);
 
-            
-            float getAngularDamping() const;
+		void setPosition(const float x, const float y, const float z);
 
-            
-            void setPosition(const MATH::Vector3f& position);
+		void getPosition(MATH::Vector3f* position) const;
 
-            
-            void setPosition(const float x, const float y, const float z);
+		MATH::Vector3f getPosition() const;
 
-            
-            void getPosition(MATH::Vector3f* position) const;
+		void setOrientation(const MATH::QuaternionF& orientation);
 
-            
-            MATH::Vector3f getPosition() const;
+		void setOrientation(const float r, const float i, const float j, const float k);
 
-            
-            void setOrientation(const MATH::QuaternionF& orientation);
+		void getOrientation(MATH::QuaternionF* orientation) const;
 
-            
-            void setOrientation(const float r, const float i,
-                const float j, const float k);
+		MATH::QuaternionF getOrientation() const;
 
-            
-            void getOrientation(MATH::QuaternionF* orientation) const;
+		void getOrientation(MATH::Matrix3f* matrix) const;
 
-            
-            MATH::QuaternionF getOrientation() const;
+		// void getOrientation(Array<float, 9> matrix) const;
 
-            
-            void getOrientation(MATH::Matrix3f* matrix) const;
+		void getTransform(MATH::Matrix4f* transform);
 
-            
-            //void getOrientation(Array<float, 9> matrix) const;
+		// void getTransform(float matrix[16]) const;
 
-            
-            void getTransform(MATH::Matrix4f* transform);
+		void getGLTransform(float matrix[16]) const;
 
-            
-            //void getTransform(float matrix[16]) const;
+		MATH::Matrix4f getTransform() const;
 
-            
-            void getGLTransform(float matrix[16]) const;
+		MATH::Vector3f getPointInLocalSpace(const MATH::Vector3f& point) const;
 
-            
-            MATH::Matrix4f getTransform() const;
+		MATH::Vector3f getPointInWorldSpace(const MATH::Vector3f& point) const;
 
-            
-            MATH::Vector3f getPointInLocalSpace(const MATH::Vector3f& point) const;
+		MATH::Vector3f getDirectionInLocalSpace(const MATH::Vector3f& direction) const;
 
-            
-            MATH::Vector3f getPointInWorldSpace(const MATH::Vector3f& point) const;
+		MATH::Vector3f getDirectionInWorldSpace(const MATH::Vector3f& direction) const;
 
-            
-            MATH::Vector3f getDirectionInLocalSpace(const MATH::Vector3f& direction) const;
+		void setVelocity(const MATH::Vector3f& velocity);
 
-            
-            MATH::Vector3f getDirectionInWorldSpace(const MATH::Vector3f& direction) const;
+		void setVelocity(const float x, const float y, const float z);
 
-            
-            void setVelocity(const MATH::Vector3f& velocity);
+		void getVelocity(MATH::Vector3f* velocity) const;
 
-            
-            void setVelocity(const float x, const float y, const float z);
+		MATH::Vector3f getVelocity() const;
 
-            
-            void getVelocity(MATH::Vector3f* velocity) const;
+		void addVelocity(const MATH::Vector3f& deltaVelocity);
 
-            
-            MATH::Vector3f getVelocity() const;
+		void setRotation(const MATH::Vector3f& rotation);
 
-            
-            void addVelocity(const MATH::Vector3f& deltaVelocity);
+		void setRotation(const float x, const float y, const float z);
 
-            
-            void setRotation(const MATH::Vector3f& rotation);
+		void getRotation(MATH::Vector3f* rotation) const;
 
-            
-            void setRotation(const float x, const float y, const float z);
+		MATH::Vector3f getRotation() const;
 
-            
-            void getRotation(MATH::Vector3f* rotation) const;
+		void addRotation(const MATH::Vector3f& deltaRotation);
 
-            
-            MATH::Vector3f getRotation() const;
+		bool getAwake() const {
+			return isAwake;
+		}
 
-            
-            void addRotation(const MATH::Vector3f& deltaRotation);
+		void setAwake(const bool awake = true);
 
-            
-            bool getAwake() const {
-                return isAwake;
-            }
+		bool getCanSleep() const {
+			return canSleep;
+		}
 
-            
-            void setAwake(const bool awake = true);
+		void setCanSleep(const bool canSleep = true);
 
-            
-            bool getCanSleep() const {
-                return canSleep;
-            }
+		void getLastFrameAcceleration(MATH::Vector3f* linearAcceleration) const;
 
-            
-            void setCanSleep(const bool canSleep = true);
+		MATH::Vector3f getLastFrameAcceleration() const;
 
-            void getLastFrameAcceleration(MATH::Vector3f* linearAcceleration) const;
+		void clearAccumulators();
 
-            
-            MATH::Vector3f getLastFrameAcceleration() const;
+		void addForce(const MATH::Vector3f& force);
 
-             
-            void clearAccumulators();
+		void addForceAtPoint(const MATH::Vector3f& force, const MATH::Vector3f& point);
 
-            
-            void addForce(const MATH::Vector3f& force);
+		void addForceAtBodyPoint(const MATH::Vector3f& force, const MATH::Vector3f& point);
 
-            
-            void addForceAtPoint(const MATH::Vector3f& force, const MATH::Vector3f& point);
+		void addTorque(const MATH::Vector3f& torque);
+		void setAcceleration(const MATH::Vector3f& acceleration);
 
-            
-            void addForceAtBodyPoint(const MATH::Vector3f& force, const MATH::Vector3f& point);
-            
-            void addTorque(const MATH::Vector3f& torque);
-            void setAcceleration(const MATH::Vector3f& acceleration);
+		void setAcceleration(const float x, const float y, const float z);
 
-            void setAcceleration(const float x, const float y, const float z);
+		void getAcceleration(MATH::Vector3f* acceleration) const;
 
-            void getAcceleration(MATH::Vector3f* acceleration) const;
+		MATH::Vector3f getAcceleration() const;
+	};
 
-            MATH::Vector3f getAcceleration() const;
-
-        };
-
-    }
+}
 }

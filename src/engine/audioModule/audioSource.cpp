@@ -8,5 +8,3 @@ using namespace IKIGAI::AUDIO;
 unsigned SoundResource::getBusId() {
 	return mixer ? mixer->getIdBus() : 0;
 }
-
-

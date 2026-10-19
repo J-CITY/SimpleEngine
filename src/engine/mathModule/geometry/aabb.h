@@ -7,7 +7,7 @@
 namespace IKIGAI::MATH::GEOMETRY {
 template <std::size_t N, class Scalar = float> struct Aabb {
 	static_assert(N > 0);
-	std::array<Scalar, N> min {}, max {};
+	std::array<Scalar, N> min { }, max { };
 	void validate() const {
 		for (std::size_t i = 0; i < N; ++i)
 			if (!std::isfinite(min[i]) || !std::isfinite(max[i]) || min[i] > max[i])

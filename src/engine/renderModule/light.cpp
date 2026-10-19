@@ -11,7 +11,9 @@
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-Light::Light(ECS2::Entity objId, Type type) : objId(objId), type(type) {}
+Light::Light(ECS2::Entity objId, Type type)
+	: objId(objId)
+	, type(type) { }
 
 uint32_t pack(uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3) {
 	return (c0 << 24) | (c1 << 16) | (c2 << 8) | c3;
@@ -21,13 +23,12 @@ uint32_t Pack(const IKIGAI::MATH::Vector3f& vec) {
 	return pack(static_cast<uint8_t>(vec.x * 255.f), static_cast<uint8_t>(vec.y * 255.f), static_cast<uint8_t>(vec.z * 255.f), 0);
 }
 
-
 LightOGL Light::generateOGLStruct() const {
-	LightOGL result{};
+	LightOGL result { };
 	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
 	auto cm = world.getComponentManager();
 	auto transform = cm->getComponent<ECS::TransformComponent>(objId);
-	//auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
+	// auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
 	auto position = transform->getWorldPosition();
 	result.pos[0] = position.x;
 	result.pos[1] = position.y;
@@ -51,7 +52,7 @@ LightOGL Light::generateOGLStruct() const {
 	result.quadratic = quadratic;
 	result.intensity = intensity;
 
-	//TODO: update LightOGL in vulkan and dx12
+	// TODO: update LightOGL in vulkan and dx12
 	result.radius = getEffectRange();
 	result.shadowEnabled = castShadows ? 1 : 0;
 	result.shadowNear = shadowNear;
@@ -109,15 +110,17 @@ float calculateAmbientBoxLightRadius(const IKIGAI::MATH::Vector3f& pos, const IK
 float Light::getEffectRange() const {
 	switch (type) {
 	case Type::POINT:
-	case Type::SPOT:			return calculatePointLightRadius(constant, linear, quadratic, intensity);
+	case Type::SPOT:
+		return calculatePointLightRadius(constant, linear, quadratic, intensity);
 	case Type::AMBIENT_BOX: {
 		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
 		auto cm = world.getComponentManager();
 		auto transform = cm->getComponent<ECS::TransformComponent>(objId);
-		//auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
+		// auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
 		return calculateAmbientBoxLightRadius(transform->getWorldPosition(), { constant, linear, quadratic });
 	}
-	case Type::AMBIENT_SPHERE:	return constant;
+	case Type::AMBIENT_SPHERE:
+		return constant;
 	}
 
 	return std::numeric_limits<float>::infinity();
@@ -127,6 +130,6 @@ const ECS::Transform& Light::getTransform() const {
 	auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
 	auto cm = world.getComponentManager();
 	auto transform = cm->getComponent<ECS::TransformComponent>(objId);
-	//auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
+	// auto transform = ECS::ComponentManager::GetInstance().getComponent<ECS::TransformComponent>(objId);
 	return transform->getTransform();
 }

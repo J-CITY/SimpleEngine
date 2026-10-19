@@ -42,7 +42,7 @@ COLLISION::Manifold3D PhysicWorld::detect(const COLLISION::ShapeView3D& a, const
 	if (status == COLLISION::Status::Unsupported)
 		throw std::runtime_error("Narrow phase does not support shape pair");
 	if (status == COLLISION::Status::Separated)
-		return {};
+		return { };
 	if (m.count < 1 || m.count > 4 || !finite(m.normal) || std::abs(m.normal.squareMagnitude() - 1) > 0.001f)
 		throw std::runtime_error("Invalid 3D collision manifold");
 	for (int i = 0; i < m.count; ++i)
@@ -85,8 +85,8 @@ Id PhysicWorld::createBody(const BodyDef& d) {
 	b.setOrientation(d.orientation);
 	bool dynamic = d.type == BodyType::Dynamic;
 	b.setInverseMass(dynamic ? 1 / d.mass : 0);
-	b.setVelocity(dynamic ? d.velocity : Vec3 {});
-	b.setRotation(dynamic ? d.angularVelocity : Vec3 {});
+	b.setVelocity(dynamic ? d.velocity : Vec3 { });
+	b.setRotation(dynamic ? d.angularVelocity : Vec3 { });
 	b.setDamping(std::exp(-d.linearDamping), std::exp(-d.angularDamping));
 	b.setCanSleep(d.allowSleep);
 	b.setAwake(true);
@@ -271,8 +271,8 @@ void PhysicWorld::step(float dt) {
 		mTime += h;
 	}
 	for (auto& [id, b] : mBodies) {
-		b.force = {};
-		b.torque = {};
+		b.force = { };
+		b.torque = { };
 	}
 }
 void PhysicWorld::debugDraw(const DebugDraw& draw) const {

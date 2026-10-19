@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <memory>
 
 #include "clothParticle.h"
@@ -19,6 +18,7 @@ public:
 	float k; // [-x to 0] higher = stiff sprint, lower = loose spring
 	float restingLength;
 	float b;
+
 public:
 	Spring(float _k, float _b, float len);
 	void SetParticles(std::shared_ptr<ClothParticle> _p1, std::shared_ptr<ClothParticle> _p2);

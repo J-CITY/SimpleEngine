@@ -54,8 +54,8 @@ public:
 	template <class T> static constexpr bool mathValue = vector<T> || matrix<T> || std::is_same_v<T, MATH::QuaternionF>;
 	template <class T> void type(const std::string& name) {
 		names.emplace(typeid(T), name);
-		vm.newClass(name, {},
-			[](C*, IkigaiScript::ScopePtr, const Args&) -> V { throw std::runtime_error("Engine references cannot be constructed directly"); }, {});
+		vm.newClass(name, { },
+			[](C*, IkigaiScript::ScopePtr, const Args&) -> V { throw std::runtime_error("Engine references cannot be constructed directly"); }, { });
 		if constexpr (std::is_base_of_v<ECS::ComponentBase, T>) {
 			method<T>("GetOwner", [this](T& c, const Args&) { return object(c.obj.get()); });
 		}
@@ -195,7 +195,7 @@ public:
 	}
 	template <class T> std::shared_ptr<T> resource(const V& v) {
 		if (v && v->getType() == IkigaiScript::Type::Null)
-			return {};
+			return { };
 		reference<T>(v);
 		auto id = read<size_t>(v->getClass()->variables.at("__handle"));
 		return std::any_cast<std::shared_ptr<T>>(handles.at(id).value);
@@ -237,14 +237,14 @@ public:
 				}
 				else
 					return value(std::invoke(fn, t, read<A>(args[I])...));
-			}(std::index_sequence_for<A...> {});
+			}(std::index_sequence_for<A...> { });
 		});
 	}
 	template <class R, class... A> void freeFunction(const std::string& scope, const std::string& name, R (*fn)(A...)) {
 		function(scope, name, [this, fn](const Args& args) -> V {
 			if (args.size() != sizeof...(A))
 				throw std::runtime_error("Wrong native argument count");
-			return [&]<size_t... I>(std::index_sequence<I...>) -> V { return value(fn(read<A>(args[I])...)); }(std::index_sequence_for<A...> {});
+			return [&]<size_t... I>(std::index_sequence<I...>) -> V { return value(fn(read<A>(args[I])...)); }(std::index_sequence_for<A...> { });
 		});
 	}
 	template <class T, class U, class F> void binaryOperator(const char* op, F fn) {

@@ -45,7 +45,7 @@ namespace {
 		return uint32_t(n);
 	}
 	Value value(const J& j, int n, const std::string& p) {
-		Value v {};
+		Value v { };
 		if (n == 1) {
 			v[0] = number(j, p);
 			return v;
@@ -222,11 +222,11 @@ namespace {
 			if (!j.contains("Lifetime") || !j.contains("Size"))
 				fail(p, "Initialize requires Lifetime and Size");
 			m.lifetime = src("Lifetime", 1, { 1, 0, 0, 0 });
-			m.velocity = src("Velocity", d, {});
+			m.velocity = src("Velocity", d, { });
 			m.size = src("Size", mesh ? 3 : 2, { 1, 1, 1, 0 });
 			m.color = src("Color", 4, { 1, 1, 1, 1 });
-			m.rotation = src("Rotation", 1, {});
-			m.orientation = src("Orientation", 3, {});
+			m.rotation = src("Rotation", 1, { });
+			m.orientation = src("Orientation", 3, { });
 			if (mesh && j.contains("Rotation"))
 				fail(p + "/Rotation", "mesh3D uses Orientation (Euler XYZ degrees)");
 			if (!mesh && j.contains("Orientation"))
@@ -266,7 +266,7 @@ namespace {
 			if (m.type == ModuleType::DirectionalVelocity) {
 				if (d != 2)
 					fail(p, "DirectionalVelocity is 2D; use Velocity or RadialVelocity in 3D");
-				m.rotation = src("Angle", 1, {});
+				m.rotation = src("Angle", 1, { });
 			}
 			const auto op = j.value("Operation", std::string("multiplyBase"));
 			if (op != "multiplyBase" && op != "set")
@@ -469,10 +469,10 @@ std::shared_ptr<const Definition> parse(const J& j, const std::string& asset) {
 			}
 			else if (r.contains("Mesh") || r.contains("MeshIndex"))
 				fail(rp, "Mesh and MeshIndex require mesh3D");
-			rd.texture = r.value("Texture", std::string {});
-			rd.atlas = r.value("Atlas", std::string {});
-			rd.piece = r.value("Piece", std::string {});
-			rd.material = r.value("Material", std::string {});
+			rd.texture = r.value("Texture", std::string { });
+			rd.atlas = r.value("Atlas", std::string { });
+			rd.piece = r.value("Piece", std::string { });
+			rd.material = r.value("Material", std::string { });
 			if (!rd.texture.empty() && !rd.atlas.empty())
 				fail(rp, "Texture and Atlas are mutually exclusive");
 			const auto rs = r.value("RenderSpace", std::string(def->dimension == 2 ? "screen" : "world"));

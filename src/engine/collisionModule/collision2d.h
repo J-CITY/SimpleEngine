@@ -65,7 +65,7 @@ struct Shape2D {
 
 struct ShapeView2D {
 	const Shape2D& shape;
-	Vec2 position {};
+	Vec2 position { };
 	float angle = 0;
 };
 
@@ -76,7 +76,7 @@ struct ManifoldPoint2D {
 struct Manifold2D {
 	Vec2 normal;
 	float penetration = 0;
-	std::array<ManifoldPoint2D, 2> points {};
+	std::array<ManifoldPoint2D, 2> points { };
 	int count = 0;
 };
 

@@ -5,32 +5,17 @@
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-enum FrustumSide {
-	RIGHT = 0,
-	LEFT,
-	BOTTOM,
-	TOP,
-	BACK,
-	FRONT
-};
+enum FrustumSide { RIGHT = 0, LEFT, BOTTOM, TOP, BACK, FRONT };
 
-enum PlaneData {
-	A = 0,
-	B,
-	C,
-	D
-};
+enum PlaneData { A = 0, B, C, D };
 
 void normalizePlane(float frustum[6][4], int side) {
-	float magnitude = (float)sqrt(frustum[side][A] * frustum[side][A] +
-		frustum[side][B] * frustum[side][B] +
-		frustum[side][C] * frustum[side][C]);
+	float magnitude = (float)sqrt(frustum[side][A] * frustum[side][A] + frustum[side][B] * frustum[side][B] + frustum[side][C] * frustum[side][C]);
 	frustum[side][A] /= magnitude;
 	frustum[side][B] /= magnitude;
 	frustum[side][C] /= magnitude;
 	frustum[side][D] /= magnitude;
 }
-
 
 void Frustum::make(const MATH::Matrix4f& viewProjection) {
 	auto columnMajorViewProjection = MATH::Matrix4f::Transpose(viewProjection);
@@ -88,7 +73,6 @@ bool Frustum::pointInFrustum(float x, float y, float z) const {
 	return true;
 }
 
-
 bool Frustum::sphereInFrustum(float x, float y, float z, float radius) const {
 	for (int i = 0; i < 6; i++) {
 		if (data[i][A] * x + data[i][B] * y + data[i][C] * z + data[i][D] <= -radius) {
@@ -136,15 +120,14 @@ bool Frustum::boundingSphereInFrustum(const BoundingSphere& boundingSphere, cons
 }
 
 std::array<float, 4> Frustum::getNearPlane() const {
-	return {data[FRONT][0], data[FRONT][1], data[FRONT][2], data[FRONT][3]};
+	return { data[FRONT][0], data[FRONT][1], data[FRONT][2], data[FRONT][3] };
 }
 
 std::array<float, 4> Frustum::getFarPlane() const {
-	return {data[BACK][0], data[BACK][1], data[BACK][2], data[BACK][3]};
+	return { data[BACK][0], data[BACK][1], data[BACK][2], data[BACK][3] };
 }
 
-COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere, const ECS::Transform& transform) const
-{
+COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere, const ECS::Transform& transform) const {
 	const auto& position = transform.getWorldPosition();
 	const auto& rotation = transform.getWorldRotation();
 	const auto& scale = transform.getWorldScale();
@@ -178,7 +161,6 @@ COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& bo
 	// otherwise we are fully in view
 	return COLLISION::TYPE::INSIDE;
 }
-
 
 COLLISION::TYPE Frustum::boundingSphereInFrustumCollide(const BoundingSphere& boundingSphere) const {
 	float scaledRadius = boundingSphere.radius;

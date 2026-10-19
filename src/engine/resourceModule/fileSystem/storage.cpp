@@ -132,7 +132,7 @@ namespace {
 			0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2 };
 		std::array<uint32_t, 8> hash { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
 		auto block = [&](const uint8_t* bytes) {
-			uint32_t w[64] {};
+			uint32_t w[64] { };
 			for (int i = 0; i < 16; ++i)
 				for (int j = 0; j < 4; ++j)
 					w[i] = (w[i] << 8) | bytes[i * 4 + j];
@@ -163,7 +163,7 @@ namespace {
 			hash[6] += g;
 			hash[7] += h;
 		};
-		std::array<uint8_t, 64> bytes {};
+		std::array<uint8_t, 64> bytes { };
 		uint64_t size = 0;
 		size_t tail = 0;
 		while (input.read(reinterpret_cast<char*>(bytes.data()), bytes.size())) {

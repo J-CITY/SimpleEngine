@@ -121,7 +121,7 @@ Id PhysicWorld::createCloth(const ClothDef& d) {
 	for (int y = 0; y < d.height; ++y)
 		for (int x = 0; x < d.width; ++x)
 			s.particles.push_back(
-				{ d.position + d.axisU * (x * d.spacing) + d.axisV * (y * d.spacing), {}, d.pinTop && y == 0 ? 0 : 1 / d.particleMass });
+				{ d.position + d.axisU * (x * d.spacing) + d.axisV * (y * d.spacing), { }, d.pinTop && y == 0 ? 0 : 1 / d.particleMass });
 	auto link = [&](int a, int b, float compliance) {
 		s.links.push_back({ std::size_t(a), std::size_t(b), (s.particles[b].position - s.particles[a].position).magnitude(), compliance });
 	};
@@ -186,9 +186,9 @@ void PhysicWorld::solveAttachments(float dt) {
 		if (length < 1e-8f)
 			continue;
 		auto n = delta * (1 / length);
-		auto r = b ? target - b->getPosition() : Vec3 {};
+		auto r = b ? target - b->getPosition() : Vec3 { };
 		float w = b ? b->getInverseMass() : 0;
-		auto angular = b ? b->getInverseInertiaTensorWorld().transform(r.cross(n)) : Vec3 {};
+		auto angular = b ? b->getInverseInertiaTensorWorld().transform(r.cross(n)) : Vec3 { };
 		float den = p.inverseMass + w + angular.cross(r).dot(n);
 		float dl = PHYSICS_COMMON::multiplier(length, den, a.compliance, dt, a.lambda);
 		p.position += n * (dl * p.inverseMass);
@@ -282,7 +282,7 @@ void PhysicWorld::stepParticles(float dt) {
 						auto full = f.evaluate(center, velocity, 1, mTime);
 						// Projected area vanishes for flow parallel to the cloth.
 						float speed = full.magnitude();
-						auto load = speed > 1e-10f ? full * (std::abs(full.dot(normal)) / speed * twiceArea / 6) : Vec3 {};
+						auto load = speed > 1e-10f ? full * (std::abs(full.dot(normal)) / speed * twiceArea / 6) : Vec3 { };
 						for (auto i : triangle)
 							wind[i] += load;
 					}
@@ -291,7 +291,7 @@ void PhysicWorld::stepParticles(float dt) {
 			auto& p = s.particles[i];
 			s.previous[i] = p.position;
 			if (p.inverseMass == 0) {
-				p.velocity = {};
+				p.velocity = { };
 				continue;
 			}
 			Vec3 force = wind[i];
@@ -580,7 +580,7 @@ void PhysicWorld::stepParticles(float dt) {
 	for (auto& [id, s] : mSoft)
 		for (std::size_t i = 0; i < s.particles.size(); ++i) {
 			auto& p = s.particles[i];
-			p.velocity = p.inverseMass > 0 ? (p.position - s.previous[i]) / dt : Vec3 {};
+			p.velocity = p.inverseMass > 0 ? (p.position - s.previous[i]) / dt : Vec3 { };
 		}
 	for (auto& [id, f] : mFluids)
 		for (std::size_t i = 0; i < f.particles.size(); ++i)
@@ -600,7 +600,7 @@ void PhysicWorld::stepParticles(float dt) {
 					sum += (liquid[j].p->velocity - liquid[i].p->velocity) * w;
 					weight += w;
 				}
-			velocities[i] = liquid[i].p->velocity + (weight > 1e-8f ? sum * (f.viscosity / weight) : Vec3 {});
+			velocities[i] = liquid[i].p->velocity + (weight > 1e-8f ? sum * (f.viscosity / weight) : Vec3 { });
 		}
 		for (std::size_t i = 0; i < liquid.size(); ++i)
 			liquid[i].p->velocity = velocities[i];

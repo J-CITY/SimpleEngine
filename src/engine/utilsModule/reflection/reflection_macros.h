@@ -4,8 +4,7 @@
 // They are parsed by the IkigaiHeaderTool to generate reflection data.
 
 namespace IKIGAI::UTILS {
-    template<typename T>
-    struct ReflectionReg;
+template <typename T> struct ReflectionReg;
 }
 
 #define IKI_CLASS(...)
@@ -13,10 +12,8 @@ namespace IKIGAI::UTILS {
 #define IKI_FUNCTION(...)
 #define IKI_ENUM(...)
 
-#define IKI_GENERATED_BODY(ClassName) \
-    friend struct IKIGAI::UTILS::ReflectionReg<ClassName>; \
-    template<class Context> \
-    constexpr static auto serde(Context& context, ClassName& value) { \
-        return ikigai_serde(context, value); \
-    }
-
+#define IKI_GENERATED_BODY(ClassName)                                                                                                                \
+	friend struct IKIGAI::UTILS::ReflectionReg<ClassName>;                                                                                           \
+	template <class Context> constexpr static auto serde(Context& context, ClassName& value) {                                                       \
+		return ikigai_serde(context, value);                                                                                                         \
+	}

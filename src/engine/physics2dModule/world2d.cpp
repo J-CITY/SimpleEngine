@@ -5,7 +5,7 @@
 
 namespace IKIGAI::PHYSICS2D {
 World::World()
-	: World(Settings {}, CollisionPipeline {}) { }
+	: World(Settings { }, CollisionPipeline { }) { }
 World::World(Settings config, CollisionPipeline pipeline)
 	: settings(config)
 	, mPipeline(std::move(pipeline)) {
@@ -16,7 +16,7 @@ bool World::detect(const Body& a, const Body& b, Contact& out) const {
 	auto status = mPipeline.narrowPhase->collide({ a.shape, a.position, a.angle }, { b.shape, b.position, b.angle }, m);
 	if (status == COLLISION::Status::Unsupported)
 		throw std::runtime_error("Narrow phase does not support shape pair");
-	out = {};
+	out = { };
 	out.a = a.id;
 	out.b = b.id;
 	if (status == COLLISION::Status::Separated)
@@ -82,7 +82,7 @@ Id World::createBody(const BodyDef& def) {
 		b.inverseInertia = 1 / b.shape.inertia(b.mass);
 	}
 	else {
-		b.velocity = {};
+		b.velocity = { };
 		b.angularVelocity = 0;
 	}
 	mBodies.emplace(b.id, b);
@@ -375,7 +375,7 @@ void World::updateSleeping(float dt) {
 			auto& member = mBodies.at(i);
 			member.sleeping = ready;
 			if (ready) {
-				member.velocity = {};
+				member.velocity = { };
 				member.angularVelocity = 0;
 			}
 		}
@@ -393,7 +393,7 @@ void World::step(float dt) {
 		f.validate();
 	for (int step = 0; step < settings.substeps; ++step) {
 		for (auto& [id, b] : mBodies) {
-			Vec2 generated {};
+			Vec2 generated { };
 			float torque = 0;
 			bool shouldWake = false;
 			if (dynamic(b))
@@ -448,7 +448,7 @@ void World::step(float dt) {
 		mTime += h;
 	}
 	for (auto& [id, b] : mBodies) {
-		b.force = {};
+		b.force = { };
 		b.torque = 0;
 	}
 }

@@ -1,7 +1,7 @@
 #include "cameraComponent.h"
 
 #include "../object.h"
-//#include "../../../game/Chunk.h"
+// #include "../../../game/Chunk.h"
 #include <renderModule/camera.h>
 #include <windowModule/window/window.h>
 
@@ -9,11 +9,13 @@
 #include "sceneModule/sceneManager.h"
 using namespace IKIGAI::ECS;
 
-CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj): ComponentBase(_obj) {
+CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj)
+	: ComponentBase(_obj) {
 	__NAME__ = "CameraComponent";
 }
 
-CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : ComponentBase(_obj) {
+CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor)
+	: ComponentBase(_obj) {
 	__NAME__ = "CameraComponent";
 	setFov(_descriptor.Fov);
 	setSize(_descriptor.Size);
@@ -24,12 +26,10 @@ CameraComponent::CameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor&
 	setFrustumLightCulling(_descriptor.LightCulling);
 	setProjectionMode(_descriptor.Mode);
 
-
 	std::cout << "LOAD CAMERA" << std::endl;
 }
 
-void CameraComponent::ResizeRenderTexture(size_t w, size_t h) {
-}
+void CameraComponent::ResizeRenderTexture(size_t w, size_t h) { }
 void CameraComponent::setFov(float value) {
 	camera.setFov(value);
 }
@@ -67,7 +67,7 @@ float CameraComponent::getFov() const {
 }
 
 float CameraComponent::getSize() const {
-    return camera.getSize();
+	return camera.getSize();
 }
 
 float CameraComponent::getNear() const {
@@ -91,7 +91,7 @@ bool CameraComponent::isFrustumLightCulling() const {
 }
 
 IKIGAI::RENDER::Camera::ProjectionMode CameraComponent::getProjectionMode() const {
-    return camera.getProjectionMode();
+	return camera.getProjectionMode();
 }
 
 IKIGAI::RENDER::Camera& CameraComponent::getCamera() {
@@ -112,15 +112,17 @@ CameraComponent::Descriptor CameraComponent::getDescriptor() const {
 	return descriptor;
 }
 
-VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj): CameraComponent(_obj) {
+VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj)
+	: CameraComponent(_obj) {
 	__NAME__ = "VrCamera";
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
 #ifdef OPENGL_BACKEND
-	//TODO: fix it
-	//leftTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406/*GL_FLOAT*/); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
-	//rightTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
+	// TODO: fix it
+	// leftTexture = RENDER::TextureGl::CreateForAttach(screenRes.x, screenRes.y, 0x1406/*GL_FLOAT*/);
+	// //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y); rightTexture = RENDER::TextureGl::CreateForAttach(screenRes.x,
+	// screenRes.y, 0x1406); //RENDER::TextureGl::createDepthForAttach(screenRes.x, screenRes.y);
 #endif
-	
+
 	{
 		auto camLeft = createObject("__VrCamera_CameraLeft");
 		auto cam = camLeft->addComponent<CameraComponent>();
@@ -147,10 +149,10 @@ VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj): CameraCompon
 	}
 }
 
-VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor): CameraComponent(_obj)
-{
+VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor)
+	: CameraComponent(_obj) {
 	__NAME__ = "VrCamera";
-	//TODO: init left/right camera
+	// TODO: init left/right camera
 	setFov(_descriptor.Fov);
 	setSize(_descriptor.Size);
 	setNear(_descriptor.Near);
@@ -164,12 +166,12 @@ VrCameraComponent::VrCameraComponent(UTILS::Ref<ECS::Object> _obj, const Descrip
 std::shared_ptr<IKIGAI::ECS::Object> VrCameraComponent::createObject(const std::string& name) {
 	static int id = 0;
 	auto instance = std::make_shared<ECS::Object>(Object::Id(Object::Id::ID(id)), name, "");
-	//if (isExecute) {
-		instance->setActive(true);
-		if (instance->getIsActive()) {
-			instance->onEnable();
-			instance->onStart();
-		}
+	// if (isExecute) {
+	instance->setActive(true);
+	if (instance->getIsActive()) {
+		instance->onEnable();
+		instance->onStart();
+	}
 	//}
 	return instance;
 }
@@ -192,10 +194,12 @@ void VrCameraComponent::updateEyes() {
 
 	auto LEyeDirection = this->FocusDistance * obj->getTransform()->getWorldPosition() - LEyeDistance;
 	auto REyeDirection = this->FocusDistance * obj->getTransform()->getWorldPosition() - REyeDistance;
-	
+
 	auto screenRes = RESOURCES::ServiceManager::Get<WINDOW::Window>().getSize();
-	left->getComponent<CameraComponent>()->getCamera().cacheMatrices(screenRes.x, screenRes.y, position + LEyeDistance, obj->getTransform()->getWorldRotation());
-	right->getComponent<CameraComponent>()->getCamera().cacheMatrices(screenRes.x, screenRes.y, position + REyeDistance, obj->getTransform()->getWorldRotation());
+	left->getComponent<CameraComponent>()->getCamera().cacheMatrices(
+		screenRes.x, screenRes.y, position + LEyeDistance, obj->getTransform()->getWorldRotation());
+	right->getComponent<CameraComponent>()->getCamera().cacheMatrices(
+		screenRes.x, screenRes.y, position + REyeDistance, obj->getTransform()->getWorldRotation());
 }
 
 VrCameraComponent::Descriptor VrCameraComponent::getDescriptor() const {
@@ -250,9 +254,9 @@ cv::Matx44f createGLMatrix(const cv::Mat& tVec, const cv::Mat& rVec) {
 
 
 	cv::Matx44f glM((float)rMat.at<double>(0, 0), (float)rMat.at<double>(0, 1), (float)rMat.at<double>(0, 2), (float)tVec.at<double>(0, 0),
-	                (float)-rMat.at<double>(1, 0), (float)-rMat.at<double>(1, 1), (float)-rMat.at<double>(1, 2), (float)-tVec.at<double>(1, 0),
-	                (float)-rMat.at<double>(2, 0), (float)-rMat.at<double>(2, 1), (float)-rMat.at<double>(2, 2), (float)-tVec.at<double>(2, 0),
-	                0.0f, 0.0f, 0.0f, 1.0f);
+					(float)-rMat.at<double>(1, 0), (float)-rMat.at<double>(1, 1), (float)-rMat.at<double>(1, 2), (float)-tVec.at<double>(1, 0),
+					(float)-rMat.at<double>(2, 0), (float)-rMat.at<double>(2, 1), (float)-rMat.at<double>(2, 2), (float)-tVec.at<double>(2, 0),
+					0.0f, 0.0f, 0.0f, 1.0f);
 	return glM;
 }
 
@@ -270,7 +274,7 @@ void ArCameraComponent::onUpdate(std::chrono::duration<double> dt) {
 		cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
 
 		int nMarkers = markerCorners.size();
-		
+
 		std::vector<cv::Vec3d> rvecs(nMarkers), tvecs(nMarkers);
 		cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.5, cameraMatrix, distCoeffs, rvecs, tvecs);
 
@@ -292,7 +296,7 @@ void ArCameraComponent::onUpdate(std::chrono::duration<double> dt) {
 		//	ovm(2, 0), ovm(2, 1), ovm(2, 2), ovm(2, 3),
 		//	ovm(3, 0), ovm(3, 1), ovm(3, 2), ovm(3, 3)
 		//);
-		
+
 
 		for (auto i : markerIds) {
 			std::cout << i << " [pos: " << tvecs[0][0] << " " << tvecs[0][1] << " " << tvecs[0][2] << "] [rot "
@@ -308,22 +312,20 @@ void ArCameraComponent::onUpdate(std::chrono::duration<double> dt) {
 	cameraTexture->bindWithoutAttach();
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, frame.cols, frame.rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-	
+
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(RESOURCES::TextureFiltering::LINEAR_MIPMAP_LINEAR));
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(RESOURCES::TextureFiltering::LINEAR));
-	
+
 	cameraTexture->unbind();
 
 	//cv::imwrite("test.jpg", frame);
 }*/
 
-
-
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::enumeration<IKIGAI::RENDER::Camera::ProjectionMode>("ProjectionMode")
 //	(
@@ -377,9 +379,10 @@ void ArCameraComponent::onUpdate(std::chrono::duration<double> dt) {
 //		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
 //	)
-//	.property("FrustumCullingBVH", &IKIGAI::ECS::CameraComponent::isFrustumGeometryBVHCulling, &IKIGAI::ECS::CameraComponent::setFrustumGeometryBVHCulling)
+//	.property("FrustumCullingBVH", &IKIGAI::ECS::CameraComponent::isFrustumGeometryBVHCulling,
+//&IKIGAI::ECS::CameraComponent::setFrustumGeometryBVHCulling)
 //	(
 //		rttr::metadata(MetaInfo::FLAGS, MetaInfo::SERIALIZABLE | MetaInfo::USE_IN_EDITOR_COMPONENT_INSPECTOR),
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::BOOL)
 //	);
-//}
+// }

@@ -1,6 +1,7 @@
 #include "vectorContext.h"
 #include <stdexcept>
 namespace IKIGAI::VECTOR {
+
 void VectorContext::pushClip(ClipRect c) {
 	if (!mClips.empty()) {
 		auto p = mClips.back();
@@ -9,28 +10,36 @@ void VectorContext::pushClip(ClipRect c) {
 	}
 	mClips.push_back(c);
 }
+
 void VectorContext::popClip() {
-	if (mClips.empty())
+	if (mClips.empty()) {
 		throw std::logic_error("Unbalanced vector clip stack");
+	}
 	mClips.pop_back();
 }
+
 void VectorContext::drawPath(const Path& path, const Paint* paint, const StrokeStyle* style) {
 	DrawCommand command;
 	if (!mClips.empty()) {
 		command.clip = mClips.back();
 		command.clipped = true;
-		if (command.clip.max.x <= command.clip.min.x || command.clip.max.y <= command.clip.min.y)
+		if (command.clip.max.x <= command.clip.min.x || command.clip.max.y <= command.clip.min.y) {
 			return;
+		}
 	}
 	for (auto& contour : flatten(path, mOptions)) {
-		if (paint && contour.closed)
+		if (paint && contour.closed) {
 			command.mesh.append(fill(contour.points, *paint, mOptions.aaWidth));
-		if (style)
+		}
+		if (style) {
 			command.mesh.append(stroke(contour, *style, mOptions));
+		}
 	}
-	if (!command.mesh.indices.empty())
+	if (!command.mesh.indices.empty()) {
 		mCommands.push_back(std::move(command));
+	}
 }
+
 void VectorContext::drawRect(Vec2 size, const Paint& paint, Vec2 radii) {
 	drawPath(rectangle(size, radii), &paint, nullptr);
 }

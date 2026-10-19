@@ -8,7 +8,7 @@ namespace IKIGAI::PHYSICS_COMMON {
 template <class V> struct Surface {
 	std::vector<V> positions, normals;
 	std::vector<std::uint32_t> indices;
-	V center {};
+	V center { };
 	float radius = 0;
 };
 // Renderer-independent snapshot with area-weighted normals and current bounds.

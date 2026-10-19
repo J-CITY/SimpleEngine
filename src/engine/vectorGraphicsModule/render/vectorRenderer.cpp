@@ -10,7 +10,6 @@
 #include <cstring>
 #include <iostream>
 
-
 namespace IKIGAI::VECTOR {
 namespace {
 	Vec2 vector(MATH::Vector2f v) {
@@ -41,12 +40,14 @@ namespace {
 		}
 	}
 }
+
 void VectorRenderer::beginFrame(bool world) {
 	++mFrame;
 	mWorld = world;
 	mBatches.clear();
 	mStatistics = { };
 }
+
 std::shared_ptr<RENDER::TextureInterface> VectorRenderer::pageTexture(
 	const std::shared_ptr<FontResource>& font, unsigned page, RENDER::Renderer& renderer) {
 	auto& cache = mFonts[font.get()];
@@ -56,8 +57,9 @@ std::shared_ptr<RENDER::TextureInterface> VectorRenderer::pageTexture(
 		cache.pages.clear();
 		cache.generation = font->revision();
 	}
-	if (cache.pages.size() <= page)
+	if (cache.pages.size() <= page) {
 		cache.pages.resize(page + 1);
+	}
 	auto& entry = cache.pages[page];
 	AtlasPage snapshot;
 	if (font->snapshotPage(page, entry.revision, snapshot)) {
@@ -75,6 +77,7 @@ std::shared_ptr<RENDER::TextureInterface> VectorRenderer::pageTexture(
 	}
 	return entry.texture;
 }
+
 std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pixelScale, RENDER::Renderer& renderer) {
 	std::vector<PreparedDraw> result;
 	pixelScale = std::clamp(pixelScale, .001f, 10000.f);
@@ -97,8 +100,9 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 			auto s = style(*component);
 			context.drawPath(path, component->Filled ? &p : nullptr, component->StrokeWidth > 0 ? &s : nullptr);
 			Mesh mesh;
-			for (auto& command : context.commands())
+			for (auto& command : context.commands()) {
 				mesh.append(command.mesh);
+			}
 			cached.mesh = std::move(mesh);
 			cached.key = signature;
 			++mStatistics.geometryBuilds;
@@ -114,8 +118,9 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 		try {
 			if (cache.key != signature) {
 				Path path;
-				if (c->Shape == 0)
+				if (c->Shape == 0) {
 					path = rectangle(vector(c->Size));
+				}
 				else if (c->Shape == 1) {
 					auto r = c->CornerRadii;
 					path = (r.x > 0 || r.y > 0 || r.z > 0 || r.w > 0) ? roundedRectangle(vector(c->Size), { r.x, r.y, r.z, r.w })
@@ -125,14 +130,18 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 					float d = std::min(c->Size.x, c->Size.y);
 					path = ellipse({ d, d }, 0, 360, false, options);
 				}
-				else if (c->Shape == 3)
+				else if (c->Shape == 3) {
 					path = ellipse(vector(c->Size), 0, 360, false, options);
-				else if (c->Shape == 4)
+				}
+				else if (c->Shape == 4) {
 					path = ellipse(vector(c->Size), c->StartAngle, c->EndAngle, c->Filled, options);
-				else if (c->Shape == 5)
+				}
+				else if (c->Shape == 5) {
 					path = parsePath(c->Points);
-				else
+				}
+				else {
 					throw std::invalid_argument("Unknown vector shape type");
+				}
 				geometry(c, path, signature);
 			}
 			else {
@@ -155,8 +164,9 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 			if (auto path = fs.getFilePath(c->PathAsset)) {
 				std::error_code error;
 				auto time = std::filesystem::last_write_time(*path, error);
-				if (!error)
+				if (!error) {
 					signature += std::to_string(time.time_since_epoch().count());
+				}
 			}
 		}
 		try {
@@ -164,8 +174,9 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 				std::string commands = c->Commands;
 				if (!c->PathAsset.empty()) {
 					auto file = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFile(c->PathAsset);
-					if (!file || !file->isValid())
+					if (!file || !file->isValid()) {
 						throw std::runtime_error("Vector path asset not found: " + c->PathAsset);
+					}
 					auto json = nlohmann::json::parse(file->read());
 					commands = json.at("Commands").get<std::string>();
 				}
@@ -176,8 +187,9 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 				result.push_back({ &cache.mesh, mWhite });
 			}
 		} catch (const std::exception& e) {
-			if (cache.key != signature)
+			if (cache.key != signature) {
 				std::cerr << "Vector path: " << e.what() << '\n';
+			}
 			cache.key = signature;
 			cache.seen = mFrame;
 			result.push_back({ &cache.mesh, mWhite });
@@ -214,22 +226,26 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 				if (maxOffset > float(o.spread) - 2)
 					shadow = shadow * ((o.spread - 2) / maxOffset);
 				SdfEffects effects { { float(o.spread), outline, shadow.x / o.pageSize, shadow.y / o.pageSize }, c->OutlineColor, c->ShadowColor };
-				for (auto& run : cache.text.runs)
+				for (auto& run : cache.text.runs) {
 					result.push_back({ &run.mesh, pageTexture(cache.font, run.page, renderer), true, effects });
+				}
 			}
 		} catch (const std::exception& e) {
-			if (cache.key != signature)
+			if (cache.key != signature) {
 				std::cerr << "SDF text: " << e.what() << '\n';
+			}
 			cache.key = signature;
 		}
 	}
 	return result;
 }
+
 void VectorRenderer::enqueue(std::vector<::IKIGAI::Vertex> vertices, const std::vector<unsigned>& indices,
 	std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, const MATH::Matrix4f& projection,
 	RENDER::Blending blend, RENDER::Depth depth, const RENDER::Scissor& clip, bool clipped, bool sdf, SdfEffects effects) {
-	if (vertices.empty() || indices.empty() || !texture || !shader)
+	if (vertices.empty() || indices.empty() || !texture || !shader) {
 		return;
+	}
 	Batch* batch = nullptr;
 	if (!mBatches.empty()) {
 		auto& b = mBatches.back();
@@ -253,9 +269,11 @@ void VectorRenderer::enqueue(std::vector<::IKIGAI::Vertex> vertices, const std::
 	}
 	unsigned base = static_cast<unsigned>(batch->vertices.size());
 	batch->vertices.insert(batch->vertices.end(), vertices.begin(), vertices.end());
-	for (unsigned i : indices)
+	for (unsigned i : indices) {
 		batch->indices.push_back(base + i);
+	}
 }
+
 void VectorRenderer::flush(RENDER::Renderer& renderer) {
 	auto& mBatchCache = mBatchCaches[mWorld ? 1 : 0];
 	mBatchCache.resize(mBatches.size());
@@ -281,20 +299,24 @@ void VectorRenderer::flush(RENDER::Renderer& renderer) {
 			c.hash = h;
 			++mStatistics.meshUploads;
 		}
-		if (!c.mesh)
+		if (!c.mesh) {
 			throw std::runtime_error("Vector GUI mesh upload unavailable for active backend");
+		}
 		renderer.setShader(b.shader);
 		renderer.setDepth(b.depth);
 		renderer.setCull(RENDER::CullFace::NONE);
 		renderer.setBlending(b.blend);
-		if (b.clipped)
+		if (b.clipped) {
 			renderer.setScissor(b.clip);
-		else
+		}
+		else {
 			renderer.resetScissor();
+		}
 		renderer.setUniformBuffer("engine_Gui", c.projection);
 		renderer.setTexture("Image", b.texture);
-		if (b.sdf)
+		if (b.sdf) {
 			renderer.setUniformBuffer("engine_Sdf", c.effects);
+		}
 		renderer.draw(c.mesh, RENDER::PrimitiveMode::TRIANGLES, 1);
 	}
 	renderer.resetScissor();

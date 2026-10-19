@@ -8,6 +8,7 @@ class ProfileHandle {
 	std::shared_ptr<STORAGE::UserStorage> mStorage;
 	std::string mPrefix;
 	std::string path(const std::string& relative, bool directory = false) const;
+
 public:
 	ProfileHandle(std::shared_ptr<STORAGE::UserStorage> storage, std::string prefix);
 	std::vector<uint8_t> readFile(const std::string& relative) const;
@@ -47,10 +48,20 @@ public:
 	std::shared_future<void> saveData(const std::string& relative, std::span<const uint8_t> bytes);
 	std::vector<uint8_t> loadData(const std::string& relative) const;
 	ProfileHandle profile() const;
-	std::vector<uint8_t> readFile(const std::string& relative) const { return profile().readFile(relative); }
-	std::shared_future<void> writeFile(const std::string& relative, std::span<const uint8_t> bytes) { return profile().writeFile(relative, bytes); }
-	std::shared_future<void> writeFileAtomic(const std::string& relative, std::span<const uint8_t> bytes) { return profile().writeFileAtomic(relative, bytes); }
-	std::vector<STORAGE::UserStorage::Entry> listFiles(const std::string& directory = "") const { return profile().listFiles(directory); }
-	std::shared_future<void> commit() const { return mStorage->commit(); }
+	std::vector<uint8_t> readFile(const std::string& relative) const {
+		return profile().readFile(relative);
+	}
+	std::shared_future<void> writeFile(const std::string& relative, std::span<const uint8_t> bytes) {
+		return profile().writeFile(relative, bytes);
+	}
+	std::shared_future<void> writeFileAtomic(const std::string& relative, std::span<const uint8_t> bytes) {
+		return profile().writeFileAtomic(relative, bytes);
+	}
+	std::vector<STORAGE::UserStorage::Entry> listFiles(const std::string& directory = "") const {
+		return profile().listFiles(directory);
+	}
+	std::shared_future<void> commit() const {
+		return mStorage->commit();
+	}
 };
 }

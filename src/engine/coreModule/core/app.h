@@ -11,28 +11,29 @@
 #endif
 
 namespace IKIGAI {
-	namespace CORE {
-		class App {
-		public:
+namespace CORE {
+	class App {
+	public:
 #ifdef DX12_BACKEND
-			inline static HINSTANCE hInstance;
+		inline static HINSTANCE hInstance;
 #endif
-			App(
+		App(
 #ifdef OCULUS
 			android_app* app
 #endif
-			);
-			~App();
-			void run();
-			bool runMainLoop();
-			[[nodiscard]] bool isRunning() const;
-			void preUpdate(std::chrono::duration<double> dt);
-			void update(std::chrono::duration<double> dt);
-			void postUpdate(std::chrono::duration<double> dt);
-			UTILS::Ref<Core> getCore();
-		protected:
-			Core core;
-			std::chrono::duration<double> m_fixedTimeAccumulator{};
-		};
-	}
+		);
+		~App();
+		void run();
+		bool runMainLoop();
+		[[nodiscard]] bool isRunning() const;
+		void preUpdate(std::chrono::duration<double> dt);
+		void update(std::chrono::duration<double> dt);
+		void postUpdate(std::chrono::duration<double> dt);
+		UTILS::Ref<Core> getCore();
+
+	protected:
+		Core core;
+		std::chrono::duration<double> m_fixedTimeAccumulator { };
+	};
+}
 }

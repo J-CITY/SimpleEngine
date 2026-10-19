@@ -5,21 +5,17 @@
 using namespace IKIGAI::ANIMATION;
 using namespace IKIGAI::MATH;
 
-
-AnimationProperty::AnimationProperty(std::string name,
-	std::function<void(PropType)> set,
-	std::function<PropType()> get,
-	InterpolationType type) :
-	name(name), _set(std::move(set)), _get(std::move(get)),
-	interpolationType(type) {
-
-}
+AnimationProperty::AnimationProperty(std::string name, std::function<void(PropType)> set, std::function<PropType()> get, InterpolationType type)
+	: name(name)
+	, _set(std::move(set))
+	, _get(std::move(get))
+	, interpolationType(type) { }
 
 void AnimationProperty::set(PropType val) {
 	_set(val);
 };
 PropType AnimationProperty::get() {
-	return  _get();
+	return _get();
 };
 const std::string& AnimationProperty::getName() const {
 	return name;
@@ -28,9 +24,8 @@ InterpolationType AnimationProperty::getInterpolationType() const {
 	return interpolationType;
 }
 
-Animation::Builder::Builder(unsigned int framesCount, unsigned int fps, bool isLooped) :
-	anim(new Animation(framesCount, fps, isLooped)) {
-}
+Animation::Builder::Builder(unsigned int framesCount, unsigned int fps, bool isLooped)
+	: anim(new Animation(framesCount, fps, isLooped)) { }
 
 Animation::Builder& Animation::Builder::addKeyFrame(int frame, std::map<std::string, PropType> prop) {
 	anim->addKeyFrame(frame, prop);
@@ -51,9 +46,10 @@ std::unique_ptr<Animation> Animation::Builder::build() {
 	return std::move(anim);
 }
 
-Animation::Animation(unsigned int frameCount, unsigned int fps, bool isLooped) : AnimationBase(),
-	framesCount(frameCount), FPS(fps)
-{
+Animation::Animation(unsigned int frameCount, unsigned int fps, bool isLooped)
+	: AnimationBase()
+	, framesCount(frameCount)
+	, FPS(fps) {
 	time = static_cast<float>(frameCount * fps);
 	this->isLooped = isLooped;
 }
@@ -98,11 +94,10 @@ int Animation::linearFunc(int x0, int x1, float progress) {
 bool Animation::linearFunc(bool x0, bool x1, float progress) {
 	if (progress > 1.f)
 		progress = 1.0f;
-	return progress == 1.0f ? x1 : x0 ;
+	return progress == 1.0f ? x1 : x0;
 }
 
-void Animation::moveFrameInTrack(const std::string& trackName, int oldFrame, int newFrame)
-{
+void Animation::moveFrameInTrack(const std::string& trackName, int oldFrame, int newFrame) {
 	if (!frames.contains(oldFrame)) {
 		return;
 	}
@@ -112,25 +107,25 @@ void Animation::moveFrameInTrack(const std::string& trackName, int oldFrame, int
 
 	auto prop = frames[oldFrame][trackName];
 	auto curve = curves[trackName][oldFrame];
-	//Delete old
+	// Delete old
 	frames[oldFrame].erase(trackName);
 	curves[trackName].erase(oldFrame);
 
-	//Add to new
+	// Add to new
 	if (frames[newFrame].contains(trackName)) {
 		if (newFrame > oldFrame) {
 			if (newFrame < framesCount - 1) {
 				newFrame++;
 			}
-			else
-			{
+			else {
 				newFrame = oldFrame;
 			}
 		}
 		else {
 			if (newFrame > 0) {
 				newFrame--;
-			} else {
+			}
+			else {
 				newFrame = oldFrame;
 			}
 		}
@@ -138,8 +133,7 @@ void Animation::moveFrameInTrack(const std::string& trackName, int oldFrame, int
 	curves[trackName][newFrame] = curve;
 	frames[newFrame].insert_or_assign(trackName, prop);
 
-
-	//frames.emplace(frame, prop);
+	// frames.emplace(frame, prop);
 	init();
 }
 
@@ -152,51 +146,51 @@ void Animation::addProperty(AnimationProperty p) {
 void Animation::delProperty(const std::string& name) {
 	props.erase(name);
 	curves.erase(name);
-	isInit  = false;
+	isInit = false;
 }
 
 void Animation::addKeyFrame(int frame, std::map<std::string, PropType> prop) {
 	frames.emplace(frame, prop);
 
 	for (auto& p : prop) {
-		//int startFrame = -1;
-		//for (auto& e : fastAccess[p.first]) {
+		// int startFrame = -1;
+		// for (auto& e : fastAccess[p.first]) {
 		//	if (e < frame) {
 		//		continue;
 		//	}
 		//	startFrame = e;
 		//	break;
-		//}
-		//if (frame == 0 && !curves[p.first].empty() && curves[p.first][0].mLeft.x == 0.0f) {
+		// }
+		// if (frame == 0 && !curves[p.first].empty() && curves[p.first][0].mLeft.x == 0.0f) {
 		//	curves[p.first].erase(curves[p.first].begin());
-		//}
+		// }
 
-		curves[p.first][frame] = Curve{
-			{0.0f, 0.0f},
-			{1.0f, 1.0f},
-			{0.5f, 0.0f},
-			{-1.0f, 0.0f},
+		curves[p.first][frame] = Curve {
+			{ 0.0f, 0.0f },
+			{ 1.0f, 1.0f },
+			{ 0.5f, 0.0f },
+			{ -1.0f, 0.0f },
 		};
 
-		//std::sort(curves[p.first].begin(), curves[p.first].end(), [](const Curve& a, const Curve& b) {
+		// std::sort(curves[p.first].begin(), curves[p.first].end(), [](const Curve& a, const Curve& b) {
 		//	return a.mLeft.x < b.mLeft.x;
-		//});
+		// });
 		//
-		//auto& _curves = curves[p.first];
-		//for (int i = 0; i < _curves.size()-1; ++i) {
+		// auto& _curves = curves[p.first];
+		// for (int i = 0; i < _curves.size()-1; ++i) {
 		//	_curves[i].mRight = _curves[i + 1].mLeft;
-		//}
+		// }
 		//
-		//if (!_curves.empty() && _curves[0].mLeft.x != 0.0f) {
+		// if (!_curves.empty() && _curves[0].mLeft.x != 0.0f) {
 		//	_curves.emplace(_curves.begin(), Curve{
 		//		{static_cast<float>(0.0f), 0.5f},
 		//		_curves[0].mLeft,
 		//		{0.5f, 0.0f},
 		//		{-1.0f, 0.0f}
 		//	});
-		//}
+		// }
 	}
-	
+
 	init();
 }
 
@@ -207,10 +201,10 @@ void Animation::delKeyFrameProp(int frame, std::map<std::string, PropType> prop)
 	for (auto& e : prop) {
 		frames[frame].erase(e.first);
 		curves[e.first].erase(frame);
-		//std::erase_if(curves[e.first], [frame](const Curve& x) { return static_cast<int>(x.mLeft.x) == frame; });
+		// std::erase_if(curves[e.first], [frame](const Curve& x) { return static_cast<int>(x.mLeft.x) == frame; });
 	}
 
-	//frames.emplace(frame, prop);
+	// frames.emplace(frame, prop);
 	init();
 
 	for (auto& e : prop) {
@@ -230,10 +224,10 @@ void Animation::delKeyFrameProp(int frame, const std::string& propName) {
 	}
 
 	curves[propName].erase(frame);
-	//std::erase_if(curves[propName], [frame](const Curve& x) { return static_cast<int>(x.mLeft.x) == frame; });
+	// std::erase_if(curves[propName], [frame](const Curve& x) { return static_cast<int>(x.mLeft.x) == frame; });
 
 	init();
-	
+
 	if (fastAccess[propName].empty()) {
 		curves.erase(propName);
 	}
@@ -250,34 +244,34 @@ void Animation::addKeyFrameMerge(int frame, std::map<std::string, PropType> prop
 	}
 
 	for (auto& p : prop) {
-		//if (frame == 0 && !curves[p.first].empty() && curves[p.first][0].mLeft.x == 0.0f) {
+		// if (frame == 0 && !curves[p.first].empty() && curves[p.first][0].mLeft.x == 0.0f) {
 		//	curves[p.first].erase(curves[p.first].begin());
-		//}
+		// }
 
-		curves[p.first][frame] = Curve{
-			{0.0f, 0.0f},
-			{1.0f, 1.0f},
-			{0.5f, 0.0f},
-			{-1.0f, 0.0f},
+		curves[p.first][frame] = Curve {
+			{ 0.0f, 0.0f },
+			{ 1.0f, 1.0f },
+			{ 0.5f, 0.0f },
+			{ -1.0f, 0.0f },
 		};
 
-		//std::sort(curves[p.first].begin(), curves[p.first].end(), [](const Curve& a, const Curve& b) {
+		// std::sort(curves[p.first].begin(), curves[p.first].end(), [](const Curve& a, const Curve& b) {
 		//	return a.mLeft.x < b.mLeft.x;
-		//});
+		// });
 		//
-		//auto& _curves = curves[p.first];
-		//for (int i = 0; i < _curves.size() - 1; ++i) {
+		// auto& _curves = curves[p.first];
+		// for (int i = 0; i < _curves.size() - 1; ++i) {
 		//	_curves[i].mRight = _curves[i + 1].mLeft;
-		//}
+		// }
 		//
-		//if (!_curves.empty() && _curves[0].mLeft.x != 0.0f) {
+		// if (!_curves.empty() && _curves[0].mLeft.x != 0.0f) {
 		//	_curves.emplace(_curves.begin(), Curve{
 		//		{static_cast<float>(0.0f), 0.5f},
 		//		_curves[0].mLeft,
 		//		{0.5f, 0.0f},
 		//		{-1.0f, 0.0f}
 		//	});
-		//}
+		// }
 	}
 	init();
 }
@@ -287,12 +281,13 @@ bool Animation::hasFrameForProperty(int frame, const std::string& name) {
 	return std::find(vec.begin(), vec.end(), frame) != vec.end();
 }
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
+template <class... Ts> struct overloaded : Ts... {
+	using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 float cubicBezierCurve(const Curve& curve, float t) {
-    return IKIGAI::MATH::CURVES::evaluateParametric(curve, t).y;
+	return IKIGAI::MATH::CURVES::evaluateParametric(curve, t).y;
 }
 
 void Animation::update(float dt) {
@@ -340,77 +335,66 @@ void Animation::update(float dt) {
 					progress = functions[p.second.getInterpolationType()](progress);
 				}
 
-				std::visit(overloaded {
-					[this, &p, a1, a2, progress](const float& val) {
-						auto val1 = std::get_if<float>(&frames[a1][p.first]);
-						auto val2 = std::get_if<float>(&frames[a2][p.first]);
-						if (val1 && val2) {
-							curState[p.first] = linearFunc(*val1, *val2, progress);
-						}
-					},
-					[this, &p, a1, a2, progress](const int& val) {
-						auto val1 = std::get_if<int>(&frames[a1][p.first]);
-						auto val2 = std::get_if<int>(&frames[a2][p.first]);
-						if (val1 && val2) {
-							curState[p.first] = linearFunc(*val1, *val2, progress);
-						}
-					},
-					[this, &p, a1, a2, progress](const bool& val) {
-						auto val1 = std::get_if<bool>(&frames[a1][p.first]);
-						auto val2 = std::get_if<bool>(&frames[a2][p.first]);
-						if (val1 && val2) {
-							curState[p.first] = linearFunc(*val1, *val2, progress);
-						}
-					},
-					[this, &p, a1, a2, progress](const MATH::Vector2f& val) {
-						auto val1 = std::get_if<MATH::Vector2f>(&frames[a1][p.first]);
-						auto val2 = std::get_if<MATH::Vector2f>(&frames[a2][p.first]);
-						if (val1 && val2) {
-							curState[p.first] = MATH::Vector2f(
-								linearFunc(val1->x, val2->x, progress),
-								linearFunc(val1->y, val2->y, progress)
-							);
-						}
-					},
-					[this, &p, a1, a2, progress](const MATH::Vector3f& val) {
-						auto val1 = std::get_if<MATH::Vector3f>(&frames[a1][p.first]);
-						auto val2 = std::get_if<MATH::Vector3f>(&frames[a2][p.first]);
-						if (val1 && val2) {
-							curState[p.first] = MATH::Vector3f(
-								linearFunc(val1->x, val2->x, progress),
-								linearFunc(val1->y, val2->y, progress),
-								linearFunc(val1->z, val2->z, progress)
-							);
-						}
-					},
-					[this, &p, a1, a2, progress](const MATH::Vector4f& val) {
-						auto val1 = std::get_if<MATH::Vector4f>(&frames[a1][p.first]);
-						auto val2 = std::get_if<MATH::Vector4f>(&frames[a2][p.first]);
-						if (val1 && val2) {
-							curState[p.first] = MATH::Vector4f(
-								linearFunc(val1->x, val2->x, progress),
-								linearFunc(val1->y, val2->y, progress),
-								linearFunc(val1->z, val2->z, progress),
-								linearFunc(val1->w, val2->w, progress)
-							);
-						}
-					},
-					[this, &p, a1, a2, progress, curFrame](const std::string& val) {
-						//auto val1 = std::get_if<std::string>(&frames[a1][p.first]);
-						//auto val2 = std::get_if<std::string>(&frames[a2][p.first]);
-						//if (val1 && val2) {
-							if (curFrame == a1) {
-								curState[p.first] = val;
-							}
-							//else if (curFrame == a2) {
-							//	curState[p.first] = &val2;
-							//}
-						//}
-					},
-					[this, &p, a1, a2, progress](const auto& val) {
-						
-					}
-				}, frames[a1][p.first]);
+				std::visit(overloaded { [this, &p, a1, a2, progress](const float& val) {
+										   auto val1 = std::get_if<float>(&frames[a1][p.first]);
+										   auto val2 = std::get_if<float>(&frames[a2][p.first]);
+										   if (val1 && val2) {
+											   curState[p.first] = linearFunc(*val1, *val2, progress);
+										   }
+									   },
+						   [this, &p, a1, a2, progress](const int& val) {
+							   auto val1 = std::get_if<int>(&frames[a1][p.first]);
+							   auto val2 = std::get_if<int>(&frames[a2][p.first]);
+							   if (val1 && val2) {
+								   curState[p.first] = linearFunc(*val1, *val2, progress);
+							   }
+						   },
+						   [this, &p, a1, a2, progress](const bool& val) {
+							   auto val1 = std::get_if<bool>(&frames[a1][p.first]);
+							   auto val2 = std::get_if<bool>(&frames[a2][p.first]);
+							   if (val1 && val2) {
+								   curState[p.first] = linearFunc(*val1, *val2, progress);
+							   }
+						   },
+						   [this, &p, a1, a2, progress](const MATH::Vector2f& val) {
+							   auto val1 = std::get_if<MATH::Vector2f>(&frames[a1][p.first]);
+							   auto val2 = std::get_if<MATH::Vector2f>(&frames[a2][p.first]);
+							   if (val1 && val2) {
+								   curState[p.first] = MATH::Vector2f(linearFunc(val1->x, val2->x, progress), linearFunc(val1->y, val2->y, progress));
+							   }
+						   },
+						   [this, &p, a1, a2, progress](const MATH::Vector3f& val) {
+							   auto val1 = std::get_if<MATH::Vector3f>(&frames[a1][p.first]);
+							   auto val2 = std::get_if<MATH::Vector3f>(&frames[a2][p.first]);
+							   if (val1 && val2) {
+								   curState[p.first] = MATH::Vector3f(linearFunc(val1->x, val2->x, progress), linearFunc(val1->y, val2->y, progress),
+									   linearFunc(val1->z, val2->z, progress));
+							   }
+						   },
+						   [this, &p, a1, a2, progress](const MATH::Vector4f& val) {
+							   auto val1 = std::get_if<MATH::Vector4f>(&frames[a1][p.first]);
+							   auto val2 = std::get_if<MATH::Vector4f>(&frames[a2][p.first]);
+							   if (val1 && val2) {
+								   curState[p.first] = MATH::Vector4f(linearFunc(val1->x, val2->x, progress), linearFunc(val1->y, val2->y, progress),
+									   linearFunc(val1->z, val2->z, progress), linearFunc(val1->w, val2->w, progress));
+							   }
+						   },
+						   [this, &p, a1, a2, progress, curFrame](const std::string& val) {
+							   // auto val1 = std::get_if<std::string>(&frames[a1][p.first]);
+							   // auto val2 = std::get_if<std::string>(&frames[a2][p.first]);
+							   // if (val1 && val2) {
+							   if (curFrame == a1) {
+								   curState[p.first] = val;
+							   }
+							   // else if (curFrame == a2) {
+							   //	curState[p.first] = &val2;
+							   // }
+							   //}
+						   },
+						   [this, &p, a1, a2, progress](const auto& val) {
+
+						   } },
+					frames[a1][p.first]);
 			}
 		}
 	}
@@ -433,7 +417,7 @@ void Animation::pause() {
 	animStatus = AnimationBase::Status::PAUSE;
 }
 
-//State Machine
+// State Machine
 
 StateMachine::Builder::Builder() = default;
 
@@ -449,12 +433,11 @@ StateMachine::Builder& StateMachine::Builder::setStartState(StateType state) {
 	return *this;
 }
 
-StateMachine::Builder& StateMachine::Builder::addEdge(StateType from, StateType to,
-	std::function<bool()> act) {
+StateMachine::Builder& StateMachine::Builder::addEdge(StateType from, StateType to, std::function<bool()> act) {
 	if (stateGraph.find(from) == stateGraph.end()) {
 		stateGraph[from] = Edges();
 	}
-	stateGraph[from].push_back(Edge{ to, act });
+	stateGraph[from].push_back(Edge { to, act });
 	return *this;
 }
 
@@ -517,11 +500,11 @@ void StateMachine::pause() {
 	status = Status::PAUSE;
 }
 
-StateMachine::StateType StateMachine::getCurState()  const {
+StateMachine::StateType StateMachine::getCurState() const {
 	return currentState;
 }
 
-StateMachine::StateType StateMachine::getStartState()  const {
+StateMachine::StateType StateMachine::getStartState() const {
 	return startState;
 }
 

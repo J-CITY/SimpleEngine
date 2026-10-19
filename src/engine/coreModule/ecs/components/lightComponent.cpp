@@ -3,9 +3,9 @@
 
 using namespace IKIGAI::ECS;
 
-LightComponent::LightComponent(UTILS::Ref<ECS::Object> obj): ComponentBase(obj),
-	data(obj->getID()) {
-}
+LightComponent::LightComponent(UTILS::Ref<ECS::Object> obj)
+	: ComponentBase(obj)
+	, data(obj->getID()) { }
 
 const IKIGAI::RENDER::Light& LightComponent::getData() const {
 	return data;

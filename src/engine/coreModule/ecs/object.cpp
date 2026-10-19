@@ -3,48 +3,46 @@
 #include <algorithm>
 #include <execution>
 
-
 #include "componentManager.h"
 
+#include "../gui/components/spriteComponent.h"
 #include "components/ambientLight.h"
 #include "components/ambientSphereLight.h"
 #include "components/directionalLight.h"
 #include "components/inputComponent.h"
 #include "components/pointLight.h"
 #include "components/spotLight.h"
-#include "../gui/components/spriteComponent.h"
 #include "sceneModule/sceneManager.h"
-#include "utilsModule/visitorHelper.h"
 #include "utilsModule/log/loggerDefine.h"
+#include "utilsModule/visitorHelper.h"
+
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
-
 
 EVENT::Event<Object&> Object::destroyedEvent;
 EVENT::Event<Object&> Object::createdEvent;
 EVENT::Event<Object&, Object&> Object::attachEvent;
 EVENT::Event<Object&> Object::dettachEvent;
 
-//Object::Object() : id(-1) {
+// Object::Object() : id(-1) {
 //	transform = addComponent<TransformComponent>();
 //	//createdEvent.run(*this);
-//}
+// }
 
-template<typename T>
-void WriteComponentDescriptorImpl(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj) {
+template <typename T> void WriteComponentDescriptorImpl(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj) {
 	if (auto comp = obj->getComponent<T>()) {
 		components.push_back(comp->getDescriptor());
 	}
 }
 
-template<template<typename...> class Container, typename...ComponentType>
+template <template <typename...> class Container, typename... ComponentType>
 void WriteComponentDescriptor(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj, Container<ComponentType...> opt) {
 	(WriteComponentDescriptorImpl<ComponentType>(components, obj), ...);
 }
 
 void WriteComponentDescriptor(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj) {
-	WriteComponentDescriptor(components, obj, ECS::ComponentsTypeProviderType{});
+	WriteComponentDescriptor(components, obj, ECS::ComponentsTypeProviderType { });
 }
 
 Object::Descriptor Object::getDescriptor() const {
@@ -59,53 +57,55 @@ Object::Descriptor Object::getDescriptor() const {
 	return d;
 }
 
-Object::Object(ECS2::Entity actorID, const std::string& name, const std::string& tag, ECS2::World* world) :
-    mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>()),
-	mEntity(actorID),
-	mName(name),
-	mTag(tag) {
+Object::Object(ECS2::Entity actorID, const std::string& name, const std::string& tag, ECS2::World* world)
+	: mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>())
+	, mEntity(actorID)
+	, mName(name)
+	, mTag(tag) {
 	mTransform = addComponent<TransformComponent>();
 	createdEvent.run(*this);
 }
 
-template<class Desc, typename T>
-void AddComponentImpl(const Desc& data, ECS::Object* obj) {
+template <class Desc, typename T> void AddComponentImpl(const Desc& data, ECS::Object* obj) {
 	if (data.Type == ECS::GetType<T>()) {
 		auto c = obj->addComponent<T>(static_cast<const ComponentBase::Descriptor&>(data));
 	}
 }
 
-template<class Desc, template<typename...> class Container, typename...ComponentType>
+template <class Desc, template <typename...> class Container, typename... ComponentType>
 void AddComponent(const Desc& data, ECS::Object* obj, Container<ComponentType...> opt) {
 	(AddComponentImpl<Desc, ComponentType>(data, obj), ...);
 }
 
-template<class Desc>
-void AddComponent(const Desc& data, ECS::Object* obj) {
-	AddComponent(data, obj, ECS::ComponentsTypeProviderType{});
+template <class Desc> void AddComponent(const Desc& data, ECS::Object* obj) {
+	AddComponent(data, obj, ECS::ComponentsTypeProviderType { });
 }
 
-//TODO: set mParent? when call this
-Object::Object(const Descriptor& _descriptor, ECS2::World* world, bool deferred):
-    mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>()), mDeferred(deferred),
-    mEntity(ECS2::Entity::ID(_descriptor.Id)), mName(_descriptor.Name), mTag(_descriptor.Tag) {
+// TODO: set mParent? when call this
+Object::Object(const Descriptor& _descriptor, ECS2::World* world, bool deferred)
+	: mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>())
+	, mDeferred(deferred)
+	, mEntity(ECS2::Entity::ID(_descriptor.Id))
+	, mName(_descriptor.Name)
+	, mTag(_descriptor.Tag) {
 	setActive(_descriptor.IsActive);
 	setVisible(_descriptor.IsVisible);
-    getWorld().registerEntity(mEntity);
+	getWorld().registerEntity(mEntity);
 	for (auto& component : _descriptor.Components) {
-		std::visit(overloaded{[this](auto& arg) {AddComponent(arg, this);}}, component);
+		std::visit(overloaded { [this](auto& arg) { AddComponent(arg, this); } }, component);
 		mTransform = getComponent<TransformComponent>();
 	}
 }
 
 Object::~Object() {
-    dispose();
+	dispose();
 }
 
 void Object::dispose() {
-    if (mDisposed || mDisposing) return;
-    mDisposing = true;
-    // Callbacks still need to read this object's components during disposal.
+	if (mDisposed || mDisposing)
+		return;
+	mDisposing = true;
+	// Callbacks still need to read this object's components during disposal.
 	if (mIsActive) {
 		onDisable();
 	}
@@ -113,10 +113,10 @@ void Object::dispose() {
 		onDestroy();
 	}
 #if USE_IKIGAI_SCRIPT
-    else if (auto script = getComponent<IkigaiScriptComponent>()) {
-        // An inactive loaded object can be awake without ever reaching OnStart.
-        script->onDestroy();
-    }
+	else if (auto script = getComponent<IkigaiScriptComponent>()) {
+		// An inactive loaded object can be awake without ever reaching OnStart.
+		script->onDestroy();
+	}
 #endif
 
 	destroyedEvent.run(*this);
@@ -133,14 +133,14 @@ void Object::dispose() {
 			componentRemovedEvent.run(val.get());
 		}
 	}
-    getWorld().destroyEntity(mEntity);
-    mComponents.clear();
-    mTransform = nullptr;
-    mDisposed = true;
-    mIsDestroyed = true;
-    mIsActive = false;
-    mDisposing = false;
-	//ComponentManager::GetInstance().entityDestroyed(getID());
+	getWorld().destroyEntity(mEntity);
+	mComponents.clear();
+	mTransform = nullptr;
+	mDisposed = true;
+	mIsDestroyed = true;
+	mIsActive = false;
+	mDisposing = false;
+	// ComponentManager::GetInstance().entityDestroyed(getID());
 }
 
 const std::string& Object::getName() const {
@@ -160,17 +160,23 @@ void Object::setTag(const std::string& val) {
 }
 
 void Object::addSerializedComponent(const ComponentsDescriptorType& descriptor) {
-    std::visit([this](const auto& data) { AddComponent(data, this); }, descriptor);
-    mTransform = getComponent<TransformComponent>();
+	std::visit([this](const auto& data) { AddComponent(data, this); }, descriptor);
+	mTransform = getComponent<TransformComponent>();
 }
 
 void Object::activateLoaded() {
-    mDeferred = false;
+	mDeferred = false;
 #if USE_LUA
-    if (auto script = getComponent<ScriptComponent>()) ScriptComponentEvents::createdEvent.run(script);
+	if (auto script = getComponent<ScriptComponent>())
+		ScriptComponentEvents::createdEvent.run(script);
 #endif
-    for (auto& [key, component] : mComponents) if (component) component->onAwake();
-    if (getIsActive()) { onEnable(); onStart(); }
+	for (auto& [key, component] : mComponents)
+		if (component)
+			component->onAwake();
+	if (getIsActive()) {
+		onEnable();
+		onStart();
+	}
 }
 
 void Object::setActive(bool val) {
@@ -222,7 +228,7 @@ void Object::setParent(std::shared_ptr<Object> _mParent) {
 
 void Object::setParentInPos(std::shared_ptr<Object> _mParent, int pos) {
 	if (pos > _mParent->mChildren.size()) {
-		//TODO: problem
+		// TODO: problem
 		return;
 	}
 	detachFromParent();
@@ -238,12 +244,11 @@ void Object::detachFromParent() {
 	dettachEvent.run(*this);
 
 	if (auto p = mParent.lock()) {
-		p->mChildren.erase(std::remove_if(p->mChildren.begin(), p->mChildren.end(), [this](std::shared_ptr<Object> e) {
-			return e.get() == this;
-		}));
+		p->mChildren.erase(std::remove_if(p->mChildren.begin(), p->mChildren.end(), [this](std::shared_ptr<Object> e) { return e.get() == this; }));
 	}
-    mParent.reset();
-    if (auto transform = getComponent<TransformComponent>()) transform->removeParent();
+	mParent.reset();
+	if (auto transform = getComponent<TransformComponent>())
+		transform->removeParent();
 }
 
 bool Object::hasParent() const {
@@ -283,14 +288,14 @@ void Object::onStart() {
 			val.get()->onStart();
 		}
 	}
-	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	//std::for_each(components.begin(), components.end(), [](auto element) { element->onStart(); });
+	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	// std::for_each(components.begin(), components.end(), [](auto element) { element->onStart(); });
 }
 
 void Object::onEnable() {
-	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	//std::for_each(components.begin(), components.end(), [](auto element) { element->onEnable(); });
-	//ComponentManager::GetInstance().enable(mEntity);
+	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	// std::for_each(components.begin(), components.end(), [](auto element) { element->onEnable(); });
+	// ComponentManager::GetInstance().enable(mEntity);
 	for (auto& [key, val] : mComponents) {
 		if (val) {
 			val.get()->onEnable();
@@ -299,9 +304,9 @@ void Object::onEnable() {
 }
 
 void Object::onDisable() {
-	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	//std::for_each(components.begin(), components.end(), [](auto element) { element->onDisable(); });
-	//ComponentManager::GetInstance().disable(mEntity);
+	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	// std::for_each(components.begin(), components.end(), [](auto element) { element->onDisable(); });
+	// ComponentManager::GetInstance().disable(mEntity);
 	for (auto& [key, val] : mComponents) {
 		if (val) {
 			val.get()->onDisable();
@@ -310,8 +315,8 @@ void Object::onDisable() {
 }
 
 void Object::onDestroy() {
-	//auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	//std::for_each(components.begin(), components.end(), [](auto element) { element->onDestroy(); });
+	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
+	// std::for_each(components.begin(), components.end(), [](auto element) { element->onDestroy(); });
 	for (auto& [key, val] : mComponents) {
 		if (val) {
 			val.get()->onDestroy();
@@ -321,8 +326,8 @@ void Object::onDestroy() {
 
 void Object::onUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		//auto components = ComponentManager::GetInstance().getComponents(mEntity);
-		//std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
+		// auto components = ComponentManager::GetInstance().getComponents(mEntity);
+		// std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
 		for (auto& [key, val] : mComponents) {
 			if (val) {
 				val.get()->onUpdate(dt);
@@ -333,8 +338,8 @@ void Object::onUpdate(std::chrono::duration<double> dt) {
 
 void Object::onFixedUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		//auto components = ComponentManager::GetInstance().getComponents(mEntity);
-		//std::for_each(components.begin(), components.end(), [&](auto element) { element->onFixedUpdate(dt); });
+		// auto components = ComponentManager::GetInstance().getComponents(mEntity);
+		// std::for_each(components.begin(), components.end(), [&](auto element) { element->onFixedUpdate(dt); });
 		for (auto& [key, val] : mComponents) {
 			if (val) {
 				val.get()->onFixedUpdate(dt);
@@ -345,8 +350,8 @@ void Object::onFixedUpdate(std::chrono::duration<double> dt) {
 
 void Object::onLateUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		//auto components = ComponentManager::GetInstance().getComponents(mEntity);
-		//std::for_each(components.begin(), components.end(), [&](auto element) { element->onLateUpdate(dt); });
+		// auto components = ComponentManager::GetInstance().getComponents(mEntity);
+		// std::for_each(components.begin(), components.end(), [&](auto element) { element->onLateUpdate(dt); });
 		for (auto& [key, val] : mComponents) {
 			if (val) {
 				val.get()->onLateUpdate(dt);
@@ -356,7 +361,8 @@ void Object::onLateUpdate(std::chrono::duration<double> dt) {
 }
 
 void Object::recursiveActiveUpdate() {
-    if (mDeferred) return;
+	if (mDeferred)
+		return;
 	bool mIsActive = getIsActive();
 
 	if (mIsActive) {
@@ -379,9 +385,13 @@ UTILS::WeakPtr<TransformComponent> Object::getTransform() const {
 	return mTransform;
 }
 
-int Object::getIDInt() const { return static_cast<int>(mEntity.getUniqueId()); }
+int Object::getIDInt() const {
+	return static_cast<int>(mEntity.getUniqueId());
+}
 
-void Object::setIDInt(int id) { mEntity = ECS2::Entity(ECS2::Entity::ID(id)); }
+void Object::setIDInt(int id) {
+	mEntity = ECS2::Entity(ECS2::Entity::ID(id));
+}
 
 int Object::getParentId() const {
 	auto _p = mParent.lock();

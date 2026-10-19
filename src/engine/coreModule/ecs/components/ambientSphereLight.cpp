@@ -2,14 +2,16 @@
 
 using namespace IKIGAI::ECS;
 
-AmbientSphereLight::AmbientSphereLight(UTILS::Ref<ECS::Object> _obj): LightComponent(_obj) {
+AmbientSphereLight::AmbientSphereLight(UTILS::Ref<ECS::Object> _obj)
+	: LightComponent(_obj) {
 	__NAME__ = "AmbientSphereLight";
 	data.type = RENDER::Light::Type::AMBIENT_SPHERE;
 	data.color = { 0.1f, 0.1f, 0.1f };
 	data.constant = 1.0f;
 }
 
-AmbientSphereLight::AmbientSphereLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor) : LightComponent(_obj) {
+AmbientSphereLight::AmbientSphereLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor)
+	: LightComponent(_obj) {
 	__NAME__ = "AmbientSphereLight";
 	data.type = RENDER::Light::Type::AMBIENT_SPHERE;
 	data.color = descriptor.Color;
@@ -33,9 +35,9 @@ AmbientSphereLight::Descriptor AmbientSphereLight::getDescriptor() const {
 	descriptor.Intensity = getIntensity();
 	return descriptor;
 }
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::AmbientSphereLight>("AmbientSphereLight")
 //	(
@@ -62,4 +64,4 @@ AmbientSphereLight::Descriptor AmbientSphereLight::getDescriptor() const {
 //		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 //	);
-//}
+// }

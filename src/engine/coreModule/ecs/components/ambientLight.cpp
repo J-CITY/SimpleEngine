@@ -2,9 +2,10 @@
 
 using namespace IKIGAI::ECS;
 
-AmbientLight::AmbientLight(UTILS::Ref<ECS::Object> _obj): LightComponent(_obj) {
+AmbientLight::AmbientLight(UTILS::Ref<ECS::Object> _obj)
+	: LightComponent(_obj) {
 	__NAME__ = "AmbientLight";
-	
+
 	data.type = RENDER::Light::Type::AMBIENT_BOX;
 	data.color = { 0.1f, 0.1f, 0.1f };
 	data.constant = 1.0f;
@@ -12,7 +13,8 @@ AmbientLight::AmbientLight(UTILS::Ref<ECS::Object> _obj): LightComponent(_obj) {
 	data.quadratic = 1.0f;
 }
 
-AmbientLight::AmbientLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor): LightComponent(_obj) {
+AmbientLight::AmbientLight(UTILS::Ref<ECS::Object> _obj, const Descriptor& descriptor)
+	: LightComponent(_obj) {
 	__NAME__ = "AmbientLight";
 	data.type = RENDER::Light::Type::AMBIENT_BOX;
 
@@ -41,9 +43,9 @@ AmbientLight::Descriptor AmbientLight::getDescriptor() const {
 	descriptor.Size = getSize();
 	return descriptor;
 }
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::AmbientLight>("AmbientLight")
 //	(
@@ -63,4 +65,4 @@ AmbientLight::Descriptor AmbientLight::getDescriptor() const {
 //		rttr::metadata(EditorMetaInfo::EDIT_STEP, 0.1f),
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::DRAG_FLOAT)
 //	);
-//}
+// }

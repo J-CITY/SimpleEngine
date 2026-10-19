@@ -7,257 +7,171 @@
 
 namespace IKIGAI::PHYSICS {
 
-    
-    class ForceGenerator
-    {
-    public:
-        virtual ~ForceGenerator() = default;
-        
-        virtual void updateForce(RigidBody *body, float duration) = 0;
-    };
+class ForceGenerator {
+public:
+	virtual ~ForceGenerator() = default;
 
-    
-    class Gravity : public ForceGenerator
-    {
-        
-        MATH::Vector3f gravity;
+	virtual void updateForce(RigidBody* body, float duration) = 0;
+};
 
-    public:
+class Gravity : public ForceGenerator {
 
-        
-        Gravity(const MATH::Vector3f &gravity);
+	MATH::Vector3f gravity;
 
-        
-        virtual void updateForce(RigidBody *body, float duration);
-    };
+public:
+	Gravity(const MATH::Vector3f& gravity);
 
-    
-    class Spring : public ForceGenerator
-    {
-        
-        MATH::Vector3f connectionPoint;
+	virtual void updateForce(RigidBody* body, float duration);
+};
 
-        
-        MATH::Vector3f otherConnectionPoint;
+class Spring : public ForceGenerator {
 
-        
-        RigidBody *other;
+	MATH::Vector3f connectionPoint;
 
-        
-        float springConstant;
+	MATH::Vector3f otherConnectionPoint;
 
-        
-        float restLength;
+	RigidBody* other;
 
-    public:
+	float springConstant;
 
-        
-        Spring(const MATH::Vector3f &localConnectionPt,
-               RigidBody *other,
-               const MATH::Vector3f &otherConnectionPt,
-               float springConstant,
-               float restLength);
+	float restLength;
 
-        
-        virtual void updateForce(RigidBody *body, float duration);
-    };
+public:
+	Spring(
+		const MATH::Vector3f& localConnectionPt, RigidBody* other, const MATH::Vector3f& otherConnectionPt, float springConstant, float restLength);
 
-    
-    class Explosion : public ForceGenerator
-    {
-        
-        float timePassed;
+	virtual void updateForce(RigidBody* body, float duration);
+};
 
-    public:
-        // Properties of the explosion, these are public because
-        // there are so many and providing a suitable constructor
-        // would be cumbersome:
+class Explosion : public ForceGenerator {
 
-        
-        MATH::Vector3f detonation;
+	float timePassed;
 
-        // ... Other Explosion code as before ...
+public:
+	// Properties of the explosion, these are public because
+	// there are so many and providing a suitable constructor
+	// would be cumbersome:
 
+	MATH::Vector3f detonation;
 
-        
-        float implosionMaxRadius;
+	// ... Other Explosion code as before ...
 
-        
-        float implosionMinRadius;
+	float implosionMaxRadius;
 
-        
-        float implosionDuration;
+	float implosionMinRadius;
 
-        
-        float implosionForce;
+	float implosionDuration;
 
-        
-        float shockwaveSpeed;
+	float implosionForce;
 
-        
-        float shockwaveThickness;
+	float shockwaveSpeed;
 
-        
-         float peakConcussionForce;
+	float shockwaveThickness;
 
-         
-         float concussionDuration;
+	float peakConcussionForce;
 
-         
-         float peakConvectionForce;
+	float concussionDuration;
 
-         
-         float chimneyRadius;
-
-         
-         float chimneyHeight;
+	float peakConvectionForce;
 
-         
-         float convectionDuration;
+	float chimneyRadius;
 
-    public:
-        
-        Explosion();
+	float chimneyHeight;
 
-        
-        virtual void updateForce(RigidBody * body, float duration);
+	float convectionDuration;
 
-        
-        //virtual void updateForce(Particle *particle, float duration) = 0;
+public:
+	Explosion();
 
-    };
+	virtual void updateForce(RigidBody* body, float duration);
 
-    
-    class Aero : public ForceGenerator
-    {
-    protected:
-        
-        MATH::Matrix3f tensor;
+	// virtual void updateForce(Particle *particle, float duration) = 0;
+};
 
-        
-        MATH::Vector3f position;
+class Aero : public ForceGenerator {
+protected:
+	MATH::Matrix3f tensor;
 
-        
-        const MATH::Vector3f* windspeed;
+	MATH::Vector3f position;
 
-    public:
-        
-        Aero(const MATH::Matrix3f &tensor, const MATH::Vector3f &position,
-             const MATH::Vector3f *windspeed);
-
-        
-        virtual void updateForce(RigidBody *body, float duration);
+	const MATH::Vector3f* windspeed;
 
-    protected:
-        
-        void updateForceFromTensor(RigidBody *body, float duration,
-                                   const MATH::Matrix3f &tensor);
-    };
-
-    
-    class AeroControl : public Aero
-    {
-    protected:
-        
-        MATH::Matrix3f maxTensor;
-
-        
-        MATH::Matrix3f minTensor;
-
-        
-        float controlSetting;
-
-    private:
-        
-        MATH::Matrix3f getTensor();
-
-    public:
-        
-        AeroControl(const MATH::Matrix3f &base,
-                    const MATH::Matrix3f &min, const MATH::Matrix3f &max,
-                    const MATH::Vector3f &position, const MATH::Vector3f *windspeed);
-
-        
-        void setControl(float value);
-
-        
-        virtual void updateForce(RigidBody *body, float duration);
-    };
-
-    
-    class AngledAero : public Aero
-    {
-        
-        MATH::QuaternionF orientation;
-
-    public:
-        
-        AngledAero(const MATH::Matrix3f &tensor, const MATH::Vector3f &position,
-             const MATH::Vector3f *windspeed);
-
-        
-        void setOrientation(const MATH::QuaternionF &quat);
-
-        
-        virtual void updateForce(RigidBody *body, float duration);
-    };
-
-    
-    class Buoyancy : public ForceGenerator
-    {
-        
-        float maxDepth;
-
-        
-        float volume;
-
-        
-        float waterHeight;
-
-        
-        float liquidDensity;
-
-        
-        MATH::Vector3f centreOfBuoyancy;
-
-    public:
-
-        
-        Buoyancy(const MATH::Vector3f &cOfB,
-            float maxDepth, float volume, float waterHeight,
-            float liquidDensity = 1000.0f);
-
-        
-        virtual void updateForce(RigidBody *body, float duration);
-    };
-
-    
-    class ForceRegistry
-    {
-    protected:
-
-        
-        struct ForceRegistration
-        {
-            RigidBody *body;
-            ForceGenerator *fg;
-        };
-
-        
-        typedef std::vector<ForceRegistration> Registry;
-        Registry registrations;
-
-    public:
-        
-        void add(RigidBody* body, ForceGenerator *fg);
-
-        
-        void remove(RigidBody* body, ForceGenerator *fg);
-
-        
-        void clear();
-
-        
-        void updateForces(float duration);
-    };
+public:
+	Aero(const MATH::Matrix3f& tensor, const MATH::Vector3f& position, const MATH::Vector3f* windspeed);
+
+	virtual void updateForce(RigidBody* body, float duration);
+
+protected:
+	void updateForceFromTensor(RigidBody* body, float duration, const MATH::Matrix3f& tensor);
+};
+
+class AeroControl : public Aero {
+protected:
+	MATH::Matrix3f maxTensor;
+
+	MATH::Matrix3f minTensor;
+
+	float controlSetting;
+
+private:
+	MATH::Matrix3f getTensor();
+
+public:
+	AeroControl(const MATH::Matrix3f& base, const MATH::Matrix3f& min, const MATH::Matrix3f& max, const MATH::Vector3f& position,
+		const MATH::Vector3f* windspeed);
+
+	void setControl(float value);
+
+	virtual void updateForce(RigidBody* body, float duration);
+};
+
+class AngledAero : public Aero {
+
+	MATH::QuaternionF orientation;
+
+public:
+	AngledAero(const MATH::Matrix3f& tensor, const MATH::Vector3f& position, const MATH::Vector3f* windspeed);
+
+	void setOrientation(const MATH::QuaternionF& quat);
+
+	virtual void updateForce(RigidBody* body, float duration);
+};
+
+class Buoyancy : public ForceGenerator {
+
+	float maxDepth;
+
+	float volume;
+
+	float waterHeight;
+
+	float liquidDensity;
+
+	MATH::Vector3f centreOfBuoyancy;
+
+public:
+	Buoyancy(const MATH::Vector3f& cOfB, float maxDepth, float volume, float waterHeight, float liquidDensity = 1000.0f);
+
+	virtual void updateForce(RigidBody* body, float duration);
+};
+
+class ForceRegistry {
+protected:
+	struct ForceRegistration {
+		RigidBody* body;
+		ForceGenerator* fg;
+	};
+
+	typedef std::vector<ForceRegistration> Registry;
+	Registry registrations;
+
+public:
+	void add(RigidBody* body, ForceGenerator* fg);
+
+	void remove(RigidBody* body, ForceGenerator* fg);
+
+	void clear();
+
+	void updateForces(float duration);
+};
 }

@@ -1,30 +1,37 @@
 #include "inputManager.h"
 
-#include <stdexcept>
 #include "utilsModule/log/loggerDefine.h"
+#include <stdexcept>
 
-using namespace IKIGAI::INPUT_SYSTEM;
+namespace {
+uint64_t GamepadButtonKey(int id, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON btn) {
+	return (static_cast<uint64_t>(static_cast<uint32_t>(id)) << 32) | static_cast<uint32_t>(btn);
+}
+}
 
-//TODO: remove USE_STL after add wrapper to oculus window
+namespace IKIGAI::INPUT_SYSTEM {
 
-InputManager::InputManager(IKIGAI::WINDOW::Window& _window) : mWindow(_window) {
-
+InputManager::InputManager(IKIGAI::WINDOW::Window& _window)
+	: mWindow(_window) {
 	mKeyPressedListener = mWindow.keyPressedEvent.add(std::bind(&InputManager::onKeyPressed, this, std::placeholders::_1));
 	mKeyReleasedListener = mWindow.keyReleasedEvent.add(std::bind(&InputManager::onKeyReleased, this, std::placeholders::_1));
 	mMouseButtonPressedListener = mWindow.mouseButtonPressedEvent.add(std::bind(&InputManager::onMouseButtonPressed, this, std::placeholders::_1));
 	mMouseButtonReleasedListener = mWindow.mouseButtonReleasedEvent.add(std::bind(&InputManager::onMouseButtonReleased, this, std::placeholders::_1));
 	mMouseMovedListener = mWindow.mouseMovedEvent.add(std::bind(&InputManager::onMouseMoved, this, std::placeholders::_1, std::placeholders::_2));
 
-	mGamepadButtonPressedListener = mWindow.gamepadButtonPressedEvent.add(std::bind(&InputManager::onGamepadButtonPressed, this, std::placeholders::_1, std::placeholders::_2));
-	mGamepadButtonReleasedListener = mWindow.gamepadButtonReleasedEvent.add(std::bind(&InputManager::onGamepadButtonReleased, this, std::placeholders::_1, std::placeholders::_2));
-	mGamepadAxisListener = mWindow.gamepadAxisEvent.add(std::bind(&InputManager::onGamepadAxis, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-	mGamepadTriggerListener = mWindow.gamepadTriggerEvent.add(std::bind(&InputManager::onGamepadTrigger, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+	mGamepadButtonPressedListener
+		= mWindow.gamepadButtonPressedEvent.add(std::bind(&InputManager::onGamepadButtonPressed, this, std::placeholders::_1, std::placeholders::_2));
+	mGamepadButtonReleasedListener = mWindow.gamepadButtonReleasedEvent.add(
+		std::bind(&InputManager::onGamepadButtonReleased, this, std::placeholders::_1, std::placeholders::_2));
+	mGamepadAxisListener = mWindow.gamepadAxisEvent.add(
+		std::bind(&InputManager::onGamepadAxis, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+	mGamepadTriggerListener = mWindow.gamepadTriggerEvent.add(
+		std::bind(&InputManager::onGamepadTrigger, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	mGamepadAddListener = mWindow.gamepadAddEvent.add(std::bind(&InputManager::addGamepad, this, std::placeholders::_1));
 	mGamepadRemoveListener = mWindow.gamepadRemoveEvent.add(std::bind(&InputManager::removeGamepad, this, std::placeholders::_1));
 }
 
 InputManager::~InputManager() {
-
 	mWindow.keyPressedEvent.removeListener(mKeyPressedListener);
 	mWindow.keyReleasedEvent.removeListener(mKeyReleasedListener);
 	mWindow.mouseButtonPressedEvent.removeListener(mMouseButtonPressedListener);
@@ -71,12 +78,6 @@ bool InputManager::wasMouseButtonReleasedThisFrame(EMouseButton p_button) const 
 	return mMouseReleasedThisFrame.contains(p_button);
 }
 
-namespace {
-	uint64_t GamepadButtonKey(int id, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON btn) {
-		return (static_cast<uint64_t>(static_cast<uint32_t>(id)) << 32) | static_cast<uint32_t>(btn);
-	}
-}
-
 bool InputManager::isButtonPressed(int id, INPUT::Gamepad::GAMEPAD_BUTTON btn) const {
 	const auto gp = getGamepad(id);
 	if (!gp) {
@@ -101,10 +102,14 @@ float InputManager::getAxisPosition(int id, INPUT::Gamepad::GAMEPAD_AXIS axis) c
 		return 0.0f;
 	}
 	switch (axis) {
-	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_X: return gp->getData().mLeftSticX;
-	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_Y: return gp->getData().mLeftSticY;
-	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_X: return gp->getData().mRightSticX;
-	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_Y: return gp->getData().mRightSticY;
+	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_X:
+		return gp->getData().mLeftSticX;
+	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_Y:
+		return gp->getData().mLeftSticY;
+	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_X:
+		return gp->getData().mRightSticX;
+	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_Y:
+		return gp->getData().mRightSticY;
 	}
 	return 0.0f;
 }
@@ -116,8 +121,10 @@ float InputManager::getTriggerValue(int id, INPUT::Gamepad::GAMEPAD_TRIGGER tgr)
 		return 0.0f;
 	}
 	switch (tgr) {
-	case INPUT::Gamepad::GAMEPAD_TRIGGER::rightTrigger: return gp->getData().mLeftTrigger;
-	case INPUT::Gamepad::GAMEPAD_TRIGGER::leftTrigger: return gp->getData().mRightTrigger;
+	case INPUT::Gamepad::GAMEPAD_TRIGGER::rightTrigger:
+		return gp->getData().mLeftTrigger;
+	case INPUT::Gamepad::GAMEPAD_TRIGGER::leftTrigger:
+		return gp->getData().mRightTrigger;
 	}
 	return 0.0f;
 }
@@ -152,7 +159,7 @@ void InputManager::endFrame() {
 	mMouseReleasedThisFrame.clear();
 	mGamepadPressedThisFrame.clear();
 	mGamepadReleasedThisFrame.clear();
-	mMouseDelta = {};
+	mMouseDelta = { };
 }
 
 void InputManager::onKeyPressed(int p_key) {
@@ -208,11 +215,20 @@ void InputManager::onGamepadAxis(int id, INPUT::Gamepad::GAMEPAD_AXIS key, float
 		return;
 	}
 	switch (key) {
-	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_X: gp->getData().mLeftSticX = val; break;
-	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_Y: gp->getData().mLeftSticY = val; break;
-	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_X: gp->getData().mRightSticX = val; break;
-	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_Y: gp->getData().mRightSticY = val; break;
-	default: break;
+	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_X:
+		gp->getData().mLeftSticX = val;
+		break;
+	case INPUT::Gamepad::GAMEPAD_AXIS::leftStick_Y:
+		gp->getData().mLeftSticY = val;
+		break;
+	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_X:
+		gp->getData().mRightSticX = val;
+		break;
+	case INPUT::Gamepad::GAMEPAD_AXIS::rightStick_Y:
+		gp->getData().mRightSticY = val;
+		break;
+	default:
+		break;
 	}
 }
 
@@ -222,9 +238,14 @@ void InputManager::onGamepadTrigger(int id, INPUT::Gamepad::GAMEPAD_TRIGGER key,
 		return;
 	}
 	switch (key) {
-	case INPUT::Gamepad::GAMEPAD_TRIGGER::leftTrigger: gp->getData().mLeftTrigger = val; break;
-	case INPUT::Gamepad::GAMEPAD_TRIGGER::rightTrigger: gp->getData().mRightTrigger = val; break;
-	default: break;
+	case INPUT::Gamepad::GAMEPAD_TRIGGER::leftTrigger:
+		gp->getData().mLeftTrigger = val;
+		break;
+	case INPUT::Gamepad::GAMEPAD_TRIGGER::rightTrigger:
+		gp->getData().mRightTrigger = val;
+		break;
+	default:
+		break;
 	}
 }
 
@@ -233,9 +254,7 @@ void InputManager::addGamepad(INPUT::Gamepad gp) {
 }
 
 void InputManager::removeGamepad(int id) {
-	std::erase_if(mGamepads, [id](const INPUT::Gamepad& e) {
-		return e.getId() == id;
-	});
+	std::erase_if(mGamepads, [id](const INPUT::Gamepad& e) { return e.getId() == id; });
 }
 
 const IKIGAI::INPUT::Gamepad* InputManager::getGamepad(int id) const {
@@ -254,4 +273,5 @@ IKIGAI::INPUT::Gamepad* InputManager::getGamepad(int id) {
 		}
 	}
 	return nullptr;
+}
 }

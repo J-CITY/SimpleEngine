@@ -5,179 +5,108 @@
 
 namespace IKIGAI::PHYSICS {
 
-    
-    class ContactResolver;
+class ContactResolver;
 
-    
-    class Contact
-    {
-        // ... Other data as before ...
+class Contact {
+	// ... Other data as before ...
 
-        
-        friend class ContactResolver;
+	friend class ContactResolver;
 
-    public:
-        
-        RigidBody* body[2];
+public:
+	RigidBody* body[2];
 
-        
-        float friction;
+	float friction;
 
-        
-        float restitution;
+	float restitution;
 
-        
-        MATH::Vector3f contactPoint;
+	MATH::Vector3f contactPoint;
 
-        
-        MATH::Vector3f contactNormal;
+	MATH::Vector3f contactNormal;
 
-        
-        float penetration;
+	float penetration;
 
-        
-        void setBodyData(RigidBody* one, RigidBody *two,
-                         float friction, float restitution);
+	void setBodyData(RigidBody* one, RigidBody* two, float friction, float restitution);
 
-    protected:
+protected:
+	MATH::Matrix3f contactToWorld = MATH::Matrix3f(0.0f);
 
-        
-        MATH::Matrix3f contactToWorld = MATH::Matrix3f(0.0f);
+	MATH::Vector3f contactVelocity;
 
-        
-        MATH::Vector3f contactVelocity;
+	float desiredDeltaVelocity;
 
-        
-        float desiredDeltaVelocity;
+	MATH::Vector3f relativeContactPosition[2];
 
-        
-        MATH::Vector3f relativeContactPosition[2];
+protected:
+	void calculateInternals(float duration);
 
-    protected:
-        
-        void calculateInternals(float duration);
+	void swapBodies();
 
-        
-        void swapBodies();
+	void matchAwakeState();
 
-        
-        void matchAwakeState();
+	void calculateDesiredDeltaVelocity(float duration);
 
-        
-        void calculateDesiredDeltaVelocity(float duration);
+	MATH::Vector3f calculateLocalVelocity(unsigned bodyIndex, float duration);
 
-        
-        MATH::Vector3f calculateLocalVelocity(unsigned bodyIndex, float duration);
+	void calculateContactBasis();
 
-        
-        void calculateContactBasis();
+	void applyImpulse(const MATH::Vector3f& impulse, RigidBody* body, MATH::Vector3f* velocityChange, MATH::Vector3f* rotationChange);
 
-        
-        void applyImpulse(const MATH::Vector3f &impulse, RigidBody *body,
-                          MATH::Vector3f *velocityChange, MATH::Vector3f *rotationChange);
+	void applyVelocityChange(MATH::Vector3f velocityChange[2], MATH::Vector3f rotationChange[2]);
 
-        
-        void applyVelocityChange(MATH::Vector3f velocityChange[2],
-                                 MATH::Vector3f rotationChange[2]);
+	void applyPositionChange(MATH::Vector3f linearChange[2], MATH::Vector3f angularChange[2], float penetration);
 
-        
-        void applyPositionChange(MATH::Vector3f linearChange[2],
-                                 MATH::Vector3f angularChange[2],
-                                 float penetration);
+	MATH::Vector3f calculateFrictionlessImpulse(MATH::Matrix3f* inverseInertiaTensor);
 
-        
-        MATH::Vector3f calculateFrictionlessImpulse(MATH::Matrix3f *inverseInertiaTensor);
+	MATH::Vector3f calculateFrictionImpulse(MATH::Matrix3f* inverseInertiaTensor);
+};
 
-        
-        MATH::Vector3f calculateFrictionImpulse(MATH::Matrix3f *inverseInertiaTensor);
-    };
+class ContactResolver {
+protected:
+	unsigned velocityIterations;
 
-    
-    class ContactResolver
-    {
-    protected:
-        
-        unsigned velocityIterations;
+	unsigned positionIterations;
 
-        
-        unsigned positionIterations;
+	float velocityEpsilon;
 
-        
-        float velocityEpsilon;
+	float positionEpsilon;
 
-        
-        float positionEpsilon;
+public:
+	unsigned velocityIterationsUsed;
 
-    public:
-        
-        unsigned velocityIterationsUsed;
+	unsigned positionIterationsUsed;
 
-        
-        unsigned positionIterationsUsed;
+private:
+	bool validSettings;
 
-    private:
-        
-        bool validSettings;
+public:
+	ContactResolver(unsigned iterations, float velocityEpsilon = (float)0.01, float positionEpsilon = (float)0.01);
 
-    public:
-        
-        ContactResolver(unsigned iterations,
-            float velocityEpsilon=(float)0.01,
-            float positionEpsilon=(float)0.01);
+	ContactResolver(
+		unsigned velocityIterations, unsigned positionIterations, float velocityEpsilon = (float)0.01, float positionEpsilon = (float)0.01);
 
-        
-        ContactResolver(unsigned velocityIterations,
-            unsigned positionIterations,
-            float velocityEpsilon=(float)0.01,
-            float positionEpsilon=(float)0.01);
+	bool isValid() {
+		return (velocityIterations > 0) && (positionIterations > 0) && (positionEpsilon >= 0.0f) && (positionEpsilon >= 0.0f);
+	}
 
-        
-        bool isValid()
-        {
-            return (velocityIterations > 0) &&
-                   (positionIterations > 0) &&
-                   (positionEpsilon >= 0.0f) &&
-                   (positionEpsilon >= 0.0f);
-        }
+	void setIterations(unsigned velocityIterations, unsigned positionIterations);
 
-        
-        void setIterations(unsigned velocityIterations,
-                           unsigned positionIterations);
+	void setIterations(unsigned iterations);
 
-        
-        void setIterations(unsigned iterations);
+	void setEpsilon(float velocityEpsilon, float positionEpsilon);
 
-        
-        void setEpsilon(float velocityEpsilon,
-                        float positionEpsilon);
+	void resolveContacts(Contact* contactArray, unsigned numContacts, float duration);
 
-        
-        void resolveContacts(Contact *contactArray,
-            unsigned numContacts,
-            float duration);
+protected:
+	void prepareContacts(Contact* contactArray, unsigned numContacts, float duration);
 
-    protected:
-        
-        void prepareContacts(Contact *contactArray, unsigned numContacts,
-            float duration);
+	void adjustVelocities(Contact* contactArray, unsigned numContacts, float duration);
 
-        
-        void adjustVelocities(Contact *contactArray,
-            unsigned numContacts,
-            float duration);
+	void adjustPositions(Contact* contacts, unsigned numContacts, float duration);
+};
 
-        
-        void adjustPositions(Contact *contacts,
-            unsigned numContacts,
-            float duration);
-    };
-
-    
-    class ContactGenerator
-    {
-    public:
-        
-        virtual unsigned addContact(Contact *contact, unsigned limit) const = 0;
-    };
+class ContactGenerator {
+public:
+	virtual unsigned addContact(Contact* contact, unsigned limit) const = 0;
+};
 
 }

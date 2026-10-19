@@ -2,7 +2,6 @@
 
 using namespace IKIGAI::ECS;
 
-
 void System::delayed(std::function<void()> task) {
 	m_delayedTask.push(task);
 }

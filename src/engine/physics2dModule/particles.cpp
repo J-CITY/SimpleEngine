@@ -93,7 +93,7 @@ Id World::createCloth(const ClothDef& d) {
 	s.selfCollision = d.selfCollision;
 	for (int y = 0; y < d.height; ++y)
 		for (int x = 0; x < d.width; ++x)
-			s.particles.push_back({ d.position + Vec2 { x * d.spacing, -y * d.spacing }, {}, d.pinTop && y == 0 ? 0 : 1 / d.particleMass });
+			s.particles.push_back({ d.position + Vec2 { x * d.spacing, -y * d.spacing }, { }, d.pinTop && y == 0 ? 0 : 1 / d.particleMass });
 	auto link = [&](int a, int b, float compliance) {
 		s.links.push_back({ std::size_t(a), std::size_t(b), length(s.particles[b].position - s.particles[a].position), compliance });
 	};
@@ -385,7 +385,7 @@ void World::stepParticles(float dt) {
 	for (auto& [id, s] : mSoft)
 		for (std::size_t i = 0; i < s.particles.size(); ++i) {
 			auto& p = s.particles[i];
-			p.velocity = p.inverseMass > 0 ? (p.position - oldSoft.at(id)[i]) / dt : Vec2 {};
+			p.velocity = p.inverseMass > 0 ? (p.position - oldSoft.at(id)[i]) / dt : Vec2 { };
 		}
 	for (auto& [id, f] : mFluids)
 		for (std::size_t i = 0; i < f.particles.size(); ++i)
@@ -409,7 +409,7 @@ void World::stepParticles(float dt) {
 					sum += (particles[j]->velocity - particles[i]->velocity) * w;
 					weight += w;
 				}
-			velocities[i] = particles[i]->velocity + (weight > Epsilon ? sum * (f.viscosity / weight) : Vec2 {});
+			velocities[i] = particles[i]->velocity + (weight > Epsilon ? sum * (f.viscosity / weight) : Vec2 { });
 		}
 		for (std::size_t i = 0; i < particles.size(); ++i)
 			particles[i]->velocity = velocities[i];

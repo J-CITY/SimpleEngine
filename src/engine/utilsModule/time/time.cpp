@@ -4,7 +4,9 @@
 
 using namespace IKIGAI::TIME;
 
-Timer::Timer(): start(std::chrono::steady_clock::now()), lastFrameTime(start) {}
+Timer::Timer()
+	: start(std::chrono::steady_clock::now())
+	, lastFrameTime(start) { }
 
 double Timer::getFPS() const {
 	return dt.count() > 0.0 ? 1.0 / dt.count() : 0.0;

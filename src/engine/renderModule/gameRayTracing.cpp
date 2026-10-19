@@ -80,8 +80,10 @@ void GameRenderer::prepareRayTracingScene(const std::vector<RenderChunk>& chunks
 		throw UnsupportedRayTracing("RT scene extraction is unavailable on this backend");
 	if (!mRayScene) {
 		mRayScene = std::make_shared<RayScene>();
-		mRayScene->SkinProgram = renderer.getDriver()->createComputeProgram(RESOURCES::ShaderLoader::LoadProgramResource("/shaders/raytracing/skinVertices.shader"));
-		mRayScene->TriangleProgram = renderer.getDriver()->createComputeProgram(RESOURCES::ShaderLoader::LoadProgramResource("/shaders/raytracing/buildTriangles.shader"));
+		mRayScene->SkinProgram
+			= renderer.getDriver()->createComputeProgram(RESOURCES::ShaderLoader::LoadProgramResource("/shaders/raytracing/skinVertices.shader"));
+		mRayScene->TriangleProgram
+			= renderer.getDriver()->createComputeProgram(RESOURCES::ShaderLoader::LoadProgramResource("/shaders/raytracing/buildTriangles.shader"));
 	}
 	mRaySceneChanged = false;
 	if (!mRayWhite) {

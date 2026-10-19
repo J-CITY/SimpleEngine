@@ -1,15 +1,19 @@
 #pragma once
 #include "vectorTypes.h"
+
 namespace IKIGAI::VECTOR {
+
 struct ClipRect {
 	Vec2 min { }, max { };
 	bool operator==(const ClipRect&) const = default;
 };
+
 struct DrawCommand {
 	Mesh mesh;
 	ClipRect clip;
 	bool clipped = false;
 };
+
 class VectorContext {
 public:
 	explicit VectorContext(GeometryOptions options = { })

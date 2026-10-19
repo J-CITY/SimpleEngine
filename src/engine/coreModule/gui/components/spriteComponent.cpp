@@ -1,24 +1,26 @@
 #include "spriteComponent.h"
-#include "resourceModule/particleManager.h"
-#include <stdexcept>
-#include "renderModule/render.h"
-#include "renderModule/backends/meshFactory.h"
-#include "resourceModule/materialManager.h"
-#include "windowModule/window/window.h"
-#include "../guiObject.h"
-#include <renderModule/gameRenderer.h>
-#include "resourceModule/shaderManager.h"
 #include "../../core/core.h"
 #include "../../ecs/object.h"
+#include "../guiObject.h"
+#include "renderModule/backends/meshFactory.h"
+#include "renderModule/render.h"
+#include "resourceModule/materialManager.h"
+#include "resourceModule/particleManager.h"
+#include "resourceModule/shaderManager.h"
+#include "windowModule/window/window.h"
 #include <renderModule/backends/gl/textureGl.h>
+#include <renderModule/gameRenderer.h>
+#include <stdexcept>
 #include <utilsModule/pathGetter.h>
 
-#include "renderModule/vertex.h"
-#include "resourceModule/textureManager.h"
+
 #include "renderModule/backends/gl/shaderGl.h"
 #include "renderModule/backends/gl/vertexBufferGl.h"
+#include "renderModule/vertex.h"
 #include "resourceModule/fileSystem/fileSystem.h"
+#include "resourceModule/textureManager.h"
 #include "utilsModule/time/time.h"
+
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
@@ -27,7 +29,7 @@ SpriteBatcher::SpriteBatcher() = default;
 
 SpriteBatcher::~SpriteBatcher() = default;
 
-void SpriteBatcher::Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDER::AtlasRect& uv, MATH::Vector4f color, 
+void SpriteBatcher::Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDER::AtlasRect& uv, MATH::Vector4f color,
 	std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D) {
 	if (mTexture != texture || mShader != shader || mIs3D != is3D) {
 		Flush();
@@ -36,17 +38,23 @@ void SpriteBatcher::Draw(const std::array<MATH::Vector4f, 6>& verts, const RENDE
 		mIs3D = is3D;
 	}
 
-	mVertexBuffer.push_back(Vertex({verts[0].x, verts[0].y, verts[0].z}, {uv.mX, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
-	mVertexBuffer.push_back(Vertex({verts[1].x, verts[1].y, verts[1].z}, {uv.mX + uv.mW, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
-	mVertexBuffer.push_back(Vertex({ verts[2].x, verts[2].y, verts[2].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
-	
-	mVertexBuffer.push_back(Vertex({ verts[3].x, verts[3].y, verts[3].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
-	mVertexBuffer.push_back(Vertex({ verts[4].x, verts[4].y, verts[4].z }, { uv.mX + uv.mW,1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
-	mVertexBuffer.push_back(Vertex({verts[5].x, verts[5].y, verts[5].z}, {uv.mX + uv.mW, 1.0f - uv.mY}, MATH::Vector3f(), MATH::Vector3f(), MATH::Vector3f(), {-1, -1, -1, -1}, color));
+	mVertexBuffer.push_back(Vertex({ verts[0].x, verts[0].y, verts[0].z }, { uv.mX, 1.0f - uv.mY }, MATH::Vector3f(), MATH::Vector3f(),
+		MATH::Vector3f(), { -1, -1, -1, -1 }, color));
+	mVertexBuffer.push_back(Vertex({ verts[1].x, verts[1].y, verts[1].z }, { uv.mX + uv.mW, 1.0f - uv.mY }, MATH::Vector3f(), MATH::Vector3f(),
+		MATH::Vector3f(), { -1, -1, -1, -1 }, color));
+	mVertexBuffer.push_back(Vertex({ verts[2].x, verts[2].y, verts[2].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(),
+		MATH::Vector3f(), { -1, -1, -1, -1 }, color));
+
+	mVertexBuffer.push_back(Vertex({ verts[3].x, verts[3].y, verts[3].z }, { uv.mX, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(), MATH::Vector3f(),
+		MATH::Vector3f(), { -1, -1, -1, -1 }, color));
+	mVertexBuffer.push_back(Vertex({ verts[4].x, verts[4].y, verts[4].z }, { uv.mX + uv.mW, 1.0f - uv.mY - uv.mH }, MATH::Vector3f(),
+		MATH::Vector3f(), MATH::Vector3f(), { -1, -1, -1, -1 }, color));
+	mVertexBuffer.push_back(Vertex({ verts[5].x, verts[5].y, verts[5].z }, { uv.mX + uv.mW, 1.0f - uv.mY }, MATH::Vector3f(), MATH::Vector3f(),
+		MATH::Vector3f(), { -1, -1, -1, -1 }, color));
 }
 
-
-void SpriteBatcher::Draw(const std::array<Vertex, 6>& verts, std::shared_ptr<RENDER::TextureInterface> texture, std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D) {
+void SpriteBatcher::Draw(const std::array<Vertex, 6>& verts, std::shared_ptr<RENDER::TextureInterface> texture,
+	std::shared_ptr<RENDER::ShaderInterface> shader, bool is3D) {
 	if (mTexture != texture || mShader != shader || mIs3D != is3D) {
 		Flush();
 		mTexture = texture;
@@ -63,7 +71,7 @@ void SpriteBatcher::Draw(const std::array<Vertex, 6>& verts, std::shared_ptr<REN
 }
 
 void SpriteBatcher::Flush() {
-	if(mVertexBuffer.empty()||!mTexture) {
+	if (mVertexBuffer.empty() || !mTexture) {
 		return;
 	}
 
@@ -71,23 +79,28 @@ void SpriteBatcher::Flush() {
 	auto& loader = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>();
 	const bool text = mShader && mShader->mPath.find("text") != std::string::npos;
 
-	auto material = loader.loadResource(text?"/materials/render/portable/text.mat":"/materials/render/portable/gui.mat");
+	auto material = loader.loadResource(text ? "/materials/render/portable/text.mat" : "/materials/render/portable/gui.mat");
 
-	const auto size=RESOURCES::ServiceManager::Get<WINDOW::Window>().getPixelSize();
-	auto projection=MATH::Matrix4f::CreateOrthographic(0,size.x,size.y,0,-1,1);
+	const auto size = RESOURCES::ServiceManager::Get<WINDOW::Window>().getPixelSize();
+	auto projection = MATH::Matrix4f::CreateOrthographic(0, size.x, size.y, 0, -1, 1);
 
-	if (RENDER::DriverInterface::settings.backend!=RENDER::RenderSettings::Backend::OPENGL) {
+	if (RENDER::DriverInterface::settings.backend != RENDER::RenderSettings::Backend::OPENGL) {
 		auto c = MATH::Matrix4f::Identity;
-		c(2,2) = 0.5f;
-		c(2,3) = 0.5f;
+		c(2, 2) = 0.5f;
+		c(2, 3) = 0.5f;
 		projection = c * projection;
 	}
-	renderer.setShader(material->getShader());material->bind(mTexture,true);
-	renderer.setUniformBuffer("engine_Gui",renderer.createUniformBuffer<MATH::Matrix4f>(MATH::Matrix4f::Transpose(projection)));
-	renderer.setTexture("Image",mTexture);renderer.setDepth({RENDER::DepthFunction::ALWAYS,false});renderer.setCull(RENDER::CullFace::NONE);
-	renderer.setBlending({RENDER::BlendMode::SRC_ALPHA,RENDER::BlendMode::ONE_MINUS_SRC_ALPHA});
-	std::vector<unsigned> indices;for(unsigned i=0;i<mVertexBuffer.size();++i) indices.push_back(i);
-	renderer.draw(RENDER::CreateMesh(mVertexBuffer,indices),RENDER::PrimitiveMode::TRIANGLES,1);
+	renderer.setShader(material->getShader());
+	material->bind(mTexture, true);
+	renderer.setUniformBuffer("engine_Gui", renderer.createUniformBuffer<MATH::Matrix4f>(MATH::Matrix4f::Transpose(projection)));
+	renderer.setTexture("Image", mTexture);
+	renderer.setDepth({ RENDER::DepthFunction::ALWAYS, false });
+	renderer.setCull(RENDER::CullFace::NONE);
+	renderer.setBlending({ RENDER::BlendMode::SRC_ALPHA, RENDER::BlendMode::ONE_MINUS_SRC_ALPHA });
+	std::vector<unsigned> indices;
+	for (unsigned i = 0; i < mVertexBuffer.size(); ++i)
+		indices.push_back(i);
+	renderer.draw(RENDER::CreateMesh(mVertexBuffer, indices), RENDER::PrimitiveMode::TRIANGLES, 1);
 	mVertexBuffer.clear();
 }
 
@@ -97,58 +110,53 @@ RootGuiComponent::Descriptor RootGuiComponent::getDescriptor() const {
 	return d;
 }
 
-RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj) {}
+RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: ComponentBase(obj) { }
 
-RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	RootGuiComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+RootGuiComponent::RootGuiComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: RootGuiComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
+// BATCHE END
 
-//BATCHE END
-
-
-ColorComponent::Descriptor ColorComponent::getDescriptor() const
-{
+ColorComponent::Descriptor ColorComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<ColorComponent>();
 	d.Color = mColor;
 	return d;
 }
 
-ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj) {
+ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: ComponentBase(obj) {
 	mColor = descriptor.Color;
 }
 
-ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	ColorComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+ColorComponent::ColorComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: ColorComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-SpriteComponent::SpriteComponent(Object& obj) : ComponentBase(obj) {
-}
+SpriteComponent::SpriteComponent(Object& obj)
+	: ComponentBase(obj) { }
 
-SpriteComponent::SpriteComponent(Object& obj, const std::string& path): ComponentBase(obj) {
+SpriteComponent::SpriteComponent(Object& obj, const std::string& path)
+	: ComponentBase(obj) {
 	setTexture(path);
 }
 
 void SpriteComponent::setTexture(std::string path) {
-	mExplicitAtlas=false;
+	mExplicitAtlas = false;
 	mPath = path;
 	auto& loader = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>();
-	const auto resolved=loader.resolveSprite(path);
+	const auto resolved = loader.resolveSprite(path);
 	mTexture = loader.createSprite(path);
 	mTexturePiece = resolved.region;
-	const auto piece=mTexture->getPiece(mTexturePiece);
-	obj->getTransform()->getTransform().setLocalSize(
-		{ piece.mW, piece.mH });
+	const auto piece = mTexture->getPiece(mTexturePiece);
+	obj->getTransform()->getTransform().setLocalSize({ piece.mW, piece.mH });
 }
 
 void SpriteComponent::setTextureAtlas(std::string path) {
-	mExplicitAtlas=true;
+	mExplicitAtlas = true;
 	mPath = path;
 	mTexture = RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().createAtlasFromFile(path, true);
-	//obj->getTransform()->getTransform().setLocalSize(
+	// obj->getTransform()->getTransform().setLocalSize(
 	//	{ static_cast<RENDER::TextureGl*>(mTexture.get())->width, static_cast<RENDER::TextureGl*>(mTexture.get())->height });
 }
 
@@ -156,8 +164,7 @@ std::string SpriteComponent::getTexture() {
 	return mPath;
 }
 
-void SpriteComponent::setAtlasPiece(std::string name)
-{
+void SpriteComponent::setAtlasPiece(std::string name) {
 	if (name.empty()) {
 		return;
 	}
@@ -166,24 +173,22 @@ void SpriteComponent::setAtlasPiece(std::string name)
 	mTexturePiece = name;
 }
 
-std::string SpriteComponent::getAtlasPiece()
-{
+std::string SpriteComponent::getAtlasPiece() {
 	return mTexturePiece;
 }
 
-SpriteComponent::Descriptor SpriteComponent::getDescriptor() const
-{
+SpriteComponent::Descriptor SpriteComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<SpriteComponent>();
 	d.TexturePath = mExplicitAtlas ? "" : mPath;
-    d.TextureAtlasPath = mExplicitAtlas ? mPath : "";
+	d.TextureAtlasPath = mExplicitAtlas ? mPath : "";
 	d.TexturePiece = mTexturePiece;
 	d.Is3D = mIs3D;
 	return d;
 }
 
-SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj)
-{
+SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: ComponentBase(obj) {
 	mIs3D = descriptor.Is3D;
 	if (!descriptor.TexturePath.empty()) {
 		setTexture(descriptor.TexturePath);
@@ -194,41 +199,35 @@ SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& 
 	}
 }
 
-SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	SpriteComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+SpriteComponent::SpriteComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: SpriteComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-void SpriteAnimateComponent::setGridSize(MATH::Vector2f sz)
-{
+void SpriteAnimateComponent::setGridSize(MATH::Vector2f sz) {
 	mGridSize = sz;
 }
 
-MATH::Vector2f SpriteAnimateComponent::getGridSize()
-{
+MATH::Vector2f SpriteAnimateComponent::getGridSize() {
 	return mGridSize;
 }
 
-void SpriteAnimateComponent::setFrameCount(int e)
-{
+void SpriteAnimateComponent::setFrameCount(int e) {
 	mFrameCount = e;
 }
 
-int SpriteAnimateComponent::getFrameCount() const
-{
+int SpriteAnimateComponent::getFrameCount() const {
 	return mFrameCount;
 }
 
-void SpriteAnimateComponent::updateAnim()
-{
-    if (!mTexture || mGridSize.x<=0 || mGridSize.y<=0) return;
+void SpriteAnimateComponent::updateAnim() {
+	if (!mTexture || mGridSize.x <= 0 || mGridSize.y <= 0)
+		return;
 	mCutTime -= TIME::Timer::GetInstance().getDeltaTime().count() * mTimeScale;
 	if (mCutTime < 0.0f) {
 		mCutTime = mTime;
 		nextFrame();
 	}
 
-	const auto region=mTexture->getPieceUV(mTexturePiece);
+	const auto region = mTexture->getPieceUV(mTexturePiece);
 
 	const float frameWidth = 1.f / mGridSize.x;
 	const float frameHeight = 1.f / mGridSize.y;
@@ -251,8 +250,7 @@ void SpriteAnimateComponent::nextFrame() {
 	}
 }
 
-SpriteAnimateComponent::Descriptor SpriteAnimateComponent::getDescriptor() const
-{
+SpriteAnimateComponent::Descriptor SpriteAnimateComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<SpriteAnimateComponent>();
 	d.TexturePath = mPath;
@@ -263,8 +261,8 @@ SpriteAnimateComponent::Descriptor SpriteAnimateComponent::getDescriptor() const
 	return d;
 }
 
-SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): SpriteComponent(obj)
-{
+SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: SpriteComponent(obj) {
 	mIs3D = descriptor.Is3D;
 	mTexturePiece = descriptor.TexturePiece;
 	mGridSize = descriptor.GridSize;
@@ -273,122 +271,167 @@ SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, cons
 	setTexture(descriptor.TexturePath);
 }
 
-SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	SpriteAnimateComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+SpriteAnimateComponent::SpriteAnimateComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: SpriteAnimateComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-SpriteParticleComponent::SpriteParticleComponent(Object& obj): SpriteComponent(obj) {}
-SpriteParticleComponent::SpriteParticleComponent(Object& obj,const std::string& path): SpriteComponent(obj,path) {}
-SpriteParticleComponent::~SpriteParticleComponent()=default;
-SpriteParticleComponent::SpriteParticleComponent(const SpriteParticleComponent& other):SpriteComponent(other),
-    particles(other.particles),freeParticlesId(other.freeParticlesId),emmiters(other.emmiters),mParticleAsset(other.mParticleAsset),
-    mRuntime(other.mRuntime?std::make_unique<PARTICLES::Runtime<2>>(*other.mRuntime):nullptr){}
+SpriteParticleComponent::SpriteParticleComponent(Object& obj)
+	: SpriteComponent(obj) { }
+SpriteParticleComponent::SpriteParticleComponent(Object& obj, const std::string& path)
+	: SpriteComponent(obj, path) { }
+SpriteParticleComponent::~SpriteParticleComponent() = default;
+SpriteParticleComponent::SpriteParticleComponent(const SpriteParticleComponent& other)
+	: SpriteComponent(other)
+	, particles(other.particles)
+	, freeParticlesId(other.freeParticlesId)
+	, emmiters(other.emmiters)
+	, mParticleAsset(other.mParticleAsset)
+	, mRuntime(other.mRuntime ? std::make_unique<PARTICLES::Runtime<2>>(*other.mRuntime) : nullptr) { }
 SpriteParticleComponent& SpriteParticleComponent::operator=(const SpriteParticleComponent& other) {
-    if(this!=&other){auto runtime=other.mRuntime?std::make_unique<PARTICLES::Runtime<2>>(*other.mRuntime):nullptr;
-        SpriteComponent::operator=(other);particles=other.particles;freeParticlesId=other.freeParticlesId;
-        emmiters=other.emmiters;mParticleAsset=other.mParticleAsset;mRuntime=std::move(runtime);}return *this;
+	if (this != &other) {
+		auto runtime = other.mRuntime ? std::make_unique<PARTICLES::Runtime<2>>(*other.mRuntime) : nullptr;
+		SpriteComponent::operator=(other);
+		particles = other.particles;
+		freeParticlesId = other.freeParticlesId;
+		emmiters = other.emmiters;
+		mParticleAsset = other.mParticleAsset;
+		mRuntime = std::move(runtime);
+	}
+	return *this;
 }
 
 void SpriteParticleComponent::setEmmiters(std::vector<Emmiter> e) {
-    using J=nlohmann::json;
-    J effect{{"Version",1},{"Dimension","2D"},{"Emitters",J::array()}};
-    auto uniform=[](float a,float b){return J{{"Mode","uniform"},{"Min",a},{"Max",b}};};
-    for(size_t i=0;i<e.size();++i) {
-        auto& emitter=e[i];emitter.curSpawnTime=emitter.pause;emitter.curParticleCount=0;
-        if(emitter.count<=0)continue;
-        if(emitter.spawnTime<=0)throw std::invalid_argument("Legacy particle SpawnTime must be positive; choose an explicit interval");
-        J render{{"Type","sprite2D"},{"RenderSpace",mIs3D?"world":"screen"},{"Piece",emitter.piece.empty()?mTexturePiece:emitter.piece}};
-        if(mExplicitAtlas)render["Atlas"]=mPath;else if(!mPath.empty())render["Texture"]=mPath;
-        J acceleration{{"Mode","uniform"},{"Min",{emitter.gravity.x*emitter.weight.x,emitter.gravity.y*emitter.weight.x}},
-            {"Max",{emitter.gravity.x*emitter.weight.y,emitter.gravity.y*emitter.weight.y}}};
-        // Negative gravity reverses a numeric interval; linked channels preserve one weight.
-        for(int c=0;c<2;++c)if(acceleration["Min"][c].get<float>()>acceleration["Max"][c].get<float>())
-            std::swap(acceleration["Min"][c],acceleration["Max"][c]);
-        effect["Emitters"].push_back({{"Id","legacy-"+std::to_string(i)},{"SimulationSpace","local"},
-            {"Capacity",emitter.count},{"Timing",{{"Duration",emitter.spawnTime},{"Loops",0},{"Delay",emitter.pause}}},
-            {"Emission",{{"Bursts",J::array({{{"Time",0},{"Count",emitter.spawnCount}}})}}},
-            {"Spawn",J::array({
-                {{"Id","shape"},{"Type","Shape"},{"Shape","point"},{"Offset",{emitter.localPos.x,emitter.localPos.y}}},
-                {{"Id","init"},{"Type","Initialize"},{"Lifetime",uniform(emitter.lifeTime.x,emitter.lifeTime.y)},
-                 {"Size",{{"Mode","uniform"},{"Min",{emitter.size.x,emitter.size.x}},{"Max",{emitter.size.y,emitter.size.y}}}},
-                 {"Color",{{"Mode","constant"},{"Value",{emitter.color.x,emitter.color.y,emitter.color.z,emitter.color.w}}}}},
-                {{"Id","launch"},{"Type","DirectionalVelocity"},{"Speed",uniform(emitter.angleForce.x,emitter.angleForce.y)},{"Angle",uniform(emitter.angle.x,emitter.angle.y)}}})},
-            {"Update",J::array({{{"Id","gravity"},{"Type","Acceleration"},{"Value",acceleration}},{{"Id","motion"},{"Type","IntegrateMotion"}}})},
-            {"Renderer",render}});
-    }
-    std::shared_ptr<RESOURCES::ParticleAsset> asset;
-    std::unique_ptr<PARTICLES::Runtime<2>> runtime;
-    if(!effect["Emitters"].empty()) {
-        auto definition=std::make_shared<PARTICLES::Definition>(*PARTICLES::parse(effect,"legacy particles"));
-        for(auto& converted:definition->emitters) {
-            const auto& original=e[std::stoi(converted.id.substr(7))];
-            for(auto& m:converted.update)if(m.type==PARTICLES::ModuleType::Acceleration) {
-                // Preserve one shared random weight, including opposite signs of gravity axes.
-                m.value.min={original.gravity.x*original.weight.x,original.gravity.y*original.weight.x,0,0};
-                m.value.max={original.gravity.x*original.weight.y,original.gravity.y*original.weight.y,0,0};
-            }
-        }
-        asset=RESOURCES::ServiceManager::Get<RESOURCES::ParticleLoader>().createInline(std::move(definition));
-        runtime=std::make_unique<PARTICLES::Runtime<2>>(asset->definition,1);
-    }
-    emmiters=std::move(e);mParticleAsset=std::move(asset);mRuntime=std::move(runtime);
-    particles.clear();freeParticlesId.clear();
+	using J = nlohmann::json;
+	J effect { { "Version", 1 }, { "Dimension", "2D" }, { "Emitters", J::array() } };
+	auto uniform = [](float a, float b) { return J { { "Mode", "uniform" }, { "Min", a }, { "Max", b } }; };
+	for (size_t i = 0; i < e.size(); ++i) {
+		auto& emitter = e[i];
+		emitter.curSpawnTime = emitter.pause;
+		emitter.curParticleCount = 0;
+		if (emitter.count <= 0)
+			continue;
+		if (emitter.spawnTime <= 0)
+			throw std::invalid_argument("Legacy particle SpawnTime must be positive; choose an explicit interval");
+		J render { { "Type", "sprite2D" }, { "RenderSpace", mIs3D ? "world" : "screen" },
+			{ "Piece", emitter.piece.empty() ? mTexturePiece : emitter.piece } };
+		if (mExplicitAtlas)
+			render["Atlas"] = mPath;
+		else if (!mPath.empty())
+			render["Texture"] = mPath;
+		J acceleration { { "Mode", "uniform" }, { "Min", { emitter.gravity.x * emitter.weight.x, emitter.gravity.y * emitter.weight.x } },
+			{ "Max", { emitter.gravity.x * emitter.weight.y, emitter.gravity.y * emitter.weight.y } } };
+		// Negative gravity reverses a numeric interval; linked channels preserve one weight.
+		for (int c = 0; c < 2; ++c)
+			if (acceleration["Min"][c].get<float>() > acceleration["Max"][c].get<float>())
+				std::swap(acceleration["Min"][c], acceleration["Max"][c]);
+		effect["Emitters"].push_back({ { "Id", "legacy-" + std::to_string(i) }, { "SimulationSpace", "local" }, { "Capacity", emitter.count },
+			{ "Timing", { { "Duration", emitter.spawnTime }, { "Loops", 0 }, { "Delay", emitter.pause } } },
+			{ "Emission", { { "Bursts", J::array({ { { "Time", 0 }, { "Count", emitter.spawnCount } } }) } } },
+			{ "Spawn",
+			J::array({ { { "Id", "shape" }, { "Type", "Shape" }, { "Shape", "point" }, { "Offset", { emitter.localPos.x, emitter.localPos.y } } },
+			{ { "Id", "init" }, { "Type", "Initialize" }, { "Lifetime", uniform(emitter.lifeTime.x, emitter.lifeTime.y) },
+			{ "Size", { { "Mode", "uniform" }, { "Min", { emitter.size.x, emitter.size.x } }, { "Max", { emitter.size.y, emitter.size.y } } } },
+			{ "Color", { { "Mode", "constant" }, { "Value", { emitter.color.x, emitter.color.y, emitter.color.z, emitter.color.w } } } } },
+			{ { "Id", "launch" }, { "Type", "DirectionalVelocity" }, { "Speed", uniform(emitter.angleForce.x, emitter.angleForce.y) },
+			{ "Angle", uniform(emitter.angle.x, emitter.angle.y) } } }) },
+			{ "Update",
+			J::array({ { { "Id", "gravity" }, { "Type", "Acceleration" }, { "Value", acceleration } },
+			{ { "Id", "motion" }, { "Type", "IntegrateMotion" } } }) },
+			{ "Renderer", render } });
+	}
+	std::shared_ptr<RESOURCES::ParticleAsset> asset;
+	std::unique_ptr<PARTICLES::Runtime<2>> runtime;
+	if (!effect["Emitters"].empty()) {
+		auto definition = std::make_shared<PARTICLES::Definition>(*PARTICLES::parse(effect, "legacy particles"));
+		for (auto& converted : definition->emitters) {
+			const auto& original = e[std::stoi(converted.id.substr(7))];
+			for (auto& m : converted.update)
+				if (m.type == PARTICLES::ModuleType::Acceleration) {
+					// Preserve one shared random weight, including opposite signs of gravity axes.
+					m.value.min = { original.gravity.x * original.weight.x, original.gravity.y * original.weight.x, 0, 0 };
+					m.value.max = { original.gravity.x * original.weight.y, original.gravity.y * original.weight.y, 0, 0 };
+				}
+		}
+		asset = RESOURCES::ServiceManager::Get<RESOURCES::ParticleLoader>().createInline(std::move(definition));
+		runtime = std::make_unique<PARTICLES::Runtime<2>>(asset->definition, 1);
+	}
+	emmiters = std::move(e);
+	mParticleAsset = std::move(asset);
+	mRuntime = std::move(runtime);
+	particles.clear();
+	freeParticlesId.clear();
 }
-std::vector<SpriteParticleComponent::Emmiter> SpriteParticleComponent::getEmmiters(){return emmiters;}
-void SpriteParticleComponent::spawnParticle(Emmiter& emitter,int id){
-    if(!mRuntime)return;
-    for(size_t i=0;i<mRuntime->definition().emitters.size();++i)if(mRuntime->definition().emitters[i].id=="legacy-"+std::to_string(id)) {
-        mRuntime->emit(i,uint32_t(std::max(0,emitter.spawnCount)));return;
-    }
+std::vector<SpriteParticleComponent::Emmiter> SpriteParticleComponent::getEmmiters() {
+	return emmiters;
 }
-void SpriteParticleComponent::update(){tick(TIME::Timer::GetInstance().getDeltaTime().count());}
-void SpriteParticleComponent::tick(double dt){
-    if(!mRuntime)return;
-    mRuntime->update(dt,obj->getTransform()->getTransform().getWorldMatrix());
-    particles.clear();for(auto& e:emmiters)e.curParticleCount=0;
-    for(size_t i=0;i<mRuntime->emitters().size();++i) {
-        const int id=std::stoi(mRuntime->definition().emitters[i].id.substr(7));
-        const auto& current=mRuntime->emitters()[i];emmiters[id].curParticleCount=int(current.particles.size());
-        for(const auto& p:current.particles){Particle legacy;legacy.pos={p.position[0],p.position[1],0};legacy.speed={p.velocity[0],p.velocity[1],0};
-            legacy.life=p.lifetime-p.age;legacy.size=p.size[0];legacy.weight=1;legacy.emmiterId=id;legacy.isAlive=true;particles.push_back(legacy);}
-    }
+void SpriteParticleComponent::spawnParticle(Emmiter& emitter, int id) {
+	if (!mRuntime)
+		return;
+	for (size_t i = 0; i < mRuntime->definition().emitters.size(); ++i)
+		if (mRuntime->definition().emitters[i].id == "legacy-" + std::to_string(id)) {
+			mRuntime->emit(i, uint32_t(std::max(0, emitter.spawnCount)));
+			return;
+		}
+}
+void SpriteParticleComponent::update() {
+	tick(TIME::Timer::GetInstance().getDeltaTime().count());
+}
+void SpriteParticleComponent::tick(double dt) {
+	if (!mRuntime)
+		return;
+	mRuntime->update(dt, obj->getTransform()->getTransform().getWorldMatrix());
+	particles.clear();
+	for (auto& e : emmiters)
+		e.curParticleCount = 0;
+	for (size_t i = 0; i < mRuntime->emitters().size(); ++i) {
+		const int id = std::stoi(mRuntime->definition().emitters[i].id.substr(7));
+		const auto& current = mRuntime->emitters()[i];
+		emmiters[id].curParticleCount = int(current.particles.size());
+		for (const auto& p : current.particles) {
+			Particle legacy;
+			legacy.pos = { p.position[0], p.position[1], 0 };
+			legacy.speed = { p.velocity[0], p.velocity[1], 0 };
+			legacy.life = p.lifetime - p.age;
+			legacy.size = p.size[0];
+			legacy.weight = 1;
+			legacy.emmiterId = id;
+			legacy.isAlive = true;
+			particles.push_back(legacy);
+		}
+	}
 }
 
-SpriteParticleComponent::Descriptor SpriteParticleComponent::getDescriptor() const
-{
+SpriteParticleComponent::Descriptor SpriteParticleComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<SpriteParticleComponent>();
 	d.TexturePath = mExplicitAtlas ? "" : mPath;
-    d.TextureAtlasPath = mExplicitAtlas ? mPath : "";
-    d.TexturePiece = mTexturePiece;
-    d.Is3D = mIs3D;
-    d.Emmiters = emmiters;
+	d.TextureAtlasPath = mExplicitAtlas ? mPath : "";
+	d.TexturePiece = mTexturePiece;
+	d.Is3D = mIs3D;
+	d.Emmiters = emmiters;
 	return d;
 }
 
-SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): SpriteComponent(obj)
-{
-    mIs3D = descriptor.Is3D;
-    if (!descriptor.TexturePath.empty()) setTexture(descriptor.TexturePath);
-    else if(!descriptor.TextureAtlasPath.empty()) {
-        setTextureAtlas(descriptor.TextureAtlasPath);
-        setAtlasPiece(descriptor.TexturePiece);
-    }
-    setEmmiters(descriptor.Emmiters);
+SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: SpriteComponent(obj) {
+	mIs3D = descriptor.Is3D;
+	if (!descriptor.TexturePath.empty())
+		setTexture(descriptor.TexturePath);
+	else if (!descriptor.TextureAtlasPath.empty()) {
+		setTextureAtlas(descriptor.TextureAtlasPath);
+		setAtlasPiece(descriptor.TexturePiece);
+	}
+	setEmmiters(descriptor.Emmiters);
 }
 
-SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	SpriteParticleComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+SpriteParticleComponent::SpriteParticleComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: SpriteParticleComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-LabelComponent::LabelComponent(Object& obj): ComponentBase(obj)
-{
-}
+LabelComponent::LabelComponent(Object& obj)
+	: ComponentBase(obj) { }
 
-LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font) :
-	ComponentBase(obj), mFont(font) {
+LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<GUI::Font> font)
+	: ComponentBase(obj)
+	, mFont(font) {
 	mLabel = label;
 
 	float width = 0;
@@ -400,28 +443,26 @@ LabelComponent::LabelComponent(Object& obj, std::string label, std::shared_ptr<G
 	}
 	obj.getTransform()->getTransform().setLocalSize({ width, height });
 
-	//TODO: uncoment it
-	//auto shader = material->getShader();
+	// TODO: uncoment it
+	// auto shader = material->getShader();
 	////shader = RESOURCES::ShaderLoader::CreateFromFile("Shaders/gui/text.glsl");
-	//MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, 0, 1);
-	//shader->bind();
-	//shader->setUniformInt("u_engine_text", 0);
-	//shader->setUniformMat4("u_engine_projection", projection);
+	// MATHGL::Matrix4 projection = MATHGL::Matrix4::CreateOrthographic(0.0f, static_cast<float>(800), static_cast<float>(600), 0.0f, 0, 1);
+	// shader->bind();
+	// shader->setUniformInt("u_engine_text", 0);
+	// shader->setUniformMat4("u_engine_projection", projection);
 
-
-	//glGenVertexArrays(1, &VAO);
-	//glGenBuffers(1, &VBO);
-	//glBindVertexArray(VAO);
-	//glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-	//glEnableVertexAttribArray(0);
-	//glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-	//glBindBuffer(GL_ARRAY_BUFFER, 0);
-	//glBindVertexArray(0);
+	// glGenVertexArrays(1, &VAO);
+	// glGenBuffers(1, &VBO);
+	// glBindVertexArray(VAO);
+	// glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	// glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+	// glEnableVertexAttribArray(0);
+	// glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+	// glBindBuffer(GL_ARRAY_BUFFER, 0);
+	// glBindVertexArray(0);
 }
 
-LabelComponent::Descriptor LabelComponent::getDescriptor() const
-{
+LabelComponent::Descriptor LabelComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<LabelComponent>();
 	d.Is3D = mIs3D;
@@ -430,23 +471,21 @@ LabelComponent::Descriptor LabelComponent::getDescriptor() const
 	return d;
 }
 
-LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ComponentBase(obj)
-{
+LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: ComponentBase(obj) {
 	mIs3D = descriptor.Is3D;
 	mLabel = descriptor.Label;
 	auto& fs = IKIGAI::RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-	auto path = fs.getFilePath(descriptor.Font.empty()?"/fonts/a_AlternaSw.TTF":descriptor.Font);
-	if (!path) throw std::runtime_error("Label font not found: " + descriptor.Font);
+	auto path = fs.getFilePath(descriptor.Font.empty() ? "/fonts/a_AlternaSw.TTF" : descriptor.Font);
+	if (!path)
+		throw std::runtime_error("Label font not found: " + descriptor.Font);
 	mFont = std::make_shared<IKIGAI::GUI::Font>(*path, 42);
 }
 
-LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	LabelComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+LabelComponent::LabelComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: LabelComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-void SpineComponent::setSpine(SpineRefl data)
-{
+void SpineComponent::setSpine(SpineRefl data) {
 	skelPath = data.skelPath;
 	atlasPath = data.atlasPath;
 	spine = std::make_shared<RENDER::SPINE::SpineController>(skelPath, atlasPath);
@@ -454,20 +493,21 @@ void SpineComponent::setSpine(SpineRefl data)
 	spine->setAnimation("idle", true);
 }
 
-SpineRefl SpineComponent::getSpine()
-{
+SpineRefl SpineComponent::getSpine() {
 	return { skelPath, atlasPath };
 }
 
-SpineComponent::SpineComponent(Object& obj) : ComponentBase(obj) {
-}
+SpineComponent::SpineComponent(Object& obj)
+	: ComponentBase(obj) { }
 
-SpineComponent::SpineComponent(Object& obj, std::string skelPath, std::string atlasPath): ComponentBase(obj), skelPath(skelPath), atlasPath(atlasPath){
+SpineComponent::SpineComponent(Object& obj, std::string skelPath, std::string atlasPath)
+	: ComponentBase(obj)
+	, skelPath(skelPath)
+	, atlasPath(atlasPath) {
 	spine = std::make_shared<RENDER::SPINE::SpineController>(skelPath, atlasPath);
 }
 
-SpineComponent::Descriptor SpineComponent::getDescriptor() const
-{
+SpineComponent::Descriptor SpineComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<SpineComponent>();
 	d.Is3D = mIs3D;
@@ -476,18 +516,15 @@ SpineComponent::Descriptor SpineComponent::getDescriptor() const
 	return d;
 }
 
-SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): SpineComponent(obj, descriptor.SkelPath, descriptor.AtlasPath)
-{
+SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: SpineComponent(obj, descriptor.SkelPath, descriptor.AtlasPath) {
 	mIs3D = descriptor.Is3D;
-
 }
 
-SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	SpineComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: SpineComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-//void LabelComponentGui::draw() {
+// void LabelComponentGui::draw() {
 //	if (!isEnabled) {
 //		return;
 //	}
@@ -539,24 +576,25 @@ SpineComponent::SpineComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase:
 //		// �������� �������������
 //		glDrawArrays(GL_TRIANGLES, 0, 6);
 //
-//		// ������ ���������� �������� ��� ����������� ���������� ����� (�������� ��������, ��� ������ �������� ���������� � ��������, ������������ 1/64 �������)
-//		x += (ch.Advance >> 6) * obj.transform->globalScale.x; // ��������� ����� �� 6, ����� �������� �������� � �������� (2^6 = 64)
+//		// ������ ���������� �������� ��� ����������� ���������� ����� (�������� ��������, ��� ������ �������� ���������� � ��������, ������������
+//1/64 �������) 		x += (ch.Advance >> 6) * obj.transform->globalScale.x; // ��������� ����� �� 6, ����� �������� �������� � �������� (2^6 = 64)
 //	}
 //	glBindVertexArray(0);
 //	glBindTexture(GL_TEXTURE_2D, 0);
-//}
+// }
 
-InteractionComponent::InteractionComponent(Object& obj) : ComponentBase(obj)
-{
-}
+InteractionComponent::InteractionComponent(Object& obj)
+	: ComponentBase(obj) { }
 
-InteractionComponent::InteractionComponent(Object& obj, float w, float h) : ComponentBase(obj), mWidth(w), mHeight(h) {
-	//obj.transform->size = size;
+InteractionComponent::InteractionComponent(Object& obj, float w, float h)
+	: ComponentBase(obj)
+	, mWidth(w)
+	, mHeight(h) {
+	// obj.transform->size = size;
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
 
-InteractionComponent::Descriptor InteractionComponent::getDescriptor() const
-{
+InteractionComponent::Descriptor InteractionComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<InteractionComponent>();
 	d.Width = mWidth;
@@ -564,15 +602,11 @@ InteractionComponent::Descriptor InteractionComponent::getDescriptor() const
 	return d;
 }
 
-InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): InteractionComponent(obj, descriptor.Width, descriptor.Height)
-{
+InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: InteractionComponent(obj, descriptor.Width, descriptor.Height) { }
 
-}
-
-InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	InteractionComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+InteractionComponent::InteractionComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: InteractionComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
 bool InteractionComponent::contains(float x, float y) {
 	auto left = obj->getTransform()->getWorldPosition().x;
@@ -583,15 +617,14 @@ bool InteractionComponent::contains(float x, float y) {
 	float maxX = std::max(left, (left + width));
 	float minY = std::min(top, (top + height));
 	float maxY = std::max(top, (top + height));
-	
+
 	return (x >= minX) && (x < maxX) && (y >= minY) && (y < maxY);
 }
 
-ClipComponent::ClipComponent(Object& obj) : ComponentBase(obj)
-{
-}
+ClipComponent::ClipComponent(Object& obj)
+	: ComponentBase(obj) { }
 
-//void InteractionComponent::onUpdate(float dt) {
+// void InteractionComponent::onUpdate(float dt) {
 //	auto ev = GuiEventType::NONE;
 //	auto mpos = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputManager>().getMousePosition();
 //	if (contains(mpos.x, mpos.y)) {
@@ -624,22 +657,24 @@ ClipComponent::ClipComponent(Object& obj) : ComponentBase(obj)
 //	case GuiEventType::UNCOVER: if (onUncover) onUncover();  break;
 //	default: break;
 //	}
-//}
+// }
 //
-//void InteractionComponent::onPreUpdate(float dt) {
+// void InteractionComponent::onPreUpdate(float dt) {
 //	obj.transform->calculate();
 //	if (obj.parent) {
 //		globalX = obj.parent->childOffsetX;
 //		globalY = obj.parent->childOffsetY;
 //	}
-//};
+// };
 //
-ClipComponent::ClipComponent(Object& obj, float w, float h) : ComponentBase(obj), mWidth(w), mHeight(h) {
+ClipComponent::ClipComponent(Object& obj, float w, float h)
+	: ComponentBase(obj)
+	, mWidth(w)
+	, mHeight(h) {
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
 
-ClipComponent::Descriptor ClipComponent::getDescriptor() const
-{
+ClipComponent::Descriptor ClipComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<ClipComponent>();
 	d.Width = mWidth;
@@ -647,26 +682,23 @@ ClipComponent::Descriptor ClipComponent::getDescriptor() const
 	return d;
 }
 
-ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ClipComponent(obj, descriptor.Width, descriptor.Height)
-{
+ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: ClipComponent(obj, descriptor.Width, descriptor.Height) { }
 
-}
+ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: ClipComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-ClipComponent::ClipComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	ClipComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+ScrollComponent::ScrollComponent(Object& obj)
+	: ComponentBase(obj) { }
 
-ScrollComponent::ScrollComponent(Object& obj): ComponentBase(obj)
-{
-}
-
-ScrollComponent::ScrollComponent(Object& obj, float w, float h): ComponentBase(obj), mWidth(w), mHeight(h) {
+ScrollComponent::ScrollComponent(Object& obj, float w, float h)
+	: ComponentBase(obj)
+	, mWidth(w)
+	, mHeight(h) {
 	obj.getTransform()->getTransform().setLocalSize({ w, h });
 }
 
-ScrollComponent::Descriptor ScrollComponent::getDescriptor() const
-{
+ScrollComponent::Descriptor ScrollComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<ScrollComponent>();
 	d.Width = mWidth;
@@ -674,39 +706,30 @@ ScrollComponent::Descriptor ScrollComponent::getDescriptor() const
 	return d;
 }
 
-ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): ScrollComponent(obj, descriptor.Width, descriptor.Height)
-{
+ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: ScrollComponent(obj, descriptor.Width, descriptor.Height) { }
 
-}
+ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: ScrollComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
-ScrollComponent::ScrollComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	ScrollComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
-
-LayoutComponent::Descriptor LayoutComponent::getDescriptor() const
-{
+LayoutComponent::Descriptor LayoutComponent::getDescriptor() const {
 	Descriptor d;
 	d.Type = GetType<LayoutComponent>();
 	d.Layout = mType;
 	return d;
 }
 
-LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor): LayoutComponent(obj, descriptor.Layout)
-{
+LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const Descriptor& descriptor)
+	: LayoutComponent(obj, descriptor.Layout) { }
 
-}
-
-LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor):
-	LayoutComponent(obj, static_cast<const Descriptor&>(descriptor))
-{
-}
+LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const ComponentBase::Descriptor& descriptor)
+	: LayoutComponent(obj, static_cast<const Descriptor&>(descriptor)) { }
 
 ////void ClipComponent::draw() {
-////	
+////
 ////}
 //
-//void ClipComponent::onPreUpdate(float dt) {
+// void ClipComponent::onPreUpdate(float dt) {
 //	obj.transform->calculate();
 //	globalX = obj.transform->globalModel(0, 3);
 //	globalY = obj.transform->globalModel(1, 3);
@@ -716,11 +739,9 @@ LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const ComponentBas
 //	obj.transform->globalModel(1, 3) = 0;
 //}
 
-
-
-//#include <rttr/registration>
+// #include <rttr/registration>
 ////TODO: think about save texture/textureAtlas
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::SpriteComponent>("SpriteComponent")
 //	(
@@ -886,4 +907,4 @@ LayoutComponent::LayoutComponent(UTILS::Ref<ECS::Object> obj, const ComponentBas
 //	rttr::registration::class_<IKIGAI::MATHGL::Vector2i>("Vector2i")
 //		.property("X", &IKIGAI::MATHGL::Vector2i::x)
 //		.property("Y", &IKIGAI::MATHGL::Vector2i::y);
-//}
+// }

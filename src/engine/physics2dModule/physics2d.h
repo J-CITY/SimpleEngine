@@ -53,7 +53,7 @@ struct Contact {
 	Id a = 0, b = 0;
 	Vec2 normal; // Always points from A towards B.
 	float penetration = 0;
-	std::array<ContactPoint, 2> points {};
+	std::array<ContactPoint, 2> points { };
 	int count = 0;
 };
 bool collide(const Body& a, const Body& b, Contact& result);
@@ -127,9 +127,9 @@ struct DebugDraw {
 class World {
 public:
 	World();
-	explicit World(Settings settings, CollisionPipeline pipeline = {});
+	explicit World(Settings settings, CollisionPipeline pipeline = { });
 	explicit World(CollisionPipeline pipeline)
-		: World(Settings {}, std::move(pipeline)) { }
+		: World(Settings { }, std::move(pipeline)) { }
 	const CollisionPipeline& collisionPipeline() const {
 		return mPipeline;
 	}

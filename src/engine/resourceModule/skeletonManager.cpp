@@ -1,10 +1,11 @@
 #include "skeletonManager.h"
+#include "fileWatcher.h"
 #include "serviceManager.h"
-#include <resourceModule/fileSystem/fileSystem.h>
 #include "skeletalModule/skeleton.h"
 #include "utilsModule/assertion.h"
 #include "utilsModule/jsonLoader.h"
-#include "fileWatcher.h"
+#include <resourceModule/fileSystem/fileSystem.h>
+
 
 namespace IKIGAI::RESOURCES {
 
@@ -21,7 +22,7 @@ ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromFile(const std::string
 		ASSERT(std::string("SkeletonLoader::CreateFromFile: failed to parse: " + path).c_str());
 		return nullptr;
 	}
-	
+
 	return skeleton;
 }
 
@@ -30,7 +31,8 @@ ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromResource(const std::st
 	return CreateFromResource(res, allocator, deleter);
 }
 
-ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromResource(const RENDER::SkeletonResource& res, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
+ResourcePtr<SKELETON::Skeleton> SkeletonLoader::CreateFromResource(
+	const RENDER::SkeletonResource& res, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	return CreateFromFile(res.pathSkeleton, allocator, deleter);
 }
 
@@ -49,25 +51,26 @@ ResourcePtr<SKELETON::Skeleton> SkeletonLoader::createResource(const std::string
 	ResourcePtr<SKELETON::Skeleton> res;
 	if (type == ELoadingType::FILE) {
 		res = CreateFromFile(path);
-		addFileWatchSubscribe(path, {path}, res);
+		addFileWatchSubscribe(path, { path }, res);
 	}
 	else if (type == ELoadingType::RESOURCE) {
 		RENDER::SkeletonResource config;
 		if (HasConfig(path)) {
 			config = *GetConfig(path);
-		} else {
+		}
+		else {
 			config = LoadConfig(path);
 			AddConfigToCache(path, config);
 		}
 		res = CreateFromResource(config);
-		addFileWatchSubscribe(path, {path, config.pathSkeleton}, res);
+		addFileWatchSubscribe(path, { path, config.pathSkeleton }, res);
 	}
 	return res;
 }
 
 bool SkeletonLoader::reloadResource(std::weak_ptr<SKELETON::Skeleton> weakRes, const std::string& path) {
 	if (auto res = weakRes.lock()) {
-		std::unordered_set<std::string> paths = {path};
+		std::unordered_set<std::string> paths = { path };
 		RENDER::SkeletonResource config;
 		if (path.ends_with(".skeleton")) {
 			config = LoadConfig(path);

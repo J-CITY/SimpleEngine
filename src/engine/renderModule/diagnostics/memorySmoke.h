@@ -1,2 +1,4 @@
 #pragma once
-namespace IKIGAI::RENDER { void RunMemorySmoke(); }
+namespace IKIGAI::RENDER {
+void RunMemorySmoke();
+}

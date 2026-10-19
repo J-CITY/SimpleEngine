@@ -2,14 +2,15 @@
 #include "networkRuntime.h"
 namespace IKIGAI::NETWORK {
 void TransferControl::check() const {
-	if (cancelled) throw NetworkError(NetworkErrorCode::cancelled, "Transfer cancelled");
+	if (cancelled)
+		throw NetworkError(NetworkErrorCode::cancelled, "Transfer cancelled");
 }
 void IHttpClient::get(const HttpRequest& request, TransferControl& control, const std::function<void(const HttpResponse&)>& headers,
 	const std::function<void(std::span<const uint8_t>)>& body) {
 #ifdef __EMSCRIPTEN__
 	throw NetworkError(NetworkErrorCode::unsupported, "Blocking HTTP is unavailable in the browser; use getAsync");
 #else
-	getAsync(request, std::shared_ptr<TransferControl>(&control, [](auto*) {}), headers, body).get();
+	getAsync(request, std::shared_ptr<TransferControl>(&control, [](auto*) { }), headers, body).get();
 #endif
 }
 #if !defined(IKIGAI_NETWORK_ASIO) && !defined(IKIGAI_NETWORK_WEB)
@@ -23,6 +24,8 @@ namespace {
 		}
 	};
 }
-std::unique_ptr<IHttpClient> CreateHttpClient(std::shared_ptr<NetworkRuntime>) { return std::make_unique<OfflineHttpClient>(); }
+std::unique_ptr<IHttpClient> CreateHttpClient(std::shared_ptr<NetworkRuntime>) {
+	return std::make_unique<OfflineHttpClient>();
+}
 #endif
 }

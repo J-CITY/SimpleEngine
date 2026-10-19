@@ -18,7 +18,7 @@ float IKIGAI::RENDER::BoundingSphere::getSize() const {
 int IKIGAI::RENDER::BoundingSphere::intersect(const BoundingSphere& sphere) const {
 	float distance = MATH::Vector3f::LengthSquare(position - sphere.position);
 
-	return (distance < (radius + sphere.radius)* (radius + sphere.radius)) ? 1 : 0;
+	return (distance < (radius + sphere.radius) * (radius + sphere.radius)) ? 1 : 0;
 }
 
 void IKIGAI::RENDER::BoundingSphere::createFromTwo(const BoundingSphere& one, const BoundingSphere& two) {

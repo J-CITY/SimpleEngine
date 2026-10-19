@@ -1,7 +1,10 @@
 #pragma once
 #include "networkRuntime.h"
 namespace IKIGAI::NETWORK {
-struct WebSocketMessage { std::vector<uint8_t> bytes; bool text = false; };
+struct WebSocketMessage {
+	std::vector<uint8_t> bytes;
+	bool text = false;
+};
 class IWebSocketClient {
 public:
 	virtual ~IWebSocketClient() = default;
@@ -11,5 +14,5 @@ public:
 	virtual Operation<size_t> write(WebSocketMessage message, Timeout timeout = DefaultTimeout) = 0;
 	virtual Operation<void> close(Timeout timeout = DefaultTimeout) = 0;
 };
-std::unique_ptr<IWebSocketClient> CreateWebSocketClient(std::shared_ptr<NetworkRuntime> runtime = {});
+std::unique_ptr<IWebSocketClient> CreateWebSocketClient(std::shared_ptr<NetworkRuntime> runtime = { });
 }

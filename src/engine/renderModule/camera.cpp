@@ -3,15 +3,14 @@
 using namespace IKIGAI;
 using namespace IKIGAI::RENDER;
 
-Camera::Camera() :
-	projectionMode(ProjectionMode::PERSPECTIVE),
-	fov(45.0f),
-	size(5.0f),
-	_near(0.1f),
-	_far(100.f),
-	frustumGeometryCulling(false),
-	frustumLightCulling(false) {
-}
+Camera::Camera()
+	: projectionMode(ProjectionMode::PERSPECTIVE)
+	, fov(45.0f)
+	, size(5.0f)
+	, _near(0.1f)
+	, _far(100.f)
+	, frustumGeometryCulling(false)
+	, frustumLightCulling(false) { }
 
 void Camera::cacheMatrices(unsigned p_windowWidth, unsigned p_windowHeight, const MATH::Vector3f& p_position, const MATH::QuaternionF& p_rotation) {
 	cacheProjectionMatrix(p_windowWidth, p_windowHeight);
@@ -36,7 +35,7 @@ void Camera::cacheViewMatrix(MATH::Matrix4f mat) {
 }
 
 void Camera::cacheFrustum(const MATH::Matrix4f& p_view, const MATH::Matrix4f& p_projection) {
-	//frustum.make(p_projection * p_view);
+	// frustum.make(p_projection * p_view);
 }
 
 float Camera::getFov() const {
@@ -120,7 +119,7 @@ void Camera::setView(MATH::Matrix4f& in) {
 }
 
 IKIGAI::MATH::Matrix4f Camera::calculateProjectionMatrix(uint16_t p_windowWidth, uint16_t p_windowHeight) const {
-	
+
 	const auto ratio = p_windowWidth / static_cast<float>(p_windowHeight);
 
 	switch (projectionMode) {
@@ -144,9 +143,8 @@ IKIGAI::MATH::Matrix4f Camera::calculateViewMatrix(const MATH::Vector3f& p_posit
 	const auto up = p_rotation * MATH::Vector3f::Up;
 	const auto forward = p_rotation * MATH::Vector3f::Forward;
 
-	return MATH::Matrix4f::CreateView(
-		p_position.x, p_position.y, p_position.z,												// Position
-		p_position.x + forward.x, p_position.y + forward.y, p_position.z + forward.z,			// LookAt (Position + Forward)
-		up.x, up.y, up.z																		// Up Vector
+	return MATH::Matrix4f::CreateView(p_position.x, p_position.y, p_position.z, // Position
+		p_position.x + forward.x, p_position.y + forward.y, p_position.z + forward.z, // LookAt (Position + Forward)
+		up.x, up.y, up.z // Up Vector
 	);
 }

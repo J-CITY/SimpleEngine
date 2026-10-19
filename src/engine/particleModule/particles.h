@@ -16,7 +16,7 @@ struct Source {
 	SourceMode mode = SourceMode::Constant;
 	Domain domain = Domain::ParticleNormalized;
 	int channels = 1;
-	Value min {}, max {};
+	Value min { }, max { };
 	std::array<MATH::CURVES::FloatCurve, 4> lower, upper;
 	bool independent = false;
 	std::string parameter;
@@ -45,7 +45,7 @@ enum class ModuleType {
 enum class ShapeType { Point, Segment, Rectangle, Circle, Ring, Box, Sphere, Cone, Cylinder };
 struct Shape {
 	ShapeType type = ShapeType::Point;
-	Value offset {}, rotation {}, size { 1, 1, 1, 0 };
+	Value offset { }, rotation { }, size { 1, 1, 1, 0 };
 	float radius = 1, innerRadius = 0, height = 1;
 	bool surface = false;
 };
@@ -115,14 +115,14 @@ struct Definition {
 	std::vector<EmitterDefinition> emitters;
 };
 // Strict, independent of ECS, VFS and GPU. All failures include a JSON path.
-std::shared_ptr<const Definition> parse(const nlohmann::json& json, const std::string& path = {});
+std::shared_ptr<const Definition> parse(const nlohmann::json& json, const std::string& path = { });
 uint64_t hash(const std::string& text);
 float random01(uint64_t key);
 
 template <int D> struct Particle {
 	uint64_t id = 0, randomKey = 0;
 	uint32_t eventDepth = 0;
-	std::array<float, D> position {}, previous {}, spawnPosition {}, velocity {}, offset {};
+	std::array<float, D> position { }, previous { }, spawnPosition { }, velocity { }, offset { };
 	Value baseSize { 1, 1, 0, 0 }, size { 1, 1, 0, 0 }, baseColor { 1, 1, 1, 1 }, color { 1, 1, 1, 1 };
 	float age = 0, lifetime = 1, rotation = 0, baseRotation = 0, frame = 0, stepBirth = 0, planeZ = 0;
 	MATH::QuaternionF orientation, baseOrientation;
@@ -189,7 +189,7 @@ private:
 	double mTime = 0, mAccumulator = 0;
 	bool mInitial = true, mHaveTransform = false;
 	MATH::Matrix4f mTransform = MATH::Matrix4f::Identity;
-	MATH::Vector3f mEmitterVelocity {}, mLastOrigin {};
+	MATH::Vector3f mEmitterVelocity { }, mLastOrigin { };
 	void step(float dt, size_t manualEmitter = SIZE_MAX, uint32_t manualCount = 0);
 	size_t spawn(size_t emitter, float birth, float emitterAge, size_t liveCount, const SpawnContext* context = nullptr, uint64_t lineage = 0,
 		size_t reuseSlot = SIZE_MAX);

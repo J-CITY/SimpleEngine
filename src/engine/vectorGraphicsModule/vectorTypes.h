@@ -3,40 +3,35 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <mathModule/vector2.h>
 #include <string>
 #include <vector>
 
 namespace IKIGAI::VECTOR {
-struct Vec2 {
-	float x = 0, y = 0;
-	Vec2 operator+(Vec2 b) const {
-		return { x + b.x, y + b.y };
-	}
-	Vec2 operator-(Vec2 b) const {
-		return { x - b.x, y - b.y };
-	}
-	Vec2 operator*(float s) const {
-		return { x * s, y * s };
-	}
-	bool operator==(const Vec2&) const = default;
-};
+using Vec2 = MATH::Vector2f;
+
 inline float cross(Vec2 a, Vec2 b) {
 	return a.x * b.y - a.y * b.x;
 }
+
 inline float dot(Vec2 a, Vec2 b) {
 	return a.x * b.x + a.y * b.y;
 }
+
 inline float length(Vec2 a) {
 	return std::sqrt(dot(a, a));
 }
+
 inline Vec2 normal(Vec2 a) {
 	float l = length(a);
 	return l > 1e-6f ? Vec2 { -a.y / l, a.x / l } : Vec2 { };
 }
+
 struct Color {
 	float r = 1, g = 1, b = 1, a = 1;
 	bool operator==(const Color&) const = default;
 };
+
 struct Paint {
 	Color color { }, endColor { };
 	Vec2 start { }, end { 100, 0 };
@@ -48,19 +43,24 @@ struct Paint {
 			color.a + (endColor.a - color.a) * t };
 	}
 };
+
 enum class LineCap { Butt, Square, Round };
+
 enum class LineJoin { Miter, Bevel, Round };
+
 struct StrokeStyle {
 	Paint paint;
 	float width = 1, miterLimit = 4;
 	LineCap cap = LineCap::Butt;
 	LineJoin join = LineJoin::Miter;
 };
+
 struct Vertex {
 	Vec2 position, uv;
 	Color color;
 	Vec2 uvMin { }, uvMax { 1, 1 };
 };
+
 struct Mesh {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned> indices;
@@ -71,14 +71,18 @@ struct Mesh {
 			indices.push_back(base + index);
 	}
 };
+
 struct Bounds {
 	Vec2 min { }, max { };
 };
+
 enum class PathOp { Move, Line, Quadratic, Cubic, Close };
+
 struct PathCommand {
 	PathOp op;
 	Vec2 point { }, control1 { }, control2 { };
 };
+
 struct Path {
 	std::vector<PathCommand> commands;
 	Path& moveTo(Vec2 p) {
@@ -102,14 +106,17 @@ struct Path {
 		return *this;
 	}
 };
+
 struct Contour {
 	std::vector<Vec2> points;
 	bool closed = false;
 };
+
 struct GeometryOptions {
 	float tolerance = .35f, aaWidth = 1;
 	unsigned maxVertices = 65536;
 };
+
 Path parsePath(const std::string& commands);
 std::vector<Contour> flatten(const Path&, GeometryOptions options = { });
 Mesh fill(const std::vector<Vec2>& polygon, const Paint&, float aaWidth = 1);

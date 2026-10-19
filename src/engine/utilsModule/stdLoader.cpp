@@ -31,4 +31,3 @@ void IKIGAI::UTILS::STBiImageFree(float* data) {
 void IKIGAI::UTILS::STBiImageFree(unsigned char* data) {
 	stbi_image_free(data);
 }
-

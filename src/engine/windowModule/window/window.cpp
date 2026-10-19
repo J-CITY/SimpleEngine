@@ -3,34 +3,35 @@
 #include "coreModule/graphicsWrapper.hpp"
 
 #ifdef USE_SDL
-
-#include <set>
-#include <SDL3/SDL.h>
 #include "renderModule/backends/interface/driverInterface.h"
+#include <SDL3/SDL.h>
+#include <set>
+
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #endif
-#include "utilsModule/log/loggerDefine.h"
 #include "coreModule/platform.hpp"
+#include "utilsModule/log/loggerDefine.h"
 #include "windowModule/inputManager/inputManager.h"
+
 #ifdef __EMSCRIPTEN__
-#include <iostream>
 #include <emscripten.h>
+#include <iostream>
+
 #endif
 
 #if defined(USE_EDITOR) || defined(USE_CHEATS)
 #include "imgui.h"
 #include "utilsModule/imguiHelper/imguiBackend/imguiBackend.h"
 #endif
-
 #ifdef VULKAN_BACKEND
-#include <SDL3/SDL_vulkan.h>
 #include "renderModule/backends/vk/vulkanLoader.h"
+#include <SDL3/SDL_vulkan.h>
+
 #endif
 #ifdef METAL_BACKEND
 #include <SDL3/SDL_metal.h>
 #endif
-
 #ifdef DX12_BACKEND
 #include <Windows.h>
 #endif
@@ -39,20 +40,20 @@ using namespace IKIGAI;
 using namespace IKIGAI::WINDOW;
 
 const std::map<SDL_GamepadButton, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON> ToGamepadButton = {
-	{SDL_GAMEPAD_BUTTON_SOUTH, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_a},
-	{SDL_GAMEPAD_BUTTON_EAST, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_b},
-	{SDL_GAMEPAD_BUTTON_WEST, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_x},
-	{SDL_GAMEPAD_BUTTON_NORTH, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_y},
-	{SDL_GAMEPAD_BUTTON_LEFT_STICK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_leftStick},
-	{SDL_GAMEPAD_BUTTON_RIGHT_STICK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_rightStick},
-	{SDL_GAMEPAD_BUTTON_BACK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_back},
-	{SDL_GAMEPAD_BUTTON_START, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_start},
-	{SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_lb},
-	{SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_rb},
-	{SDL_GAMEPAD_BUTTON_DPAD_UP, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_up},
-	{SDL_GAMEPAD_BUTTON_DPAD_DOWN, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_down},
-	{SDL_GAMEPAD_BUTTON_DPAD_LEFT, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_left},
-	{SDL_GAMEPAD_BUTTON_DPAD_RIGHT, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_right},
+	{ SDL_GAMEPAD_BUTTON_SOUTH, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_a },
+	{ SDL_GAMEPAD_BUTTON_EAST, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_b },
+	{ SDL_GAMEPAD_BUTTON_WEST, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_x },
+	{ SDL_GAMEPAD_BUTTON_NORTH, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_y },
+	{ SDL_GAMEPAD_BUTTON_LEFT_STICK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_leftStick },
+	{ SDL_GAMEPAD_BUTTON_RIGHT_STICK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_rightStick },
+	{ SDL_GAMEPAD_BUTTON_BACK, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_back },
+	{ SDL_GAMEPAD_BUTTON_START, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_start },
+	{ SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_lb },
+	{ SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::btn_rb },
+	{ SDL_GAMEPAD_BUTTON_DPAD_UP, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_up },
+	{ SDL_GAMEPAD_BUTTON_DPAD_DOWN, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_down },
+	{ SDL_GAMEPAD_BUTTON_DPAD_LEFT, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_left },
+	{ SDL_GAMEPAD_BUTTON_DPAD_RIGHT, IKIGAI::INPUT::Gamepad::GAMEPAD_BUTTON::dpad_right },
 };
 
 struct Window::Internal {
@@ -88,7 +89,10 @@ std::vector<SDL_Gamepad*> findController() {
 	return res;
 }
 
-Window::Window(const WindowSettings& p_windowSettings, bool isMain, Window* sharedWindow) : mWindowSettings(p_windowSettings), mContext(std::make_unique<Internal>()), mIsMainWindow(isMain) {
+Window::Window(const WindowSettings& p_windowSettings, bool isMain, Window* sharedWindow)
+	: mWindowSettings(p_windowSettings)
+	, mContext(std::make_unique<Internal>())
+	, mIsMainWindow(isMain) {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD);
 	create(sharedWindow);
 
@@ -98,7 +102,6 @@ Window::Window(const WindowSettings& p_windowSettings, bool isMain, Window* shar
 		std::string name = SDL_GetGamepadName(gp) ? SDL_GetGamepadName(gp) : "";
 		gamepadAddEvent.run(INPUT::Gamepad(id, name));
 	}
-
 }
 
 Window::~Window() {
@@ -113,7 +116,8 @@ Window::~Window() {
 	if (mIsMainWindow) {
 		SDL_DestroyWindow(mContext->mWindow);
 		SDL_Quit();
-	} else {
+	}
+	else {
 		SDL_DestroyWindow(mContext->mWindow);
 	}
 }
@@ -137,32 +141,37 @@ MATH::Vector2i Window::getMousePos() const {
 }
 
 void Window::setSize(unsigned width, unsigned height) {
-    if(mIsMainWindow)if(auto* driver=RENDER::DriverInterface::Get();driver&&driver->mFrameGeneration){
-        if(driver->mFrameGeneration->status().Technology==RENDER::FrameGenerationType::DLSS)driver->stopPresentation();
-        else {driver->mFrameGeneration->suspend();driver->mFrameGeneration->waitForPresents();driver->mFrameGenerationStatus=driver->mFrameGeneration->status();}
-    }
+	if (mIsMainWindow)
+		if (auto* driver = RENDER::DriverInterface::Get(); driver && driver->mFrameGeneration) {
+			if (driver->mFrameGeneration->status().Technology == RENDER::FrameGenerationType::DLSS)
+				driver->stopPresentation();
+			else {
+				driver->mFrameGeneration->suspend();
+				driver->mFrameGeneration->waitForPresents();
+				driver->mFrameGenerationStatus = driver->mFrameGeneration->status();
+			}
+		}
 	switch (GetCurrentPlatform()) {
-		case Platform::IOS:
-		case Platform::ANDROIDOS:
-		case Platform::EMSCRIPT: {
-			//Can not change window size
-			break;
-		}
-		case Platform::WINDOWS:
-		case Platform::MAC: {
-			mWindowSettings.size = { width, height };
-			SDL_SetWindowSize(mContext->mWindow, width, height);
-		}
-		default: {
-			break;
-		}
+	case Platform::IOS:
+	case Platform::ANDROIDOS:
+	case Platform::EMSCRIPT: {
+		// Can not change window size
+		break;
+	}
+	case Platform::WINDOWS:
+	case Platform::MAC: {
+		mWindowSettings.size = { width, height };
+		SDL_SetWindowSize(mContext->mWindow, width, height);
+	}
+	default: {
+		break;
+	}
 	}
 }
 
-MATH::Vector2u Window::getSize() const
-{
-	uint32_t displayWidth{ 0 };
-	uint32_t displayHeight{ 0 };
+MATH::Vector2u Window::getSize() const {
+	uint32_t displayWidth { 0 };
+	uint32_t displayHeight { 0 };
 
 #ifdef __EMSCRIPTEN__
 	// For Emscripten targets we will invoke some Javascript
@@ -170,13 +179,9 @@ MATH::Vector2u Window::getSize() const
 	// document. Note that the 'width' and 'height' attributes
 	// need to be set on the <canvas /> HTML element, like so:
 	// <canvas id="canvas" width="600", height="360"></canvas>
-	displayWidth = static_cast<uint32_t>(EM_ASM_INT({
-		return document.getElementById('canvas').width;
-	}));
+	displayWidth = static_cast<uint32_t>(EM_ASM_INT({ return document.getElementById('canvas').width; }));
 
-	displayHeight = static_cast<uint32_t>(EM_ASM_INT({
-		return document.getElementById('canvas').height;
-	}));
+	displayHeight = static_cast<uint32_t>(EM_ASM_INT({ return document.getElementById('canvas').height; }));
 #else
 	switch (GetCurrentPlatform()) {
 	case Platform::IOS:
@@ -210,10 +215,9 @@ MATH::Vector2u Window::getSize() const
 	return MATH::Vector2u(displayWidth, displayHeight);
 }
 
-MATH::Vector2u Window::getPixelSize() const
-{
-	uint32_t displayWidth{ 0 };
-	uint32_t displayHeight{ 0 };
+MATH::Vector2u Window::getPixelSize() const {
+	uint32_t displayWidth { 0 };
+	uint32_t displayHeight { 0 };
 
 #ifdef __EMSCRIPTEN__
 	return getSize();
@@ -250,7 +254,8 @@ std::string Window::getTitle() const {
 }
 
 void Window::setDepthBits(int val) {
-	if (mContext->mWindow) return;
+	if (mContext->mWindow)
+		return;
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, val);
 	mWindowSettings.depthBits = val;
 }
@@ -262,7 +267,8 @@ int Window::getDepathBits() const {
 }
 
 void Window::setStencilBits(int val) {
-	if (mContext->mWindow) return;
+	if (mContext->mWindow)
+		return;
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, val);
 	mWindowSettings.stencilBits = val;
 }
@@ -274,7 +280,8 @@ int Window::getStencilBits() const {
 }
 
 void Window::setMajorVersion(int val) {
-	if (mContext->mWindow) return;
+	if (mContext->mWindow)
+		return;
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, val);
 	mWindowSettings.majorVersion = val;
 }
@@ -286,7 +293,8 @@ int Window::getMajorVersion() const {
 }
 
 void Window::setMinorVersion(int val) {
-	if (mContext->mWindow) return;
+	if (mContext->mWindow)
+		return;
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, val);
 	mWindowSettings.minorVersion = val;
 }
@@ -298,7 +306,8 @@ int Window::getMinorVersion() const {
 }
 
 void Window::setAntialiasingLevel(int val) {
-	if (mContext->mWindow) return;
+	if (mContext->mWindow)
+		return;
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, val);
 	mWindowSettings.antialiasingLevel = val;
 }
@@ -309,23 +318,27 @@ int Window::getAntialiasingLevel() const {
 	return res;
 }
 
-void Window::setRefreshRate(int val) {
-	
-}
+void Window::setRefreshRate(int val) { }
 
 int Window::getRefreshRate() const {
 	return 0;
 }
 
 void Window::setFullscreen(bool val) {
-    if(mIsMainWindow)if(auto* driver=RENDER::DriverInterface::Get();driver&&driver->mFrameGeneration){
-        if(driver->mFrameGeneration->status().Technology==RENDER::FrameGenerationType::DLSS)driver->stopPresentation();
-        else {driver->mFrameGeneration->suspend();driver->mFrameGeneration->waitForPresents();driver->mFrameGenerationStatus=driver->mFrameGeneration->status();}
-    }
+	if (mIsMainWindow)
+		if (auto* driver = RENDER::DriverInterface::Get(); driver && driver->mFrameGeneration) {
+			if (driver->mFrameGeneration->status().Technology == RENDER::FrameGenerationType::DLSS)
+				driver->stopPresentation();
+			else {
+				driver->mFrameGeneration->suspend();
+				driver->mFrameGeneration->waitForPresents();
+				driver->mFrameGenerationStatus = driver->mFrameGeneration->status();
+			}
+		}
 	switch (GetCurrentPlatform()) {
 	case Platform::IOS:
 	case Platform::ANDROIDOS: {
-		//Can not change for this platform
+		// Can not change for this platform
 		return;
 	}
 	case Platform::EMSCRIPT:
@@ -341,33 +354,33 @@ void Window::setFullscreen(bool val) {
 
 bool Window::getIsFullscreen() const {
 	switch (GetCurrentPlatform()) {
-		case Platform::IOS:
-		case Platform::ANDROIDOS: {
-			return true;
-		}
-		case Platform::EMSCRIPT:
-		case Platform::WINDOWS:
-		case Platform::MAC:
-		default: {
-			break;
-		}
+	case Platform::IOS:
+	case Platform::ANDROIDOS: {
+		return true;
+	}
+	case Platform::EMSCRIPT:
+	case Platform::WINDOWS:
+	case Platform::MAC:
+	default: {
+		break;
+	}
 	}
 	return mWindowSettings.isFullscreen;
 }
 
 void Window::toggleFullscreen() {
 	switch (GetCurrentPlatform()) {
-		case Platform::IOS:
-		case Platform::ANDROIDOS: {
-			//Can not change for this platform
-			return;
-		}
-		case Platform::EMSCRIPT:
-		case Platform::WINDOWS:
-		case Platform::MAC:
-		default: {
-			break;
-		}
+	case Platform::IOS:
+	case Platform::ANDROIDOS: {
+		// Can not change for this platform
+		return;
+	}
+	case Platform::EMSCRIPT:
+	case Platform::WINDOWS:
+	case Platform::MAC:
+	default: {
+		break;
+	}
 	}
 	mWindowSettings.isFullscreen = !mWindowSettings.isFullscreen;
 	SDL_SetWindowFullscreen(mContext->mWindow, mWindowSettings.isFullscreen);
@@ -403,14 +416,14 @@ void Window::pollEvent() {
 			break;
 		case SDL_EVENT_KEY_DOWN:
 #ifdef __EMSCRIPTEN__
-			{
-				static int keyLogs = 8;
-				if (keyLogs > 0) {
-					--keyLogs;
-					std::cout << "[web] key down scancode=" << static_cast<int>(event.key.scancode) << std::endl;
-					std::cout.flush();
-				}
+		{
+			static int keyLogs = 8;
+			if (keyLogs > 0) {
+				--keyLogs;
+				std::cout << "[web] key down scancode=" << static_cast<int>(event.key.scancode) << std::endl;
+				std::cout.flush();
 			}
+		}
 #endif
 			keyPressedEvent.run(event.key.scancode);
 			break;
@@ -490,8 +503,10 @@ void Window::pollEvent() {
 				static float lystick = 0.0f;
 				float x = (float)SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_LEFTX) / (float)INT16_MAX;
 				float y = (float)SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_LEFTY) / (float)INT16_MAX;
-				if (!MATH::CMP(lxstick, x)) gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::leftStick_X, x);
-				if (!MATH::CMP(lystick, y)) gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::leftStick_Y, y);
+				if (!MATH::CMP(lxstick, x))
+					gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::leftStick_X, x);
+				if (!MATH::CMP(lystick, y))
+					gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::leftStick_Y, y);
 				lxstick = x;
 				lystick = y;
 
@@ -499,8 +514,10 @@ void Window::pollEvent() {
 				static float rystick = 0.0f;
 				x = (float)SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_RIGHTX) / (float)INT16_MAX;
 				y = (float)SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_RIGHTY) / (float)INT16_MAX;
-				if (!MATH::CMP(rxstick, x)) gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::rightStick_X, x);
-				if (!MATH::CMP(rystick, y)) gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::rightStick_Y, y);
+				if (!MATH::CMP(rxstick, x))
+					gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::rightStick_X, x);
+				if (!MATH::CMP(rystick, y))
+					gamepadAxisEvent.run(id, INPUT::Gamepad::GAMEPAD_AXIS::rightStick_Y, y);
 				rxstick = x;
 				rystick = y;
 
@@ -508,8 +525,10 @@ void Window::pollEvent() {
 				static float ltrigger = 0.0f;
 				x = (float)SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / (float)INT16_MAX;
 				y = (float)SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / (float)INT16_MAX;
-				if (!MATH::CMP(ltrigger, x)) gamepadTriggerEvent.run(id, INPUT::Gamepad::GAMEPAD_TRIGGER::leftTrigger, x);
-				if (!MATH::CMP(rtrigger, y)) gamepadTriggerEvent.run(id, INPUT::Gamepad::GAMEPAD_TRIGGER::rightTrigger, y);
+				if (!MATH::CMP(ltrigger, x))
+					gamepadTriggerEvent.run(id, INPUT::Gamepad::GAMEPAD_TRIGGER::leftTrigger, x);
+				if (!MATH::CMP(rtrigger, y))
+					gamepadTriggerEvent.run(id, INPUT::Gamepad::GAMEPAD_TRIGGER::rightTrigger, y);
 				ltrigger = x;
 				rtrigger = y;
 			}
@@ -528,42 +547,53 @@ void Window::draw() const {
 #endif
 	if (mWindowSettings.renderBackend == RENDER::RenderSettings::Backend::OPENGL) {
 #if defined(OPENGL_BACKEND) && !defined(USING_GLES)
-        if(!(SDL_GetWindowFlags(mContext->mWindow)&SDL_WINDOW_MINIMIZED))CAPTURE::ScreenshotService::Get().capture([this] {
-            const auto size=getPixelSize();
-            if(size.x<=0||size.y<=0)throw std::runtime_error("Screenshot window has no pixels");
-            CAPTURE::ScreenshotImage image{static_cast<int>(size.x),static_cast<int>(size.y),std::vector<uint8_t>(size_t(size.x)*size.y*4)};
-            std::vector<uint8_t> pixels(image.rgba.size());
-            GLint framebuffer=0,buffer=0,packBuffer=0,alignment=0,rowLength=0,skipRows=0,skipPixels=0;
-            glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&framebuffer);
-            glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING,&packBuffer);
-            glGetIntegerv(GL_PACK_ALIGNMENT,&alignment);
-            glGetIntegerv(GL_PACK_ROW_LENGTH,&rowLength);
-            glGetIntegerv(GL_PACK_SKIP_ROWS,&skipRows);
-            glGetIntegerv(GL_PACK_SKIP_PIXELS,&skipPixels);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER,0);
-            glGetIntegerv(GL_READ_BUFFER,&buffer);
-            glReadBuffer(GL_BACK);
-            glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
-            glPixelStorei(GL_PACK_ALIGNMENT,1);glPixelStorei(GL_PACK_ROW_LENGTH,0);
-            glPixelStorei(GL_PACK_SKIP_ROWS,0);glPixelStorei(GL_PACK_SKIP_PIXELS,0);
-            glReadPixels(0,0,size.x,size.y,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
-            glReadBuffer(buffer);glBindFramebuffer(GL_READ_FRAMEBUFFER,framebuffer);
-            glBindBuffer(GL_PIXEL_PACK_BUFFER,packBuffer);
-            glPixelStorei(GL_PACK_ALIGNMENT,alignment);glPixelStorei(GL_PACK_ROW_LENGTH,rowLength);
-            glPixelStorei(GL_PACK_SKIP_ROWS,skipRows);glPixelStorei(GL_PACK_SKIP_PIXELS,skipPixels);
-            const size_t stride=size_t(size.x)*4;
-            for(int y=0;y<image.height;++y)std::copy_n(pixels.data()+size_t(image.height-1-y)*stride,stride,image.rgba.data()+size_t(y)*stride);
-            for(size_t i=3;i<image.rgba.size();i+=4)image.rgba[i]=255;
-            return image;
-        });
+		if (!(SDL_GetWindowFlags(mContext->mWindow) & SDL_WINDOW_MINIMIZED))
+			CAPTURE::ScreenshotService::Get().capture([this] {
+				const auto size = getPixelSize();
+				if (size.x <= 0 || size.y <= 0)
+					throw std::runtime_error("Screenshot window has no pixels");
+				CAPTURE::ScreenshotImage image { static_cast<int>(size.x), static_cast<int>(size.y),
+					std::vector<uint8_t>(size_t(size.x) * size.y * 4) };
+				std::vector<uint8_t> pixels(image.rgba.size());
+				GLint framebuffer = 0, buffer = 0, packBuffer = 0, alignment = 0, rowLength = 0, skipRows = 0, skipPixels = 0;
+				glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &framebuffer);
+				glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &packBuffer);
+				glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
+				glGetIntegerv(GL_PACK_ROW_LENGTH, &rowLength);
+				glGetIntegerv(GL_PACK_SKIP_ROWS, &skipRows);
+				glGetIntegerv(GL_PACK_SKIP_PIXELS, &skipPixels);
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+				glGetIntegerv(GL_READ_BUFFER, &buffer);
+				glReadBuffer(GL_BACK);
+				glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+				glPixelStorei(GL_PACK_ALIGNMENT, 1);
+				glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+				glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+				glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+				glReadPixels(0, 0, size.x, size.y, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+				glReadBuffer(buffer);
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+				glBindBuffer(GL_PIXEL_PACK_BUFFER, packBuffer);
+				glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+				glPixelStorei(GL_PACK_ROW_LENGTH, rowLength);
+				glPixelStorei(GL_PACK_SKIP_ROWS, skipRows);
+				glPixelStorei(GL_PACK_SKIP_PIXELS, skipPixels);
+				const size_t stride = size_t(size.x) * 4;
+				for (int y = 0; y < image.height; ++y)
+					std::copy_n(pixels.data() + size_t(image.height - 1 - y) * stride, stride, image.rgba.data() + size_t(y) * stride);
+				for (size_t i = 3; i < image.rgba.size(); i += 4)
+					image.rgba[i] = 255;
+				return image;
+			});
 #elif defined(OPENGL_BACKEND)
-        if(CAPTURE::ScreenshotService::Get().pending())CAPTURE::ScreenshotService::Get().fail("Window screenshots require desktop OpenGL");
+		if (CAPTURE::ScreenshotService::Get().pending())
+			CAPTURE::ScreenshotService::Get().fail("Window screenshots require desktop OpenGL");
 #endif
 		SDL_GL_SwapWindow(mContext->mWindow);
 	}
 }
 
-//Call before draw imgui widgets
+// Call before draw imgui widgets
 void Window::preUpdate() {
 #if defined(USE_EDITOR) || defined(USE_CHEATS)
 	if (mContext->mImGuiBackend) {
@@ -587,7 +617,8 @@ bool Window::isClosed() const {
 void Window::setCursorVisible(bool isVisible, bool isLock) const {
 	if (isVisible) {
 		SDL_ShowCursor();
-	} else {
+	}
+	else {
 		SDL_HideCursor();
 	}
 	SDL_SetWindowRelativeMouseMode(mContext->mWindow, isLock);
@@ -597,7 +628,7 @@ std::pair<int, int> Window::getDrawableSize() {
 	int viewportWidth = 0;
 	int viewportHeight = 0;
 	SDL_GetWindowSizeInPixels(mContext->mWindow, &viewportWidth, &viewportHeight);
-	return { viewportWidth , viewportHeight };
+	return { viewportWidth, viewportHeight };
 }
 
 #ifdef VULKAN_BACKEND
@@ -656,10 +687,10 @@ void* Window::getGLContext() const {
 #ifdef METAL_BACKEND
 void* Window::getMetalLayer() {
 	static SDL_MetalView view = nullptr;
-    if (!view) {
-        view = SDL_Metal_CreateView(mContext->mWindow);
-    }
-    return SDL_Metal_GetLayer(view);
+	if (!view) {
+		view = SDL_Metal_CreateView(mContext->mWindow);
+	}
+	return SDL_Metal_GetLayer(view);
 }
 #endif
 
@@ -668,8 +699,7 @@ WindowSettings& Window::getSetting() {
 }
 
 bool shouldDisplayFullScreen() {
-	switch (GetCurrentPlatform())
-	{
+	switch (GetCurrentPlatform()) {
 	case Platform::IOS:
 	case Platform::ANDROIDOS:
 		return true;
@@ -734,25 +764,26 @@ void Window::create(Window* sharedWindow) {
 	SDL_WindowFlags flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (backend == RENDER::RenderSettings::Backend::OPENGL) {
 		flags = static_cast<SDL_WindowFlags>(flags | SDL_WINDOW_OPENGL);
-	} else if (backend == RENDER::RenderSettings::Backend::VULKAN) {
+	}
+	else if (backend == RENDER::RenderSettings::Backend::VULKAN) {
 		flags = static_cast<SDL_WindowFlags>(flags | SDL_WINDOW_VULKAN);
 #if defined(__APPLE__) && defined(VULKAN_BACKEND)
 		if (const char* loader = RENDER::FindVulkanLoaderPath()) {
 			SDL_SetHint(SDL_HINT_VULKAN_LIBRARY, loader);
 		}
 #endif
-	} else if (backend == RENDER::RenderSettings::Backend::METAL) {
+	}
+	else if (backend == RENDER::RenderSettings::Backend::METAL) {
 		flags = static_cast<SDL_WindowFlags>(flags | SDL_WINDOW_METAL);
 	}
-	SDL_Window* _window{
-		SDL_CreateWindow(mWindowSettings.title.c_str(), static_cast<int>(displaySize.x), static_cast<int>(displaySize.y), flags)
-	};
+	SDL_Window* _window { SDL_CreateWindow(mWindowSettings.title.c_str(), static_cast<int>(displaySize.x), static_cast<int>(displaySize.y), flags) };
 
 	if (_window == nullptr) {
-		//TODO:
-		//printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
-		//return -1;
-	} else {
+		// TODO:
+		// printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
+		// return -1;
+	}
+	else {
 		SDL_SetWindowPosition(_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	}
 
@@ -785,7 +816,7 @@ void Window::create(Window* sharedWindow) {
 	// mMetalLayer can be stored in Window::Internal if we want, or created on the fly.
 	// But SDL_Metal_CreateView is already called in getMetalLayer if needed, or we just call it once here.
 #endif
-	//initImGUI();
+	// initImGUI();
 }
 #endif
 
@@ -798,215 +829,209 @@ using namespace IKIGAI;
 using namespace IKIGAI::WINDOW;
 
 static int32_t ProcessAndroidInput(struct android_app* app, AInputEvent* event) {
-    auto* appState = static_cast<AndroidAppState*>(app->userData);
-    if (!appState || !appState->window || !event) {
-        return 0;
-    }
-    return appState->window->onAndroidInput(event);
+	auto* appState = static_cast<AndroidAppState*>(app->userData);
+	if (!appState || !appState->window || !event) {
+		return 0;
+	}
+	return appState->window->onAndroidInput(event);
 }
 
 static void DrainAndroidInputQueue(android_app* app) {
-    if (!app || !app->inputQueue) {
-        return;
-    }
-    AInputEvent* event = nullptr;
-    while (AInputQueue_getEvent(app->inputQueue, &event) >= 0) {
-        int32_t handled = 0;
-        if (app->onInputEvent) {
-            handled = app->onInputEvent(app, event);
-        }
-        AInputQueue_finishEvent(app->inputQueue, event, handled);
-    }
+	if (!app || !app->inputQueue) {
+		return;
+	}
+	AInputEvent* event = nullptr;
+	while (AInputQueue_getEvent(app->inputQueue, &event) >= 0) {
+		int32_t handled = 0;
+		if (app->onInputEvent) {
+			handled = app->onInputEvent(app, event);
+		}
+		AInputQueue_finishEvent(app->inputQueue, event, handled);
+	}
 }
 
-static void ProcessAndroidCmd (struct android_app* app, int32_t cmd) {
-    AndroidAppState* appState = (AndroidAppState*)app->userData;
+static void ProcessAndroidCmd(struct android_app* app, int32_t cmd) {
+	AndroidAppState* appState = (AndroidAppState*)app->userData;
 
-    switch (cmd) {
-        case APP_CMD_START:
-            LOGI ("APP_CMD_START");
-            break;
+	switch (cmd) {
+	case APP_CMD_START:
+		LOGI("APP_CMD_START");
+		break;
 
-        case APP_CMD_RESUME:
-            LOGI ("APP_CMD_RESUME");
-            appState->Resumed = true;
-            break;
+	case APP_CMD_RESUME:
+		LOGI("APP_CMD_RESUME");
+		appState->Resumed = true;
+		break;
 
-        case APP_CMD_PAUSE:
-            LOGI ("APP_CMD_PAUSE");
-            appState->Resumed = false;
-            break;
+	case APP_CMD_PAUSE:
+		LOGI("APP_CMD_PAUSE");
+		appState->Resumed = false;
+		break;
 
-        case APP_CMD_STOP:
-            LOGI ("APP_CMD_STOP");
-            break;
+	case APP_CMD_STOP:
+		LOGI("APP_CMD_STOP");
+		break;
 
-        case APP_CMD_DESTROY:
-            LOGI ("APP_CMD_DESTROY");
-            appState->NativeWindow = NULL;
-            break;
+	case APP_CMD_DESTROY:
+		LOGI("APP_CMD_DESTROY");
+		appState->NativeWindow = NULL;
+		break;
 
-            // The window is being shown, get it ready.
-        case APP_CMD_INIT_WINDOW:
-            LOGI ("APP_CMD_INIT_WINDOW");
-            appState->NativeWindow = app->window;
-            break;
+		// The window is being shown, get it ready.
+	case APP_CMD_INIT_WINDOW:
+		LOGI("APP_CMD_INIT_WINDOW");
+		appState->NativeWindow = app->window;
+		break;
 
-            // The window is being hidden or closed, clean it up.
-        case APP_CMD_TERM_WINDOW:
-            LOGI ("APP_CMD_TERM_WINDOW");
-            appState->NativeWindow = NULL;
-            break;
-    }
+		// The window is being hidden or closed, clean it up.
+	case APP_CMD_TERM_WINDOW:
+		LOGI("APP_CMD_TERM_WINDOW");
+		appState->NativeWindow = NULL;
+		break;
+	}
 }
 
-Window::Window(const WindowSettings &p_windowSettings, android_app *app): m_app(app) {
-    appState.window = this;
-    app->userData = &appState;
-    app->onAppCmd = ProcessAndroidCmd;
-    app->onInputEvent = ProcessAndroidInput;
+Window::Window(const WindowSettings& p_windowSettings, android_app* app)
+	: m_app(app) {
+	appState.window = this;
+	app->userData = &appState;
+	app->onAppCmd = ProcessAndroidCmd;
+	app->onInputEvent = ProcessAndroidInput;
 
-    init();
+	init();
 }
 
 int32_t Window::onAndroidInput(AInputEvent* event) {
-    if (!mOxrInput || !event) {
-        return 0;
-    }
-    return mOxrInput->handleAndroidInput(event);
+	if (!mOxrInput || !event) {
+		return 0;
+	}
+	return mOxrInput->handleAndroidInput(event);
 }
 
-void Window::init()
-{
-    void *vm    = m_app->activity->vm;
-    void *clazz = m_app->activity->clazz;
+void Window::init() {
+	void* vm = m_app->activity->vm;
+	void* clazz = m_app->activity->clazz;
 
-    oxr_initialize_loader (vm, clazz);
+	oxr_initialize_loader(vm, clazz);
 
-    m_instance = oxr_create_instance (vm, clazz);
-    m_systemId = oxr_get_system (m_instance);
+	m_instance = oxr_create_instance(vm, clazz);
+	m_systemId = oxr_get_system(m_instance);
 
-    egl_init_with_pbuffer_surface (3, 24, 0, 0, 16, 16);
-    oxr_confirm_gfx_requirements (m_instance, m_systemId);
+	egl_init_with_pbuffer_surface(3, 24, 0, 0, 16, 16);
+	oxr_confirm_gfx_requirements(m_instance, m_systemId);
 
-    m_session    = oxr_create_session (m_instance, m_systemId);
-    m_appSpace   = oxr_create_ref_space (m_session, XR_REFERENCE_SPACE_TYPE_LOCAL);
-    m_stageSpace = oxr_create_ref_space (m_session, XR_REFERENCE_SPACE_TYPE_STAGE);
+	m_session = oxr_create_session(m_instance, m_systemId);
+	m_appSpace = oxr_create_ref_space(m_session, XR_REFERENCE_SPACE_TYPE_LOCAL);
+	m_stageSpace = oxr_create_ref_space(m_session, XR_REFERENCE_SPACE_TYPE_STAGE);
 
-    m_viewSurface = oxr_create_viewsurface (m_instance, m_systemId, m_session);
-    mOxrInput = std::make_unique<OxrInput>(*this, m_instance, m_session);
+	m_viewSurface = oxr_create_viewsurface(m_instance, m_systemId, m_session);
+	mOxrInput = std::make_unique<OxrInput>(*this, m_instance, m_session);
 }
 
 Window::~Window() = default;
 
 void Window::pollEvent() {
-    //TODO: send event to input system
+	// TODO: send event to input system
 
-    // Read all pending events.
-    for (;;) {
-        int events;
-        struct android_poll_source* source;
+	// Read all pending events.
+	for (;;) {
+		int events;
+		struct android_poll_source* source;
 
-        int timeout = -1; // blocking
-        if (appState.Resumed || oxr_is_session_running() || m_app->destroyRequested)
-            timeout = 0;  // non blocking
+		int timeout = -1; // blocking
+		if (appState.Resumed || oxr_is_session_running() || m_app->destroyRequested)
+			timeout = 0; // non blocking
 
-        const int ident = ALooper_pollOnce(timeout, nullptr, &events, (void**)&source);
-        if (ident < 0) {
-            break;
-        }
+		const int ident = ALooper_pollOnce(timeout, nullptr, &events, (void**)&source);
+		if (ident < 0) {
+			break;
+		}
 
-        if (ident == LOOPER_ID_INPUT || (source && source->id == LOOPER_ID_INPUT)) {
-            DrainAndroidInputQueue(m_app);
-        } else if (source != nullptr) {
-            source->process(m_app, source);
-        }
-    }
+		if (ident == LOOPER_ID_INPUT || (source && source->id == LOOPER_ID_INPUT)) {
+			DrainAndroidInputQueue(m_app);
+		}
+		else if (source != nullptr) {
+			source->process(m_app, source);
+		}
+	}
 }
 
 bool Window::isClosed() const {
-    return m_app->destroyRequested != 0;
+	return m_app->destroyRequested != 0;
 }
 
 MATH::Vector2u Window::getSize() const {
-    return mSize;
+	return mSize;
 }
 
 void Window::setSize(unsigned int width, unsigned int height) {
-    mSize.x = width;
-    mSize.y = height;
+	mSize.x = width;
+	mSize.y = height;
 }
 
 void Window::preUpdate() {
-    bool exit_loop, req_restart;
-    oxr_poll_events (m_instance, m_session, &exit_loop, &req_restart);
-    if (mOxrInput) {
-        mOxrInput->sync();
-    }
+	bool exit_loop, req_restart;
+	oxr_poll_events(m_instance, m_session, &exit_loop, &req_restart);
+	if (mOxrInput) {
+		mOxrInput->sync();
+	}
 }
 
-void Window::update(std::function<void(XrCompositionLayerProjectionView &layerView,
-                                       render_target_t &rtarget, XrPosef &stagePose,
-                                       uint32_t viewID)> renderCb) {
-    m_RenderCb = renderCb;
-    std::vector<XrCompositionLayerBaseHeader*> all_layers;
+void Window::update(
+	std::function<void(XrCompositionLayerProjectionView& layerView, render_target_t& rtarget, XrPosef& stagePose, uint32_t viewID)> renderCb) {
+	m_RenderCb = renderCb;
+	std::vector<XrCompositionLayerBaseHeader*> all_layers;
 
-    XrTime dpy_time;
-    oxr_begin_frame (m_session, &dpy_time);
+	XrTime dpy_time;
+	oxr_begin_frame(m_session, &dpy_time);
 
-    std::vector<XrCompositionLayerProjectionView> projLayerViews;
-    XrCompositionLayerProjection                  projLayer;
-    renderLayer(dpy_time, projLayerViews, projLayer);
+	std::vector<XrCompositionLayerProjectionView> projLayerViews;
+	XrCompositionLayerProjection projLayer;
+	renderLayer(dpy_time, projLayerViews, projLayer);
 
-    all_layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&projLayer));
+	all_layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&projLayer));
 
-    /* Compose all layers */
-    oxr_end_frame (m_session, dpy_time, all_layers);
+	/* Compose all layers */
+	oxr_end_frame(m_session, dpy_time, all_layers);
 }
 
-void Window::draw() const {
+void Window::draw() const { }
 
-}
+bool Window::renderLayer(XrTime dpy_time, std::vector<XrCompositionLayerProjectionView>& layerViews, XrCompositionLayerProjection& layer) {
+	/* Acquire View Location */
+	uint32_t viewCount = (uint32_t)m_viewSurface.size();
 
-bool Window::renderLayer(XrTime dpy_time,
-                       std::vector<XrCompositionLayerProjectionView> &layerViews,
-                       XrCompositionLayerProjection                  &layer)
-{
-    /* Acquire View Location */
-    uint32_t viewCount = (uint32_t)m_viewSurface.size();
+	std::vector<XrView> views(viewCount, { XR_TYPE_VIEW });
+	oxr_locate_views(m_session, dpy_time, m_appSpace, &viewCount, views.data());
 
-    std::vector<XrView> views(viewCount, {XR_TYPE_VIEW});
-    oxr_locate_views (m_session, dpy_time, m_appSpace, &viewCount, views.data());
+	layerViews.resize(viewCount);
 
-    layerViews.resize (viewCount);
+	/* Acquire Stage Location (rerative to the View Location) */
+	XrSpaceLocation stageLoc { XR_TYPE_SPACE_LOCATION };
+	xrLocateSpace(m_stageSpace, m_appSpace, dpy_time, &stageLoc);
 
-    /* Acquire Stage Location (rerative to the View Location) */
-    XrSpaceLocation stageLoc {XR_TYPE_SPACE_LOCATION};
-    xrLocateSpace (m_stageSpace, m_appSpace, dpy_time, &stageLoc);
+	/* Render each view */
+	for (uint32_t i = 0; i < viewCount; i++) {
+		XrSwapchainSubImage subImg;
+		render_target_t rtarget;
 
+		oxr_acquire_viewsurface(m_viewSurface[i], rtarget, subImg);
 
-    /* Render each view */
-    for (uint32_t i = 0; i < viewCount; i++) {
-        XrSwapchainSubImage subImg;
-        render_target_t     rtarget;
+		layerViews[i] = { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW };
+		layerViews[i].pose = views[i].pose;
+		layerViews[i].fov = views[i].fov;
+		layerViews[i].subImage = subImg;
 
-        oxr_acquire_viewsurface (m_viewSurface[i], rtarget, subImg);
+		m_RenderCb(layerViews[i], rtarget, stageLoc.pose, i);
 
-        layerViews[i] = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
-        layerViews[i].pose     = views[i].pose;
-        layerViews[i].fov      = views[i].fov;
-        layerViews[i].subImage = subImg;
+		oxr_release_viewsurface(m_viewSurface[i]);
+	}
+	layer = { XR_TYPE_COMPOSITION_LAYER_PROJECTION };
+	layer.space = m_appSpace;
+	layer.viewCount = (uint32_t)layerViews.size();
+	layer.views = layerViews.data();
 
-        m_RenderCb(layerViews[i], rtarget, stageLoc.pose, i);
-
-        oxr_release_viewsurface (m_viewSurface[i]);
-    }
-    layer = {XR_TYPE_COMPOSITION_LAYER_PROJECTION};
-    layer.space     = m_appSpace;
-    layer.viewCount = (uint32_t)layerViews.size();
-    layer.views     = layerViews.data();
-
-    return true;
+	return true;
 }
 
 #endif

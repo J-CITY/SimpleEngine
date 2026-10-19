@@ -1,6 +1,7 @@
-#include "audioSystem.h" 
-#include <sceneModule/sceneManager.h>
+#include "audioSystem.h"
 #include <audioModule/audioManager.h>
+#include <sceneModule/sceneManager.h>
+
 
 IKIGAI::ECS::AudioSystem::AudioSystem() {
 	mName = "AudioSystem";
@@ -10,7 +11,7 @@ IKIGAI::ECS::AudioSystem::AudioSystem() {
 }
 
 void IKIGAI::ECS::AudioSystem::onLateUpdate(ECS2::World& world, ECS2::CommandBuffer& cb, std::chrono::duration<double> dt) {
-	//world.getComponentManager()->forEach<ECS::AudioListenerComponent>(
+	// world.getComponentManager()->forEach<ECS::AudioListenerComponent>(
 	//	[&](IKIGAI::ECS2::Entity e, ECS::AudioListenerComponent& listener) {
 	//		if (!listener.getObject().getIsActive()) {
 	//			return;
@@ -21,7 +22,7 @@ void IKIGAI::ECS::AudioSystem::onLateUpdate(ECS2::World& world, ECS2::CommandBuf
 	//		);
 	//	}
 	//);
-	//world.getComponentManager()->forEach<ECS::AudioComponent>(
+	// world.getComponentManager()->forEach<ECS::AudioComponent>(
 	//	[&](IKIGAI::ECS2::Entity e, ECS::AudioComponent& audio) {
 	//		if (!audio.res) {
 	//			return;
@@ -33,12 +34,10 @@ void IKIGAI::ECS::AudioSystem::onLateUpdate(ECS2::World& world, ECS2::CommandBuf
 	//);
 	for (auto& listener : world.getComponentManager()->getComponentsArray<ECS::AudioListenerComponent>()) {
 		AUDIO::AudioManagerAL::GetInstance().setListenerPos(
-			listener.obj->getTransform()->getWorldPosition(),
-			listener.obj->getTransform()->getWorldRotation() * -MATH::Vector3f::Forward
-		);
+			listener.obj->getTransform()->getWorldPosition(), listener.obj->getTransform()->getWorldRotation() * -MATH::Vector3f::Forward);
 		break;
 	}
-	
+
 	for (auto& audio : world.getComponentManager()->getComponentsArray<ECS::AudioComponent>()) {
 		if (!audio.res) {
 			continue;
@@ -47,21 +46,20 @@ void IKIGAI::ECS::AudioSystem::onLateUpdate(ECS2::World& world, ECS2::CommandBuf
 			AUDIO::AudioManagerAL::GetInstance().setSourcePos(*audio.res, audio.obj->getTransform()->getWorldPosition());
 		}
 	}
-	//for (auto& listener : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AudioListenerComponent>()) {
+	// for (auto& listener : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AudioListenerComponent>()) {
 	//	AUDIO::AudioManagerAL::GetInstance().setListenerPos(
 	//		listener.obj->getTransform()->getWorldPosition(),
 	//		listener.obj->getTransform()->getWorldRotation() * -MATH::Vector3f::Forward
 	//	);
 	//	break;
-	//}
+	// }
 	//
-	//for (auto& audio : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AudioComponent>()) {
+	// for (auto& audio : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AudioComponent>()) {
 	//	if (!audio.res) {
 	//		continue;
 	//	}
 	//	if (audio.res->data.is3D) {
 	//		AUDIO::AudioManagerAL::GetInstance().setSourcePos(*audio.res, audio.obj->getTransform()->getWorldPosition());
 	//	}
-	//}
+	// }
 }
-

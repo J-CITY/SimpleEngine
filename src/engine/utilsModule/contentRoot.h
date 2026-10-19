@@ -6,19 +6,22 @@
 #include <string>
 
 #if defined(__APPLE__)
+#include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
 #include <mach-o/dyld.h>
-#include <CoreFoundation/CoreFoundation.h>
+
 
 inline std::filesystem::path GetAppleResourcePath() {
 	CFBundleRef mainBundle = CFBundleGetMainBundle();
-	if (!mainBundle) return {};
+	if (!mainBundle)
+		return { };
 	CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
-	if (!resourcesURL) return {};
+	if (!resourcesURL)
+		return { };
 	char path[1024];
 	if (!CFURLGetFileSystemRepresentation(resourcesURL, true, (UInt8*)path, 1024)) {
 		CFRelease(resourcesURL);
-		return {};
+		return { };
 	}
 	CFRelease(resourcesURL);
 	return std::filesystem::path(path);
@@ -74,14 +77,14 @@ inline std::filesystem::path ExecutablePath() {
 	_NSGetExecutablePath(nullptr, &size);
 	std::string buffer(size, '\0');
 	if (_NSGetExecutablePath(buffer.data(), &size) != 0) {
-		return {};
+		return { };
 	}
 	return std::filesystem::path(buffer.c_str());
 #elif defined(_WIN32)
-	wchar_t buffer[MAX_PATH]{};
+	wchar_t buffer[MAX_PATH] { };
 	const DWORD len = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
 	if (len == 0 || len >= MAX_PATH) {
-		return {};
+		return { };
 	}
 	return std::filesystem::path(buffer);
 #else
@@ -90,7 +93,7 @@ inline std::filesystem::path ExecutablePath() {
 	if (!ec) {
 		return link;
 	}
-	return {};
+	return { };
 #endif
 }
 

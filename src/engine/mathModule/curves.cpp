@@ -66,7 +66,7 @@ float IKIGAI::MATH::CURVES::FloatCurve::evaluate(float time) const {
 	if (a.interpolation == SegmentInterpolation::Step)
 		return a.value;
 	if (a.interpolation == SegmentInterpolation::Bezier) {
-		Curve c { { 0, 0 }, { 1, 1 }, a.outControl, a.inControl, {} };
+		Curve c { { 0, 0 }, { 1, 1 }, a.outControl, a.inControl, { } };
 		p = evaluateAtTime(c, p);
 	}
 	else if (a.interpolation == SegmentInterpolation::Easing)

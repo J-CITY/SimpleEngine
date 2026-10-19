@@ -85,9 +85,10 @@ void IkigaiScriptBinder::bindActor() {
 #define GET_COMPONENT(Name, T) method<Object>("Get" Name, [this](Object& o, const Args&) { return component(o.getComponent<T>()); });
 	GET_COMPONENT("Transform", TransformComponent)
 	GET_COMPONENT("Camera", CameraComponent)
-	GET_COMPONENT("PointLight", PointLight) GET_COMPONENT("SpotLight", SpotLight) GET_COMPONENT("DirectionalLight", DirectionalLight)
-		GET_COMPONENT("AmbientBoxLight", AmbientLight) GET_COMPONENT("AmbientSphereLight", AmbientSphereLight)
-			GET_COMPONENT("ModelRenderer", ModelRenderer) GET_COMPONENT("MaterialRenderer", MaterialRenderer)
+	GET_COMPONENT("PointLight", PointLight)
+	GET_COMPONENT("SpotLight", SpotLight) GET_COMPONENT("DirectionalLight", DirectionalLight) GET_COMPONENT("AmbientBoxLight", AmbientLight)
+		GET_COMPONENT("AmbientSphereLight", AmbientSphereLight) GET_COMPONENT("ModelRenderer", ModelRenderer)
+			GET_COMPONENT("MaterialRenderer", MaterialRenderer)
 #undef GET_COMPONENT
 #define REMOVE_COMPONENT(Name, T) method<Object>("Remove" Name, [this](Object& o, const Args&) { return value(o.removeComponent<T>()); });
 				REMOVE_COMPONENT("Camera", CameraComponent) REMOVE_COMPONENT("ModelRenderer", ModelRenderer)
@@ -184,7 +185,7 @@ void IkigaiScriptBinder::bindGlobals() {
 	type<RENDER::MaterialInterface>("Material");
 	auto enumScope = [this](const char* name, auto sample, const std::string& prefix) {
 		using E = decltype(sample);
-		auto scope = vm.newModule(name, 0, {});
+		auto scope = vm.newModule(name, 0, { });
 		for (auto [e, label] : magic_enum::enum_entries<E>()) {
 			auto key = std::string(label);
 			if (key.starts_with(prefix))
@@ -192,15 +193,15 @@ void IkigaiScriptBinder::bindGlobals() {
 			scope->insertVar(key, value(e));
 		}
 	};
-	enumScope("Key", EKey {}, "KEY_");
-	enumScope("MouseButton", EMouseButton {}, "MOUSE_");
+	enumScope("Key", EKey { }, "KEY_");
+	enumScope("MouseButton", EMouseButton { }, "MOUSE_");
 	// GLFW and Quest use aliases; enum reflection reports only canonical names.
 	auto* buttons = vm.findModuleByName("MouseButton");
 	buttons->scope->insertVar("BUTTON_LEFT", value(EMouseButton::MOUSE_BUTTON_LEFT));
 	buttons->scope->insertVar("BUTTON_RIGHT", value(EMouseButton::MOUSE_BUTTON_RIGHT));
 	buttons->scope->insertVar("BUTTON_MIDDLE", value(EMouseButton::MOUSE_BUTTON_MIDDLE));
-	enumScope("ProjectionMode", RENDER::Camera::ProjectionMode {}, "");
-	enumScope("FrustumBehaviour", EFrustumBehaviour {}, "");
+	enumScope("ProjectionMode", RENDER::Camera::ProjectionMode { }, "");
+	enumScope("FrustumBehaviour", EFrustumBehaviour { }, "");
 	function("Inputs", "GetKeyDown", [this](const Args& a) { return value(ServiceManager::Get<InputManager>().isKeyPressed(read<EKey>(a.at(0)))); });
 	function("Inputs", "GetKeyUp", [this](const Args& a) { return value(ServiceManager::Get<InputManager>().isKeyReleased(read<EKey>(a.at(0)))); });
 	function("Inputs", "GetMouseButtonDown",
@@ -212,13 +213,14 @@ void IkigaiScriptBinder::bindGlobals() {
 		return value(Vector2f(float(p.x), float(p.y)));
 	});
 	function("Inputs", "HasFocus", [this](const Args&) { return value(ServiceManager::Get<WINDOW::Window>().hasFocus()); });
-    function("Inputs", "CanControlCamera", [this](const Args&) {
-        bool allowed = ServiceManager::Get<WINDOW::Window>().hasFocus();
+	function("Inputs", "CanControlCamera", [this](const Args&) {
+		bool allowed = ServiceManager::Get<WINDOW::Window>().hasFocus();
 #if defined(USE_EDITOR) && !defined(OCULUS)
-        if (ImGui::GetCurrentContext()) allowed = allowed && !ImGui::GetIO().WantCaptureKeyboard && !ImGui::GetIO().WantCaptureMouse;
+		if (ImGui::GetCurrentContext())
+			allowed = allowed && !ImGui::GetIO().WantCaptureKeyboard && !ImGui::GetIO().WantCaptureMouse;
 #endif
-        return value(allowed);
-    });
+		return value(allowed);
+	});
 	function(
 		"Inputs", "IsPressed", [this](const Args& a) { return value(ServiceManager::Get<InputActions>().isPressed(read<std::string>(a.at(0)))); });
 	function("Inputs", "WasPressedThisFrame",

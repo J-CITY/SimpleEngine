@@ -9,13 +9,13 @@
 
 namespace IKIGAI::SCRIPTING {
 namespace {
-void reportScriptError(const std::string& path,const char* callback,const std::string& reason) {
-    const auto message="IkigaiScript '"+path+"' "+callback+": "+reason;
-    LOG_ERROR << message;
-    // The engine's default logger threshold is Critic, so script failures must
-    // also be observable in application/smoke output at the default settings.
-    IKIGAI_COUT(message);
-}
+	void reportScriptError(const std::string& path, const char* callback, const std::string& reason) {
+		const auto message = "IkigaiScript '" + path + "' " + callback + ": " + reason;
+		LOG_ERROR << message;
+		// The engine's default logger threshold is Critic, so script failures must
+		// also be observable in application/smoke output at the default settings.
+		IKIGAI_COUT(message);
+	}
 }
 
 struct IkigaiScriptRuntime::State {
@@ -46,10 +46,10 @@ IkigaiScriptRuntime::IkigaiScriptRuntime(ECS::Object& owner, const std::string& 
 			throw std::runtime_error(
 				state->vm.__DEBUG_OUT__.empty() ? "Script evaluation failed (see interpreter diagnostic)" : state->vm.__DEBUG_OUT__);
 	} catch (const IkigaiScript::Exception& e) {
-		reportScriptError(path,"load",e.errStr);
+		reportScriptError(path, "load", e.errStr);
 		healthy = false;
 	} catch (const std::exception& e) {
-		reportScriptError(path,"load",e.what());
+		reportScriptError(path, "load", e.what());
 		healthy = false;
 	}
 }
@@ -63,16 +63,16 @@ void IkigaiScriptRuntime::call(const char* method) {
 		return;
 	auto fn = it->second;
 	try {
-		state->vm.callFunction(fn, {});
+		state->vm.callFunction(fn, { });
 		if (state->vm.__EXEPTION__ != IkigaiScript::ExceptionType::None)
 			throw std::runtime_error(
 				state->vm.__DEBUG_OUT__.empty() ? "Script evaluation failed (see interpreter diagnostic)" : state->vm.__DEBUG_OUT__);
 	} catch (const IkigaiScript::Exception& e) {
 		healthy = false;
-		reportScriptError(path,method,e.errStr);
+		reportScriptError(path, method, e.errStr);
 	} catch (const std::exception& e) {
 		healthy = false;
-		reportScriptError(path,method,e.what());
+		reportScriptError(path, method, e.what());
 	}
 }
 void IkigaiScriptRuntime::call(const char* method, double dt) {
@@ -90,10 +90,10 @@ void IkigaiScriptRuntime::call(const char* method, double dt) {
 				state->vm.__DEBUG_OUT__.empty() ? "Script evaluation failed (see interpreter diagnostic)" : state->vm.__DEBUG_OUT__);
 	} catch (const IkigaiScript::Exception& e) {
 		healthy = false;
-		reportScriptError(path,method,e.errStr);
+		reportScriptError(path, method, e.errStr);
 	} catch (const std::exception& e) {
 		healthy = false;
-		reportScriptError(path,method,e.what());
+		reportScriptError(path, method, e.what());
 	}
 }
 }

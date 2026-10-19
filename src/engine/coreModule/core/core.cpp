@@ -13,8 +13,8 @@
 #include "uiModule/viewHost.h"
 #include "utilsModule/log/loggerDefine.h"
 
-#include "resourceModule/serviceManager.h"
 #include "resourceModule/fileWatcher.h"
+#include "resourceModule/serviceManager.h"
 #include "windowModule/window/window.h"
 #include "windowModule/windowManager.h"
 #include <stdexcept>
@@ -225,11 +225,9 @@ Core::Core(
 	coroutineScheduler->setErrorHandler([](const COROUTINE::TaskHandle& task) {
 		try {
 			task.rethrowIfFailed();
-		}
-		catch (const std::exception& error) {
+		} catch (const std::exception& error) {
 			LOG_ERROR << "Coroutine '" << task.name() << "' failed: " << error.what();
-		}
-		catch (...) {
+		} catch (...) {
 			LOG_ERROR << "Coroutine '" << task.name() << "' failed with an unknown exception";
 		}
 	});

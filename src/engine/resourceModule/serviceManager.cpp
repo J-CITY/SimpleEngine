@@ -1,6 +1,5 @@
 ﻿#include "serviceManager.h"
 
-
 using namespace IKIGAI;
 using namespace IKIGAI::RESOURCES;
 

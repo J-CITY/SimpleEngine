@@ -1,30 +1,33 @@
 #include "materialRenderer.h"
 
-#include "modelRenderer.h"
-#include "transform.h"
 #include "coreModule/ecs/object.h"
+#include "modelRenderer.h"
 #include "resourceModule/materialManager.h"
+#include "transform.h"
+
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
 
-MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> _obj) : ComponentBase(_obj) {
+MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> _obj)
+	: ComponentBase(_obj) {
 	__NAME__ = "MaterialRenderer";
 	materials.fill(nullptr);
 }
 
-MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor) : ComponentBase(_obj) {
+MaterialRenderer::MaterialRenderer(UTILS::Ref<ECS::Object> _obj, const Descriptor& _descriptor)
+	: ComponentBase(_obj) {
 	__NAME__ = "MaterialRenderer";
 	setMaterialsNames(_descriptor.MaterialNames);
 	setMaterialsByPath(_descriptor.Materials);
 }
 
 MaterialRenderer::~MaterialRenderer() {
-	//this->obj->setModelEvent.removeListener(*setMaterialEventId);
+	// this->obj->setModelEvent.removeListener(*setMaterialEventId);
 }
 
 void MaterialRenderer::updateMaterialList() {
-	//TODO:: remove this dependence
+	// TODO:: remove this dependence
 	auto model = obj->getComponent<ModelRenderer>();
 	if (!model || !model->getModel()) {
 		return;
@@ -36,7 +39,7 @@ void MaterialRenderer::updateMaterialList() {
 	}
 
 	for (auto i = 0u; i < matNames.size(); i++) {
-		//materials[i] = RESOURCES::MaterialLoader::Create("Materials/simple.mat");
+		// materials[i] = RESOURCES::MaterialLoader::Create("Materials/simple.mat");
 		if (!materials[i]) {
 			materials[i] = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>().loadResource("Materials/simple.mat");
 		}
@@ -60,7 +63,8 @@ std::shared_ptr<RENDER::MaterialInterface> MaterialRenderer::GetMaterialAtIndex(
 
 void MaterialRenderer::removeMaterial(unsigned index) {
 	if (index < materials.size()) {
-		materials[index] = nullptr;;
+		materials[index] = nullptr;
+		;
 	}
 }
 
@@ -137,9 +141,9 @@ MaterialRenderer::Descriptor MaterialRenderer::getDescriptor() const {
 	descriptor.Materials = getMaterialsPaths();
 	return descriptor;
 }
-//#include <rttr/registration>
+// #include <rttr/registration>
 //
-//RTTR_REGISTRATION
+// RTTR_REGISTRATION
 //{
 //	rttr::registration::class_<IKIGAI::ECS::MaterialRenderer>("MaterialRenderer")
 //	(
@@ -161,4 +165,4 @@ MaterialRenderer::Descriptor MaterialRenderer::getDescriptor() const {
 //		rttr::metadata(EditorMetaInfo::EDIT_WIDGET, EditorMetaInfo::WidgetType::MATERIAL)
 //	)
 //	;
-//}
+// }
