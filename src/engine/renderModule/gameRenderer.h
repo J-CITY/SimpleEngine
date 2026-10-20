@@ -7,6 +7,7 @@
 #include "frustum.h"
 #include "gameRendererInterface.h"
 #include "light.h"
+#include "primitiveRender.h"
 #include <filesystem>
 
 // TODO move include to .cpp
@@ -61,7 +62,9 @@ enum class DrawContent {
 	RAY_TRACE,
 	UPSCALE,
 	FRAME_GENERATION,
-	VECTOR_WORLD
+	VECTOR_WORLD,
+	PRIMITIVES_WORLD,
+	PRIMITIVES_SCREEN
 };
 
 struct PipelineStage {
@@ -112,41 +115,41 @@ struct PipelineStage {
 			serde::serde_struct(context, value)
 				.field(&Self::Name, "Name")
 				.field(&Self::Draw, "Draw")
-				.field(&Self::Material, "Material", default_ { std::string { } })
+				.field(&Self::Material, "Material", default_ { std::string {} })
 				.field(&Self::FrameBuffer, "FrameBuffer", default_ { "" })
-				.field(&Self::Program, "Program", default_ { std::string { } })
-				.field(&Self::LaunchTexture, "LaunchTexture", default_ { std::string { } })
+				.field(&Self::Program, "Program", default_ { std::string {} })
+				.field(&Self::LaunchTexture, "LaunchTexture", default_ { std::string {} })
 				.field(&Self::LaunchX, "LaunchX", default_ { 1 })
 				.field(&Self::LaunchY, "LaunchY", default_ { 1 })
 				.field(&Self::LaunchZ, "LaunchZ", default_ { 1 })
 				.field(&Self::RaygenRecord, "RaygenRecord", default_ { 0 })
-				.field(&Self::Bindings, "Bindings", default_ { decltype(Bindings) { } })
-				.field(&Self::Reads, "Reads", default_ { decltype(Reads) { } })
-				.field(&Self::Writes, "Writes", default_ { decltype(Writes) { } })
-				.field(&Self::PushConstants, "PushConstants", default_ { decltype(PushConstants) { } })
+				.field(&Self::Bindings, "Bindings", default_ { decltype(Bindings) {} })
+				.field(&Self::Reads, "Reads", default_ { decltype(Reads) {} })
+				.field(&Self::Writes, "Writes", default_ { decltype(Writes) {} })
+				.field(&Self::PushConstants, "PushConstants", default_ { decltype(PushConstants) {} })
 				.field(&Self::Unsupported, "Unsupported", default_ { std::string { "ERROR" } })
 				.field(&Self::HitGroupOffset, "HitGroupOffset", default_ { 0 })
 				.field(&Self::Progressive, "Progressive", default_ { false })
 				.field(&Self::PresentationSink, "PresentationSink", default_ { false })
 				.field(&Self::IncludeEditorUI, "IncludeEditorUI", default_ { false })
-				.field(&Self::Uniforms, "Uniforms", default_ { decltype(Uniforms) { } })
-				.field(&Self::BufferLinks, "BufferLinks", default_ { decltype(BufferLinks) { } })
-				.field(&Self::BufferOverrides, "BufferOverrides", default_ { decltype(BufferOverrides) { } })
+				.field(&Self::Uniforms, "Uniforms", default_ { decltype(Uniforms) {} })
+				.field(&Self::BufferLinks, "BufferLinks", default_ { decltype(BufferLinks) {} })
+				.field(&Self::BufferOverrides, "BufferOverrides", default_ { decltype(BufferOverrides) {} })
 				.field(&Self::Once, "Once", default_ { false })
 				.field(&Self::UpdateInterval, "UpdateInterval", default_ { 1 })
-				.field(&Self::DispatchTexture, "DispatchTexture", default_ { std::string { } })
+				.field(&Self::DispatchTexture, "DispatchTexture", default_ { std::string {} })
 				.field(&Self::Enabled, "Enabled", default_ { true })
 				.field(&Self::ClearColor, "ClearColor", default_ { true })
 				.field(&Self::ClearDepth, "ClearDepth", default_ { true })
 				.field(&Self::ClearValue, "ClearValue", default_ { MATH::Vector4f { 0, 0, 0, 1 } })
 				.field(&Self::OverrideMaterial, "OverrideMaterial", default_ { false })
-				.field(&Self::ShadowType, "ShadowType", default_ { std::string { } })
+				.field(&Self::ShadowType, "ShadowType", default_ { std::string {} })
 				.field(&Self::ShadowRange, "ShadowRange", default_ { 100.0f })
 				.field(&Self::ShadowFace, "ShadowFace", default_ { -1 })
 				.field(&Self::ShadowLightId, "ShadowLightId", default_ { -1 })
-				.field(&Self::LightPass, "LightPass", default_ { std::string { } })
+				.field(&Self::LightPass, "LightPass", default_ { std::string {} })
 				.field(&Self::Additive, "Additive", default_ { false })
-				.field(&Self::Bypass, "Bypass", default_ { decltype(Bypass) { } });
+				.field(&Self::Bypass, "Bypass", default_ { decltype(Bypass) {} });
 		}
 	};
 	PipelineStage() = default;
@@ -182,8 +185,8 @@ struct RenderGraphPipeline {
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
 				.field(&Self::Name, "Name")
-				.field(&Self::Path, "Path", default_ { std::string { } })
-				.field(&Self::Resource, "Resource", default_ { TextureResource { } })
+				.field(&Self::Path, "Path", default_ { std::string {} })
+				.field(&Self::Resource, "Resource", default_ { TextureResource {} })
 				.field(&Self::Scale, "Scale", default_ { 1.0f })
 				.field(&Self::Size, "Size", default_ { SizeBase::DISPLAY })
 				.field(&Self::History, "History", default_ { false })
@@ -239,7 +242,7 @@ struct RenderGraphPipeline {
 				serde::serde_struct(context, value)
 					.field(&Self::Materials, "Materials")
 					.field(&Self::Uniforms, "Uniforms")
-					.field(&Self::Rename, "Rename", serde::attribute::default_ { decltype(Rename) { } });
+					.field(&Self::Rename, "Rename", serde::attribute::default_ { decltype(Rename) {} });
 			}
 		};
 		std::vector<TextureDesc> Textures;
@@ -249,9 +252,9 @@ struct RenderGraphPipeline {
 			using Self = SettingsDescriptor;
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
-				.field(&Self::Textures, "Textures", default_ { decltype(Textures) { } })
-				.field(&Self::Materials, "Materials", default_ { decltype(Materials) { } })
-				.field(&Self::Groups, "Groups", default_ { decltype(Groups) { } });
+				.field(&Self::Textures, "Textures", default_ { decltype(Textures) {} })
+				.field(&Self::Materials, "Materials", default_ { decltype(Materials) {} })
+				.field(&Self::Groups, "Groups", default_ { decltype(Groups) {} });
 		}
 	};
 
@@ -267,13 +270,13 @@ struct RenderGraphPipeline {
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
 				.field(&Self::Name, "Name")
-				.field(&Self::ShadowProviderStage, "ShadowProviderStage", default_ { std::string { } })
+				.field(&Self::ShadowProviderStage, "ShadowProviderStage", default_ { std::string {} })
 				.field(&Self::ShadowBudget, "ShadowBudget", default_ { -1 })
 				.field(&Self::VolumeLightLimit, "VolumeLightLimit", default_ { -1 })
-				.field(&Self::LightIds, "LightIds", default_ { decltype(LightIds) { } })
+				.field(&Self::LightIds, "LightIds", default_ { decltype(LightIds) {} })
 				.field(&Self::InitStages, "InitStages")
 				.field(&Self::CaptureStages, "CaptureStages")
-				.field(&Self::PrepareStages, "PrepareStages", default_ { decltype(PrepareStages) { } })
+				.field(&Self::PrepareStages, "PrepareStages", default_ { decltype(PrepareStages) {} })
 				.field(&Self::ResolveStages, "ResolveStages");
 		}
 	};
@@ -294,20 +297,20 @@ struct RenderGraphPipeline {
 			using namespace serde::attribute;
 			serde::serde_struct(context, value)
 				.field(&Self::Name, "Name")
-				.field(&Self::SettingsAsset, "SettingsAsset", default_ { std::string { } })
-				.field(&Self::Settings, "Settings", default_ { SettingsDescriptor { } })
+				.field(&Self::SettingsAsset, "SettingsAsset", default_ { std::string {} })
+				.field(&Self::Settings, "Settings", default_ { SettingsDescriptor {} })
 				.field(&Self::TemporalJitter, "TemporalJitter", default_ { false })
-				.field(&Self::Textures, "Textures", default_ { decltype(Textures) { } })
-				.field(&Self::FrameBuffers, "FrameBuffers", default_ { decltype(FrameBuffers) { } })
-				.field(&Self::Buffers, "Buffers", default_ { decltype(Buffers) { } })
+				.field(&Self::Textures, "Textures", default_ { decltype(Textures) {} })
+				.field(&Self::FrameBuffers, "FrameBuffers", default_ { decltype(FrameBuffers) {} })
+				.field(&Self::Buffers, "Buffers", default_ { decltype(Buffers) {} })
 				.field(&Self::Stages, "Stages")
-				.field(&Self::LightPasses, "LightPasses", default_ { decltype(LightPasses) { } })
-				.field(&Self::StartStages, "StartStages", default_ { decltype(StartStages) { } });
+				.field(&Self::LightPasses, "LightPasses", default_ { decltype(LightPasses) {} })
+				.field(&Self::StartStages, "StartStages", default_ { decltype(StartStages) {} });
 		}
 	};
 
 	RenderGraphPipeline() = default;
-	RenderGraphPipeline(const Descriptor& descriptor, RENDER::Renderer& renderer, const std::string& pipelineAsset = { });
+	RenderGraphPipeline(const Descriptor& descriptor, RENDER::Renderer& renderer, const std::string& pipelineAsset = {});
 
 	std::map<std::string, std::shared_ptr<RENDER::FrameBufferInterface>> mFrameBuffers;
 	std::map<std::string, std::shared_ptr<RENDER::FrameBufferInterface>> mAlternateFrameBuffers;
@@ -331,14 +334,14 @@ struct RenderGraphPipeline {
 	void prepareUpscaler(Renderer& renderer, int width, int height);
 	void advanceHistory(Renderer& renderer);
 	void rebuildFrameBuffers(Renderer& renderer);
-	void reloadSettings(Renderer& renderer, const std::string& asset = { });
+	void reloadSettings(Renderer& renderer, const std::string& asset = {});
 	void pollSettings(Renderer& renderer);
 	void invalidateResources(const std::vector<std::string>& resources);
 	void pollResourceUpdates();
 	Descriptor mDescriptor;
 	Descriptor mSourceDescriptor;
-	std::filesystem::file_time_type mSettingsWriteTime { };
-	std::filesystem::file_time_type mPipelineWriteTime { };
+	std::filesystem::file_time_type mSettingsWriteTime {};
+	std::filesystem::file_time_type mPipelineWriteTime {};
 	std::string mPipelineAsset;
 	std::string mSettingsOverrideAsset;
 	std::map<std::string, uint64_t> mTextureRevisions;
@@ -409,13 +412,14 @@ class GameRenderer : public RENDER::GameRendererInterface {
 	std::shared_ptr<MaterialInterface> mGuiTextMaterial;
 	std::shared_ptr<MaterialInterface> mVectorMaterial, mSdfMaterial;
 	std::shared_ptr<VECTOR::VectorRenderer> mVectorRenderer;
+	PrimitiveRender mPrimitives;
 	std::shared_ptr<ParticleRenderer> mParticleRenderer;
 #if USE_PHYSICS_3D
 	std::shared_ptr<DeformableRenderer> mDeformableRenderer;
 #endif
 	MATH::Matrix4f mPreviousViewProjection = MATH::Matrix4f::Identity;
 	MATH::Matrix4f mPreviousUnjitteredViewProjection = MATH::Matrix4f::Identity;
-	MATH::Vector2f mJitter { }, mPreviousJitter { };
+	MATH::Vector2f mJitter {}, mPreviousJitter {};
 	const ECS::CameraComponent* mPreviousCamera = nullptr;
 	void bindStage(PipelineStage& stage);
 	void captureShadows(
@@ -429,14 +433,14 @@ class GameRenderer : public RENDER::GameRendererInterface {
 		MATH::Matrix4f PreviousModel;
 		MATH::Vector4f CameraParams; // near, far, depth in [0,1], texture Y direction
 		MATH::Vector4f FrameState; // valid history, elapsed seconds, reserved, reserved
-	} mFrameData { };
+	} mFrameData {};
 	struct ShadowUBO {
 		MATH::Matrix4f Matrices[11]; // 4 directional cascades, spot, 6 point faces
 		MATH::Vector4f CascadeSplits;
 		MATH::Vector4f LightIndices = { -1, -1, -1, 0 };
 		MATH::Vector4f PointPositionRange;
 		MATH::Vector4f Settings = { 0.001f, 0, 0, 0 };
-	} mShadowData { };
+	} mShadowData {};
 	struct PointShadowPassUBO {
 		MATH::Matrix4f ViewProjection;
 		MATH::Vector4f LightPositionFar;
@@ -449,7 +453,7 @@ class GameRenderer : public RENDER::GameRendererInterface {
 		MATH::Vector4f PositionRange;
 		MATH::Vector4f Settings;
 		MATH::Vector4f LightInfo;
-	} mCurrentShadow { };
+	} mCurrentShadow {};
 	static_assert(sizeof(CurrentShadowUBO) == 320);
 	std::shared_ptr<UniformBufferInterface> mCurrentShadowUbo;
 	int mCaptureLightIndex = -1;
@@ -466,6 +470,9 @@ class GameRenderer : public RENDER::GameRendererInterface {
 
 public:
 	GameRenderer(CORE::Core& context);
+	PrimitiveRender& primitives() {
+		return mPrimitives;
+	}
 	void Init();
 	void renderScene() override;
 	void renderLoadingScene(SCENE_SYSTEM::Scene* scene);
@@ -476,11 +483,12 @@ public:
 		return mRenderPipeline->mTextures.at(name);
 	}
 	void setPipelineAccelerationStructure(const std::string& name, std::shared_ptr<AccelerationStructure> structure) {
-		if (name.empty() || !structure)
+		if (name.empty() || !structure) {
 			throw std::runtime_error("AS resource needs a name and nonnull structure");
+		}
 		mRenderPipeline->mAccelerationStructures[name] = std::move(structure);
 	}
-	void reloadPipelineSettings(const std::string& asset = { });
+	void reloadPipelineSettings(const std::string& asset = {});
 	void resetTemporalHistory() {
 		mRenderPipeline->mHistoryValid = false;
 		mRenderPipeline->mUpscaleHistoryValid = false;
@@ -504,10 +512,16 @@ template <> struct serde_adaptor<nlohmann::json, IKIGAI::RENDER::PipelineStage::
 		using MaterialUniform = IKIGAI::RENDER::MaterialResource::UniformType;
 		MaterialUniform uniform;
 		serde_adaptor<nlohmann::json, MaterialUniform>::from(json, key, uniform);
-		std::visit([&](const auto& item) {
-			if constexpr (std::is_assignable_v<Variant&, decltype(item)>) value = item;
-			else throw std::runtime_error("Pipeline uniform matrices are not supported");
-		}, uniform);
+		std::visit(
+			[&](const auto& item) {
+				if constexpr (std::is_assignable_v<Variant&, decltype(item)>) {
+					value = item;
+				}
+				else {
+					throw std::runtime_error("Pipeline uniform matrices are not supported");
+				}
+			},
+			uniform);
 	}
 	static void into(nlohmann::json& json, std::string_view key, const Variant& value) {
 		std::visit([&](const auto& uniform) { serialize_to<nlohmann::json>(uniform, json, key); }, value);

@@ -5,14 +5,12 @@
 #include <string>
 #include <vector>
 
-
 #include "componentManager.h"
 #include "components/scriptComponent.h"
 #include "components/transform.h"
 #include "ecsModule/world.h"
 #include <scriptModule/scriptInterpreter.h>
 #include <utilsModule/event.h>
-
 
 namespace IKIGAI::SCENE_SYSTEM {
 class Scene;
@@ -104,8 +102,9 @@ public:
 	void onLateUpdate(std::chrono::duration<double> dt);
 
 	template <typename T, typename... Args> inline UTILS::WeakPtr<T> addComponent(Args&&... args) {
-		if (mDisposed || mDisposing)
+		if (mDisposed || mDisposing) {
 			throw std::logic_error("Cannot add a component to a disposed object");
+		}
 		static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 
 		if (auto found = getComponent<T>(); !found) {
@@ -125,8 +124,9 @@ public:
 #if USE_LUA
 
 			if constexpr (std::is_same_v<T, ScriptComponent>) {
-				if (!mDeferred)
+				if (!mDeferred) {
 					ScriptComponentEvents::createdEvent.run(component);
+				}
 			}
 #endif
 			mComponents[std::type_index(typeid(T))] = component;
@@ -156,10 +156,12 @@ public:
 			ScriptComponentEvents::destroyedEvent.run(result);
 		}
 #endif
-#if USE_IKIGAI_SCRIPT
-		if constexpr (std::is_same_v<T, IkigaiScriptComponent>)
-			result->onDestroy();
-#endif
+		// Removal must run lifecycle callbacks while the component and its
+		// dependencies are still alive (e.g. an animator playback lease).
+		if (getIsActive()) {
+			result->onDisable();
+		}
+		result->onDestroy();
 		componentRemovedEvent.run(result);
 		// ComponentManager::GetInstance().removeComponent<T>(getID());
 		getWorld().getComponentManager()->removeComponents<T>(getID());
@@ -168,8 +170,9 @@ public:
 	}
 
 	template <typename T> inline UTILS::WeakPtr<T> getComponent() const {
-		if (mDisposed)
+		if (mDisposed) {
 			return nullptr;
+		}
 		static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 
 		// if (ComponentManager::GetInstance().checkComponent<T>(getID())) {
@@ -182,8 +185,9 @@ public:
 	}
 
 	template <typename T> inline UTILS::WeakPtr<ComponentBase> getComponentBase() const {
-		if (mDisposed)
+		if (mDisposed) {
 			return nullptr;
+		}
 		static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 
 		// if (ComponentManager::GetInstance().checkComponent<T>(getID())) {

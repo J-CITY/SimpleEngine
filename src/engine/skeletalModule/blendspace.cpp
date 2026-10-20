@@ -1,7 +1,7 @@
 #include "blendspace.h"
-#include "utilsModule/assertion.h"
 #include <algorithm>
-
+#include <cmath>
+#include <stdexcept>
 
 namespace IKIGAI::SKELETON {
 
@@ -9,6 +9,7 @@ namespace IKIGAI::SKELETON {
 
 Blendspace1DInstance::Blendspace1DInstance(std::shared_ptr<Blendspace1D> resource)
 	: mResource(resource) {
+	mRevision = mResource->revision;
 	mBlend = std::make_unique<AnimBlend>(mResource->mSkeleton);
 
 	for (const auto& node : mResource->mNodes) {
@@ -18,11 +19,21 @@ Blendspace1DInstance::Blendspace1DInstance(std::shared_ptr<Blendspace1D> resourc
 		mNodes.push_back(std::move(ns));
 	}
 
+	if (mNodes.empty()) {
+		throw std::runtime_error("Empty 1D blendspace");
+	}
+	std::sort(mNodes.begin(), mNodes.end(), [](const auto& a, const auto& b) { return a.value < b.value; });
+	for (size_t i = 1; i < mNodes.size(); ++i) {
+		if (mNodes[i].value <= mNodes[i - 1].value) {
+			throw std::runtime_error("Duplicate blendspace point");
+		}
+	}
 	if (mNodes.size() > 0) {
 		mMin = mNodes[0].value;
 		mMax = mNodes[std::max(0.0f, static_cast<float>(mNodes.size()) - 1.0f)].value;
 		mValue = mMin;
 	}
+	update(0);
 }
 
 Blendspace1DInstance::~Blendspace1DInstance() = default;
@@ -48,9 +59,22 @@ Pose* Blendspace1DInstance::getPose() {
 }
 
 void Blendspace1DInstance::update(float dt) {
+	if (mRevision != mResource->revision) {
+		Blendspace1DInstance candidate(mResource);
+		mNodes = std::move(candidate.mNodes);
+		mBlend = std::move(candidate.mBlend);
+		mMin = candidate.mMin;
+		mMax = candidate.mMax;
+		setValue(mValue);
+		mRevision = mResource->revision;
+	}
+	mPhase += dt / std::max(.001f, mNodes.front().sampler->duration());
+	mPhase -= std::floor(mPhase);
+	for (auto& node : mNodes) {
+		node.sampler->seek(mPhase * node.sampler->duration());
+	}
 	for (uint32_t i = 0; i < mNodes.size(); i++) {
 		if (mValue == mNodes[i].value) {
-			mNodes[i].sampler->update(dt);
 			mLastPose = mNodes[i].sampler->getPose();
 			return;
 		}
@@ -59,9 +83,6 @@ void Blendspace1DInstance::update(float dt) {
 			NodeState& high = mNodes[i];
 
 			float blendFactor = (mValue - low.value) / (high.value - low.value);
-
-			low.sampler->update(dt);
-			high.sampler->update(dt);
 			Pose* lowPose = low.sampler->getPose();
 			Pose* highPose = high.sampler->getPose();
 
@@ -73,13 +94,18 @@ void Blendspace1DInstance::update(float dt) {
 }
 
 std::unique_ptr<IAnimationPlayable> Blendspace1DInstance::clone() const {
-	return std::make_unique<Blendspace1DInstance>(mResource);
+	auto copy = std::make_unique<Blendspace1DInstance>(mResource);
+	copy->mPhase = mPhase;
+	copy->setValue(mValue);
+	copy->update(0);
+	return copy;
 }
 
 // --- Blendspace2DInstance ---
 
 Blendspace2DInstance::Blendspace2DInstance(std::shared_ptr<Blendspace2D> resource)
 	: mResource(resource) {
+	mRevision = mResource->revision;
 	mBlend1 = std::make_unique<AnimBlend>(mResource->mSkeleton);
 	mBlend2 = std::make_unique<AnimBlend>(mResource->mSkeleton);
 	mBlend3 = std::make_unique<AnimBlend>(mResource->mSkeleton);
@@ -93,9 +119,27 @@ Blendspace2DInstance::Blendspace2DInstance(std::shared_ptr<Blendspace2D> resourc
 			ns.sampler = std::make_unique<AnimSample>(mResource->mSkeleton, node.anim);
 			rs.nodes.push_back(std::move(ns));
 		}
+		if (rs.nodes.empty()) {
+			throw std::runtime_error("Empty blendspace row");
+		}
+		std::sort(rs.nodes.begin(), rs.nodes.end(), [](const auto& a, const auto& b) { return a.value < b.value; });
+		for (size_t i = 1; i < rs.nodes.size(); ++i) {
+			if (rs.nodes[i].value <= rs.nodes[i - 1].value) {
+				throw std::runtime_error("Duplicate blendspace point");
+			}
+		}
 		mRows.push_back(std::move(rs));
 	}
 
+	if (mRows.empty()) {
+		throw std::runtime_error("Empty 2D blendspace");
+	}
+	std::sort(mRows.begin(), mRows.end(), [](const auto& a, const auto& b) { return a.value < b.value; });
+	for (size_t i = 1; i < mRows.size(); ++i) {
+		if (mRows[i].value <= mRows[i - 1].value) {
+			throw std::runtime_error("Duplicate blendspace row");
+		}
+	}
 	if (mRows.size() > 0) {
 		mYMax = mRows[0].value;
 		mYMin = mRows[0].value;
@@ -105,7 +149,6 @@ Blendspace2DInstance::Blendspace2DInstance(std::shared_ptr<Blendspace2D> resourc
 		for (const auto& row : mRows) {
 			mYMax = std::max(mYMax, row.value);
 			mYMin = std::min(mYMin, row.value);
-			ASSERT_IF(row.nodes.size() > 0, "");
 			for (const auto& node : row.nodes) {
 				mXMax = std::max(mXMax, node.value);
 				mXMin = std::min(mXMin, node.value);
@@ -114,6 +157,7 @@ Blendspace2DInstance::Blendspace2DInstance(std::shared_ptr<Blendspace2D> resourc
 		mXValue = mXMin;
 		mYValue = mYMin;
 	}
+	update(0);
 }
 
 Blendspace2DInstance::~Blendspace2DInstance() = default;
@@ -155,6 +199,27 @@ Pose* Blendspace2DInstance::getPose() {
 }
 
 void Blendspace2DInstance::update(float dt) {
+	if (mRevision != mResource->revision) {
+		Blendspace2DInstance candidate(mResource);
+		mRows = std::move(candidate.mRows);
+		mBlend1 = std::move(candidate.mBlend1);
+		mBlend2 = std::move(candidate.mBlend2);
+		mBlend3 = std::move(candidate.mBlend3);
+		mXMin = candidate.mXMin;
+		mXMax = candidate.mXMax;
+		mYMin = candidate.mYMin;
+		mYMax = candidate.mYMax;
+		setXValue(mXValue);
+		setYValue(mYValue);
+		mRevision = mResource->revision;
+	}
+	mPhase += dt / std::max(.001f, mRows.front().nodes.front().sampler->duration());
+	mPhase -= std::floor(mPhase);
+	for (auto& row : mRows) {
+		for (auto& node : row.nodes) {
+			node.sampler->seek(mPhase * node.sampler->duration());
+		}
+	}
 	for (uint32_t i = 0; i < mRows.size(); i++) {
 		if (mYValue == mRows[i].value) {
 			mLastPose = blendedPoseFromRow(mRows[i], mBlend1.get(), dt);
@@ -177,20 +242,16 @@ void Blendspace2DInstance::update(float dt) {
 }
 
 Pose* Blendspace2DInstance::blendedPoseFromRow(const RowState& row, AnimBlend* blend, float dt) {
-	if (row.nodes.size() == 1) {
-		// Const cast is fine here as we're just updating the sampler which is mutable effectively,
-		// but we didn't mark RowState as const.
-		// Actually we pass const RowState& row, so we cannot call update on unique_ptr.
-		// Wait, the method signature is `const RowState& row` but `sampler->update` is non-const.
-		auto& mutableRow = const_cast<RowState&>(row);
-		mutableRow.nodes[0].sampler->update(dt);
-		return mutableRow.nodes[0].sampler->getPose();
+	if (row.nodes.size() == 1 || mXValue <= row.nodes.front().value) {
+		return row.nodes.front().sampler->getPose();
+	}
+	if (mXValue >= row.nodes.back().value) {
+		return row.nodes.back().sampler->getPose();
 	}
 
 	for (uint32_t j = 0; j < row.nodes.size(); j++) {
 		if (mXValue == row.nodes[j].value) {
 			auto& mutableRow = const_cast<RowState&>(row);
-			mutableRow.nodes[j].sampler->update(dt);
 			return mutableRow.nodes[j].sampler->getPose();
 		}
 		else if (mXValue < row.nodes[j].value) {
@@ -206,9 +267,6 @@ Pose* Blendspace2DInstance::blendedPoseFromRow(const RowState& row, AnimBlend* b
 
 Pose* Blendspace2DInstance::blendedPoseFromNodes(NodeState& low, NodeState& high, AnimBlend* blend, float dt) {
 	float blendFactor = (mXValue - low.value) / (high.value - low.value);
-
-	low.sampler->update(dt);
-	high.sampler->update(dt);
 	Pose* lowPose = low.sampler->getPose();
 	Pose* highPose = high.sampler->getPose();
 
@@ -216,6 +274,11 @@ Pose* Blendspace2DInstance::blendedPoseFromNodes(NodeState& low, NodeState& high
 }
 
 std::unique_ptr<IAnimationPlayable> Blendspace2DInstance::clone() const {
-	return std::make_unique<Blendspace2DInstance>(mResource);
+	auto copy = std::make_unique<Blendspace2DInstance>(mResource);
+	copy->mPhase = mPhase;
+	copy->setXValue(mXValue);
+	copy->setYValue(mYValue);
+	copy->update(0);
+	return copy;
 }
 }

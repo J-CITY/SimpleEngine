@@ -1,75 +1,51 @@
 #pragma once
-
+#include "mathModule/math.h"
+#include <array>
 #include <memory>
-#include <string>
-#include "render.h"
+#include <span>
+#include <vector>
 
-namespace IKIGAI {
-	namespace RENDER {
-		//class PrimitiveRender {
-		//public:
-		//	PrimitiveRender(BaseRender& render);
-		//	~PrimitiveRender();
-		//	void setViewProjection(const MATHGL::Matrix4& p_viewProjection);
-		//	void drawLine(const MATHGL::Vector3& start, const MATHGL::Vector3& end, const MATHGL::Vector3& color, float lineWidth = 1.0f);
-		//	void drawGrid(const MATHGL::Vector3& viewPos, const MATHGL::Vector3& color, int32_t gridSize = 50, float linear = 0.0f, float quadratic = 0.0f, float fadeThreshold = 0.0f, float p_lineWidth = 1.0f);
-		//private:
-		//	std::shared_ptr<RESOURCES::Shader> lineShader = nullptr;
-		//	std::shared_ptr<RESOURCES::Shader> gridShader = nullptr;
-		//	std::shared_ptr<RESOURCES::Mesh> lineMesh = nullptr;
-		//	BaseRender& render;
-		//
-		//	inline const static std::string vertexLineShader = R"(
-		//	#version 460 core
-		//	uniform vec3 start;
-		//	uniform vec3 end;
-		//	uniform mat4 viewProjection;
-		//	void main(){
-		//		vec3 position = gl_VertexID == 0 ? start : end;
-		//	    gl_Position = viewProjection * vec4(position, 1.0);
-		//	})";
-		//
-		//	inline const static std::string fragmentLineShader = R"(
-		//	#version 460 core
-		//	uniform vec3 color;
-		//	out vec4 FRAGMENT_COLOR;
-		//	void main() {
-		//		FRAGMENT_COLOR = vec4(color, 1.0);
-		//	})";
-		//
-		//
-		//	inline const static std::string vertexGridShader = R"(
-		//	#version 460 core
-		//	uniform vec3 start;
-		//	uniform vec3 end;
-		//	uniform mat4 viewProjection;
-		//	out vec3 fragPos;
-		//	void main(){
-		//		vec3 position = gl_VertexID == 0 ? start : end;
-		//		fragPos = position;
-		//	    gl_Position = viewProjection * vec4(position, 1.0);
-		//	})";
-		//
-		//	inline const static std::string fragmentGridShader = R"(
-		//	#version 460 core
-		//	uniform vec3 color;
-		//	uniform vec3 viewPos;
-		//	uniform float linear;
-		//	uniform float quadratic;
-		//	uniform float fadeThreshold;
-		//	out vec4 FRAGMENT_COLOR;
-		//	in vec3 fragPos;
-		//	float AlphaFromAttenuation(){
-		//		vec3 fakeViewPos = viewPos;
-		//		fakeViewPos.y = 0;
-		//	    const float distanceToLight = max(max(length(viewPos - fragPos) - fadeThreshold, 0) - viewPos.y, 0);
-		//	    const float attenuation = (linear * distanceToLight + quadratic * (distanceToLight * distanceToLight));
-		//	    return 1.0 / attenuation;
-		//	}
-		//	void main(){
-		//		FRAGMENT_COLOR = vec4(color, AlphaFromAttenuation());
-		//	})";
-		//
-		//};
-	}
+namespace IKIGAI::VECTOR {
+class VectorRenderer;
+}
+namespace IKIGAI::RENDER {
+class Renderer;
+class TextureInterface;
+class MaterialInterface;
+enum class PrimitiveSpace { World, Screen };
+struct PrimitiveStyle {
+	MATH::Vector4f color { 1, 1, 1, 1 };
+	float width = 1.f;
+	bool depthTest = true;
+	PrimitiveSpace space = PrimitiveSpace::World;
+};
+
+// Immediate frame queue. The render graph chooses the target and compositing order.
+class PrimitiveRender {
+public:
+	void line(MATH::Vector3f start, MATH::Vector3f end, PrimitiveStyle style = {});
+	void polyline(std::span<const MATH::Vector3f> points, bool closed, PrimitiveStyle style = {});
+	void triangle(MATH::Vector3f a, MATH::Vector3f b, MATH::Vector3f c, bool filled = false, PrimitiveStyle style = {});
+	void rectangle(MATH::Vector3f origin, MATH::Vector3f horizontal, MATH::Vector3f vertical, bool filled = false, PrimitiveStyle style = {});
+	void circle(MATH::Vector3f center, MATH::Vector3f normal, float radius, unsigned segments = 32, bool filled = false, PrimitiveStyle style = {});
+	void box(MATH::Vector3f minimum, MATH::Vector3f maximum, PrimitiveStyle style = {});
+	void sphere(MATH::Vector3f center, float radius, unsigned segments = 32, PrimitiveStyle style = {});
+	void capsule(MATH::Vector3f bottom, MATH::Vector3f top, float radius, unsigned segments = 32, PrimitiveStyle style = {});
+	void axes(const MATH::Matrix4f& transform, float size = 1.f, PrimitiveStyle style = {});
+	void grid(MATH::Vector3f origin, unsigned halfCells, float spacing = 1.f, PrimitiveStyle style = {});
+	void clear();
+	size_t size() const;
+	void render(Renderer&, const MATH::Matrix4f& worldToClip, MATH::Vector2f viewport, PrimitiveSpace);
+
+private:
+	struct Command {
+		std::array<MATH::Vector3f, 3> points;
+		PrimitiveStyle style;
+		bool filled = false;
+	};
+	std::vector<Command> mCommands;
+	std::shared_ptr<VECTOR::VectorRenderer> mBatches;
+	std::shared_ptr<TextureInterface> mWhite;
+	std::shared_ptr<MaterialInterface> mMaterial;
+};
 }

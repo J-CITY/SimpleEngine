@@ -4,12 +4,10 @@
 #include <sol/sol.hpp>
 #include <string>
 
-
 #include "luaBinder.h"
 #include <coreModule/ecs/componentManager.h>
 #include <coreModule/ecs/components/scriptComponent.h>
 #include <coreModule/ecs/systems/scriptSystem.h>
-
 
 #include "ecsModule/world.h"
 #include "utilsModule/log/loggerDefine.h"
@@ -37,6 +35,9 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 		checkOk = true;
 
 		for (const auto& s : scripts) {
+			if (!s) {
+				continue;
+			}
 			auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
 			auto systemManager = world.getSystemManager();
 			if (!systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
@@ -55,6 +56,9 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 void ScriptInterpreter::destroyLuaContext() {
 	if (luaState) {
 		for (const auto& s : scripts) {
+			if (!s) {
+				continue;
+			}
 			auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
 			auto systemManager = world.getSystemManager();
 			systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->unregisterFromLuaContext(*s);

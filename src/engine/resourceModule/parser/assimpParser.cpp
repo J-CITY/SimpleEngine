@@ -1,6 +1,5 @@
 #include "assimpParser.h"
 
-#include "../resource/bone.h"
 #include "resourceModule/fileSystem/fileSystem.h"
 #include "resourceModule/serviceManager.h"
 #include "skeletalModule/animation.h"
@@ -36,11 +35,13 @@ public:
 	explicit AssetStream(std::vector<uint8_t> data)
 		: bytes(std::move(data)) { }
 	size_t Read(void* output, size_t size, size_t count) override {
-		if (!size)
+		if (!size) {
 			return 0;
+		}
 		count = std::min(count, (bytes.size() - position) / size);
-		if (count)
+		if (count) {
 			std::memcpy(output, bytes.data() + position, count * size);
+		}
 		position += count * size;
 		return count;
 	}
@@ -50,17 +51,20 @@ public:
 	aiReturn Seek(size_t offset, aiOrigin origin) override {
 		size_t next = offset;
 		if (origin == aiOrigin_CUR) {
-			if (offset > bytes.size() - position)
+			if (offset > bytes.size() - position) {
 				return aiReturn_FAILURE;
+			}
 			next = position + offset;
 		}
 		else if (origin == aiOrigin_END) {
-			if (offset > bytes.size())
+			if (offset > bytes.size()) {
 				return aiReturn_FAILURE;
+			}
 			next = bytes.size() - offset;
 		}
-		if (next > bytes.size())
+		if (next > bytes.size()) {
 			return aiReturn_FAILURE;
+		}
 		position = next;
 		return aiReturn_SUCCESS;
 	}
@@ -77,8 +81,9 @@ class AssetIO final : public Assimp::IOSystem {
 	const std::vector<uint8_t>& bytes;
 	std::string resolve(const char* name) const {
 		auto path = std::filesystem::path(name).lexically_normal().generic_string();
-		if (path == root || RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().isFileExist(path))
+		if (path == root || RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().isFileExist(path)) {
 			return path;
+		}
 		return (std::filesystem::path(root).parent_path() / path).lexically_normal().generic_string();
 	}
 
@@ -94,14 +99,17 @@ public:
 		return '/';
 	}
 	Assimp::IOStream* Open(const char* name, const char* mode = "rb") override {
-		if (std::strchr(mode, 'w') || std::strchr(mode, '+') || std::strchr(mode, 'a'))
+		if (std::strchr(mode, 'w') || std::strchr(mode, '+') || std::strchr(mode, 'a')) {
 			return nullptr;
+		}
 		const auto path = resolve(name);
-		if (path == root)
+		if (path == root) {
 			return new AssetStream(bytes);
+		}
 		auto file = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().getFile(path);
-		if (!file || !file->isValid())
+		if (!file || !file->isValid()) {
 			return nullptr;
+		}
 		return new AssetStream(file->read());
 	}
 	void Close(Assimp::IOStream* stream) override {
@@ -422,7 +430,12 @@ void AssimpParser::loadBones(std::vector<Vertex>& vertices, aiMesh* mesh, const 
 		if (!model->isBoneExist(boneName)) {
 			RENDER::BoneInfo newBoneInfo;
 			newBoneInfo.mId = boneID;
-			newBoneInfo.mOffset = ConvertMatrix4x4(mesh->mBones[boneIndex]->mOffsetMatrix);
+			newBoneInfo.mOffset = MATH::Matrix4f(mesh->mBones[boneIndex]->mOffsetMatrix.a1, mesh->mBones[boneIndex]->mOffsetMatrix.a2,
+				mesh->mBones[boneIndex]->mOffsetMatrix.a3, mesh->mBones[boneIndex]->mOffsetMatrix.a4, mesh->mBones[boneIndex]->mOffsetMatrix.b1,
+				mesh->mBones[boneIndex]->mOffsetMatrix.b2, mesh->mBones[boneIndex]->mOffsetMatrix.b3, mesh->mBones[boneIndex]->mOffsetMatrix.b4,
+				mesh->mBones[boneIndex]->mOffsetMatrix.c1, mesh->mBones[boneIndex]->mOffsetMatrix.c2, mesh->mBones[boneIndex]->mOffsetMatrix.c3,
+				mesh->mBones[boneIndex]->mOffsetMatrix.c4, mesh->mBones[boneIndex]->mOffsetMatrix.d1, mesh->mBones[boneIndex]->mOffsetMatrix.d2,
+				mesh->mBones[boneIndex]->mOffsetMatrix.d3, mesh->mBones[boneIndex]->mOffsetMatrix.d4);
 			model->addBone(boneName, newBoneInfo);
 		}
 
@@ -489,11 +502,12 @@ void buildSkeletonImpl(
 			IKIGAI::SKELETON::Joint joint;
 
 			joint.name = boneName;
-			aiVector3D bindScale, bindPosition; aiQuaternion bindRotation;
+			aiVector3D bindScale, bindPosition;
+			aiQuaternion bindRotation;
 			node->mTransformation.Decompose(bindScale, bindRotation, bindPosition);
-			joint.bindPose.translation = {bindPosition.x, bindPosition.y, bindPosition.z};
-			joint.bindPose.rotation = {bindRotation.x, bindRotation.y, bindRotation.z, bindRotation.w};
-			joint.bindPose.scale = {bindScale.x, bindScale.y, bindScale.z};
+			joint.bindPose.translation = { bindPosition.x, bindPosition.y, bindPosition.z };
+			joint.bindPose.rotation = { bindRotation.x, bindRotation.y, bindRotation.z, bindRotation.w };
+			joint.bindPose.scale = { bindScale.x, bindScale.y, bindScale.z };
 			auto& m = tempBoneList[i]->mOffsetMatrix;
 			joint.offsetTransform
 				= IKIGAI::MATH::Matrix4f(m.a1, m.a2, m.a3, m.a4, m.b1, m.b2, m.b3, m.b4, m.c1, m.c2, m.c3, m.c4, m.d1, m.d2, m.d3, m.d4);
@@ -584,8 +598,9 @@ bool AssimpParser::fillAnimation(
 		std::string channelName = SKELETON::trimmedName(channel->mNodeName.C_Str());
 
 		int jointIndex = skeleton.findJointIndex(channelName);
-		if (jointIndex == -1)
+		if (jointIndex == -1) {
 			continue;
+		}
 
 		outAnimation.channels[jointIndex].jointName = channelName;
 
@@ -593,55 +608,64 @@ bool AssimpParser::fillAnimation(
 		outAnimation.channels[jointIndex].translationKeyframes.resize(channel->mNumPositionKeys);
 		MATH::Vector3f refTrans;
 		if (channel->mNumPositionKeys > 0) {
-			if (additiveReference && additiveReference->channels[jointIndex].translationKeyframes.size() > 0)
+			if (additiveReference && additiveReference->channels[jointIndex].translationKeyframes.size() > 0) {
 				refTrans = additiveReference->channels[jointIndex].translationKeyframes[0].translation;
-			else
+			}
+			else {
 				refTrans = MATH::Vector3f(channel->mPositionKeys[0].mValue.x, channel->mPositionKeys[0].mValue.y, channel->mPositionKeys[0].mValue.z);
+			}
 		}
 		for (unsigned int j = 0; j < channel->mNumPositionKeys; ++j) {
 			outAnimation.channels[jointIndex].translationKeyframes[j].time = channel->mPositionKeys[j].mTime;
 			outAnimation.channels[jointIndex].translationKeyframes[j].translation
 				= MATH::Vector3f(channel->mPositionKeys[j].mValue.x, channel->mPositionKeys[j].mValue.y, channel->mPositionKeys[j].mValue.z);
-			if (additive)
+			if (additive) {
 				outAnimation.channels[jointIndex].translationKeyframes[j].translation
 					= SKELETON::translationDelta(refTrans, outAnimation.channels[jointIndex].translationKeyframes[j].translation);
+			}
 		}
 
 		// --- Rotation ---
 		outAnimation.channels[jointIndex].rotationKeyframes.resize(channel->mNumRotationKeys);
 		MATH::QuaternionF refRot;
 		if (channel->mNumRotationKeys > 0) {
-			if (additiveReference && additiveReference->channels[jointIndex].rotationKeyframes.size() > 0)
+			if (additiveReference && additiveReference->channels[jointIndex].rotationKeyframes.size() > 0) {
 				refRot = additiveReference->channels[jointIndex].rotationKeyframes[0].rotation;
-			else
+			}
+			else {
 				refRot = MATH::QuaternionF(channel->mRotationKeys[0].mValue.x, channel->mRotationKeys[0].mValue.y, channel->mRotationKeys[0].mValue.z,
 					channel->mRotationKeys[0].mValue.w);
+			}
 		}
 		for (unsigned int j = 0; j < channel->mNumRotationKeys; ++j) {
 			outAnimation.channels[jointIndex].rotationKeyframes[j].time = channel->mRotationKeys[j].mTime;
 			outAnimation.channels[jointIndex].rotationKeyframes[j].rotation = MATH::QuaternionF(channel->mRotationKeys[j].mValue.x,
 				channel->mRotationKeys[j].mValue.y, channel->mRotationKeys[j].mValue.z, channel->mRotationKeys[j].mValue.w);
-			if (additive)
+			if (additive) {
 				outAnimation.channels[jointIndex].rotationKeyframes[j].rotation
 					= SKELETON::rotationDelta(refRot, outAnimation.channels[jointIndex].rotationKeyframes[j].rotation);
+			}
 		}
 
 		// --- Scale ---
 		outAnimation.channels[jointIndex].scaleKeyframes.resize(channel->mNumScalingKeys);
 		MATH::Vector3f refScale;
 		if (channel->mNumScalingKeys > 0) {
-			if (additiveReference && additiveReference->channels[jointIndex].scaleKeyframes.size() > 0)
+			if (additiveReference && additiveReference->channels[jointIndex].scaleKeyframes.size() > 0) {
 				refScale = additiveReference->channels[jointIndex].scaleKeyframes[0].scale;
-			else
+			}
+			else {
 				refScale = MATH::Vector3f(channel->mScalingKeys[0].mValue.x, channel->mScalingKeys[0].mValue.y, channel->mScalingKeys[0].mValue.z);
+			}
 		}
 		for (unsigned int j = 0; j < channel->mNumScalingKeys; ++j) {
 			outAnimation.channels[jointIndex].scaleKeyframes[j].time = channel->mScalingKeys[j].mTime;
 			outAnimation.channels[jointIndex].scaleKeyframes[j].scale
 				= MATH::Vector3f(channel->mScalingKeys[j].mValue.x, channel->mScalingKeys[j].mValue.y, channel->mScalingKeys[j].mValue.z);
-			if (additive)
+			if (additive) {
 				outAnimation.channels[jointIndex].scaleKeyframes[j].scale
 					= SKELETON::scaleDelta(refScale, outAnimation.channels[jointIndex].scaleKeyframes[j].scale);
+			}
 		}
 	}
 	return true;
@@ -652,8 +676,9 @@ bool AssimpParser::LoadAnimation(const std::string& fileName, SKELETON::Skeleton
 	Assimp::Importer importer;
 	importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
 	const aiScene* scene = importer.ReadFile(fileName, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
-	if (!scene)
+	if (!scene) {
 		return false;
+	}
 	return fillAnimation(scene, skeleton, outAnimation, additive, additiveReference);
 }
 
@@ -661,8 +686,9 @@ bool AssimpParser::LoadAnimation(const std::string& fileName, const std::vector<
 	SKELETON::Animation& outAnimation, bool additive, SKELETON::Animation* additiveReference) {
 	Assimp::Importer importer;
 	const aiScene* scene = ReadAssetScene(importer, fileName, data, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
-	if (!scene)
+	if (!scene) {
 		return false;
+	}
 	return fillAnimation(scene, skeleton, outAnimation, additive, additiveReference);
 }
 

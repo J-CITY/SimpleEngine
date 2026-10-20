@@ -6,36 +6,33 @@
 #include <map>
 #include <string>
 
-#include "editorRender.h"
 #include "IconsFontAwesome5.h"
+#include "commandHistory.h"
+#include "coreModule/ecs/object.h"
+#include "editorRender.h"
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "utilsModule/weakPtr.h"
-#include "coreModule/ecs/object.h"
-#include "utilsModule/imguiHelper/imguiWidgets.h"
 #include "misc/cpp/imgui_stdlib.h"
+#include "utilsModule/imguiHelper/imguiWidgets.h"
 #include "utilsModule/reflection/reflection.h"
-#include "commandHistory.h"
+#include "utilsModule/weakPtr.h"
 
 using namespace IKIGAI::EDITOR;
 
-
-template<typename T>
-void genComponentsStringArrayImpl(std::vector<std::string>& arr) {
+template <typename T> void genComponentsStringArrayImpl(std::vector<std::string>& arr) {
 	arr.push_back(IKIGAI::ECS::GetType<T>());
 }
 
-template<template<typename...> class Container, typename...ComponentType>
+template <template <typename...> class Container, typename... ComponentType>
 void genComponentsStringArray(std::vector<std::string>& arr, Container<ComponentType...> opt) {
 	(genComponentsStringArrayImpl<ComponentType>(arr), ...);
 }
 
 std::vector<std::string> genComponentsStringArray() {
 	std::vector<std::string> res;
-	genComponentsStringArray(res, IKIGAI::ECS::ComponentsTypeProviderType{});
+	genComponentsStringArray(res, IKIGAI::ECS::ComponentsTypeProviderType {});
 	return res;
 }
-
 
 std::vector<std::string> genComponentsStringArray2() {
 	std::vector<std::string> res;
@@ -62,19 +59,21 @@ const std::string& drawSearchBox(const char* lable, const std::vector<std::strin
 
 	ImGui::InputText(lable, &input);
 	ImGui::SameLine();
-	
+
 	bool isFocused = ImGui::IsItemFocused();
 	isOpen |= ImGui::IsItemActive();
 	if (isOpen) {
-		ImGui::SetNextWindowPos({ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y});
-		ImGui::SetNextWindowSize({ImGui::GetItemRectSize().x, 0});
+		ImGui::SetNextWindowPos({ ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y });
+		ImGui::SetNextWindowSize({ ImGui::GetItemRectSize().x, 0 });
 		const std::string popUpId = std::string("##popup") + lable;
-		if (ImGui::Begin(popUpId.c_str(), &isOpen, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_Tooltip)) {
+		if (ImGui::Begin(popUpId.c_str(), &isOpen,
+				ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_Tooltip)) {
 			ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
 			isFocused |= ImGui::IsWindowFocused();
 			for (int i = 0; i < autocomplete.size(); i++) {
-				if (strstr(autocomplete[i].c_str(), input.c_str()) == NULL)
+				if (strstr(autocomplete[i].c_str(), input.c_str()) == NULL) {
 					continue;
+				}
 				if (ImGui::Selectable(autocomplete[i].c_str()) || (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter))) {
 					input = autocomplete[i];
 					isOpen = false;
@@ -89,70 +88,67 @@ const std::string& drawSearchBox(const char* lable, const std::vector<std::strin
 
 //----------------------------------
 
-template<typename T>
-void addComponentForObjectImpl(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
+template <typename T> void addComponentForObjectImpl(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
 	auto t = IKIGAI::ECS::GetType<T>();
 	if (compName == t) {
 		obj->addComponent<T>();
 	}
 }
 
-template<template<typename...> class Container, typename...ComponentType>
+template <template <typename...> class Container, typename... ComponentType>
 void addComponentForObject(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName, Container<ComponentType...> opt) {
 	(addComponentForObjectImpl<ComponentType>(obj, compName), ...);
 }
 
 void addComponentForObject(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
-	addComponentForObject(obj, compName, IKIGAI::ECS::ComponentsTypeProviderType{});
+	addComponentForObject(obj, compName, IKIGAI::ECS::ComponentsTypeProviderType {});
 }
 
 void addComponentForObject2(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
 	auto& manager = IKIGAI::UTILS::ReflectionManager::Instance();
 	if (auto* typeInfo = manager.getType(compName)) {
 		if (typeInfo->mMethods.contains("AddComponent")) {
-			typeInfo->mMethods.at("AddComponent").invoke(nullptr, {obj});
+			typeInfo->mMethods.at("AddComponent").invoke(nullptr, { obj });
 		}
 	}
 }
 
 //----------------------------------
 
-template<typename T>
-void removeComponentFromObjectImpl(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
+template <typename T> void removeComponentFromObjectImpl(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
 	if (compName == typeid(T).name()) {
 		obj->removeComponent<T>();
 	}
 }
 
-template<>
-void removeComponentFromObjectImpl<IKIGAI::ECS::TransformComponent>(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {}
+template <>
+void removeComponentFromObjectImpl<IKIGAI::ECS::TransformComponent>(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) { }
 
-template<template<typename...> class Container, typename...ComponentType>
+template <template <typename...> class Container, typename... ComponentType>
 void removeComponentFromObject(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName, Container<ComponentType...> opt) {
 	(removeComponentFromObjectImpl<ComponentType>(obj, compName), ...);
 }
 
 void removeComponentFromObject(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
-	removeComponentFromObject(obj, compName, IKIGAI::ECS::ComponentsTypeProviderType{});
+	removeComponentFromObject(obj, compName, IKIGAI::ECS::ComponentsTypeProviderType {});
 }
 
 void removeComponentFromObject2(std::shared_ptr<IKIGAI::ECS::Object> obj, std::string_view compName) {
 	auto& manager = IKIGAI::UTILS::ReflectionManager::Instance();
 	if (auto* typeInfo = manager.getType(compName)) {
 		if (typeInfo->mMethods.contains("RemoveComponent")) {
-			typeInfo->mMethods.at("RemoveComponent").invoke(nullptr, {obj});
+			typeInfo->mMethods.at("RemoveComponent").invoke(nullptr, { obj });
 		}
 	}
 }
 
 //----------------------------------
 
-
-template<class CLASS, class PTR>
-void widgetFloat4(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+template <class CLASS, class PTR> void widgetFloat4(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	const std::string& propName = prop.getName();
 	if (!IKIGAI::IMGUI::CombineVecEdit::Data.contains(propName)) {
-		IKIGAI::IMGUI::CombineVecEdit::Data.insert({propName, IKIGAI::IMGUI::CombineVecEdit(propName, 4, IKIGAI::IMGUI::CombineVecEdit::MODE::POS)});
+		IKIGAI::IMGUI::CombineVecEdit::Data.insert(
+			{ propName, IKIGAI::IMGUI::CombineVecEdit(propName, 4, IKIGAI::IMGUI::CombineVecEdit::MODE::POS) });
 	}
 	auto val = prop.get(*comp);
 	if (IKIGAI::IMGUI::CombineVecEdit::Data.at(propName).draw(val)) {
@@ -160,34 +156,22 @@ void widgetFloat4(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	}
 }
 
-template<class CLASS, class PTR>
-void widgetColor4(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+template <class CLASS, class PTR> void widgetColor4(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	const std::string& propName = prop.getName();
 	if (!IKIGAI::IMGUI::CombineVecEdit::Data.contains(propName)) {
-		IKIGAI::IMGUI::CombineVecEdit::Data.insert({propName, IKIGAI::IMGUI::CombineVecEdit(propName, 4, IKIGAI::IMGUI::CombineVecEdit::MODE::COLOR)});
+		IKIGAI::IMGUI::CombineVecEdit::Data.insert(
+			{ propName, IKIGAI::IMGUI::CombineVecEdit(propName, 4, IKIGAI::IMGUI::CombineVecEdit::MODE::COLOR) });
 	}
 	auto val = prop.get(*comp);
 	if (IKIGAI::IMGUI::CombineVecEdit::Data.at(propName).draw(val)) {
 		prop.set(*comp, val);
 	}
 }
-template<class CLASS, class PTR>
-void widgetFloat3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+template <class CLASS, class PTR> void widgetFloat3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	const std::string& propName = prop.getName();
 	if (!IKIGAI::IMGUI::CombineVecEdit::Data.contains(propName)) {
-		IKIGAI::IMGUI::CombineVecEdit::Data.insert({propName, IKIGAI::IMGUI::CombineVecEdit(propName, 3, IKIGAI::IMGUI::CombineVecEdit::MODE::POS)});
-	}
-	auto val = prop.get(*comp);
-	if (IKIGAI::IMGUI::CombineVecEdit::Data.at(propName).draw(val)) {
-		prop.set(*comp, val);
-	}
-}
-
-template<class CLASS, class PTR>
-void widgetColor3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
-	const std::string& propName = prop.getName();
-	if (!IKIGAI::IMGUI::CombineVecEdit::Data.contains(propName)) {
-		IKIGAI::IMGUI::CombineVecEdit::Data.insert({propName, IKIGAI::IMGUI::CombineVecEdit(propName, 3, IKIGAI::IMGUI::CombineVecEdit::MODE::COLOR)});
+		IKIGAI::IMGUI::CombineVecEdit::Data.insert(
+			{ propName, IKIGAI::IMGUI::CombineVecEdit(propName, 3, IKIGAI::IMGUI::CombineVecEdit::MODE::POS) });
 	}
 	auto val = prop.get(*comp);
 	if (IKIGAI::IMGUI::CombineVecEdit::Data.at(propName).draw(val)) {
@@ -195,15 +179,25 @@ void widgetColor3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	}
 }
 
-template<class CLASS, class PTR>
-void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
-template<class CLASS>
-void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, float>& prop) {
+template <class CLASS, class PTR> void widgetColor3(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
+	const std::string& propName = prop.getName();
+	if (!IKIGAI::IMGUI::CombineVecEdit::Data.contains(propName)) {
+		IKIGAI::IMGUI::CombineVecEdit::Data.insert(
+			{ propName, IKIGAI::IMGUI::CombineVecEdit(propName, 3, IKIGAI::IMGUI::CombineVecEdit::MODE::COLOR) });
+	}
+	auto val = prop.get(*comp);
+	if (IKIGAI::IMGUI::CombineVecEdit::Data.at(propName).draw(val)) {
+		prop.set(*comp, val);
+	}
+}
+
+template <class CLASS, class PTR> void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) { }
+template <class CLASS> void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, float>& prop) {
 	const std::string& propName = prop.getName();
 	float val = prop.get(*comp);
 
-	//const auto flagsRageData = prop.getMetadata().at();
-	//const auto flagsStepData = prop.get_metadata();
+	// const auto flagsRageData = prop.getMetadata().at();
+	// const auto flagsStepData = prop.get_metadata();
 	auto _speed = 1;
 	auto _min = 0.0f;
 	auto _max = 0.0f;
@@ -220,15 +214,13 @@ void widgetFloat(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, float>& prop) {
 	}
 }
 
-template<class CLASS, class PTR>
-void widgetInt(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
-template<class CLASS>
-void widgetInt(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, int>& prop) {
+template <class CLASS, class PTR> void widgetInt(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) { }
+template <class CLASS> void widgetInt(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, int>& prop) {
 	const std::string& propName = prop.getName();
 	auto val = prop.get(*comp);
 
-	//const auto flagsRageData = prop.getMetadata().at();
-	//const auto flagsStepData = prop.get_metadata();
+	// const auto flagsRageData = prop.getMetadata().at();
+	// const auto flagsStepData = prop.get_metadata();
 	auto _speed = 1;
 	auto _min = 0;
 	auto _max = 0;
@@ -245,10 +237,8 @@ void widgetInt(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, int>& prop) {
 	}
 }
 
-template<class CLASS, class PTR>
-void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
-template<class CLASS>
-void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, bool>& prop) {
+template <class CLASS, class PTR> void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) { }
+template <class CLASS> void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, bool>& prop) {
 	const std::string& propName = prop.getName();
 	auto val = prop.get(*comp);
 	if (ImGui::Checkbox(propName.c_str(), &val)) {
@@ -256,30 +246,27 @@ void widgetBool(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, bool>& prop) {
 	}
 }
 
-template<class CLASS, class PTR>
-void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
-template<class CLASS>
-void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, const std::string&>& prop) {
+template <class CLASS, class PTR> void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) { }
+template <class CLASS> void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, const std::string&>& prop) {
 	const std::string& propName = prop.getName();
 	auto val = prop.get(*comp);
 	if (ImGui::InputText(propName.c_str(), &val)) {
 		prop.set(*comp, val);
 	}
 }
-template<class CLASS>
-void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, std::string>& prop) {
+template <class CLASS> void widgetString(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, std::string>& prop) {
 	const std::string& propName = prop.getName();
 	auto val = prop.get(*comp);
 	if (ImGui::InputText(propName.c_str(), &val)) {
 		prop.set(*comp, val);
 	}
 }
-template<class CLASS, class PTR, typename std::enable_if<!std::is_enum<PTR>::value>::type* = nullptr>
-void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {}
+template <class CLASS, class PTR, typename std::enable_if<!std::is_enum<PTR>::value>::type* = nullptr>
+void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) { }
 
-template<class CLASS, class PTR, typename std::enable_if<std::is_enum<PTR>::value>::type* = nullptr>
+template <class CLASS, class PTR, typename std::enable_if<std::is_enum<PTR>::value>::type* = nullptr>
 void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
-	//TODO: support my enums
+	// TODO: support my enums
 	const std::string propName = prop.getName();
 
 	auto val = prop.get(*comp);
@@ -295,7 +282,7 @@ void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 			i++;
 		}
 		return i;
-		}();
+	}();
 	const auto comboLabel = enumNames[itemCurrentIndex];
 	if (ImGui::BeginCombo(propName.c_str(), comboLabel.data())) {
 		for (int n = 0; n < enumNames.size(); n++) {
@@ -312,65 +299,66 @@ void widgetCombo(CLASS* comp, IKIGAI::UTILS::MemberInfo<CLASS, PTR>& prop) {
 	}
 }
 
-template<typename T>
-void getPropsImpl(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
+template <typename T> void getPropsImpl(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
 	if (comp->getName() == IKIGAI::ECS::GetComponentName<T>()) {
 		auto props = T::GetMembers();
-		std::apply([&comp]<typename... Args> (Args&... tpl) {
-			auto drawElem = [&comp](auto& prop) {
-				const auto propName = prop.getName();
-				const auto wType = std::get<IKIGAI::UTILS::WidgetType>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
-				switch (wType) {
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
-					widgetFloat4(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_4: {
-					widgetColor4(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_3: {
-					widgetFloat3(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_3: {
-					widgetColor3(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT: {
-					widgetFloat(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_INT: {
-					widgetInt(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::BOOL: {
-					widgetBool(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::STRING: {
-					widgetString(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::COMBO: {
-					widgetCombo(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				}
+		std::apply(
+			[&comp]<typename... Args>(Args&... tpl) {
+				auto drawElem = [&comp](auto& prop) {
+					const auto propName = prop.getName();
+					const auto wType = std::get<IKIGAI::UTILS::WidgetType>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
+					switch (wType) {
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
+						widgetFloat4(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::DRAG_COLOR_4: {
+						widgetColor4(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_3: {
+						widgetFloat3(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::DRAG_COLOR_3: {
+						widgetColor3(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT: {
+						widgetFloat(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::DRAG_INT: {
+						widgetInt(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::BOOL: {
+						widgetBool(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::STRING: {
+						widgetString(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::COMBO: {
+						widgetCombo(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					}
 				};
-			(drawElem(tpl), ...);
-		}, props);
+				(drawElem(tpl), ...);
+			},
+			props);
 	}
 }
 
-template<template<typename...> class Container, typename...ComponentType>
+template <template <typename...> class Container, typename... ComponentType>
 void getProps(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp, Container<ComponentType...> opt) {
 	(getPropsImpl<ComponentType>(comp), ...);
 }
 
 void getProps(IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
-	getProps(comp, IKIGAI::ECS::ComponentsTypeProviderType{});
+	getProps(comp, IKIGAI::ECS::ComponentsTypeProviderType {});
 }
 
 void ComponentManagerWindow::draw() {
@@ -383,31 +371,29 @@ void ComponentManagerWindow::draw() {
 		return;
 	}
 
-    if (PREFABS::Member(*selectObject)) {
-        ImGui::TextWrapped("Prefab instance: use Component Inspector V2. Unpack to edit its contents.");
-        ImGui::End();
-        return;
-    }
+	if (PREFABS::Member(*selectObject)) {
+		ImGui::TextWrapped("Prefab instance: use Component Inspector V2. Unpack to edit its contents.");
+		ImGui::End();
+		return;
+	}
 	static std::map<std::string, std::string> iconComp = {
-		{"TransformComponent", ICON_FA_GLOBE},
-		{"SpotLight", ICON_FA_LIGHTBULB},
-		{"DirectionalLight", ICON_FA_SUN},
-		{"PointLight", ICON_FA_LIGHTBULB},
-		{"AmbientSphereLight", ICON_FA_CIRCLE},
-		{"AmbientLight", ICON_FA_SQUARE},
-		{"CameraComponent", ICON_FA_CAMERA},
-		{"AudioListenerComponent", ICON_FA_MUSIC},
-		{"AudioComponent", ICON_FA_MUSIC},
-		{"InputComponent", ICON_FA_HAND_POINT_UP},
-		{"LogicComponent", ICON_FA_CODE},
-		{"MaterialRenderer", ICON_FA_IMAGE},
-		{"ModelRenderer", ICON_FA_CUBE},
-		{"PhysicsComponent", ICON_FA_WEIGHT},
-		{"ScriptComponent", ICON_FA_CODE},
-        {"IkigaiScriptComponent", ICON_FA_CODE},
-		{"Skeletal", ICON_FA_SKULL},
+		{ "TransformComponent", ICON_FA_GLOBE },
+		{ "SpotLight", ICON_FA_LIGHTBULB },
+		{ "DirectionalLight", ICON_FA_SUN },
+		{ "PointLight", ICON_FA_LIGHTBULB },
+		{ "AmbientSphereLight", ICON_FA_CIRCLE },
+		{ "AmbientLight", ICON_FA_SQUARE },
+		{ "CameraComponent", ICON_FA_CAMERA },
+		{ "AudioListenerComponent", ICON_FA_MUSIC },
+		{ "AudioComponent", ICON_FA_MUSIC },
+		{ "InputComponent", ICON_FA_HAND_POINT_UP },
+		{ "LogicComponent", ICON_FA_CODE },
+		{ "MaterialRenderer", ICON_FA_IMAGE },
+		{ "ModelRenderer", ICON_FA_CUBE },
+		{ "PhysicsComponent", ICON_FA_WEIGHT },
+		{ "ScriptComponent", ICON_FA_CODE },
+		{ "IkigaiScriptComponent", ICON_FA_CODE },
 	};
-
 
 	ImGui::Text(("Id: " + std::to_string(static_cast<int>(selectObject->getID().getUniqueId()))).c_str());
 
@@ -421,7 +407,7 @@ void ComponentManagerWindow::draw() {
 		selectObject->setTag(tag);
 	}
 
-	//Add new component to object
+	// Add new component to object
 	static auto componentNames = genComponentsStringArray();
 	const auto& componentToAdd = drawSearchBox("##input_search_component_manager_win", componentNames);
 	if (ImGui::Button("Add")) {
@@ -430,13 +416,14 @@ void ComponentManagerWindow::draw() {
 		}
 	}
 
-	//Object components
-	//auto components = ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
+	// Object components
+	// auto components = ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
 	auto components = selectObject->getComponents();
 	for (auto& [_, component] : components) {
 		auto title = iconComp[component->getName()] + std::string(" ") + component->getName();
 		bool needDelComponent = true;
-		if (ImGui::CollapsingHeader(title.c_str(), PREFABS::Member(*selectObject) ? nullptr : &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
+		if (ImGui::CollapsingHeader(title.c_str(), PREFABS::Member(*selectObject) ? nullptr : &needDelComponent,
+				ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
 			if (!needDelComponent) {
 				removeComponentFromObject(selectObject, component->getTypeidName());
 				break;
@@ -469,10 +456,8 @@ void ComponentManagerWindow::draw() {
 							auto val = std::get<std::shared_ptr<RENDER::TextureInterface>>(material->get(name));
 							ImGui::PushID(("##" + name).c_str());
 
-							//auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
-							if (ImGui::Selectable(("##" + name).c_str(), false, 0, ImVec2(100, 100))) {
-
-							}
+							// auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+							if (ImGui::Selectable(("##" + name).c_str(), false, 0, ImVec2(100, 100))) { }
 							auto pos = ImGui::GetCursorPos();
 							ImGui::SetCursorPos(ImVec2(pos.x, pos.y - 100));
 
@@ -480,16 +465,18 @@ void ComponentManagerWindow::draw() {
 								ImGui::Image(reinterpret_cast<ImTextureID>(val->getImguiId()), ImVec2(100, 100), ImVec2(0, 1), ImVec2(1, 0));
 							}
 							ImGui::PopID();
-
-						} else if (data.mType == RENDER::ShaderReflection::UniformType::UNIFORM_BUFFER) {
+						}
+						else if (data.mType == RENDER::ShaderReflection::UniformType::UNIFORM_BUFFER) {
 							for (const auto& mamber : data.mMembers) {
 								auto _name = mamber.mName;
 								switch (mamber.mType) {
-								case RENDER::ShaderReflection::UniformType::MAT4: break;
-								case RENDER::ShaderReflection::UniformType::MAT3: break;
+								case RENDER::ShaderReflection::UniformType::MAT4:
+									break;
+								case RENDER::ShaderReflection::UniformType::MAT3:
+									break;
 								case RENDER::ShaderReflection::UniformType::VEC4: {
 									if (!IMGUI::CombineVecEdit::Data.count(_name)) {
-										IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name, 4)});
+										IMGUI::CombineVecEdit::Data.insert({ _name, IMGUI::CombineVecEdit(_name, 4) });
 									}
 									auto val = std::get<MATH::Vector4f>(material->get(name + _name));
 									if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
@@ -499,7 +486,7 @@ void ComponentManagerWindow::draw() {
 								}
 								case RENDER::ShaderReflection::UniformType::VEC3: {
 									if (!IMGUI::CombineVecEdit::Data.count(_name)) {
-										IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name, 3)});
+										IMGUI::CombineVecEdit::Data.insert({ _name, IMGUI::CombineVecEdit(_name, 3) });
 									}
 									auto val = std::get<MATH::Vector3f>(material->get(name + _name));
 									if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
@@ -509,19 +496,17 @@ void ComponentManagerWindow::draw() {
 								}
 								case RENDER::ShaderReflection::UniformType::VEC2: {
 									if (!IMGUI::CombineVecEdit::Data.count(_name)) {
-										IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name,
-											2)});
+										IMGUI::CombineVecEdit::Data.insert({ _name, IMGUI::CombineVecEdit(_name, 2) });
 									}
-									auto val =
-										std::get<MATH::Vector2f>(material->get(name + _name)); if
-										(IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
+									auto val = std::get<MATH::Vector2f>(material->get(name + _name));
+									if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
 										material->set(name + _name, val);
 									}
 									break;
 								}
 								case RENDER::ShaderReflection::UniformType::INT: {
 									if (!IMGUI::ScalarEdit::Data.count(_name)) {
-										IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::INT)});
+										IMGUI::ScalarEdit::Data.insert({ _name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::INT) });
 									}
 									auto val = std::get<int>(material->get(name + _name));
 									if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
@@ -531,7 +516,7 @@ void ComponentManagerWindow::draw() {
 								}
 								case RENDER::ShaderReflection::UniformType::FLOAT: {
 									if (!IMGUI::ScalarEdit::Data.count(_name)) {
-										IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::FLOAT)});
+										IMGUI::ScalarEdit::Data.insert({ _name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::FLOAT) });
 									}
 									auto val = std::get<float>(material->get(name + _name));
 									if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
@@ -541,7 +526,7 @@ void ComponentManagerWindow::draw() {
 								}
 								case RENDER::ShaderReflection::UniformType::BOOL: {
 									if (!IMGUI::ScalarEdit::Data.count(_name)) {
-										IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::BOOL)});
+										IMGUI::ScalarEdit::Data.insert({ _name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::BOOL) });
 									}
 									auto val = std::get<bool>(material->get(name + _name));
 									if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
@@ -549,16 +534,21 @@ void ComponentManagerWindow::draw() {
 									}
 									break;
 								}
-								case RENDER::ShaderReflection::UniformType::SAMPLER_2D: break;
-								case RENDER::ShaderReflection::UniformType::SAMPLER_3D: break;
-								case RENDER::ShaderReflection::UniformType::SAMPLER_CUBE: break;
-								default: break;
+								case RENDER::ShaderReflection::UniformType::SAMPLER_2D:
+									break;
+								case RENDER::ShaderReflection::UniformType::SAMPLER_3D:
+									break;
+								case RENDER::ShaderReflection::UniformType::SAMPLER_CUBE:
+									break;
+								default:
+									break;
 								}
 							}
 						}
 					}
 				}
-			} else {
+			}
+			else {
 				getProps(component);
 			}
 		}
@@ -586,10 +576,8 @@ void IKIGAI::EDITOR::DrawMaterialWidget(ECS::MaterialRenderer::MaterialList& mat
 				auto val = std::get<std::shared_ptr<RENDER::TextureInterface>>(material->get(name));
 				ImGui::PushID(("##" + name).c_str());
 
-				//auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
-				if (ImGui::Selectable(("##" + name).c_str(), false, 0, ImVec2(100, 100))) {
-
-				}
+				// auto size = RESOURCES::ServiceManager::Get<WINDOW_SYSTEM::Window>().getSize();
+				if (ImGui::Selectable(("##" + name).c_str(), false, 0, ImVec2(100, 100))) { }
 				auto pos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(ImVec2(pos.x, pos.y - 100));
 
@@ -597,16 +585,18 @@ void IKIGAI::EDITOR::DrawMaterialWidget(ECS::MaterialRenderer::MaterialList& mat
 					ImGui::Image(reinterpret_cast<ImTextureID>(val->getImguiId()), ImVec2(100, 100), ImVec2(0, 1), ImVec2(1, 0));
 				}
 				ImGui::PopID();
-
-			} else if (data.mType == RENDER::ShaderReflection::UniformType::UNIFORM_BUFFER) {
+			}
+			else if (data.mType == RENDER::ShaderReflection::UniformType::UNIFORM_BUFFER) {
 				for (const auto& mamber : data.mMembers) {
 					auto _name = mamber.mName;
 					switch (mamber.mType) {
-					case RENDER::ShaderReflection::UniformType::MAT4: break;
-					case RENDER::ShaderReflection::UniformType::MAT3: break;
+					case RENDER::ShaderReflection::UniformType::MAT4:
+						break;
+					case RENDER::ShaderReflection::UniformType::MAT3:
+						break;
 					case RENDER::ShaderReflection::UniformType::VEC4: {
 						if (!IMGUI::CombineVecEdit::Data.count(_name)) {
-							IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name, 4)});
+							IMGUI::CombineVecEdit::Data.insert({ _name, IMGUI::CombineVecEdit(_name, 4) });
 						}
 						auto val = std::get<MATH::Vector4f>(material->get(name + _name));
 						if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
@@ -616,7 +606,7 @@ void IKIGAI::EDITOR::DrawMaterialWidget(ECS::MaterialRenderer::MaterialList& mat
 					}
 					case RENDER::ShaderReflection::UniformType::VEC3: {
 						if (!IMGUI::CombineVecEdit::Data.count(_name)) {
-							IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name, 3)});
+							IMGUI::CombineVecEdit::Data.insert({ _name, IMGUI::CombineVecEdit(_name, 3) });
 						}
 						auto val = std::get<MATH::Vector3f>(material->get(name + _name));
 						if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
@@ -626,19 +616,17 @@ void IKIGAI::EDITOR::DrawMaterialWidget(ECS::MaterialRenderer::MaterialList& mat
 					}
 					case RENDER::ShaderReflection::UniformType::VEC2: {
 						if (!IMGUI::CombineVecEdit::Data.count(_name)) {
-							IMGUI::CombineVecEdit::Data.insert({_name, IMGUI::CombineVecEdit(_name,
-								2)});
+							IMGUI::CombineVecEdit::Data.insert({ _name, IMGUI::CombineVecEdit(_name, 2) });
 						}
-						auto val =
-							std::get<MATH::Vector2f>(material->get(name + _name)); if
-							(IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
+						auto val = std::get<MATH::Vector2f>(material->get(name + _name));
+						if (IMGUI::CombineVecEdit::Data.at(_name).draw(val)) {
 							material->set(name + _name, val);
 						}
 						break;
 					}
 					case RENDER::ShaderReflection::UniformType::INT: {
 						if (!IMGUI::ScalarEdit::Data.count(_name)) {
-							IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::INT)});
+							IMGUI::ScalarEdit::Data.insert({ _name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::INT) });
 						}
 						auto val = std::get<int>(material->get(name + _name));
 						if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
@@ -648,7 +636,7 @@ void IKIGAI::EDITOR::DrawMaterialWidget(ECS::MaterialRenderer::MaterialList& mat
 					}
 					case RENDER::ShaderReflection::UniformType::FLOAT: {
 						if (!IMGUI::ScalarEdit::Data.count(_name)) {
-							IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::FLOAT)});
+							IMGUI::ScalarEdit::Data.insert({ _name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::FLOAT) });
 						}
 						auto val = std::get<float>(material->get(name + _name));
 						if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
@@ -658,7 +646,7 @@ void IKIGAI::EDITOR::DrawMaterialWidget(ECS::MaterialRenderer::MaterialList& mat
 					}
 					case RENDER::ShaderReflection::UniformType::BOOL: {
 						if (!IMGUI::ScalarEdit::Data.count(_name)) {
-							IMGUI::ScalarEdit::Data.insert({_name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::BOOL)});
+							IMGUI::ScalarEdit::Data.insert({ _name, IMGUI::ScalarEdit(_name, IMGUI::ScalarEdit::TYPE::BOOL) });
 						}
 						auto val = std::get<bool>(material->get(name + _name));
 						if (IMGUI::ScalarEdit::Data.at(_name).draw(val)) {
@@ -666,10 +654,14 @@ void IKIGAI::EDITOR::DrawMaterialWidget(ECS::MaterialRenderer::MaterialList& mat
 						}
 						break;
 					}
-					case RENDER::ShaderReflection::UniformType::SAMPLER_2D: break;
-					case RENDER::ShaderReflection::UniformType::SAMPLER_3D: break;
-					case RENDER::ShaderReflection::UniformType::SAMPLER_CUBE: break;
-					default: break;
+					case RENDER::ShaderReflection::UniformType::SAMPLER_2D:
+						break;
+					case RENDER::ShaderReflection::UniformType::SAMPLER_3D:
+						break;
+					case RENDER::ShaderReflection::UniformType::SAMPLER_CUBE:
+						break;
+					default:
+						break;
 					}
 				}
 			}
@@ -701,17 +693,70 @@ void ComponentInspectorWindow::drawAddComponent(std::shared_ptr<ECS::Object> sel
 	}
 }
 
-void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> selectObject, UTILS::WeakPtr<ECS::ComponentBase> component, const std::string& compName, const std::string& typeIdName, const std::string& iconStr) {
+void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> selectObject, UTILS::WeakPtr<ECS::ComponentBase> component,
+	const std::string& compName, const std::string& typeIdName, const std::string& iconStr) {
 	auto title = iconStr + std::string(" ") + compName;
 
 	bool needDelComponent = true;
-	if (ImGui::CollapsingHeader(title.c_str(), PREFABS::Member(*selectObject) ? nullptr : &needDelComponent, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
+	if (ImGui::CollapsingHeader(title.c_str(), PREFABS::Member(*selectObject) ? nullptr : &needDelComponent,
+			ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow)) {
 		if (!needDelComponent) {
 			removeComponentFromObject2(selectObject, typeIdName);
 			return;
 		}
 
 		auto* typeInfo = UTILS::ReflectionManager::Instance().getType(typeIdName);
+		if (typeInfo && typeInfo->mMethods.contains("Configuration")) {
+			try {
+				auto value = typeInfo->mMethods.at("Configuration").invoke(component.get(), {});
+				const auto config = UTILS::any_cast<nlohmann::json>(value);
+				for (const auto& [name, field] : config.items()) {
+					if (name.ends_with("Type")) {
+						continue;
+					}
+					if (field.is_object() && field.contains("ObjectId") && field.contains("Component")) {
+						auto target
+							= PREFABS::Manager().getCurrentScene().findObjectByID(ECS2::Entity(ECS2::Entity::ID(field.at("ObjectId").get<int>())));
+						ImGui::Text("%s: %s / %s", name.c_str(), target ? target->getName().c_str() : "Missing object",
+							field.at("Component").get<std::string>().c_str());
+					}
+					else if (ImGui::TreeNode(name.c_str())) {
+						ImGui::TextWrapped("%s", field.dump(2).c_str());
+						ImGui::TreePop();
+					}
+				}
+				if (auto context = dynamic_cast<ECS::VariableContextComponent*>(component.get()); context && context->tick() > 0) {
+					if (ImGui::TreeNode("Context snapshot")) {
+						for (const auto& [name, entry] : context->settings.Variables) {
+							const auto& current = context->read(context->slot(name));
+							std::string text = std::visit(
+								[](const auto& v) -> std::string {
+									using V = std::decay_t<decltype(v)>;
+									if constexpr (std::is_same_v<V, MATH::Vector3f>) {
+										return std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z);
+									}
+									else if constexpr (std::is_same_v<V, bool>) {
+										return v ? "true" : "false";
+									}
+									else {
+										return std::to_string(v);
+									}
+								},
+								current);
+							ImGui::Text("%s = %s", name.c_str(), text.c_str());
+						}
+						ImGui::TreePop();
+					}
+				}
+				if (auto graph = dynamic_cast<ECS::SkeletalStateGraphComponent*>(component.get()); graph && graph->instance) {
+					auto* state = graph->instance->runtime();
+					ImGui::Text("State: %s | time %.3f | blend %.2f", state->state().c_str(), state->stateTime(), state->blendWeight());
+					ImGui::TextWrapped("Last transition: %s", state->lastTransition().dump().c_str());
+				}
+			} catch (const std::exception& e) {
+				ImGui::TextWrapped("%s", e.what());
+			}
+		}
 		if (typeInfo) {
 			for (auto& [fieldName, field] : typeInfo->mFields) {
 				auto wType = field.metadata.get<UTILS::WidgetType>("EditWidget", UTILS::WidgetType::NONE);
@@ -720,15 +765,29 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 				if (std::find(wFlags.begin(), wFlags.end(), "USE_IN_EDITOR_COMPONENT_INSPECTOR") == wFlags.end()) {
 					continue;
 				}
-				
+
 				if (wType == UTILS::WidgetType::NONE) {
-					if (field.typeId == UTILS::ReflectionManager::GetTypeId<float>()) wType = UTILS::WidgetType::DRAG_FLOAT;
-					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<int>()) wType = UTILS::WidgetType::DRAG_INT;
-					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<bool>()) wType = UTILS::WidgetType::BOOL;
-					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<std::string>()) wType = UTILS::WidgetType::STRING;
-					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<MATH::Vector2f>()) wType = UTILS::WidgetType::DRAG_FLOAT_3;
-					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<MATH::Vector3f>()) wType = UTILS::WidgetType::DRAG_FLOAT_3;
-					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<MATH::Vector4f>()) wType = UTILS::WidgetType::DRAG_FLOAT_4;
+					if (field.typeId == UTILS::ReflectionManager::GetTypeId<float>()) {
+						wType = UTILS::WidgetType::DRAG_FLOAT;
+					}
+					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<int>()) {
+						wType = UTILS::WidgetType::DRAG_INT;
+					}
+					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<bool>()) {
+						wType = UTILS::WidgetType::BOOL;
+					}
+					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<std::string>()) {
+						wType = UTILS::WidgetType::STRING;
+					}
+					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<MATH::Vector2f>()) {
+						wType = UTILS::WidgetType::DRAG_FLOAT_3;
+					}
+					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<MATH::Vector3f>()) {
+						wType = UTILS::WidgetType::DRAG_FLOAT_3;
+					}
+					else if (field.typeId == UTILS::ReflectionManager::GetTypeId<MATH::Vector4f>()) {
+						wType = UTILS::WidgetType::DRAG_FLOAT_4;
+					}
 				}
 
 				float min = 0.0f, max = 0.0f, step = 0.1f;
@@ -754,7 +813,9 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 					changed = ImGui::DragFloat(fieldName.c_str(), &val, step, min, max);
 					activated = ImGui::IsItemActivated();
 					deactivated = ImGui::IsItemDeactivatedAfterEdit();
-					if (changed) field.set<float>(component.get(), val);
+					if (changed) {
+						field.set<float>(component.get(), val);
+					}
 					break;
 				}
 				case UTILS::WidgetType::DRAG_INT: {
@@ -762,7 +823,9 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 					changed = ImGui::DragInt(fieldName.c_str(), &val, step, min, max);
 					activated = ImGui::IsItemActivated();
 					deactivated = ImGui::IsItemDeactivatedAfterEdit();
-					if (changed) field.set<int>(component.get(), val);
+					if (changed) {
+						field.set<int>(component.get(), val);
+					}
 					break;
 				}
 				case UTILS::WidgetType::BOOL: {
@@ -770,7 +833,9 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 					changed = ImGui::Checkbox(fieldName.c_str(), &val);
 					activated = ImGui::IsItemActivated();
 					deactivated = ImGui::IsItemDeactivatedAfterEdit();
-					if (changed) field.set<bool>(component.get(), val);
+					if (changed) {
+						field.set<bool>(component.get(), val);
+					}
 					break;
 				}
 				case UTILS::WidgetType::STRING: {
@@ -778,42 +843,65 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 					changed = IMGUI::InputText(fieldName, "##str_edit", val);
 					activated = ImGui::IsItemActivated();
 					deactivated = ImGui::IsItemDeactivatedAfterEdit();
-					if (changed) field.set<std::string>(component.get(), val);
+					if (changed) {
+						field.set<std::string>(component.get(), val);
+					}
 					break;
 				}
 				case UTILS::WidgetType::DRAG_FLOAT_3: {
 					if (field.typeId == UTILS::ReflectionManager::GetTypeId<MATH::Vector2f>()) {
 						MATH::Vector2f val = field.get<MATH::Vector2f>(component.get());
 						int state = IMGUI::DrawCombineVecEdit(fieldName, 2, reinterpret_cast<float*>(&val), min, max, step, false);
-						changed = state & 1; activated = state & 2; deactivated = state & 4;
-						if (changed) field.set<MATH::Vector2f>(component.get(), val);
-					} else {
+						changed = state & 1;
+						activated = state & 2;
+						deactivated = state & 4;
+						if (changed) {
+							field.set<MATH::Vector2f>(component.get(), val);
+						}
+					}
+					else {
 						MATH::Vector3f val = field.get<MATH::Vector3f>(component.get());
 						int state = IMGUI::DrawCombineVecEdit(fieldName, 3, reinterpret_cast<float*>(&val), min, max, step, false);
-						changed = state & 1; activated = state & 2; deactivated = state & 4;
-						if (changed) field.set<MATH::Vector3f>(component.get(), val);
+						changed = state & 1;
+						activated = state & 2;
+						deactivated = state & 4;
+						if (changed) {
+							field.set<MATH::Vector3f>(component.get(), val);
+						}
 					}
 					break;
 				}
 				case UTILS::WidgetType::DRAG_FLOAT_4: {
 					MATH::Vector4f val = field.get<MATH::Vector4f>(component.get());
 					int state = IMGUI::DrawCombineVecEdit(fieldName, 4, reinterpret_cast<float*>(&val), min, max, step, false);
-					changed = state & 1; activated = state & 2; deactivated = state & 4;
-					if (changed) field.set<MATH::Vector4f>(component.get(), val);
+					changed = state & 1;
+					activated = state & 2;
+					deactivated = state & 4;
+					if (changed) {
+						field.set<MATH::Vector4f>(component.get(), val);
+					}
 					break;
 				}
 				case UTILS::WidgetType::DRAG_COLOR_3: {
 					MATH::Vector3f val = field.get<MATH::Vector3f>(component.get());
 					int state = IMGUI::DrawCombineVecEdit(fieldName, 3, reinterpret_cast<float*>(&val), min, max, step, true);
-					changed = state & 1; activated = state & 2; deactivated = state & 4;
-					if (changed) field.set<MATH::Vector3f>(component.get(), val);
+					changed = state & 1;
+					activated = state & 2;
+					deactivated = state & 4;
+					if (changed) {
+						field.set<MATH::Vector3f>(component.get(), val);
+					}
 					break;
 				}
 				case UTILS::WidgetType::DRAG_COLOR_4: {
 					MATH::Vector4f val = field.get<MATH::Vector4f>(component.get());
 					int state = IMGUI::DrawCombineVecEdit(fieldName, 4, reinterpret_cast<float*>(&val), min, max, step, true);
-					changed = state & 1; activated = state & 2; deactivated = state & 4;
-					if (changed) field.set<MATH::Vector4f>(component.get(), val);
+					changed = state & 1;
+					activated = state & 2;
+					deactivated = state & 4;
+					if (changed) {
+						field.set<MATH::Vector4f>(component.get(), val);
+					}
 					break;
 				}
 				case UTILS::WidgetType::COMBO: {
@@ -827,14 +915,18 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 								if (ImGui::Selectable(name.c_str(), isSelected)) {
 									try {
 										field.set<int>(component.get(), v);
-										EditorRender::GlobalState.mCommandHistory.addCommand(std::make_unique<ReflectionChangePropertyCommand>(selectObject, typeIdName, fieldName, val, v));
-									} catch (...) {}
+										EditorRender::GlobalState.mCommandHistory.addCommand(
+											std::make_unique<ReflectionChangePropertyCommand>(selectObject, typeIdName, fieldName, val, v));
+									} catch (...) { }
 								}
-								if (isSelected) ImGui::SetItemDefaultFocus();
+								if (isSelected) {
+									ImGui::SetItemDefaultFocus();
+								}
 							}
 							ImGui::EndCombo();
 						}
-					} else {
+					}
+					else {
 						ImGui::Text("Enum info missing for %s", fieldName.c_str());
 					}
 					break;
@@ -857,14 +949,16 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 					if (activeEdits.contains(fieldId)) {
 						UTILS::Any oldVal = activeEdits[fieldId];
 						UTILS::Any newVal = field.getter(component.get());
-						EditorRender::GlobalState.mCommandHistory.addCommand(std::make_unique<ReflectionChangePropertyCommand>(selectObject, typeIdName, fieldName, std::move(oldVal), std::move(newVal)));
+						EditorRender::GlobalState.mCommandHistory.addCommand(std::make_unique<ReflectionChangePropertyCommand>(
+							selectObject, typeIdName, fieldName, std::move(oldVal), std::move(newVal)));
 						activeEdits.erase(fieldId);
 					}
 				}
 
 				ImGui::PopID();
 			}
-		} else {
+		}
+		else {
 			ImGui::Text("No reflection data for %s", compName.c_str());
 		}
 	}
@@ -882,33 +976,34 @@ void ComponentInspectorWindow::draw() {
 	}
 
 	static std::map<std::string, std::string> iconComp = {
-		{"TransformComponent", ICON_FA_GLOBE},
-		{"SpotLight", ICON_FA_LIGHTBULB},
-		{"DirectionalLight", ICON_FA_SUN},
-		{"PointLight", ICON_FA_LIGHTBULB},
-		{"AmbientSphereLight", ICON_FA_CIRCLE},
-		{"AmbientLight", ICON_FA_SQUARE},
-		{"CameraComponent", ICON_FA_CAMERA},
-		{"AudioListenerComponent", ICON_FA_MUSIC},
-		{"AudioComponent", ICON_FA_MUSIC},
-		{"InputComponent", ICON_FA_HAND_POINT_UP},
-		{"LogicComponent", ICON_FA_CODE},
-		{"MaterialRenderer", ICON_FA_IMAGE},
-		{"ModelRenderer", ICON_FA_CUBE},
-		{"PhysicsComponent", ICON_FA_WEIGHT},
-		{"ScriptComponent", ICON_FA_CODE},
-        {"IkigaiScriptComponent", ICON_FA_CODE},
-		{"Skeletal", ICON_FA_SKULL},
+		{ "TransformComponent", ICON_FA_GLOBE },
+		{ "SpotLight", ICON_FA_LIGHTBULB },
+		{ "DirectionalLight", ICON_FA_SUN },
+		{ "PointLight", ICON_FA_LIGHTBULB },
+		{ "AmbientSphereLight", ICON_FA_CIRCLE },
+		{ "AmbientLight", ICON_FA_SQUARE },
+		{ "CameraComponent", ICON_FA_CAMERA },
+		{ "AudioListenerComponent", ICON_FA_MUSIC },
+		{ "AudioComponent", ICON_FA_MUSIC },
+		{ "InputComponent", ICON_FA_HAND_POINT_UP },
+		{ "LogicComponent", ICON_FA_CODE },
+		{ "MaterialRenderer", ICON_FA_IMAGE },
+		{ "ModelRenderer", ICON_FA_CUBE },
+		{ "PhysicsComponent", ICON_FA_WEIGHT },
+		{ "ScriptComponent", ICON_FA_CODE },
+		{ "IkigaiScriptComponent", ICON_FA_CODE },
 	};
 
-    const auto* instance = PREFABS::Manager().getCurrentScene().prefabFor(selectObject->getIDInt());
-    if (instance) ImGui::TextWrapped("Prefab: %s", instance->entry.at("Prefab").get<std::string>().c_str());
-    ImGui::BeginDisabled(PREFABS::Locked(*selectObject));
+	const auto* instance = PREFABS::Manager().getCurrentScene().prefabFor(selectObject->getIDInt());
+	if (instance) {
+		ImGui::TextWrapped("Prefab: %s", instance->entry.at("Prefab").get<std::string>().c_str());
+	}
+	ImGui::BeginDisabled(PREFABS::Locked(*selectObject));
 	drawObjectInfo(selectObject);
-    ImGui::EndDisabled();
-    ImGui::BeginDisabled(instance != nullptr);
+	ImGui::EndDisabled();
+	ImGui::BeginDisabled(instance != nullptr);
 	drawAddComponent(selectObject);
-    ImGui::EndDisabled();
+	ImGui::EndDisabled();
 
 	auto components = selectObject->getComponents();
 	for (auto& [_, component] : components) {
@@ -917,9 +1012,9 @@ void ComponentInspectorWindow::draw() {
 		auto iconIt = iconComp.find(compName);
 		auto iconStr = (iconIt != iconComp.end()) ? iconIt->second : ICON_FA_GLOBE;
 
-        ImGui::BeginDisabled(instance && (PREFABS::Locked(*selectObject) || compName != "TransformComponent"));
+		ImGui::BeginDisabled(instance && (PREFABS::Locked(*selectObject) || compName != "TransformComponent"));
 		drawComponent(selectObject, component, compName, typeIdName, iconStr);
-        ImGui::EndDisabled();
+		ImGui::EndDisabled();
 	}
 	ImGui::End();
 }

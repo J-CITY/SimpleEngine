@@ -14,6 +14,7 @@ namespace IKIGAI::SKELETON {
 
 class BlendspaceInterface {
 public:
+	unsigned revision = 0;
 	virtual ~BlendspaceInterface() { }
 };
 
@@ -68,6 +69,8 @@ public:
 	std::unique_ptr<IAnimationPlayable> clone() const override;
 
 private:
+	float mPhase = 0;
+	unsigned mRevision = 0;
 	Pose* mLastPose = nullptr;
 	float mValue = 0.0f;
 	float mMin = 0.0f;
@@ -110,6 +113,8 @@ private:
 	Pose* blendedPoseFromRow(const RowState& row, AnimBlend* blend, float dt);
 	Pose* blendedPoseFromNodes(NodeState& low, NodeState& high, AnimBlend* blend, float dt);
 
+	float mPhase = 0;
+	unsigned mRevision = 0;
 	Pose* mLastPose = nullptr;
 	float mXMax = 0.0f;
 	float mXMin = 0.0f;

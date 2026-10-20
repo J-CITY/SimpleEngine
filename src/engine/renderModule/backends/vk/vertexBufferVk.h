@@ -1,32 +1,33 @@
 #pragma once
 
 #ifdef VULKAN_BACKEND
-#include <vector>
-#include "vmaVk.h"
 #include "../interface/vertexBufferInterface.h"
+#include "vmaVk.h"
+#include <vector>
 
 namespace IKIGAI::RENDER {
-	class VertexBufferVk : public VertexBufferInterface {
-		VmaBuffer mBuffer;
-	public:
-		VertexBufferVk(void* data, size_t size, size_t stride);
+class VertexBufferVk : public VertexBufferInterface {
+	VmaBuffer mBuffer;
+	size_t mCapacityByte = 0;
 
-		template<class T>
-		VertexBufferVk(const std::vector<T>& vertices): VertexBufferVk((void*)vertices.data(), vertices.size(), sizeof(T)) {
-			
-		}
+public:
+	VertexBufferVk(void* data, size_t size, size_t stride);
 
-		~VertexBufferVk() override;
+	template <class T>
+	VertexBufferVk(const std::vector<T>& vertices)
+		: VertexBufferVk((void*)vertices.data(), vertices.size(), sizeof(T)) { }
 
-		void setData(const void* data, size_t sz, size_t stride) override;
+	~VertexBufferVk() override;
 
-		void bind() override;
+	void setData(const void* data, size_t sz, size_t stride) override;
 
-		void unbind() override;
+	void bind() override;
 
-		VmaBuffer& getBuffer() {
-			return mBuffer;
-		}
-	};
+	void unbind() override;
+
+	VmaBuffer& getBuffer() {
+		return mBuffer;
+	}
+};
 }
 #endif

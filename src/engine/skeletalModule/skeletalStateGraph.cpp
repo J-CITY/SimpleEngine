@@ -6,6 +6,7 @@
 #include "resourceModule/skeletonAnimationManager.h"
 #include "resourceModule/skeletonBlendspaceManager.h"
 #include "utilsModule/conditionEvaluator.h"
+#include <iostream>
 
 namespace IKIGAI::SKELETON {
 
@@ -14,18 +15,49 @@ SkeletalStateGraphInstance::SkeletalStateGraphInstance(
 	: mSkeleton(skeleton)
 	, mGraph(graph)
 	, mEnvironment(env) {
+	if (mGraph && mGraph->definition) {
+		const auto expected = mGraph->definition->skeleton;
+		if (!mSkeleton || mSkeleton->getNumJolts() != expected->getNumJolts()) {
+			throw std::runtime_error("State graph skeleton differs from visual skeleton");
+		}
+		for (size_t i = 0; i < mSkeleton->joints().size(); ++i) {
+			if (mSkeleton->joints()[i].name != expected->joints()[i].name
+				|| mSkeleton->joints()[i].parentIndex != expected->joints()[i].parentIndex) {
+				throw std::runtime_error("State graph joint layout differs from visual skeleton");
+			}
+		}
+		mRuntime = std::make_unique<StateGraphRuntime>(mGraph->definition, mEnvironment);
+		mRevision = mGraph->revision;
+		return;
+	}
 	mTransitionBlend = std::make_unique<AnimBlend>(skeleton);
 
 	if (mGraph && !mGraph->resource.initialState.empty()) {
 		changeState(mGraph->resource.initialState, 0.0f);
+		update(0);
 	}
 }
 
 SkeletalStateGraphInstance::~SkeletalStateGraphInstance() = default;
 
 void SkeletalStateGraphInstance::update(float dt) {
-	if (!mGraph)
+	if (mRuntime) {
+		if (mReloadPolicy == ReloadPolicy::Automatic && mRevision != mGraph->revision && !mRuntime->metadata().contains("Action")) {
+			std::string error;
+			if (!mRuntime->replace(mGraph->definition, error)) {
+				std::cerr << "State graph reload rejected: " << error << std::endl;
+			}
+			else {
+				std::cout << "STATE_GRAPH_RELOAD_OK state=" << mRuntime->state() << std::endl;
+			}
+			mRevision = mGraph->revision;
+		}
+		mRuntime->update(dt);
 		return;
+	}
+	if (!mGraph) {
+		return;
+	}
 
 	// 1. Check transitions from current state
 	if (!mCurrentStateName.empty() && mBlendTime <= 0.0f) { // Only check if not already blending
@@ -57,42 +89,38 @@ void SkeletalStateGraphInstance::update(float dt) {
 
 	// 2. Update current states and blending
 	if (mCurrentPlayable) {
-		// If it's a blendspace, update its variables from environment
-		if (auto bs1d = dynamic_cast<Blendspace1DInstance*>(mCurrentPlayable.get())) {
-			// We need the state resource to get variable names
-			const RENDER::AnimStateResource* s = nullptr;
+
+		auto bind = [&](IAnimationPlayable* playable, const std::string& name) {
 			for (const auto& state : mGraph->resource.states) {
-				if (state.name == mCurrentStateName) {
-					s = &state;
+				if (state.name == name) {
+					auto read = [&](const std::string& variable) {
+						// Version 1 blendspaces historically used zero for an unbound
+						// input. Version 2 validates all parameter slots at load time.
+						if (!mEnvironment->hasVariable(variable)) {
+							return 0.f;
+						}
+						return std::visit([](auto value) { return float(value); }, mEnvironment->getValue(variable));
+					};
+					if (auto bs = dynamic_cast<Blendspace1DInstance*>(playable)) {
+						if (!state.blendXVariable.empty()) {
+							bs->setValue(read(state.blendXVariable));
+						}
+					}
+					else if (auto bs = dynamic_cast<Blendspace2DInstance*>(playable)) {
+						if (!state.blendXVariable.empty()) {
+							bs->setXValue(read(state.blendXVariable));
+						}
+						if (!state.blendYVariable.empty()) {
+							bs->setYValue(read(state.blendYVariable));
+						}
+					}
 					break;
 				}
 			}
-			if (s && !s->blendXVariable.empty()) {
-				if (auto val = mEnvironment->getValue(s->blendXVariable); std::holds_alternative<float>(val)) {
-					bs1d->setValue(std::get<float>(val));
-				}
-			}
-		}
-		else if (auto bs2d = dynamic_cast<Blendspace2DInstance*>(mCurrentPlayable.get())) {
-			const RENDER::AnimStateResource* s = nullptr;
-			for (const auto& state : mGraph->resource.states) {
-				if (state.name == mCurrentStateName) {
-					s = &state;
-					break;
-				}
-			}
-			if (s) {
-				if (!s->blendXVariable.empty()) {
-					if (auto val = mEnvironment->getValue(s->blendXVariable); std::holds_alternative<float>(val)) {
-						bs2d->setXValue(std::get<float>(val));
-					}
-				}
-				if (!s->blendYVariable.empty()) {
-					if (auto val = mEnvironment->getValue(s->blendYVariable); std::holds_alternative<float>(val)) {
-						bs2d->setYValue(std::get<float>(val));
-					}
-				}
-			}
+		};
+		bind(mCurrentPlayable.get(), mCurrentStateName);
+		if (mNextPlayable) {
+			bind(mNextPlayable.get(), mNextStateName);
 		}
 
 		mCurrentPlayable->update(dt);
@@ -106,10 +134,12 @@ void SkeletalStateGraphInstance::update(float dt) {
 		mBlendTime -= dt;
 
 		float factor = 1.0f - (mBlendTime / mBlendTimeMax);
-		if (factor > 1.0f)
+		if (factor > 1.0f) {
 			factor = 1.0f;
-		if (factor < 0.0f)
+		}
+		if (factor < 0.0f) {
 			factor = 0.0f;
+		}
 
 		mLastPose = mTransitionBlend->blend(mLastPose, nextPose, factor);
 
@@ -122,6 +152,9 @@ void SkeletalStateGraphInstance::update(float dt) {
 }
 
 Pose* SkeletalStateGraphInstance::getPose() {
+	if (mRuntime) {
+		return mRuntime->getPose();
+	}
 	return mLastPose;
 }
 // evaluateCondition removed
@@ -135,12 +168,14 @@ void SkeletalStateGraphInstance::changeState(const std::string& stateName, float
 		}
 	}
 
-	if (!nextStateRes)
+	if (!nextStateRes) {
 		return;
+	}
 
 	auto newPlayable = instantiateStatePlayable(*nextStateRes);
-	if (!newPlayable)
+	if (!newPlayable) {
 		return;
+	}
 
 	if (mCurrentPlayable && blendTime > 0.0f) {
 		mNextStateName = stateName;
@@ -177,6 +212,25 @@ std::unique_ptr<IAnimationPlayable> SkeletalStateGraphInstance::instantiateState
 }
 
 std::unique_ptr<IAnimationPlayable> SkeletalStateGraphInstance::clone() const {
-	return std::make_unique<SkeletalStateGraphInstance>(mSkeleton, mGraph, mEnvironment);
+	auto env = std::make_shared<UTILS::Environment>(mEnvironment->snapshot());
+	auto copy = std::make_unique<SkeletalStateGraphInstance>(mSkeleton, mGraph, env);
+	copy->mReloadPolicy = mReloadPolicy;
+	copy->mRevision = mRevision;
+	if (mRuntime) {
+		copy->mRuntime = std::make_unique<StateGraphRuntime>(*mRuntime);
+		copy->mEnvironment = copy->mRuntime->environment();
+		return copy;
+	}
+	copy->mCurrentStateName = mCurrentStateName;
+	copy->mNextStateName = mNextStateName;
+	copy->mCurrentPlayable = mCurrentPlayable ? mCurrentPlayable->clone() : nullptr;
+	copy->mNextPlayable = mNextPlayable ? mNextPlayable->clone() : nullptr;
+	copy->mBlendTime = mBlendTime;
+	copy->mBlendTimeMax = mBlendTimeMax;
+	copy->mLastPose = copy->mCurrentPlayable ? copy->mCurrentPlayable->getPose() : nullptr;
+	if (copy->mNextPlayable && copy->mBlendTime > 0) {
+		copy->mLastPose = copy->mTransitionBlend->blend(copy->mLastPose, copy->mNextPlayable->getPose(), 1 - copy->mBlendTime / copy->mBlendTimeMax);
+	}
+	return copy;
 }
 }

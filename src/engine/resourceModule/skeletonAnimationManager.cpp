@@ -7,7 +7,7 @@
 #include "utilsModule/assertion.h"
 #include "utilsModule/jsonLoader.h"
 #include <resourceModule/fileSystem/fileSystem.h>
-
+#include <stdexcept>
 
 namespace IKIGAI::RESOURCES {
 
@@ -17,19 +17,16 @@ ResourcePtr<SKELETON::Animation> SkeletonAnimationLoader::CreateFromFile(const s
 	bool additive, SKELETON::Animation* additiveReference, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 
 	if (!skeleton) {
-		ASSERT("SkeletonAnimationLoader::CreateFromFile: skeleton is null");
-		return nullptr;
+		throw std::runtime_error("SkeletonAnimationLoader: skeleton is null for " + path);
 	}
 
 	auto animation = MEMORY::MakeSharedWithDeleter<SKELETON::Animation, MEMORY::Category::Skeleton>(allocator, deleter);
 	auto data = ServiceManager::Get<FileSystem>().getFile(path)->read();
 	if (data.empty()) {
-		ASSERT(std::string("SkeletonAnimationLoader::CreateFromFile: empty file: " + path).c_str());
-		return nullptr;
+		throw std::runtime_error("SkeletonAnimationLoader: empty file: " + path);
 	}
 	if (!_ASSIMP.LoadAnimation(path, data, *skeleton, *animation, additive, additiveReference)) {
-		ASSERT(std::string("SkeletonAnimationLoader::CreateFromFile: failed to parse: " + path).c_str());
-		return nullptr;
+		throw std::runtime_error("SkeletonAnimationLoader: failed to parse: " + path);
 	}
 
 	return animation;
@@ -101,8 +98,8 @@ ResourcePtr<SKELETON::Animation> SkeletonAnimationLoader::createResource(const s
 			config = LoadConfig(path);
 			AddConfigToCache(path, config);
 		}
-		skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(config.skeletonPath,
-			config.skeletonPath.ends_with(".skeleton") ? ELoadingType::RESOURCE : ELoadingType::FILE);
+		skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(
+			config.skeletonPath, config.skeletonPath.ends_with(".skeleton") ? ELoadingType::RESOURCE : ELoadingType::FILE);
 		if (!skeleton) {
 			ASSERT("SkeletonAnimationLoader: AnimationLoadContext.skeleton is null");
 			return nullptr;

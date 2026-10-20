@@ -11,7 +11,6 @@
 #include "sceneDocument.h"
 #include "utilsModule/ref.h"
 
-
 namespace IKIGAI::GUI {
 class GuiObject;
 }
@@ -63,7 +62,7 @@ public:
 	};
 	class IdGenerator_ : public IdGenerator<ECS::Object> { };
 
-	explicit Scene(ECS2::World* world = nullptr, PhysicsFactories physics = { });
+	explicit Scene(ECS2::World* world = nullptr, PhysicsFactories physics = {});
 	void setPhysicsFactories(PhysicsFactories physics);
 	Scene(const Descriptor& _descriptor);
 	virtual ~Scene();
@@ -74,6 +73,7 @@ public:
 
 	void update(std::chrono::duration<double> dt);
 	void fixedUpdate(std::chrono::duration<double> dt);
+	void finishFixedUpdate(std::chrono::duration<double> dt);
 	void lateUpdate(std::chrono::duration<double> dt);
 #if USE_PHYSICS_3D
 	PHYSICS::PhysicWorld& physics3d();

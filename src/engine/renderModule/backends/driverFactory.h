@@ -5,14 +5,11 @@
 #include <string>
 #include <string_view>
 
-
 namespace IKIGAI::WINDOW {
 class Window;
 }
 
 namespace IKIGAI::RENDER {
-void SetPresentationSmokeFocus(bool);
-void FocusPresentationForSmoke(void* nativeWindow);
 const char* BackendToString(RenderSettings::Backend backend);
 std::optional<RenderSettings::Backend> ParseBackendName(std::string_view name);
 bool IsBackendCompiled(RenderSettings::Backend backend);

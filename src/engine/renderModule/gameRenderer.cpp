@@ -1,5 +1,6 @@
 #include "gameRenderer.h"
 #include "particles/particleRenderer.h"
+#include "utilsModule/time/loadTimer.h"
 #if USE_PHYSICS_3D
 #include "physics/deformableRenderer.h"
 #endif
@@ -75,15 +76,16 @@ void GameRenderer::Init() {
 #endif
 	mEmptyTexture = render->createTexture("/textures/empty.png");
 
-	mEngineUbo = render->createUniformBuffer<EngineUBO>({ });
-	mBoneUbo = render->createUniformBuffer<BonesUBO>({ });
-	mFrameUbo = render->createUniformBuffer<FrameUBO>({ });
-	if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN)
-		mDrawFrameUbo = render->createUniformBuffer<FrameUBO>({ });
-	mShadowUbo = render->createUniformBuffer<ShadowUBO>({ });
-	mShadowPassUbo = render->createUniformBuffer<MATH::Matrix4f>({ });
-	mPointShadowPassUbo = render->createUniformBuffer<PointShadowPassUBO>({ });
-	mCurrentShadowUbo = render->createUniformBuffer<CurrentShadowUBO>({ });
+	mEngineUbo = render->createUniformBuffer<EngineUBO>({});
+	mBoneUbo = render->createUniformBuffer<BonesUBO>({});
+	mFrameUbo = render->createUniformBuffer<FrameUBO>({});
+	if (DriverInterface::settings.backend == RenderSettings::Backend::VULKAN) {
+		mDrawFrameUbo = render->createUniformBuffer<FrameUBO>({});
+	}
+	mShadowUbo = render->createUniformBuffer<ShadowUBO>({});
+	mShadowPassUbo = render->createUniformBuffer<MATH::Matrix4f>({});
+	mPointShadowPassUbo = render->createUniformBuffer<PointShadowPassUBO>({});
+	mCurrentShadowUbo = render->createUniformBuffer<CurrentShadowUBO>({});
 	mFullscreenMesh = CreateMesh({ Vertex({ -1, -1, 0 }, { 0, 0 }), Vertex({ 3, -1, 0 }, { 2, 0 }), Vertex({ -1, 3, 0 }, { 0, 2 }) }, { 0, 1, 2 });
 
 	RenderGraphPipeline::Descriptor desc;
@@ -95,8 +97,9 @@ void GameRenderer::Init() {
 
 	if (!DriverInterface::settings.pipeline.empty()) {
 		auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(DriverInterface::settings.pipeline);
-		if (loaded.isErr())
+		if (loaded.isErr()) {
 			throw std::runtime_error("Render pipeline: " + loaded.unwrapErr().text);
+		}
 		desc = loaded.unwrap();
 	}
 	std::cout << "Render pipeline: " << DriverInterface::settings.pipeline << "; stages=" << desc.Stages.size() << std::endl;
@@ -104,28 +107,18 @@ void GameRenderer::Init() {
 	mStartupPipelineAsset = mActivePipelineAsset = DriverInterface::settings.pipeline;
 }
 
-#ifdef __EMSCRIPTEN__
-int gRendererLogFrames = 8;
-#define WEB_LOG(msg)                                                                                                                                 \
-	do {                                                                                                                                             \
-		if (gRendererLogFrames > 0) {                                                                                                                \
-			std::cout << "[web] " << msg << std::endl;                                                                                               \
-			std::cout.flush();                                                                                                                       \
-		}                                                                                                                                            \
-	} while (0)
-#else
-#define WEB_LOG(msg)                                                                                                                                 \
-	do {                                                                                                                                             \
-	} while (0)
-#endif
-
 void GameRenderer::renderScene() {
-	WEB_LOG("GameRenderer::renderScene");
+
 	if (mContext.sceneManager->isTransitioning() || !mContext.sceneManager->hasCurrentScene()) {
 		renderLoadingScene(mContext.sceneManager->getPresentedScene());
+		mPrimitives.clear();
 		return;
 	}
 	auto& scene = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::SCENE_SYSTEM::SceneManager>().getCurrentScene();
+	std::unique_ptr<UTILS::LoadTimer> firstFrameTiming;
+	if (Config::PROFILE_LOADING && mRenderedScene.lock() != scene.lifetime) {
+		firstFrameTiming = std::make_unique<UTILS::LoadTimer>("scene-first-frame");
+	}
 	auto& render = mContext.render;
 
 	auto camera = scene.findMainCamera();
@@ -140,8 +133,9 @@ void GameRenderer::renderScene() {
 		}
 		else {
 			auto loaded = UTILS::FromJson<RenderGraphPipeline::Descriptor>(asset);
-			if (loaded.isErr())
+			if (loaded.isErr()) {
 				throw std::runtime_error("Scene render pipeline: " + loaded.unwrapErr().text);
+			}
 			descriptor = loaded.unwrap();
 		}
 		auto candidate = std::make_unique<RenderGraphPipeline>(descriptor, *render, asset);
@@ -156,7 +150,7 @@ void GameRenderer::renderScene() {
 	}
 
 	if (auto mainCameraComponent = mContext.sceneManager->getCurrentScene().findMainCamera()) {
-		WEB_LOG("GameRenderer camera found");
+
 		auto sz = mContext.window->getPixelSize();
 		auto winWidth = sz.x;
 		auto winHeight = sz.y;
@@ -174,29 +168,25 @@ void GameRenderer::renderScene() {
 		// mDriver->applyStateMask(glState);
 	}
 	else {
-		WEB_LOG("GameRenderer no camera, clear red");
+
 		render->setClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 		render->clear(true, true, false);
 	}
+	mPrimitives.clear();
 	mFrameCount++;
-	WEB_LOG("GameRenderer::renderScene done");
-#ifdef __EMSCRIPTEN__
-	if (gRendererLogFrames > 0) {
-		--gRendererLogFrames;
-	}
-#endif
 }
 
 void GameRenderer::renderLoadingScene(SCENE_SYSTEM::Scene* scene) {
 	auto& render = *mContext.render;
 	const auto size = mContext.window->getPixelSize();
-	if (size.x <= 0 || size.y <= 0)
+	if (size.x <= 0 || size.y <= 0) {
 		return;
+	}
 	render.getDriver()->resize(size.x, size.y);
 	resetTemporalHistory();
 	mPreviousCamera = nullptr;
 	mSkinningPoses.clear();
-	CAPTURE::ScreenshotService::Get().setSource({ }, { });
+	CAPTURE::ScreenshotService::Get().setSource({}, {});
 	if (auto& driver = *render.getDriver(); driver.mFrameGeneration) {
 		driver.mFrameGeneration->suspend();
 		driver.mFrameGenerationStatus = driver.mFrameGeneration->status();
@@ -229,8 +219,9 @@ const GameRenderer::SkinningPose* GameRenderer::skinningPose(const Drawable& dra
 	}
 	auto [iterator, inserted] = mSkinningPoses.try_emplace(drawable.mAnimOffset);
 	auto& pose = iterator->second;
-	if (!inserted && pose.Frame == mFrameCount && pose.Skeleton == drawable.skeleton && pose.Playable == drawable.animationPlayable)
+	if (!inserted && pose.Frame == mFrameCount && pose.Skeleton == drawable.skeleton && pose.Playable == drawable.animationPlayable) {
 		return &pose;
+	}
 	const bool continuous
 		= !inserted && pose.Frame + 1 == mFrameCount && pose.Skeleton == drawable.skeleton && pose.Playable == drawable.animationPlayable;
 	pose.Previous = pose.Current;
@@ -239,9 +230,10 @@ const GameRenderer::SkinningPose* GameRenderer::skinningPose(const Drawable& dra
 	auto* final = drawable.mAnimOffset->offset(global);
 	pose.Current.fill(MATH::Matrix4f::Identity);
 	std::copy_n(final->transforms, drawable.skeleton->getNumJolts(), pose.Current.begin());
-	if (!continuous)
+	if (!continuous) {
 		pose.Previous = pose.Current;
-	BonesUBO current { }, previous { };
+	}
+	BonesUBO current {}, previous {};
 	current.use = previous.use = 1;
 	for (size_t i = 0; i < 128; ++i) {
 		current.bones[i] = MATH::Matrix4f::Transpose(pose.Current[i]);
@@ -257,34 +249,41 @@ const GameRenderer::SkinningPose* GameRenderer::skinningPose(const Drawable& dra
 
 void GameRenderer::drawDrawable(const Drawable& drawable) {
 	auto material = mOverrideMaterial ? mOverrideMaterial : drawable.material;
-	if (!material || !drawable.mesh)
+	if (!material || !drawable.mesh) {
 		return;
+	}
 	if (mOverrideMaterial && drawable.material) {
-		for (const auto& [key, value] : mOverrideDefaults)
+		for (const auto& [key, value] : mOverrideDefaults) {
 			material->set(key, value);
+		}
 		const auto copyUniform = [&](const std::string& target, const std::string& source) {
 			const auto* value = drawable.material->findUniform(source);
-			if (!value || !material->findUniform(target))
+			if (!value || !material->findUniform(target)) {
 				return false;
+			}
 			material->set(target, *value);
 			return true;
 		};
 		for (const auto& uniform : material->getShader()->getReflection().mUniforms) {
-			if (material->isEngineUniform(uniform.mName))
+			if (material->isEngineUniform(uniform.mName)) {
 				continue;
-			if (uniform.mMembers.empty()) {
-				if (!copyUniform(uniform.mName, uniform.mName) && uniform.mName == "u_AlbedoMap")
-					copyUniform(uniform.mName, "u_DiffuseMap");
 			}
-			else
+			if (uniform.mMembers.empty()) {
+				if (!copyUniform(uniform.mName, uniform.mName) && uniform.mName == "u_AlbedoMap") {
+					copyUniform(uniform.mName, "u_DiffuseMap");
+				}
+			}
+			else {
 				for (const auto& member : uniform.mMembers) {
 					const auto key = uniform.mName + member.mName;
-					if (!copyUniform(key, key) && !copyUniform(key, member.mName) && member.mName == "u_Albedo")
+					if (!copyUniform(key, key) && !copyUniform(key, member.mName) && member.mName == "u_Albedo") {
 						copyUniform(key, "data_UBOu_Diffuse");
+					}
 				}
+			}
 		}
 	}
-	WEB_LOG("drawDrawable");
+
 	static int skipLogs = 4;
 	const bool canDraw = material && material->hasShader() && material->getGPUInstances() > 0 && drawable.mesh;
 	if (skipLogs > 0 && !canDraw) {
@@ -300,19 +299,23 @@ void GameRenderer::drawDrawable(const Drawable& drawable) {
 		// double-sided setting (including G-buffer and shadow passes).
 		const auto& surface = drawable.material ? drawable.material : material;
 		render->setCull(surface->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
-		if (material->isBlendable())
+		if (material->isBlendable()) {
 			render->setBlending({ BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA });
-		else
+		}
+		else {
 			render->resetBlending();
+		}
 		// render->setCull(CullFace::NONE);
 
 		render->setShader(material->getShader());
 		material->bind(mEmptyTexture, true);
 		if (mOverrideMaterial && mActiveStage) {
 			const auto& reflection = material->getShader()->getReflection();
-			for (const auto& [name, value] : mActiveStage->mDescriptor.Uniforms)
-				if (const auto* texture = std::get_if<std::string>(&value))
+			for (const auto& [name, value] : mActiveStage->mDescriptor.Uniforms) {
+				if (const auto* texture = std::get_if<std::string>(&value)) {
 					render->setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind, mRenderPipeline->mTextures.at(*texture));
+				}
+			}
 		}
 
 		// TODO: use render for it
@@ -321,21 +324,26 @@ void GameRenderer::drawDrawable(const Drawable& drawable) {
 		render->setPushConstant(IKIGAI::RENDER::ShaderType::VERTEX, 0, sizeof(MATH::Matrix4f), &model);
 
 		const auto* pose = skinningPose(drawable);
-		if (!pose)
-			mBoneUbo->setData(BonesUBO { });
+		if (!pose) {
+			mBoneUbo->setData(BonesUBO {});
+		}
 
 		// std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.Projection",
 		// MATH::Matrix4f::Transpose(uboData.Projection)); std::static_pointer_cast<ShaderGl>(material->getShader())->setMat4("engine_Model.View",
 		// MATH::Matrix4f::Transpose(uboData.View));
 		const auto& reflected = material->getShader()->getReflection().mNameToUniforms;
-		if (reflected.contains("engine_UBO"))
+		if (reflected.contains("engine_UBO")) {
 			render->setUniformBuffer("engine_UBO", mEngineUbo);
-		if (reflected.contains("engine_Bones"))
+		}
+		if (reflected.contains("engine_Bones")) {
 			render->setUniformBuffer("engine_Bones", pose ? pose->CurrentUbo : mBoneUbo);
-		if (reflected.contains("engine_PreviousBones"))
+		}
+		if (reflected.contains("engine_PreviousBones")) {
 			render->setUniformBuffer("engine_PreviousBones", pose ? pose->PreviousUbo : mBoneUbo);
-		if (reflected.contains("engine_Lights"))
+		}
+		if (reflected.contains("engine_Lights")) {
 			render->setStorageBuffer("engine_Lights", mLightSSBO);
+		}
 		if (reflected.contains("engine_Frame")) {
 			auto frame = mFrameData;
 			frame.PreviousModel = MATH::Matrix4f::Transpose(drawable.prevWorld);
@@ -345,15 +353,19 @@ void GameRenderer::drawDrawable(const Drawable& drawable) {
 				mDrawFrameUbo->setData(frame);
 				render->setUniformBuffer("engine_Frame", mDrawFrameUbo);
 			}
-			else
+			else {
 				render->setUniformBuffer("engine_Frame", render->createUniformBuffer<FrameUBO>(frame));
+			}
 		}
-		if (reflected.contains("engine_ShadowData"))
+		if (reflected.contains("engine_ShadowData")) {
 			render->setUniformBuffer("engine_ShadowData", mShadowUbo);
-		if (reflected.contains("engine_ShadowPass"))
+		}
+		if (reflected.contains("engine_ShadowPass")) {
 			render->setUniformBuffer("engine_ShadowPass", mShadowPassUbo);
-		if (reflected.contains("engine_PointShadowPass"))
+		}
+		if (reflected.contains("engine_PointShadowPass")) {
 			render->setUniformBuffer("engine_PointShadowPass", mPointShadowPassUbo);
+		}
 
 		// glBindBufferBase(GL_UNIFORM_BUFFER, 0, std::static_pointer_cast<UniformBufferGl>(mEngineUbo)->getId());
 
@@ -366,7 +378,7 @@ void GameRenderer::drawDrawable(const Drawable& drawable) {
 		// drawable.mesh->unbind();
 
 		render->draw(drawable.mesh, PrimitiveMode::TRIANGLES, material->getGPUInstances());
-		WEB_LOG("draw done");
+
 		// std::static_pointer_cast<ShaderGl>(material->getShader())->unbind();
 		material->unbind();
 	}
@@ -374,8 +386,9 @@ void GameRenderer::drawDrawable(const Drawable& drawable) {
 // TODO: split it
 void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::CameraComponent& cameraComponent) {
 #if USE_PHYSICS_3D
-	if (!mDeformableRenderer)
+	if (!mDeformableRenderer) {
 		mDeformableRenderer = std::make_shared<DeformableRenderer>();
+	}
 	mDeformableRenderer->update(scene);
 #endif
 	uboData.View = MATH::Matrix4f::Transpose(cameraComponent.getCamera().getViewMatrix());
@@ -397,14 +410,16 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 	uboData.ViewportSize = MATH::Vector2f(sz.x, sz.y);
 	uboData.FPS = static_cast<float>(TIME::Timer::GetInstance().getFPS());
 	uboData.FrameCount = static_cast<int>(mFrameCount);
-	if (mFrameCount % 60 == 0)
+	if (mFrameCount % 60 == 0) {
 		mRenderPipeline->pollSettings(*mContext.render);
+	}
 	mRenderPipeline->prepareUpscaler(*mContext.render, sz.x, sz.y);
 	auto* presentationDriver = mContext.render->getDriver();
 	const auto fgStages = std::count_if(mRenderPipeline->mStages.begin(), mRenderPipeline->mStages.end(),
 		[](auto& s) { return s->mDescriptor.Enabled && s->mDrawContent == DrawContent::FRAME_GENERATION; });
-	if (fgStages > 1)
+	if (fgStages > 1) {
 		throw std::runtime_error("A pipeline can have only one active FRAME_GENERATION stage");
+	}
 	presentationDriver->prepareFrameGeneration(fgStages == 1, mRenderPipeline->mRenderSize, { int(sz.x), int(sz.y) });
 	mRenderPipeline->resize(*mContext.render, sz.x, sz.y);
 	mRenderPipeline->pollResourceUpdates();
@@ -420,9 +435,11 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 	}
 	else {
 		float difference = 0;
-		for (int row = 0; row < 4; ++row)
-			for (int column = 0; column < 4; ++column)
+		for (int row = 0; row < 4; ++row) {
+			for (int column = 0; column < 4; ++column) {
 				difference = std::max(difference, std::abs(unjitteredViewProjection(row, column) - mPreviousUnjitteredViewProjection(row, column)));
+			}
+		}
 		if (difference > 2.0f) {
 			mRenderPipeline->mPresentationHistoryValid = false;
 			mRenderPipeline->mHistoryValid = false;
@@ -432,7 +449,7 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 	const bool taaEnabled = mRenderPipeline->mDescriptor.TemporalJitter
 		&& std::any_of(mRenderPipeline->mStages.begin(), mRenderPipeline->mStages.end(),
 			[](const auto& stage) { return stage->mDescriptor.Enabled && stage->mName == "TAA"; });
-	mJitter = { };
+	mJitter = {};
 	if (upscaleEnabled) {
 		mJitter = mRenderPipeline->mUpscaler->jitter(mFrameCount, renderSize, displaySize);
 		auto jitter = MATH::Matrix4f::Identity;
@@ -481,11 +498,12 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 		updateLights(scene);
 	}
 	std::vector<float> sun;
-	for (const auto& light : mLights)
+	for (const auto& light : mLights) {
 		if (light.type == 1) {
 			sun = { light.forward[0], light.forward[1], light.forward[2], light.color[0], light.color[1], light.color[2], light.intensity };
 			break;
 		}
+	}
 	if (mFrameCount > 0 && sun != mEnvironmentSun) {
 		mRenderPipeline->invalidateResources({ "Environment", "SkyEnvironment" });
 		mFrameData.FrameState.x = 0;
@@ -496,28 +514,36 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 	const auto& cameraPosition = cameraComponent.obj->getTransform()->getWorldPosition();
 	auto chunks = scene.findDrawables(cameraPosition, cameraComponent.getCamera(), nullptr, mEmptyMaterial);
 	auto shadowChunks = scene.findAndSortDrawables(cameraPosition, mEmptyMaterial);
-	for (auto i = mSkinningPoses.begin(); i != mSkinningPoses.end();)
-		if (i->second.Frame + 1 < mFrameCount)
+	for (auto i = mSkinningPoses.begin(); i != mSkinningPoses.end();) {
+		if (i->second.Frame + 1 < mFrameCount) {
 			i = mSkinningPoses.erase(i);
-		else
+		}
+		else {
 			++i;
+		}
+	}
 	bool rayTracingActive = false, raySceneNeeded = false, progressive = false, rayLightsNeeded = false;
-	for (const auto* stages : mRenderPipeline->stageGroups())
-		for (const auto& stage : *stages)
+	for (const auto* stages : mRenderPipeline->stageGroups()) {
+		for (const auto& stage : *stages) {
 			if (stage->mDescriptor.Enabled && stage->mRayTracingProgram) {
 				rayTracingActive = true;
 				progressive |= stage->mDescriptor.Progressive;
 				for (const auto& [name, source] : stage->mDescriptor.Bindings) {
-					if (source == "engine_Lights")
+					if (source == "engine_Lights") {
 						rayLightsNeeded = true;
-					if (source == "@Scene" || source == "@Triangles" || source == "@Instances")
+					}
+					if (source == "@Scene" || source == "@Triangles" || source == "@Instances") {
 						raySceneNeeded = true;
+					}
 				}
 			}
-	if (raySceneNeeded)
+		}
+	}
+	if (raySceneNeeded) {
 		prepareRayTracingScene(shadowChunks);
+	}
 	if (rayTracingActive) {
-		auto lights = rayLightsNeeded ? scene.findLightData() : std::vector<LightOGL> { };
+		auto lights = rayLightsNeeded ? scene.findLightData() : std::vector<LightOGL> {};
 		if (lights.empty()) {
 			lights.resize(1);
 			lights[0].type = -1;
@@ -531,9 +557,11 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			mRaySceneChanged = true;
 		}
 		float difference = 0;
-		for (int r = 0; r < 4; ++r)
-			for (int c = 0; c < 4; ++c)
+		for (int r = 0; r < 4; ++r) {
+			for (int c = 0; c < 4; ++c) {
 				difference = std::max(difference, std::abs(unjitteredViewProjection(r, c) - mPreviousUnjitteredViewProjection(r, c)));
+			}
+		}
 		if ((progressive && difference > 1e-6f) || !mRenderPipeline->mHistoryValid) {
 			mRaySample = 0;
 			mRenderPipeline->mHistoryValid = false;
@@ -560,20 +588,26 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 	temporalCamera.RealFrameId = presentationDriver->mRealFrameId == UINT64_MAX ? mFrameCount : presentationDriver->mRealFrameId;
 	temporalCamera.Reset = cameraFrameState.x < .5f || (presentationDriver->mFrameGeneration && !presentationDriver->mFrameGenerationStatus.Active);
 	presentationDriver->setTemporalCamera(temporalCamera);
-	if (mFrameCount == 0)
-		for (const auto& chunk : chunks)
+	if (mFrameCount == 0) {
+		for (const auto& chunk : chunks) {
 			std::cout << "Render drawables: opaque=" << chunk.opaqueDrawablesForward.size() + chunk.opaqueDrawablesDeferred.size()
 					  << " transparent=" << chunk.transparentDrawablesForward.size() + chunk.transparentDrawablesDeferred.size() << std::endl;
+		}
+	}
 	mShadowData.LightIndices = { -1, -1, -1, 0 };
 	bool rayFrameNeeded = rayTracingActive;
-	for (const auto* stages : mRenderPipeline->stageGroups())
-		for (const auto& stage : *stages)
+	for (const auto* stages : mRenderPipeline->stageGroups()) {
+		for (const auto& stage : *stages) {
 			if (stage->mDescriptor.Enabled && stage->mMaterial
-				&& stage->mMaterial->getShader()->getReflection().mNameToUniforms.contains("engine_RayFrame"))
+				&& stage->mMaterial->getShader()->getReflection().mNameToUniforms.contains("engine_RayFrame")) {
 				rayFrameNeeded = true;
-	if (rayFrameNeeded)
+			}
+		}
+	}
+	if (rayFrameNeeded) {
 		mRayFrameUbo = mContext.render->createUniformBuffer<MATH::Vector4f>({ static_cast<float>(mRaySample),
 			mRenderPipeline->mHistoryValid ? 1.f : 0.f, static_cast<float>(mFrameCount), mRaySceneChanged ? 0.f : 1.f });
+	}
 	mShadowUbo->setData(mShadowData);
 
 	// Re-establish physical resources before applying disabled-stage aliases.
@@ -582,12 +616,14 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 	runStage = [&](std::unique_ptr<PipelineStage>& stage) {
 		if (!stage->mDescriptor.Enabled || (upscaleEnabled && (stage->mName == "TAA" || stage->mName == "fxaa"))) {
 			if (stage->mDrawContent == DrawContent::LIGHT_ACCUMULATION) {
-				for (auto& init : mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass).InitStages)
+				for (auto& init : mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass).InitStages) {
 					runStage(init);
+				}
 				return;
 			}
-			for (const auto& [output, input] : stage->mDescriptor.Bypass)
+			for (const auto& [output, input] : stage->mDescriptor.Bypass) {
 				mRenderPipeline->mTextures.at(output) = mRenderPipeline->mTextures.at(input);
+			}
 			if (stage->mDescriptor.Bypass.empty() && stage->mFrameBuffer) {
 				mContext.render->setFrameBuffer(stage->mFrameBuffer);
 				mContext.render->setClearColor(stage->mDescriptor.ClearValue);
@@ -596,26 +632,32 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			}
 			return;
 		}
-		if (stage->mDescriptor.Once && stage->mExecuted)
+		if (stage->mDescriptor.Once && stage->mExecuted) {
 			return;
-		if (stage->mDescriptor.UpdateInterval < 1)
+		}
+		if (stage->mDescriptor.UpdateInterval < 1) {
 			throw std::runtime_error("Invalid stage update interval: " + stage->mName);
-		if (stage->mDescriptor.UpdateInterval > 1 && mFrameCount == 0)
+		}
+		if (stage->mDescriptor.UpdateInterval > 1 && mFrameCount == 0) {
 			return;
-		if (mFrameCount % stage->mDescriptor.UpdateInterval != 0)
+		}
+		if (mFrameCount % stage->mDescriptor.UpdateInterval != 0) {
 			return;
+		}
 		if (stage->mDrawContent == DrawContent::LIGHT_ACCUMULATION) {
 			auto& pass = mRenderPipeline->mLightPasses.at(stage->mDescriptor.LightPass);
 			bool rayShadows = false;
 			if (!pass.Descriptor.ShadowProviderStage.empty()) {
 				const auto provider = std::find_if(pass.PrepareStages.begin(), pass.PrepareStages.end(),
 					[&](const auto& value) { return value->mName == pass.Descriptor.ShadowProviderStage; });
-				if (provider == pass.PrepareStages.end())
+				if (provider == pass.PrepareStages.end()) {
 					throw std::runtime_error("Unknown shadow provider stage: " + pass.Descriptor.ShadowProviderStage);
+				}
 				rayShadows = (*provider)->mDescriptor.Enabled && bool((*provider)->mRayTracingProgram);
 			}
-			for (auto& init : pass.InitStages)
+			for (auto& init : pass.InitStages) {
 				runStage(init);
+			}
 			int used = 0, shadowed = 0, rasterCaptures = 0;
 			struct RestoreCapture {
 				int& index;
@@ -625,12 +667,14 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			} restoreCapture { mCaptureLightIndex };
 			for (size_t i = 0; i < mLights.size(); ++i) {
 				const auto& light = mLights[i];
-				if (light.type < 0 || light.type > 2 || light.intensity <= 0)
+				if (light.type < 0 || light.type > 2 || light.intensity <= 0) {
 					continue;
+				}
 				const int id = i < mLightObjectIds.size() ? mLightObjectIds[i] : -1;
 				if (!pass.Descriptor.LightIds.empty()
-					&& std::find(pass.Descriptor.LightIds.begin(), pass.Descriptor.LightIds.end(), id) == pass.Descriptor.LightIds.end())
+					&& std::find(pass.Descriptor.LightIds.begin(), pass.Descriptor.LightIds.end(), id) == pass.Descriptor.LightIds.end()) {
 					continue;
+				}
 				mCaptureLightIndex = static_cast<int>(i);
 				mShadowData.LightIndices = { -1, -1, -1, 0 };
 				const bool hasShadow = light.shadowEnabled && (pass.Descriptor.ShadowBudget < 0 || shadowed < pass.Descriptor.ShadowBudget);
@@ -639,8 +683,9 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 				for (auto& capture : pass.CaptureStages) {
 					const auto& type = capture->mDescriptor.ShadowType;
 					const int captureType = type == "directional" ? 1 : type == "spot" ? 2 : 0;
-					if (captureType != light.type)
+					if (captureType != light.type) {
 						continue;
+					}
 					if (type == "pointCube") {
 						auto scalar = [&](const std::string& key) {
 							auto it = capture->mDescriptor.Uniforms.find(key);
@@ -650,26 +695,32 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 						nearPlane = scalar("data_UBONear");
 						farPlane = scalar("data_UBOFar");
 					}
-					else
+					else {
 						farPlane = capture->mDescriptor.ShadowRange;
+					}
 					if (hasShadow && !rayShadows) {
 						runStage(capture);
 						++rasterCaptures;
 						captured = true;
 					}
 				}
-				if (light.shadowNear > 0)
+				if (light.shadowNear > 0) {
 					nearPlane = light.shadowNear;
-				if (light.shadowFar > 0)
+				}
+				if (light.shadowFar > 0) {
 					farPlane = light.shadowFar;
-				if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane)
+				}
+				if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane) {
 					throw std::runtime_error("Invalid per-light shadow range");
+				}
 				const bool shadowAvailable = captured || (hasShadow && rayShadows);
-				if (shadowAvailable)
+				if (shadowAvailable) {
 					++shadowed;
-				mCurrentShadow = { };
-				for (int c = 0; c < 4; ++c)
+				}
+				mCurrentShadow = {};
+				for (int c = 0; c < 4; ++c) {
 					mCurrentShadow.Matrices[c] = mShadowData.Matrices[light.type == 2 ? 4 : c];
+				}
 				mCurrentShadow.CascadeSplits = mShadowData.CascadeSplits;
 				mCurrentShadow.PositionRange = { light.pos[0], light.pos[1], light.pos[2], farPlane };
 				mCurrentShadow.Settings = { mShadowData.Settings.x, nearPlane, farPlane, 0 };
@@ -677,18 +728,21 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 				mCurrentShadow.LightInfo = { static_cast<float>(i), static_cast<float>(light.type), shadowAvailable ? 1.f : 0.f, volume ? 1.f : 0.f };
 				// Each queued resolve owns a distinct immutable buffer snapshot.
 				mCurrentShadowUbo = mContext.render->createUniformBuffer<CurrentShadowUBO>(mCurrentShadow);
-				for (auto& prepare : pass.PrepareStages)
+				for (auto& prepare : pass.PrepareStages) {
 					runStage(prepare);
-				for (auto& resolve : pass.ResolveStages)
+				}
+				for (auto& resolve : pass.ResolveStages) {
 					runStage(resolve);
+				}
 				++used;
 			}
 			mCaptureLightIndex = -1;
 			mShadowData.LightIndices = { -1, -1, -1, 0 };
 			mShadowUbo->setData(mShadowData);
-			if (!stage->mExecuted)
+			if (!stage->mExecuted) {
 				std::cout << "LIGHT_ACCUMULATION " << pass.Descriptor.Name << " lights=" << used << " shadows=" << shadowed
 						  << " shadow_provider=" << (rayShadows ? "ray" : "raster") << " raster_captures=" << rasterCaptures << std::endl;
+			}
 			stage->mExecuted = true;
 			return;
 		}
@@ -697,14 +751,16 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 				runRayTracingStage(*stage);
 				return;
 			}
-			if (!stage->mMaterial || stage->mDescriptor.DispatchTexture.empty())
+			if (!stage->mMaterial || stage->mDescriptor.DispatchTexture.empty()) {
 				throw std::runtime_error("Compute requires material and DispatchTexture");
+			}
 			bindStage(*stage);
 			const auto target = mRenderPipeline->mTextures.at(stage->mDescriptor.DispatchTexture);
 			const auto& ref = stage->mMaterial->getShader()->getReflection();
 			auto ceilDiv = [](size_t n, uint32_t d) {
-				if (!d)
+				if (!d) {
 					throw std::runtime_error("Invalid compute local size");
+				}
 				return static_cast<uint32_t>((n + d - 1) / d);
 			};
 			mContext.render->dispatch(ceilDiv(target->getWidth(), ref.mLocalSize[0]), ceilDiv(target->getHeight(), ref.mLocalSize[1]),
@@ -719,8 +775,9 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 		}
 		if (stage->mDrawContent == DrawContent::FRAME_GENERATION) {
 			if (DriverInterface::settings.frameGeneration.technology != FrameGenerationType::OFF
-				&& !presentationDriver->mFrameGenerationStatus.Supported && stage->mDescriptor.Unsupported == "ERROR")
+				&& !presentationDriver->mFrameGenerationStatus.Supported && stage->mDescriptor.Unsupported == "ERROR") {
 				throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
+			}
 			const auto& b = stage->mDescriptor.Bindings;
 			FrameGenerationInputs f = temporalCamera;
 			f.Color = mRenderPipeline->mTextures.at(b.at("Color"));
@@ -747,10 +804,12 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			presentationDriver->dispatchFrameGeneration(f);
 			auto& screenshot = CAPTURE::ScreenshotService::Get();
 			if (screenshot.pending() && screenshot.textureName().empty() && presentationDriver->mFrameGeneration
-				&& presentationDriver->mFrameGenerationStatus.Active && presentationDriver->mFrameGeneration->composesUI())
+				&& presentationDriver->mFrameGenerationStatus.Active && presentationDriver->mFrameGeneration->composesUI()) {
 				screenshot.setSource(f.Color, f.UI);
-			if (stage->mDescriptor.Unsupported == "ERROR" && !presentationDriver->mFrameGenerationStatus.Reason.empty())
+			}
+			if (stage->mDescriptor.Unsupported == "ERROR" && !presentationDriver->mFrameGenerationStatus.Reason.empty()) {
 				throw UnsupportedFrameGeneration(presentationDriver->mFrameGenerationStatus.Reason);
+			}
 			stage->mExecuted = true;
 			return;
 		}
@@ -759,9 +818,10 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			auto texture = [&](const char* name, bool required = true) -> std::shared_ptr<TextureInterface> {
 				auto found = bindings.find(name);
 				if (found == bindings.end()) {
-					if (required)
+					if (required) {
 						throw std::runtime_error(stage->mName + ": missing UPSCALE binding " + name);
-					return { };
+					}
+					return {};
 				}
 				return mRenderPipeline->mTextures.at(found->second);
 			};
@@ -784,14 +844,16 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			f.Sharpness = mRenderPipeline->mUpscalerSettings.sharpness;
 			try {
 				mRenderPipeline->mUpscaler->dispatch(f);
-				if (!stage->mExecuted || f.Reset)
+				if (!stage->mExecuted || f.Reset) {
 					std::cout << "UPSCALE_DISPATCH " << mRenderPipeline->mUpscalerStatus.Implementation << " reset=" << f.Reset << '\n';
+				}
 				mRenderPipeline->mUpscaleHistoryValid = true;
 				stage->mExecuted = true;
 				return;
 			} catch (const UnsupportedUpscaler& error) {
-				if (stage->mDescriptor.Unsupported == "ERROR")
+				if (stage->mDescriptor.Unsupported == "ERROR") {
 					throw;
+				}
 				mRenderPipeline->mUpscalerStatus.Supported = false;
 				mRenderPipeline->mUpscalerStatus.Reason = error.what();
 				mRenderPipeline->mUpscalerFailed = true;
@@ -820,7 +882,7 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 		if (stage->mName == "PrepareFrameGenMotion") {
 			// G-buffer motion excludes projection jitter for both native
 			// TAA and upscalers. Frame generation uses that same motion.
-			stage->mDefaults["data_UBOJitterDelta"] = MATH::Vector2f { };
+			stage->mDefaults["data_UBOJitterDelta"] = MATH::Vector2f {};
 		}
 		if (stage->mName == "PrepareFrameGenMotion" || stage->mName == "PrepareUpscaleVelocity") {
 			mFrameData.FrameState = cameraFrameState;
@@ -857,6 +919,10 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			renderGui(scene);
 			if (stage->mDescriptor.IncludeEditorUI)
 				presentationDriver->renderPresentationUI(stage->mFrameBuffer);
+		}
+		else if (stage->mDrawContent == DrawContent::PRIMITIVES_WORLD || stage->mDrawContent == DrawContent::PRIMITIVES_SCREEN) {
+			mPrimitives.render(render, MATH::Matrix4f::Transpose(uboData.View * uboData.Projection), size,
+				stage->mDrawContent == DrawContent::PRIMITIVES_WORLD ? PrimitiveSpace::World : PrimitiveSpace::Screen);
 		}
 		else if (stage->mDrawContent == DrawContent::VECTOR_WORLD) {
 			renderGui(scene, true);
@@ -905,23 +971,28 @@ void GameRenderer::renderScene(IKIGAI::SCENE_SYSTEM::Scene& scene, IKIGAI::ECS::
 			std::cout << "Pipeline update: " << stage->mName << std::endl;
 	};
 	if (!mRenderPipeline->mIsInitialized) {
-		for (auto& stage : mRenderPipeline->mStartStages)
+		for (auto& stage : mRenderPipeline->mStartStages) {
 			runStage(stage);
+		}
 		mRenderPipeline->mIsInitialized = true;
 	}
-	for (auto& stage : mRenderPipeline->mStages)
+	for (auto& stage : mRenderPipeline->mStages) {
 		runStage(stage);
+	}
 	auto& screenshot = CAPTURE::ScreenshotService::Get();
 	if (screenshot.pending() && !screenshot.textureName().empty()) {
 		const auto source = mRenderPipeline->mTextures.find(screenshot.textureName());
-		if (source == mRenderPipeline->mTextures.end())
+		if (source == mRenderPipeline->mTextures.end()) {
 			screenshot.fail("Unknown screenshot texture: " + screenshot.textureName());
-		else
+		}
+		else {
 			screenshot.setSource(source->second);
+		}
 	}
 	mRenderPipeline->advanceHistory(*mContext.render);
-	if (rayTracingActive)
+	if (rayTracingActive) {
 		++mRaySample;
+	}
 	mPreviousViewProjection = viewProjection;
 	mPreviousJitter = mJitter;
 	mPreviousUnjitteredViewProjection = unjitteredViewProjection;
@@ -934,17 +1005,19 @@ void GameRenderer::captureShadows(
 	auto* stage = &active;
 	auto& render = *mContext.render;
 
-	if (!stage->mMaterial || !stage->mFrameBuffer)
+	if (!stage->mMaterial || !stage->mFrameBuffer) {
 		throw std::runtime_error("Shadow stage requires material and framebuffer");
+	}
 	const auto& type = stage->mDescriptor.ShadowType;
 	const int lightType = type == "directional" ? 1 : type == "spot" ? 2 : (type == "point" || type == "pointCube") ? 0 : -2;
 	int index = mCaptureLightIndex;
-	for (size_t i = 0; index < 0 && i < mLights.size(); ++i)
+	for (size_t i = 0; index < 0 && i < mLights.size(); ++i) {
 		if (mLights[i].type == lightType
 			&& (stage->mDescriptor.ShadowLightId < 0 || (i < mLightObjectIds.size() && mLightObjectIds[i] == stage->mDescriptor.ShadowLightId))) {
 			index = static_cast<int>(i);
 			break;
 		}
+	}
 	if (index >= 0) {
 		const auto& light = mLights[index];
 		MATH::Vector3f position(light.pos[0], light.pos[1], light.pos[2]);
@@ -956,10 +1029,12 @@ void GameRenderer::captureShadows(
 		const float range = mCaptureLightIndex >= 0 && light.shadowFar > 0 ? light.shadowFar
 			: cube														   ? std::get<float>(stage->mMaterial->get("data_UBOFar"))
 																		   : std::max(stage->mDescriptor.ShadowRange, 1.0f);
-		if (!std::isfinite(nearPlane) || !std::isfinite(range) || nearPlane <= 0 || range <= nearPlane)
+		if (!std::isfinite(nearPlane) || !std::isfinite(range) || nearPlane <= 0 || range <= nearPlane) {
 			throw std::runtime_error("Invalid point shadow near/far");
-		if (cube)
+		}
+		if (cube) {
 			mShadowData.Settings.y = nearPlane;
+		}
 		const int faces = lightType == 1 ? 4 : lightType == 0 ? 6 : 1;
 		const int columns = lightType == 1 ? 2 : lightType == 0 ? 3 : 1, rows = faces / columns;
 		const int base = lightType == 1 ? 0 : lightType == 2 ? 4 : 5;
@@ -967,8 +1042,9 @@ void GameRenderer::captureShadows(
 			mShadowData.LightIndices.x = static_cast<float>(index);
 			mShadowData.CascadeSplits = { range * .125f, range * .25f, range * .5f, range };
 		}
-		if (lightType == 2)
+		if (lightType == 2) {
 			mShadowData.LightIndices.y = static_cast<float>(index);
+		}
 		if (lightType == 0) {
 			mShadowData.LightIndices.z = static_cast<float>(index);
 			mShadowData.PointPositionRange = { position.x, position.y, position.z, range };
@@ -1013,16 +1089,21 @@ void GameRenderer::captureShadows(
 					{ vp, { position.x, position.y, position.z, range }, { nearPlane, range, 0, 0 } });
 				render.setViewport({ { 0, 0 }, size });
 			}
-			else
+			else {
 				render.setViewport(
 					{ { size.x / columns * (face % columns), size.y / rows * (face / columns) }, { size.x / columns, size.y / rows } });
+			}
 			for (const auto& chunk : shadowChunks) {
-				for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward)
-					if (drawable.material && drawable.material->isCastShadow())
+				for (const auto& [distance, drawable] : chunk.opaqueDrawablesForward) {
+					if (drawable.material && drawable.material->isCastShadow()) {
 						drawDrawable(drawable);
-				for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred)
-					if (drawable.material && drawable.material->isCastShadow())
+					}
+				}
+				for (const auto& [distance, drawable] : chunk.opaqueDrawablesDeferred) {
+					if (drawable.material && drawable.material->isCastShadow()) {
 						drawDrawable(drawable);
+					}
+				}
 			}
 		}
 	}
@@ -1044,8 +1125,9 @@ namespace {
 
 void GameRenderer::updateLights(SCENE_SYSTEM::Scene& scene) {
 	auto lightMatrices = scene.findLightData(&mLightObjectIds);
-	if (lightMatrices.empty())
+	if (lightMatrices.empty()) {
 		lightMatrices.push_back(LightOGL::Inactive());
+	}
 #if !defined(IKIGAI_GL_HAS_SSBO)
 	PadLightsForEsUbo(lightMatrices);
 #endif
@@ -1055,8 +1137,9 @@ void GameRenderer::updateLights(SCENE_SYSTEM::Scene& scene) {
 
 void GameRenderer::updateLightsInFrustum(SCENE_SYSTEM::Scene& scene, const Frustum& frustum) {
 	auto lightMatrices = scene.findLightDataInFrustum(frustum, &mLightObjectIds);
-	if (lightMatrices.empty())
+	if (lightMatrices.empty()) {
 		lightMatrices.push_back(LightOGL::Inactive());
+	}
 #if !defined(IKIGAI_GL_HAS_SSBO)
 	PadLightsForEsUbo(lightMatrices);
 #endif
@@ -1141,9 +1224,9 @@ void GameRenderer::renderSceneOculus(XrCompositionLayerProjectionView& layerView
 	glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	XrMatrix4x4f matP { };
-	XrMatrix4x4f matV { };
-	XrMatrix4x4f matC { };
+	XrMatrix4x4f matP {};
+	XrMatrix4x4f matV {};
+	XrMatrix4x4f matC {};
 	XrMatrix4x4f_CreateProjectionFov(&matP, GRAPHICS_OPENGL_ES, layerView.fov, cameraComp->getNear(), cameraComp->getFar());
 
 	const XrVector3f scale = { 1.0f, 1.0f, 1.0f };
@@ -1168,38 +1251,46 @@ void GameRenderer::renderSceneOculus(XrCompositionLayerProjectionView& layerView
 namespace IKIGAI::RENDER {
 // Validate resolved capture settings before a reload can mutate stages/resources.
 static void ValidatePointCube(const RenderGraphPipeline::Descriptor& desc) {
-	for (const auto& stage : desc.StartStages)
-		if (stage.ShadowType == "pointCube")
+	for (const auto& stage : desc.StartStages) {
+		if (stage.ShadowType == "pointCube") {
 			throw std::runtime_error("Point cube capture must run every frame, not in StartStages");
+		}
+	}
 	std::map<std::string, std::set<int>> faces;
 	std::map<std::string, std::tuple<int, float, float>> contracts;
-	for (const auto* stages : { &desc.StartStages, &desc.Stages })
+	for (const auto* stages : { &desc.StartStages, &desc.Stages }) {
 		for (const auto& stage : *stages) {
-			if (stage.ShadowType != "pointCube")
+			if (stage.ShadowType != "pointCube") {
 				continue;
+			}
 			auto fail = [&] { throw std::runtime_error("Invalid pointCube contract: " + stage.Name); };
 			const auto frame
 				= std::find_if(desc.FrameBuffers.begin(), desc.FrameBuffers.end(), [&](const auto& f) { return f.Name == stage.FrameBuffer; });
 			if (stage.Draw != DrawContent::SHADOW || stage.Once || stage.UpdateInterval != 1 || !stage.Enabled || !stage.ClearColor
 				|| !stage.ClearDepth || stage.ClearValue.x != 1 || stage.ShadowFace < 0 || stage.ShadowFace > 5 || frame == desc.FrameBuffers.end()
-				|| frame->Layer != stage.ShadowFace || frame->Mip != 0 || frame->Textures.size() != 1 || frame->Depth.empty())
+				|| frame->Layer != stage.ShadowFace || frame->Mip != 0 || frame->Textures.size() != 1 || frame->Depth.empty()) {
 				fail();
+			}
 			const auto color = std::find_if(desc.Textures.begin(), desc.Textures.end(), [&](const auto& t) { return t.Name == frame->Textures[0]; });
 			const auto depth = std::find_if(desc.Textures.begin(), desc.Textures.end(), [&](const auto& t) { return t.Name == frame->Depth; });
-			if (color == desc.Textures.end() || depth == desc.Textures.end())
+			if (color == desc.Textures.end() || depth == desc.Textures.end()) {
 				fail();
+			}
 			const auto& r = color->Resource;
 			const auto& d = depth->Resource;
 			if (!color->Path.empty() || !depth->Path.empty() || r.texType != TextureType::TEXTURE_CUBE || r.pixelType != PixelFormat::R_FLOAT
 				|| r.width <= 0 || r.height != r.width || r.depth != 6 || r.mipMapCount != 1 || r.useMipmap || r.minFilter != MinMagFilter::NEAREST
-				|| r.magFilter != MinMagFilter::NEAREST || d.texType != TextureType::DEPTH || d.width != r.width || d.height != r.height)
+				|| r.magFilter != MinMagFilter::NEAREST || d.texType != TextureType::DEPTH || d.width != r.width || d.height != r.height) {
 				fail();
+			}
 			auto loaded = UTILS::FromJson<MaterialResource>(stage.Material);
-			if (loaded.isErr())
+			if (loaded.isErr()) {
 				fail();
+			}
 			auto uniforms = loaded.unwrap().Uniforms;
-			for (const auto& [name, value] : stage.Uniforms)
+			for (const auto& [name, value] : stage.Uniforms) {
 				std::visit([&](const auto& v) { uniforms[name] = v; }, value);
+			}
 			auto scalar = [&](const std::string& name) {
 				if (!uniforms.contains(name) || !std::holds_alternative<float>(uniforms.at(name))) {
 					fail();
@@ -1208,51 +1299,67 @@ static void ValidatePointCube(const RenderGraphPipeline::Descriptor& desc) {
 				return std::get<float>(uniforms.at(name));
 			};
 			const float nearPlane = scalar("data_UBONear"), farPlane = scalar("data_UBOFar");
-			if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane)
+			if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0 || farPlane <= nearPlane) {
 				fail();
+			}
 			const auto contract = std::make_tuple(stage.ShadowLightId, nearPlane, farPlane);
-			if (contracts.contains(color->Name) && contracts.at(color->Name) != contract)
+			if (contracts.contains(color->Name) && contracts.at(color->Name) != contract) {
 				fail();
+			}
 			contracts[color->Name] = contract;
-			if (!faces[color->Name].insert(stage.ShadowFace).second)
+			if (!faces[color->Name].insert(stage.ShadowFace).second) {
 				fail();
+			}
 		}
-	if (faces.size() > 1)
+	}
+	if (faces.size() > 1) {
 		throw std::runtime_error("Only one shadowed point cubemap is supported");
-	if (!faces.empty())
-		for (const auto& stage : desc.Stages)
-			if (stage.ShadowType == "point")
+	}
+	if (!faces.empty()) {
+		for (const auto& stage : desc.Stages) {
+			if (stage.ShadowType == "point") {
 				throw std::runtime_error("Point atlas and cube captures cannot share one shadow light slot");
-	for (const auto& [name, written] : faces)
-		if (written.size() != 6)
+			}
+		}
+	}
+	for (const auto& [name, written] : faces) {
+		if (written.size() != 6) {
 			throw std::runtime_error("Point cubemap requires six capture stages: " + name);
+		}
+	}
 }
 static RenderGraphPipeline::Descriptor ResolvePipelineSettings(const RenderGraphPipeline::Descriptor& descriptor) {
 	auto resolved = descriptor;
 	RenderGraphPipeline::SettingsDescriptor merged;
 	auto apply = [&](RenderGraphPipeline::SettingsDescriptor settings) {
-		for (const auto& group : settings.Groups)
-			for (const auto& path : group.Materials)
+		for (const auto& group : settings.Groups) {
+			for (const auto& path : group.Materials) {
 				for (const auto& [name, value] : group.Uniforms) {
 					const auto alias = group.Rename.find(path);
 					const auto key = alias != group.Rename.end() && alias->second.contains(name) ? alias->second.at(name) : name;
 					settings.Materials[path][key] = value;
 				}
-		for (const auto& [path, uniforms] : settings.Materials)
-			for (const auto& [name, value] : uniforms)
+			}
+		}
+		for (const auto& [path, uniforms] : settings.Materials) {
+			for (const auto& [name, value] : uniforms) {
 				merged.Materials[path][name] = value;
+			}
+		}
 		for (const auto& replacement : settings.Textures) {
 			auto target = std::find_if(resolved.Textures.begin(), resolved.Textures.end(), [&](const auto& t) { return t.Name == replacement.Name; });
-			if (target == resolved.Textures.end())
+			if (target == resolved.Textures.end()) {
 				throw std::runtime_error("Pipeline settings reference unknown texture: " + replacement.Name);
+			}
 			*target = replacement;
 		}
 	};
 	apply(descriptor.Settings);
 	if (!descriptor.SettingsAsset.empty()) {
 		auto result = UTILS::FromJson<RenderGraphPipeline::SettingsDescriptor>(descriptor.SettingsAsset);
-		if (result.isErr())
+		if (result.isErr()) {
 			throw std::runtime_error("Pipeline settings asset: " + result.unwrapErr().text);
+		}
 		apply(result.unwrap());
 	}
 	std::vector<std::vector<PipelineStage::Descriptor>*> groups = { &resolved.StartStages, &resolved.Stages };
@@ -1262,55 +1369,76 @@ static RenderGraphPipeline::Descriptor ResolvePipelineSettings(const RenderGraph
 		groups.push_back(&pass.PrepareStages);
 		groups.push_back(&pass.ResolveStages);
 	}
-	for (auto* stages : groups)
+	for (auto* stages : groups) {
 		for (auto& stage : *stages) {
-			if (!merged.Materials.contains(stage.Material))
+			if (!merged.Materials.contains(stage.Material)) {
 				continue;
+			}
 			auto uniforms = merged.Materials.at(stage.Material);
 			// Explicit stage values (face, roughness, quality) take precedence.
-			for (const auto& [name, value] : stage.Uniforms)
+			for (const auto& [name, value] : stage.Uniforms) {
 				uniforms[name] = value;
+			}
 			stage.Uniforms = std::move(uniforms);
 		}
+	}
 	auto validation = resolved;
 	for (const auto& pass : resolved.LightPasses) {
-		if (pass.ShadowBudget < -1 || pass.VolumeLightLimit < -1)
+		if (pass.ShadowBudget < -1 || pass.VolumeLightLimit < -1) {
 			throw std::runtime_error("Invalid light pass budget");
-		for (const auto* children : { &pass.InitStages, &pass.CaptureStages, &pass.PrepareStages, &pass.ResolveStages })
-			for (const auto& child : *children)
-				if (child.Draw == DrawContent::LIGHT_ACCUMULATION || child.Once || child.UpdateInterval != 1 || !child.Enabled)
+		}
+		for (const auto* children : { &pass.InitStages, &pass.CaptureStages, &pass.PrepareStages, &pass.ResolveStages }) {
+			for (const auto& child : *children) {
+				if (child.Draw == DrawContent::LIGHT_ACCUMULATION || child.Once || child.UpdateInterval != 1 || !child.Enabled) {
 					throw std::runtime_error("Invalid light pass child: " + child.Name);
+				}
+			}
+		}
 		validation.Stages.insert(validation.Stages.end(), pass.CaptureStages.begin(), pass.CaptureStages.end());
 		int point = 0, spot = 0, directional = 0;
 		for (const auto& capture : pass.CaptureStages) {
-			if (capture.Draw != DrawContent::SHADOW || capture.ShadowLightId >= 0 || !capture.OverrideMaterial)
+			if (capture.Draw != DrawContent::SHADOW || capture.ShadowLightId >= 0 || !capture.OverrideMaterial) {
 				throw std::runtime_error("Managed capture must use the current light: " + capture.Name);
-			if (capture.ShadowType == "pointCube")
+			}
+			if (capture.ShadowType == "pointCube") {
 				++point;
-			else if (capture.ShadowType == "spot")
+			}
+			else if (capture.ShadowType == "spot") {
 				++spot;
-			else if (capture.ShadowType == "directional")
+			}
+			else if (capture.ShadowType == "directional") {
 				++directional;
-			else
+			}
+			else {
 				throw std::runtime_error("Unsupported managed shadow type: " + capture.Name);
-			if (capture.ShadowType != "pointCube" && (!std::isfinite(capture.ShadowRange) || capture.ShadowRange <= .1f))
+			}
+			if (capture.ShadowType != "pointCube" && (!std::isfinite(capture.ShadowRange) || capture.ShadowRange <= .1f)) {
 				throw std::runtime_error("Invalid projected shadow range: " + capture.Name);
+			}
 		}
-		if (point != 6 || spot != 1 || directional != 1)
+		if (point != 6 || spot != 1 || directional != 1) {
 			throw std::runtime_error("Managed lights require six point faces, spot and directional capture");
-		for (const auto& resolve : pass.ResolveStages)
-			if (resolve.Draw != DrawContent::QUAD || !resolve.Additive || resolve.ClearColor || resolve.ClearDepth)
+		}
+		for (const auto& resolve : pass.ResolveStages) {
+			if (resolve.Draw != DrawContent::QUAD || !resolve.Additive || resolve.ClearColor || resolve.ClearDepth) {
 				throw std::runtime_error("Per-light resolve must accumulate without clearing: " + resolve.Name);
+			}
+		}
 	}
-	for (const auto& stage : resolved.Stages)
+	for (const auto& stage : resolved.Stages) {
 		if (stage.Draw == DrawContent::LIGHT_ACCUMULATION
-			&& std::count_if(resolved.LightPasses.begin(), resolved.LightPasses.end(), [&](const auto& p) { return p.Name == stage.LightPass; }) != 1)
+			&& std::count_if(resolved.LightPasses.begin(), resolved.LightPasses.end(), [&](const auto& p) { return p.Name == stage.LightPass; })
+				!= 1) {
 			throw std::runtime_error("Unknown light pass: " + stage.LightPass);
+		}
+	}
 	ValidatePointCube(validation);
 	auto rejectFG = [](const auto& stages) {
-		for (const auto& stage : stages)
-			if (stage.Draw == DrawContent::FRAME_GENERATION)
+		for (const auto& stage : stages) {
+			if (stage.Draw == DrawContent::FRAME_GENERATION) {
 				throw std::runtime_error("FRAME_GENERATION is allowed only in the main per-frame stage list");
+			}
+		}
 	};
 	rejectFG(resolved.StartStages);
 	for (const auto& pass : resolved.LightPasses) {
@@ -1322,31 +1450,39 @@ static RenderGraphPipeline::Descriptor ResolvePipelineSettings(const RenderGraph
 	std::set<std::string> produced, fgInputs;
 	unsigned fgCount = 0;
 	for (const auto& stage : resolved.Stages) {
-		if (!stage.Enabled)
+		if (!stage.Enabled) {
 			continue;
+		}
 		std::set<std::string> writes(stage.Writes.begin(), stage.Writes.end());
-		if (!stage.DispatchTexture.empty())
+		if (!stage.DispatchTexture.empty()) {
 			writes.insert(stage.DispatchTexture);
+		}
 		if (!stage.FrameBuffer.empty()) {
 			const auto frame = std::find_if(
 				resolved.FrameBuffers.begin(), resolved.FrameBuffers.end(), [&](const auto& f) { return f.Name == stage.FrameBuffer; });
 			if (frame != resolved.FrameBuffers.end()) {
 				writes.insert(frame->Textures.begin(), frame->Textures.end());
-				if (!frame->Depth.empty())
+				if (!frame->Depth.empty()) {
 					writes.insert(frame->Depth);
+				}
 			}
 		}
-		for (const auto& output : writes)
-			if (fgInputs.contains(output))
+		for (const auto& output : writes) {
+			if (fgInputs.contains(output)) {
 				throw std::runtime_error("FG input is overwritten after FRAME_GENERATION: " + output);
+			}
+		}
 		if (stage.Draw == DrawContent::FRAME_GENERATION) {
-			if (++fgCount > 1)
+			if (++fgCount > 1) {
 				throw std::runtime_error("Only one main FRAME_GENERATION stage is allowed");
-			if (!writes.empty() || !stage.Material.empty() || !stage.Program.empty())
+			}
+			if (!writes.empty() || !stage.Material.empty() || !stage.Program.empty()) {
 				throw std::runtime_error("FRAME_GENERATION must not write a framebuffer or use a shader material");
+			}
 			for (const char* key : { "Color", "Depth", "MotionVectors", "UI" }) {
-				if (!stage.Bindings.contains(key))
+				if (!stage.Bindings.contains(key)) {
 					throw std::runtime_error("Missing FG input: " + std::string(key));
+				}
 				const auto& name = stage.Bindings.at(key);
 				const auto resource = std::find_if(resolved.Textures.begin(), resolved.Textures.end(), [&](const auto& t) { return t.Name == name; });
 				const bool scene = std::string_view(key) == "Color" || std::string_view(key) == "UI";
@@ -1355,15 +1491,18 @@ static RenderGraphPipeline::Descriptor ResolvePipelineSettings(const RenderGraph
 													   : PixelFormat::RG_FLOAT;
 				const auto size = scene ? RenderGraphPipeline::TextureDesc::SizeBase::DISPLAY : RenderGraphPipeline::TextureDesc::SizeBase::RENDER;
 				if (resource == resolved.Textures.end() || resource->Resource.pixelType != format || resource->Size != size || resource->Scale != 1
-					|| resource->Resource.width || resource->Resource.height)
+					|| resource->Resource.width || resource->Resource.height) {
 					throw std::runtime_error("Invalid FG texture format/size: " + name);
-				if (!produced.contains(name))
+				}
+				if (!produced.contains(name)) {
 					throw std::runtime_error("FG texture must be produced each frame before the FG stage: " + name);
+				}
 				fgInputs.insert(name);
 			}
 		}
-		if (!stage.Once && stage.UpdateInterval == 1)
+		if (!stage.Once && stage.UpdateInterval == 1) {
 			produced.insert(writes.begin(), writes.end());
+		}
 	}
 	return resolved;
 }
@@ -1372,22 +1511,28 @@ RenderGraphPipeline::RenderGraphPipeline(const Descriptor& descriptor, Renderer&
 	: mDescriptor(ResolvePipelineSettings(descriptor))
 	, mSourceDescriptor(descriptor)
 	, mPipelineAsset(pipelineAsset) {
-	if (!mPipelineAsset.empty())
+	if (!mPipelineAsset.empty()) {
 		mPipelineWriteTime = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(mPipelineAsset);
-	if (!descriptor.SettingsAsset.empty())
+	}
+	if (!descriptor.SettingsAsset.empty()) {
 		mSettingsWriteTime = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().lastWriteTime(descriptor.SettingsAsset);
+	}
 	for (const auto& b : mDescriptor.Buffers) {
-		if (!b.Size)
+		if (!b.Size) {
 			throw std::runtime_error("Empty pipeline buffer: " + b.Name);
-		if (b.Type == BufferType::UNIFORM)
+		}
+		if (b.Type == BufferType::UNIFORM) {
 			mUniformBuffers.emplace(b.Name, renderer.createUniformBuffer(nullptr, b.Size));
-		else
+		}
+		else {
 			mStorageBuffers.emplace(b.Name, renderer.createStorageBuffer(nullptr, b.Size, b.Stride));
+		}
 	}
 	mStartStages = loadStages(mDescriptor.StartStages);
 	for (const auto& descriptor : mDescriptor.LightPasses) {
-		if (mLightPasses.contains(descriptor.Name))
+		if (mLightPasses.contains(descriptor.Name)) {
 			throw std::runtime_error("Duplicate light pass: " + descriptor.Name);
+		}
 		auto& pass = mLightPasses[descriptor.Name];
 		pass.Descriptor = descriptor;
 		pass.InitStages = loadStages(descriptor.InitStages);
@@ -1399,22 +1544,25 @@ RenderGraphPipeline::RenderGraphPipeline(const Descriptor& descriptor, Renderer&
 }
 
 void GameRenderer::reloadPipelineSettings(const std::string& asset) {
-	if (mRenderPipeline)
+	if (mRenderPipeline) {
 		mRenderPipeline->reloadSettings(*mContext.render, asset);
+	}
 }
 
 void GameRenderer::printGpuProfile() const {
-	for (const auto& [stage, time] : mGpuStageTimes)
+	for (const auto& [stage, time] : mGpuStageTimes) {
 		std::cout << "LIGHTING_GPU_STAGE " << stage << " mean_ms=" << time.first / time.second << " samples=" << time.second << std::endl;
+	}
 }
 
 void RenderGraphPipeline::pollSettings(Renderer& renderer) {
 	auto& files = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-	const auto pipelineTime = mPipelineAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mPipelineAsset);
+	const auto pipelineTime = mPipelineAsset.empty() ? std::filesystem::file_time_type {} : files.lastWriteTime(mPipelineAsset);
 	const auto settingsTime
-		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
-	if (pipelineTime == mPipelineWriteTime && settingsTime == mSettingsWriteTime)
+		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type {} : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+	if (pipelineTime == mPipelineWriteTime && settingsTime == mSettingsWriteTime) {
 		return;
+	}
 	try {
 		reloadSettings(renderer);
 	} catch (const std::exception& error) {
@@ -1424,32 +1572,36 @@ void RenderGraphPipeline::pollSettings(Renderer& renderer) {
 	mPipelineWriteTime = pipelineTime;
 	// A successful reload may have selected a different settings asset.
 	mSettingsWriteTime
-		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type {} : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
 }
 
 void RenderGraphPipeline::reloadSettings(Renderer& renderer, const std::string& asset) {
 	auto source = mSourceDescriptor;
 	if (!mPipelineAsset.empty()) {
 		auto result = UTILS::FromJson<Descriptor>(mPipelineAsset);
-		if (result.isErr())
+		if (result.isErr()) {
 			throw std::runtime_error("Render pipeline: " + result.unwrapErr().text);
+		}
 		source = result.unwrap();
 		auto structure = source, previous = mSourceDescriptor;
-		structure.Settings = { };
-		previous.Settings = { };
+		structure.Settings = {};
+		previous.Settings = {};
 		structure.SettingsAsset.clear();
 		previous.SettingsAsset.clear();
-		if (UTILS::ToJson(structure).unwrap() != UTILS::ToJson(previous).unwrap())
+		if (UTILS::ToJson(structure).unwrap() != UTILS::ToJson(previous).unwrap()) {
 			throw std::runtime_error("Pipeline graph changed; restart to apply resource/stage changes. Only Settings/SettingsAsset can reload live.");
+		}
 	}
 	const auto overrideAsset = asset.empty() ? mSettingsOverrideAsset : asset;
-	if (!overrideAsset.empty())
+	if (!overrideAsset.empty()) {
 		source.SettingsAsset = overrideAsset;
+	}
 	auto candidate = ResolvePipelineSettings(source);
 	std::set<std::string> changedTextures, dirty;
 	for (size_t i = 0; i < candidate.Textures.size(); ++i) {
-		if (UTILS::ToJson(candidate.Textures[i]).unwrap() != UTILS::ToJson(mDescriptor.Textures[i]).unwrap())
+		if (UTILS::ToJson(candidate.Textures[i]).unwrap() != UTILS::ToJson(mDescriptor.Textures[i]).unwrap()) {
 			changedTextures.insert(candidate.Textures[i].Name);
+		}
 	}
 	dirty = changedTextures;
 	bool changed = !dirty.empty();
@@ -1464,15 +1616,20 @@ void RenderGraphPipeline::reloadSettings(Renderer& renderer, const std::string& 
 					candidate.FrameBuffers.begin(), candidate.FrameBuffers.end(), [&](const auto& f) { return f.Name == next.FrameBuffer; });
 				outputs.insert(frame->Textures.begin(), frame->Textures.end());
 			}
-			if (!next.DispatchTexture.empty())
+			if (!next.DispatchTexture.empty()) {
 				outputs.insert(next.DispatchTexture);
+			}
 			outputs.insert(next.Writes.begin(), next.Writes.end());
-			for (const auto& name : outputs)
-				if (dirty.contains(name))
+			for (const auto& name : outputs) {
+				if (dirty.contains(name)) {
 					update = true;
-			for (const auto& [name, value] : next.Uniforms)
-				if (const auto* texture = std::get_if<std::string>(&value); texture && dirty.contains(*texture))
+				}
+			}
+			for (const auto& [name, value] : next.Uniforms) {
+				if (const auto* texture = std::get_if<std::string>(&value); texture && dirty.contains(*texture)) {
 					update = true;
+				}
+			}
 			stage->mDescriptor = next;
 			if (update) {
 				stage->mExecuted = false;
@@ -1512,14 +1669,15 @@ void RenderGraphPipeline::reloadSettings(Renderer& renderer, const std::string& 
 	}
 	auto& files = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
 	mSettingsWriteTime
-		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type { } : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
-	if (!mPipelineAsset.empty())
+		= mSourceDescriptor.SettingsAsset.empty() ? std::filesystem::file_time_type {} : files.lastWriteTime(mSourceDescriptor.SettingsAsset);
+	if (!mPipelineAsset.empty()) {
 		mPipelineWriteTime = files.lastWriteTime(mPipelineAsset);
+	}
 }
 
 void RenderGraphPipeline::invalidateResources(const std::vector<std::string>& resources) {
 	std::set<std::string> dirty(resources.begin(), resources.end());
-	for (auto* stages : stageGroups())
+	for (auto* stages : stageGroups()) {
 		for (auto& stage : *stages) {
 			const auto& descriptor = stage->mDescriptor;
 			std::set<std::string> outputs;
@@ -1528,20 +1686,26 @@ void RenderGraphPipeline::invalidateResources(const std::vector<std::string>& re
 					[&](const auto& f) { return f.Name == descriptor.FrameBuffer; });
 				outputs.insert(frame->Textures.begin(), frame->Textures.end());
 			}
-			if (!descriptor.DispatchTexture.empty())
+			if (!descriptor.DispatchTexture.empty()) {
 				outputs.insert(descriptor.DispatchTexture);
+			}
 			bool update = false;
-			for (const auto& name : outputs)
-				if (dirty.contains(name))
+			for (const auto& name : outputs) {
+				if (dirty.contains(name)) {
 					update = true;
-			for (const auto& [name, value] : descriptor.Uniforms)
-				if (const auto* texture = std::get_if<std::string>(&value); texture && dirty.contains(*texture))
+				}
+			}
+			for (const auto& [name, value] : descriptor.Uniforms) {
+				if (const auto* texture = std::get_if<std::string>(&value); texture && dirty.contains(*texture)) {
 					update = true;
+				}
+			}
 			if (update) {
 				stage->mExecuted = false;
 				dirty.insert(outputs.begin(), outputs.end());
 			}
 		}
+	}
 	mHistoryValid = false;
 	mUpscaleHistoryValid = false;
 	mIsInitialized = false;
@@ -1549,7 +1713,7 @@ void RenderGraphPipeline::invalidateResources(const std::vector<std::string>& re
 
 void RenderGraphPipeline::pollResourceUpdates() {
 	std::vector<std::string> changed;
-	for (const auto& texture : mDescriptor.Textures)
+	for (const auto& texture : mDescriptor.Textures) {
 		if (texture.Persistent && mAllocatedTextures.contains(texture.Name)) {
 			const auto revision = mAllocatedTextures.at(texture.Name)->getRevision();
 			auto [found, inserted] = mTextureRevisions.emplace(texture.Name, revision);
@@ -1558,23 +1722,29 @@ void RenderGraphPipeline::pollResourceUpdates() {
 				found->second = revision;
 			}
 		}
-	if (!changed.empty())
+	}
+	if (!changed.empty()) {
 		invalidateResources(changed);
+	}
 }
 
 void RenderGraphPipeline::prepareUpscaler(Renderer& renderer, int width, int height) {
-	if (width <= 0 || height <= 0)
+	if (width <= 0 || height <= 0) {
 		return;
+	}
 	const auto settings = DriverInterface::settings.upscaler;
-	if (!std::isfinite(settings.sharpness) || settings.sharpness < 0 || settings.sharpness > 1)
+	if (!std::isfinite(settings.sharpness) || settings.sharpness < 0 || settings.sharpness > 1) {
 		throw std::runtime_error("Upscaler sharpness must be in [0,1]");
+	}
 	auto* upscaleStage = static_cast<PipelineStage*>(nullptr);
-	for (auto& stage : mStages)
+	for (auto& stage : mStages) {
 		if (stage->mDescriptor.Enabled && stage->mDrawContent == DrawContent::UPSCALE) {
-			if (upscaleStage)
+			if (upscaleStage) {
 				throw std::runtime_error("A pipeline can have only one active UPSCALE stage");
+			}
 			upscaleStage = stage.get();
 		}
+	}
 	mRenderSize = { width, height };
 	const bool changed
 		= !mUpscalerSettingsLoaded || settings.technology != mUpscalerSettings.technology || settings.quality != mUpscalerSettings.quality;
@@ -1587,17 +1757,20 @@ void RenderGraphPipeline::prepareUpscaler(Renderer& renderer, int width, int hei
 		mHistoryValid = false;
 		mPresentationHistoryValid = false;
 	}
-	if (mUpscalerFailed)
+	if (mUpscalerFailed) {
 		mUpscaler.reset();
+	}
 	if (settings.technology == UpscalerType::OFF || !upscaleStage) {
-		if (settings.technology != UpscalerType::OFF && !upscaleStage && changed)
+		if (settings.technology != UpscalerType::OFF && !upscaleStage && changed) {
 			std::cerr << "UPSCALER_FALLBACK pipeline has no enabled UPSCALE stage\n";
+		}
 		mUpscaler.reset();
-		mUpscalerStatus = { false, false, UpscalerType::OFF, "Native AA", { } };
+		mUpscalerStatus = { false, false, UpscalerType::OFF, "Native AA", {} };
 		return;
 	}
-	if (mUpscalerFailed)
+	if (mUpscalerFailed) {
 		return;
+	}
 	try {
 		if (!mUpscaler) {
 			if (settings.technology == UpscalerType::AUTO) {
@@ -1607,60 +1780,72 @@ void RenderGraphPipeline::prepareUpscaler(Renderer& renderer, int width, int hei
 					mUpscaler = renderer.getDriver()->createUpscaler(UpscalerType::FSR);
 				}
 			}
-			else
+			else {
 				mUpscaler = renderer.getDriver()->createUpscaler(settings.technology);
+			}
 		}
 		const MATH::Vector2i display { width, height };
 		auto render = mUpscaler->renderSize(display, settings.quality);
-		if (render.x <= 0 || render.y <= 0 || render.x > width || render.y > height)
+		if (render.x <= 0 || render.y <= 0 || render.x > width || render.y > height) {
 			throw UnsupportedUpscaler("SDK returned invalid render size");
+		}
 		mUpscaler->configure(render, display, settings.quality);
 		mRenderSize = render;
 		mUpscalerStatus = mUpscaler->capabilities();
 	} catch (const UnsupportedUpscaler& error) {
 		mUpscaler.reset();
 		mUpscalerFailed = true;
-		mUpscalerStatus = { false, false, settings.technology, { }, error.what() };
-		if (upscaleStage->mDescriptor.Unsupported == "ERROR")
+		mUpscalerStatus = { false, false, settings.technology, {}, error.what() };
+		if (upscaleStage->mDescriptor.Unsupported == "ERROR") {
 			throw;
+		}
 		std::cerr << "UPSCALER_FALLBACK " << error.what() << '\n';
 	}
 }
 
 void RenderGraphPipeline::resize(Renderer& renderer, int width, int height) {
-	if (width <= 0 || height <= 0 || (mSize.x == width && mSize.y == height && mAllocatedRenderSize == mRenderSize))
+	if (width <= 0 || height <= 0 || (mSize.x == width && mSize.y == height && mAllocatedRenderSize == mRenderSize)) {
 		return;
-	if (mRenderSize.x <= 0 || mRenderSize.y <= 0)
+	}
+	if (mRenderSize.x <= 0 || mRenderSize.y <= 0) {
 		mRenderSize = { width, height };
+	}
 	auto previous = std::move(mAllocatedTextures);
 	mTextures.clear();
 	for (const auto& t : mDescriptor.Textures) {
-		if (t.Name.empty() || mTextures.contains(t.Name) || !(t.Scale > 0))
+		if (t.Name.empty() || mTextures.contains(t.Name) || !(t.Scale > 0)) {
 			throw std::runtime_error("Invalid/duplicate pipeline texture: " + t.Name);
+		}
 		if (t.Persistent && previous.contains(t.Name) && (t.Size == TextureDesc::SizeBase::FIXED || (t.Resource.width && t.Resource.height))) {
 			mTextures[t.Name] = previous.at(t.Name);
-			if (t.History)
+			if (t.History) {
 				mTextures[t.Name + "Previous"] = previous.at(t.Name + "Previous");
+			}
 			continue;
 		}
 		auto resource = t.Resource;
-		if (t.Size == TextureDesc::SizeBase::FIXED && (!resource.width || !resource.height))
+		if (t.Size == TextureDesc::SizeBase::FIXED && (!resource.width || !resource.height)) {
 			throw std::runtime_error("FIXED texture needs explicit dimensions: " + t.Name);
+		}
 		const auto base = t.Size == TextureDesc::SizeBase::RENDER ? mRenderSize : MATH::Vector2i { width, height };
-		if (!resource.width)
+		if (!resource.width) {
 			resource.width = std::max(1, static_cast<int>(base.x * t.Scale));
-		if (!resource.height)
+		}
+		if (!resource.height) {
 			resource.height = std::max(1, static_cast<int>(base.y * t.Scale));
+		}
 		auto create = [&]() {
 			return t.Path.empty() ? renderer.createTexture(resource)
 								  : RESOURCES::ServiceManager::Get<RESOURCES::TextureLoader>().loadResource(t.Path);
 		};
 		mTextures[t.Name] = create();
-		if (!mTextures[t.Name])
+		if (!mTextures[t.Name]) {
 			throw std::runtime_error("Cannot allocate pipeline texture: " + t.Name);
+		}
 		if (t.History) {
-			if (!t.Path.empty())
+			if (!t.Path.empty()) {
 				throw std::runtime_error("History textures must be render targets");
+			}
 			mTextures[t.Name + "Previous"] = create();
 		}
 	}
@@ -1675,47 +1860,61 @@ void RenderGraphPipeline::resize(Renderer& renderer, int width, int height) {
 	const bool history = std::any_of(mDescriptor.Textures.begin(), mDescriptor.Textures.end(), [](const auto& t) { return t.History; });
 	if (history) {
 		auto current = std::move(mFrameBuffers);
-		for (const auto& t : mDescriptor.Textures)
-			if (t.History)
+		for (const auto& t : mDescriptor.Textures) {
+			if (t.History) {
 				std::swap(mAllocatedTextures.at(t.Name), mAllocatedTextures.at(t.Name + "Previous"));
+			}
+		}
 		rebuildFrameBuffers(renderer);
 		mAlternateFrameBuffers = std::move(mFrameBuffers);
 		mFrameBuffers = std::move(current);
-		for (const auto& t : mDescriptor.Textures)
-			if (t.History)
+		for (const auto& t : mDescriptor.Textures) {
+			if (t.History) {
 				std::swap(mAllocatedTextures.at(t.Name), mAllocatedTextures.at(t.Name + "Previous"));
-		for (auto* stages : stageGroups())
-			for (auto& stage : *stages)
+			}
+		}
+		for (auto* stages : stageGroups()) {
+			for (auto& stage : *stages) {
 				stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+			}
+		}
 	}
 }
 
 void RenderGraphPipeline::rebuildFrameBuffers(Renderer& renderer) {
 	mFrameBuffers.clear();
 	for (const auto& f : mDescriptor.FrameBuffers) {
-		if (mFrameBuffers.contains(f.Name))
+		if (mFrameBuffers.contains(f.Name)) {
 			throw std::runtime_error("Duplicate framebuffer: " + f.Name);
+		}
 		std::vector<std::shared_ptr<TextureInterface>> colors;
-		for (const auto& name : f.Textures)
+		for (const auto& name : f.Textures) {
 			colors.push_back(mAllocatedTextures.at(name));
+		}
 		auto depth = f.Depth.empty() ? nullptr : mAllocatedTextures.at(f.Depth);
-		if (colors.empty() && !depth)
+		if (colors.empty() && !depth) {
 			throw std::runtime_error("Empty framebuffer: " + f.Name);
+		}
 		const auto w = std::max<size_t>(1, (depth ? depth->getWidth() : colors.front()->getWidth()) >> f.Mip);
 		const auto h = std::max<size_t>(1, (depth ? depth->getHeight() : colors.front()->getHeight()) >> f.Mip);
-		if (depth && f.Mip)
+		if (depth && f.Mip) {
 			throw std::runtime_error("Depth attachment mip views are not supported");
+		}
 		for (const auto& texture : colors) {
-			if (f.Mip >= texture->getMipCount() || (texture->getType() == TextureType::TEXTURE_CUBE ? f.Layer >= 6 : f.Layer != 0))
+			if (f.Mip >= texture->getMipCount() || (texture->getType() == TextureType::TEXTURE_CUBE ? f.Layer >= 6 : f.Layer != 0)) {
 				throw std::runtime_error("Invalid framebuffer subresource: " + f.Name);
-			if (std::max<size_t>(1, texture->getWidth() >> f.Mip) != w || std::max<size_t>(1, texture->getHeight() >> f.Mip) != h)
+			}
+			if (std::max<size_t>(1, texture->getWidth() >> f.Mip) != w || std::max<size_t>(1, texture->getHeight() >> f.Mip) != h) {
 				throw std::runtime_error("Framebuffer size mismatch: " + f.Name);
+			}
 		}
 		mFrameBuffers[f.Name] = renderer.createFrameBuffer(colors, depth, f.Mip, f.Layer);
 	}
-	for (auto* stages : stageGroups())
-		for (auto& stage : *stages)
+	for (auto* stages : stageGroups()) {
+		for (auto& stage : *stages) {
 			stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+		}
+	}
 }
 
 std::vector<RenderGraphPipeline::StagesArr*> RenderGraphPipeline::stageGroups() {
@@ -1731,17 +1930,20 @@ std::vector<RenderGraphPipeline::StagesArr*> RenderGraphPipeline::stageGroups() 
 
 void RenderGraphPipeline::advanceHistory(Renderer& renderer) {
 	bool changed = false;
-	for (const auto& texture : mDescriptor.Textures)
+	for (const auto& texture : mDescriptor.Textures) {
 		if (texture.History) {
 			std::swap(mAllocatedTextures.at(texture.Name), mAllocatedTextures.at(texture.Name + "Previous"));
 			changed = true;
 		}
+	}
 	mHistoryValid = true;
 	if (changed) {
 		std::swap(mFrameBuffers, mAlternateFrameBuffers);
-		for (auto* stages : stageGroups())
-			for (auto& stage : *stages)
+		for (auto* stages : stageGroups()) {
+			for (auto& stage : *stages) {
 				stage->mFrameBuffer = stage->mDescriptor.FrameBuffer.empty() ? nullptr : mFrameBuffers.at(stage->mDescriptor.FrameBuffer);
+			}
+		}
 	}
 }
 
@@ -1749,66 +1951,87 @@ RenderGraphPipeline::StagesArr RenderGraphPipeline::loadStages(const std::vector
 	StagesArr result;
 	std::set<std::string> names;
 	for (const auto& desc : descriptors) {
-		if (!names.insert(desc.Name).second)
+		if (!names.insert(desc.Name).second) {
 			throw std::runtime_error("Duplicate pipeline stage: " + desc.Name);
+		}
 		auto stage = std::make_unique<PipelineStage>();
 		if (desc.Draw == DrawContent::FRAME_GENERATION) {
-			if (desc.Once || desc.UpdateInterval != 1 || !desc.PresentationSink)
+			if (desc.Once || desc.UpdateInterval != 1 || !desc.PresentationSink) {
 				throw std::runtime_error("FRAME_GENERATION must be a per-frame presentation sink");
-			if (desc.Unsupported != "BYPASS" && desc.Unsupported != "ERROR")
+			}
+			if (desc.Unsupported != "BYPASS" && desc.Unsupported != "ERROR") {
 				throw std::runtime_error("Invalid FRAME_GENERATION unsupported policy");
-			for (const char* key : { "Color", "Depth", "MotionVectors", "UI" })
-				if (!desc.Bindings.contains(key))
+			}
+			for (const char* key : { "Color", "Depth", "MotionVectors", "UI" }) {
+				if (!desc.Bindings.contains(key)) {
 					throw std::runtime_error("Missing FRAME_GENERATION binding: " + std::string(key));
+				}
+			}
 		}
 		stage->mDescriptor = desc;
 		stage->mName = desc.Name;
 		stage->mDrawContent = desc.Draw;
 		stage->mBufferLinks = desc.BufferLinks;
 		if (desc.Draw == DrawContent::UPSCALE) {
-			if (desc.Once || desc.UpdateInterval != 1 || !desc.Program.empty())
+			if (desc.Once || desc.UpdateInterval != 1 || !desc.Program.empty()) {
 				throw std::runtime_error("UPSCALE must execute once each frame: " + desc.Name);
-			if (desc.Unsupported != "ERROR" && desc.Unsupported != "BYPASS")
+			}
+			if (desc.Unsupported != "ERROR" && desc.Unsupported != "BYPASS") {
 				throw std::runtime_error("Unknown UPSCALE Unsupported policy");
-			for (const char* key : { "Color", "Depth", "MotionVectors", "Output" })
-				if (!desc.Bindings.contains(key))
+			}
+			for (const char* key : { "Color", "Depth", "MotionVectors", "Output" }) {
+				if (!desc.Bindings.contains(key)) {
 					throw std::runtime_error("Missing UPSCALE binding: " + std::string(key));
-			if (desc.Material.empty() || desc.FrameBuffer.empty())
+				}
+			}
+			if (desc.Material.empty() || desc.FrameBuffer.empty()) {
 				throw std::runtime_error("UPSCALE needs fallback Material/FrameBuffer");
+			}
 			const auto output = desc.Bindings.at("Output");
 			const auto resource
 				= std::find_if(mDescriptor.Textures.begin(), mDescriptor.Textures.end(), [&](const auto& t) { return t.Name == output; });
-			if (resource == mDescriptor.Textures.end() || !resource->Resource.storage || resource->Size != TextureDesc::SizeBase::DISPLAY)
+			if (resource == mDescriptor.Textures.end() || !resource->Resource.storage || resource->Size != TextureDesc::SizeBase::DISPLAY) {
 				throw std::runtime_error("UPSCALE output must be a DISPLAY storage texture");
-			if (resource->Scale != 1 || resource->Resource.width || resource->Resource.height)
+			}
+			if (resource->Scale != 1 || resource->Resource.width || resource->Resource.height) {
 				throw std::runtime_error("UPSCALE output must follow the complete display extent");
+			}
 			const auto frame = std::find_if(
 				mDescriptor.FrameBuffers.begin(), mDescriptor.FrameBuffers.end(), [&](const auto& f) { return f.Name == desc.FrameBuffer; });
-			if (frame == mDescriptor.FrameBuffers.end() || frame->Textures != std::vector<std::string> { output } || !frame->Depth.empty())
+			if (frame == mDescriptor.FrameBuffers.end() || frame->Textures != std::vector<std::string> { output } || !frame->Depth.empty()) {
 				throw std::runtime_error("UPSCALE fallback framebuffer must contain its output only");
+			}
 		}
 		if (desc.Draw == DrawContent::RAY_TRACE || (desc.Draw == DrawContent::COMPUTE && !desc.Program.empty())) {
-			if (desc.Program.empty() || !desc.Material.empty())
+			if (desc.Program.empty() || !desc.Material.empty()) {
 				throw std::runtime_error("RAY_TRACE requires Program and does not accept Material: " + desc.Name);
-			if (desc.LaunchX <= 0 || desc.LaunchY <= 0 || desc.LaunchZ <= 0 || desc.RaygenRecord < 0 || desc.HitGroupOffset < 0)
+			}
+			if (desc.LaunchX <= 0 || desc.LaunchY <= 0 || desc.LaunchZ <= 0 || desc.RaygenRecord < 0 || desc.HitGroupOffset < 0) {
 				throw std::runtime_error("Invalid RT launch/record: " + desc.Name);
-			if (desc.Unsupported != "ERROR" && desc.Unsupported != "BYPASS")
+			}
+			if (desc.Unsupported != "ERROR" && desc.Unsupported != "BYPASS") {
 				throw std::runtime_error("Unknown RT Unsupported policy: " + desc.Name);
+			}
 			auto& renderer = RESOURCES::ServiceManager::Get<Renderer>();
 			if (desc.Enabled) {
 				try {
 					const auto caps = renderer.getDriver()->rayTracingCapabilities();
-					if (desc.Draw == DrawContent::COMPUTE ? !caps.RayQuery : !caps.Pipeline)
+					if (desc.Draw == DrawContent::COMPUTE ? !caps.RayQuery : !caps.Pipeline) {
 						throw UnsupportedRayTracing("required ray tracing capability unavailable on selected backend/GPU");
+					}
 					stage->mRayTracingProgram = LoadRayTracingProgram(renderer, desc.Program);
-					if (stage->mRayTracingProgram->isRayQuery() != (desc.Draw == DrawContent::COMPUTE))
+					if (stage->mRayTracingProgram->isRayQuery() != (desc.Draw == DrawContent::COMPUTE)) {
 						throw std::runtime_error("RT program kind disagrees with Draw: " + desc.Name);
+					}
 				} catch (const UnsupportedRayTracing& error) {
-					if (desc.Unsupported == "ERROR")
+					if (desc.Unsupported == "ERROR") {
 						throw std::runtime_error("RAY_TRACE stage " + desc.Name + ": " + error.what());
-					for (const auto& output : desc.Writes)
-						if (!desc.Bypass.contains(output))
+					}
+					for (const auto& output : desc.Writes) {
+						if (!desc.Bypass.contains(output)) {
 							throw std::runtime_error("Unsupported RT stage needs explicit Bypass for output " + output);
+						}
+					}
 					std::cout << "RAY_TRACING_FALLBACK " << desc.Name << ": " << error.what() << "\n";
 				}
 			}
@@ -1820,21 +2043,26 @@ RenderGraphPipeline::StagesArr RenderGraphPipeline::loadStages(const std::vector
 				std::cerr << "Pipeline stage " << desc.Name << " (" << desc.Material << "): " << error.what() << std::endl;
 				throw;
 			}
-			if (!stage->mMaterial || !stage->mMaterial->hasShader())
+			if (!stage->mMaterial || !stage->mMaterial->hasShader()) {
 				throw std::runtime_error("Invalid stage material: " + desc.Material);
+			}
 			for (const auto& uniform : stage->mMaterial->getShader()->getReflection().mUniforms) {
-				if (stage->mMaterial->isEngineUniform(uniform.mName))
+				if (stage->mMaterial->isEngineUniform(uniform.mName)) {
 					continue;
-				if (uniform.mMembers.empty()) {
-					if (const auto* value = stage->mMaterial->findUniform(uniform.mName))
-						stage->mDefaults[uniform.mName] = *value;
 				}
-				else
+				if (uniform.mMembers.empty()) {
+					if (const auto* value = stage->mMaterial->findUniform(uniform.mName)) {
+						stage->mDefaults[uniform.mName] = *value;
+					}
+				}
+				else {
 					for (const auto& member : uniform.mMembers) {
 						const auto key = uniform.mName + member.mName;
-						if (const auto* value = stage->mMaterial->findUniform(key))
+						if (const auto* value = stage->mMaterial->findUniform(key)) {
 							stage->mDefaults[key] = *value;
+						}
 					}
+				}
 			}
 		}
 		result.push_back(std::move(stage));
@@ -1846,8 +2074,9 @@ void GameRenderer::bindStage(PipelineStage& stage) {
 	auto& renderer = *mContext.render;
 	auto material = stage.mMaterial;
 	const auto& reflection = material->getShader()->getReflection();
-	for (const auto& [name, value] : stage.mDefaults)
+	for (const auto& [name, value] : stage.mDefaults) {
 		material->set(name, value);
+	}
 	for (const auto& [name, value] : stage.mDescriptor.Uniforms) {
 		std::visit(
 			[&](const auto& v) {
@@ -1863,54 +2092,68 @@ void GameRenderer::bindStage(PipelineStage& stage) {
 	renderer.setShader(material->getShader());
 	renderer.setDepth({ material->isDepthTest() ? material->getDepthFunc() : DepthFunction::ALWAYS, material->isDepthWriting() });
 	renderer.setCull(material->isBackfaceCulling() ? CullFace::BACK : CullFace::NONE);
-	if (stage.mDescriptor.Additive)
+	if (stage.mDescriptor.Additive) {
 		renderer.setBlending({ BlendMode::ONE, BlendMode::ONE });
-	else if (material->isBlendable())
+	}
+	else if (material->isBlendable()) {
 		renderer.setBlending({ BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA });
-	else
+	}
+	else {
 		renderer.resetBlending();
+	}
 	material->bind(mEmptyTexture, true);
-	for (const auto& [name, value] : stage.mDescriptor.Uniforms)
+	for (const auto& [name, value] : stage.mDescriptor.Uniforms) {
 		if (const auto* texture = std::get_if<std::string>(&value)) {
-			if (!reflection.mNameToUniforms.contains(name))
+			if (!reflection.mNameToUniforms.contains(name)) {
 				throw std::runtime_error(stage.mName + ": unknown texture uniform " + name);
-			if (!mRenderPipeline->mTextures.contains(*texture))
+			}
+			if (!mRenderPipeline->mTextures.contains(*texture)) {
 				throw std::runtime_error(stage.mName + ": unknown texture resource " + *texture);
+			}
 			renderer.setTexture(reflection.mUniforms.at(reflection.mNameToUniforms.at(name)).mBind, mRenderPipeline->mTextures.at(*texture));
 		}
+	}
 	for (const auto& [shaderName, bufferName] : stage.mBufferLinks) {
 		const auto& uniform = reflection.mUniforms.at(reflection.mNameToUniforms.at(shaderName));
-		if (uniform.mType == ShaderReflection::UniformType::UNIFORM_BUFFER)
+		if (uniform.mType == ShaderReflection::UniformType::UNIFORM_BUFFER) {
 			renderer.setUniformBuffer(uniform.mBind, mRenderPipeline->mUniformBuffers.at(bufferName));
-		else if (uniform.mType == ShaderReflection::UniformType::STORAGE_BUFFER)
+		}
+		else if (uniform.mType == ShaderReflection::UniformType::STORAGE_BUFFER) {
 			renderer.setStorageBuffer(uniform.mBind, (bufferName == "Lights" ? mLightSSBO : mRenderPipeline->mStorageBuffers.at(bufferName)));
-		else
+		}
+		else {
 			throw std::runtime_error("BufferLinks references a non-buffer uniform: " + shaderName);
+		}
 	}
 	for (const auto& [bufferName, members] : stage.mDescriptor.BufferOverrides) {
 		const auto& uniform = reflection.mUniforms.at(reflection.mNameToUniforms.at(bufferName));
-		if (uniform.mType != ShaderReflection::UniformType::UNIFORM_BUFFER)
+		if (uniform.mType != ShaderReflection::UniformType::UNIFORM_BUFFER) {
 			throw std::runtime_error("BufferOverrides requires a uniform buffer: " + bufferName);
+		}
 		std::vector<uint8_t> data(uniform.mSize, 0);
 		for (const auto& [name, value] : members) {
 			const auto member = std::find_if(uniform.mMembers.begin(), uniform.mMembers.end(), [&](const auto& m) { return m.mName == name; });
-			if (member == uniform.mMembers.end() || member->mArraySize > 1)
+			if (member == uniform.mMembers.end() || member->mArraySize > 1) {
 				throw std::runtime_error("Invalid buffer member: " + name);
+			}
 			std::visit(
 				[&](const auto& v) {
 					using T = std::decay_t<decltype(v)>;
-					if constexpr (std::is_same_v<T, std::string>)
+					if constexpr (std::is_same_v<T, std::string>) {
 						throw std::runtime_error("Textures cannot be buffer members");
+					}
 					else {
 						if constexpr (std::is_same_v<T, bool>) {
-							if (member->mOffset + 4 > data.size())
+							if (member->mOffset + 4 > data.size()) {
 								throw std::runtime_error("Buffer member offset mismatch: " + name);
+							}
 							const int b = v;
 							std::memcpy(data.data() + member->mOffset, &b, 4);
 						}
 						else {
-							if (member->mOffset + sizeof(T) > data.size() || sizeof(T) > member->mSize)
+							if (member->mOffset + sizeof(T) > data.size() || sizeof(T) > member->mSize) {
 								throw std::runtime_error("Buffer member size mismatch: " + name);
+							}
 							std::memcpy(data.data() + member->mOffset, &v, sizeof(T));
 						}
 					}
@@ -1918,27 +2161,33 @@ void GameRenderer::bindStage(PipelineStage& stage) {
 				value);
 		}
 		auto& buffer = stage.mOverrideBuffers[bufferName];
-		if (!buffer)
+		if (!buffer) {
 			buffer = renderer.createUniformBuffer(nullptr, data.size());
+		}
 		buffer->setData(data.data(), data.size());
 		renderer.setUniformBuffer(uniform.mBind, buffer);
 	}
 	for (const auto& [name, buffer] :
 		std::map<std::string, std::shared_ptr<UniformBufferInterface>> { { "engine_RayFrame", mRayFrameUbo }, { "engine_UBO", mEngineUbo },
-		{ "engine_Frame", mFrameUbo }, { "engine_ShadowData", mShadowUbo }, { "engine_CurrentShadow", mCurrentShadowUbo } })
-		if (reflection.mNameToUniforms.contains(name))
+		{ "engine_Frame", mFrameUbo }, { "engine_ShadowData", mShadowUbo }, { "engine_CurrentShadow", mCurrentShadowUbo } }) {
+		if (reflection.mNameToUniforms.contains(name)) {
 			renderer.setUniformBuffer(name, buffer);
-	if (reflection.mNameToUniforms.contains("engine_Lights"))
+		}
+	}
+	if (reflection.mNameToUniforms.contains("engine_Lights")) {
 		renderer.setStorageBuffer("engine_Lights", mLightSSBO);
+	}
 }
 
 void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 	auto& renderer = *mContext.render;
 	auto& loader = RESOURCES::ServiceManager::Get<RESOURCES::MaterialLoader>();
-	if (!mGuiSpriteMaterial)
+	if (!mGuiSpriteMaterial) {
 		mGuiSpriteMaterial = loader.loadResource("/materials/render/portable/gui.mat");
-	if (!mGuiTextMaterial)
+	}
+	if (!mGuiTextMaterial) {
 		mGuiTextMaterial = loader.loadResource("/materials/render/portable/text.mat");
+	}
 	auto projection = MATH::Matrix4f::CreateOrthographic(0, uboData.ViewportSize.x, uboData.ViewportSize.y, 0, -1, 1);
 	if (DriverInterface::settings.backend != RenderSettings::Backend::OPENGL) {
 		auto correction = MATH::Matrix4f::Identity;
@@ -1946,8 +2195,9 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 		correction(2, 3) = .5f;
 		projection = correction * projection;
 	}
-	if (!mVectorRenderer)
+	if (!mVectorRenderer) {
 		mVectorRenderer = std::make_shared<VECTOR::VectorRenderer>();
+	}
 	mVectorRenderer->beginFrame(worldVectors);
 	Scissor guiClip;
 	bool guiClipped = false;
@@ -1955,8 +2205,9 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 		= [&](const std::vector<Vertex>& vertices, const std::vector<unsigned>& indices, const std::shared_ptr<TextureInterface>& texture,
 			  const std::shared_ptr<MaterialInterface>& material, const MATH::Matrix4f& transform, bool is3D,
 			  Blending blend = Blending(BlendMode::SRC_ALPHA, BlendMode::ONE_MINUS_SRC_ALPHA, BlendMode::ONE, BlendMode::ONE_MINUS_SRC_ALPHA)) {
-			  if (!texture || vertices.empty())
+			  if (!texture || vertices.empty()) {
 				  return;
+			  }
 			  auto transformed = vertices;
 			  for (auto& v : transformed) {
 				  auto p = transform * MATH::Vector4f(v.position.x, v.position.y, v.position.z, 1);
@@ -1969,39 +2220,46 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 	auto quad = [](float x, float y, float w, float h, AtlasRect uv, MATH::Vector4f color) {
 		std::vector<Vertex> vertices = { Vertex({ x, y, 0 }, { uv.mX, uv.mY }), Vertex({ x + w, y, 0 }, { uv.mX + uv.mW, uv.mY }),
 			Vertex({ x + w, y + h, 0 }, { uv.mX + uv.mW, uv.mY + uv.mH }), Vertex({ x, y + h, 0 }, { uv.mX, uv.mY + uv.mH }) };
-		for (auto& vertex : vertices)
+		for (auto& vertex : vertices) {
 			vertex.m_Weights = color;
+		}
 		return vertices;
 	};
 	auto sceneObjects = scene.getObjects();
 	std::vector<std::shared_ptr<ECS::Object>> objects(sceneObjects.begin(), sceneObjects.end());
 	auto canvasFor = [](auto object) {
 		while (object) {
-			if (auto canvas = object->template getComponent<ECS::VectorCanvasComponent>())
+			if (auto canvas = object->template getComponent<ECS::VectorCanvasComponent>()) {
 				return canvas;
+			}
 			object = object->getParent();
 		}
-		return decltype(object->template getComponent<ECS::VectorCanvasComponent>()) { };
+		return decltype(object->template getComponent<ECS::VectorCanvasComponent>()) {};
 	};
 	auto orderFor = [&](auto object) {
 		auto canvas = canvasFor(object);
 		int order = canvas ? canvas->Order : 0, layer = canvas ? canvas->SortingLayer : 0;
-		if (auto c = object->template getComponent<ECS::VectorShapeComponent>())
+		if (auto c = object->template getComponent<ECS::VectorShapeComponent>()) {
 			order += c->Order;
-		else if (auto c = object->template getComponent<ECS::VectorPathComponent>())
+		}
+		else if (auto c = object->template getComponent<ECS::VectorPathComponent>()) {
 			order += c->Order;
-		else if (auto c = object->template getComponent<ECS::SdfTextComponent>())
+		}
+		else if (auto c = object->template getComponent<ECS::SdfTextComponent>()) {
 			order += c->Order;
+		}
 		return std::pair { layer, order };
 	};
 	std::stable_sort(objects.begin(), objects.end(), [&](auto a, auto b) { return orderFor(a) < orderFor(b); });
 	for (auto& object : objects) {
-		if (!object->getIsActive() || !object->getIsVisible())
+		if (!object->getIsActive() || !object->getIsVisible()) {
 			continue;
+		}
 		auto canvas = canvasFor(object);
 		bool world = canvas && canvas->WorldSpace;
-		if (worldVectors && !world)
+		if (worldVectors && !world) {
 			continue;
+		}
 		auto canvasCorrection = MATH::Matrix4f::Identity;
 		if (canvas && canvas->DpiScale != 1.f) {
 			auto root = canvas->obj->getTransform()->getTransform().getWorldMatrix();
@@ -2011,21 +2269,23 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 		}
 		float left = 0, top = 0, right = uboData.ViewportSize.x, bottom = uboData.ViewportSize.y;
 		bool clipped = false;
-		for (auto ancestor = object; ancestor; ancestor = ancestor->getParent())
+		for (auto ancestor = object; ancestor; ancestor = ancestor->getParent()) {
 			if (auto clip = ancestor->getComponent<ECS::ClipComponent>()) {
 				auto matrix = canvasCorrection * ancestor->getTransform()->getTransform().getWorldMatrix();
 				float minX = right, minY = bottom, maxX = left, maxY = top;
 				for (const auto& corner : { MATH::Vector4f(0, 0, 0, 1), MATH::Vector4f(clip->mWidth, 0, 0, 1), MATH::Vector4f(0, clip->mHeight, 0, 1),
 					 MATH::Vector4f(clip->mWidth, clip->mHeight, 0, 1) }) {
 					auto local = corner;
-					if (worldVectors)
+					if (worldVectors) {
 						local.y = -local.y;
+					}
 					auto point = matrix * local;
 					if (worldVectors) {
 						auto camera = MATH::Matrix4f::Transpose(uboData.View * uboData.Projection);
 						point = camera * point;
-						if (point.w <= 1e-4f)
+						if (point.w <= 1e-4f) {
 							continue;
+						}
 						point.x = (point.x / point.w * .5f + .5f) * uboData.ViewportSize.x;
 						point.y = (.5f - point.y / point.w * .5f) * uboData.ViewportSize.y;
 					}
@@ -2040,26 +2300,31 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 				bottom = std::min(bottom, maxY);
 				clipped = true;
 			}
+		}
 		if (clipped) {
-			if (right <= left || bottom <= top)
+			if (right <= left || bottom <= top) {
 				continue;
+			}
 			guiClip = { { left, top }, { right - left, bottom - top } };
 			guiClipped = true;
 		}
-		else
+		else {
 			guiClipped = false;
+		}
 		if (!worldVectors && (object->getComponent<ECS::ParticleSystem2DComponent>() || object->getComponent<ECS::SpriteParticleComponent>())) {
 			mVectorRenderer->flushPending(renderer);
-			if (!mParticleRenderer)
+			if (!mParticleRenderer) {
 				mParticleRenderer = std::make_shared<ParticleRenderer>();
+			}
 			mParticleRenderer->drawScreen(*object, renderer, MATH::Matrix4f::Transpose(projection), guiClip, guiClipped, canvasCorrection);
 		}
 		const auto& transform = object->getTransform()->getTransform();
 		auto animatedSprite = object->getComponent<ECS::SpriteAnimateComponent>();
 		auto plainSprite = object->getComponent<ECS::SpriteComponent>();
 		ECS::SpriteComponent* sprite = plainSprite ? plainSprite.get() : nullptr;
-		if (!sprite && animatedSprite)
+		if (!sprite && animatedSprite) {
 			sprite = animatedSprite.get();
+		}
 		if (!worldVectors && sprite && sprite->mTexture) {
 			const auto size = transform.getLocalSize();
 			auto uv = sprite->mTexture->getPieceUV(sprite->mTexturePiece);
@@ -2079,8 +2344,9 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 			float x = 0;
 			for (char c : label->mLabel) {
 				const auto found = label->mFont->Characters.find(c);
-				if (found == label->mFont->Characters.end())
+				if (found == label->mFont->Characters.end()) {
 					continue;
+				}
 				const auto& ch = found->second;
 				const float width = static_cast<float>(label->mFont->texture->getWidth()),
 							height = static_cast<float>(label->mFont->texture->getHeight());
@@ -2088,8 +2354,9 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 					{ ch.Start.x / width, ch.Start.y / height, ch.Size.x / width, ch.Size.y / height }, label->color);
 				const auto base = static_cast<unsigned>(vertices.size());
 				vertices.insert(vertices.end(), v.begin(), v.end());
-				for (unsigned index : { 0, 1, 2, 2, 3, 0 })
+				for (unsigned index : { 0, 1, 2, 2, 3, 0 }) {
 					indices.push_back(base + index);
+				}
 				x += ch.Advance / 64.0f;
 			}
 			submit(vertices, indices, label->mFont->texture, mGuiTextMaterial, transform.getWorldMatrix(), label->mIs3D);
@@ -2111,32 +2378,37 @@ void GameRenderer::renderGui(SCENE_SYSTEM::Scene& scene, bool worldVectors) {
 					component->mIs3D, { state.blendSrc, state.blendDst });
 			};
 			skeleton->draw();
-			skeleton->submit = { };
+			skeleton->submit = {};
 		}
-		if (world != worldVectors)
+		if (world != worldVectors) {
 			continue;
+		}
 		float pixelScale = 1;
 		auto matrix = canvasCorrection * transform.getWorldMatrix();
 		if (world) {
 			auto camera = MATH::Matrix4f::Transpose(uboData.View * uboData.Projection);
 			auto project = [&](MATH::Vector4f p) {
 				auto v = camera * (matrix * p);
-				if (v.w <= 1e-4f)
-					return MATH::Vector2f { };
+				if (v.w <= 1e-4f) {
+					return MATH::Vector2f {};
+				}
 				return MATH::Vector2f(v.x / v.w * uboData.ViewportSize.x * .5f, v.y / v.w * uboData.ViewportSize.y * .5f);
 			};
 			auto origin = project({ 0, 0, 0, 1 }), x = project({ 1, 0, 0, 1 }) - origin, y = project({ 0, 1, 0, 1 }) - origin;
 			pixelScale = std::max(std::sqrt(x.x * x.x + x.y * x.y), std::sqrt(y.x * y.x + y.y * y.y));
 		}
-		else
+		else {
 			pixelScale = std::max(std::sqrt(matrix(0, 0) * matrix(0, 0) + matrix(1, 0) * matrix(1, 0)),
 				std::sqrt(matrix(0, 1) * matrix(0, 1) + matrix(1, 1) * matrix(1, 1)));
+		}
 		for (auto draw : mVectorRenderer->prepare(*object, pixelScale, renderer)) {
-			if (!draw.mesh || draw.mesh->indices.empty())
+			if (!draw.mesh || draw.mesh->indices.empty()) {
 				continue;
+			}
 			auto& material = draw.sdf ? mSdfMaterial : mVectorMaterial;
-			if (!material)
+			if (!material) {
 				material = loader.loadResource(draw.sdf ? "/materials/render/portable/sdfText.mat" : "/materials/render/portable/vector.mat");
+			}
 			std::vector<Vertex> vertices;
 			vertices.reserve(draw.mesh->vertices.size());
 			for (auto& v : draw.mesh->vertices) {

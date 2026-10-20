@@ -22,7 +22,7 @@ private:
 	SCENE_SYSTEM::Scene& mScene;
 	std::shared_ptr<PHYSICS::World> mSimulation;
 };
-void RunPhysics3DSmoke();
+
 }
 
 #endif // USE_PHYSICS_3D

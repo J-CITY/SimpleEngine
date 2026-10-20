@@ -41,23 +41,22 @@ struct WindowSettings {
 	int refreshRate = 60;
 	RENDER::RenderSettings::Backend renderBackend = RENDER::RenderSettings::Backend::OPENGL;
 
-	// template<class Context>
-	// constexpr static auto serde(Context& context, WindowSettings& value) {
-	//	using Self = WindowSettings;
-	//	using namespace serde::attribute;
-	//	serde::serde_struct(context, value)
-	//		.field(&Self::isFullscreen, "IsFullscreen")
-	//		.field(&Self::isCursorVisible, "IsCursorVisible")
-	//		.field(&Self::isCursorLock, "IsCursorLock")
-	//		.field(&Self::depthBits, "DepthBits")
-	//		.field(&Self::stencilBits, "StencilBits")
-	//		.field(&Self::antialiasingLevel, "AntialiasingLevel")
-	//		.field(&Self::majorVersion, "MajorVersion")
-	//		.field(&Self::minorVersion, "MinorVersion")
-	//		.field(&Self::title, "Title")
-	//		.field(&Self::refreshRate, "RefreshRate")
-	//		.field(&Self::size, "Size");
-	// }
+	template <class Context> constexpr static auto serde(Context& context, WindowSettings& value) {
+		using Self = WindowSettings;
+		using namespace serde::attribute;
+		serde::serde_struct(context, value)
+			.field(&Self::isFullscreen, "IsFullscreen", default_ { false })
+			.field(&Self::isCursorVisible, "IsCursorVisible", default_ { true })
+			.field(&Self::isCursorLock, "IsCursorLock", default_ { true })
+			.field(&Self::depthBits, "DepthBits", default_ { 24 })
+			.field(&Self::stencilBits, "StencilBits", default_ { 8 })
+			.field(&Self::antialiasingLevel, "AntialiasingLevel", default_ { 4 })
+			.field(&Self::majorVersion, "MajorVersion", default_ { 4 })
+			.field(&Self::minorVersion, "MinorVersion", default_ { 3 })
+			.field(&Self::title, "Title", default_ { std::string {} })
+			.field(&Self::refreshRate, "RefreshRate", default_ { 60 })
+			.field(&Self::size, "Size", default_ { MATH::Vector2u(800, 600) });
+	}
 };
 
 #ifdef USE_SDL
@@ -201,7 +200,7 @@ public:
 		return true;
 	}
 	[[nodiscard]] MATH::Vector2i getMousePos() const {
-		return { };
+		return {};
 	}
 	void setSize(unsigned int width, unsigned int height);
 	MATH::Vector2u getSize() const;

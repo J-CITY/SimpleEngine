@@ -28,8 +28,13 @@ public:
 	void onUpdate(std::chrono::duration<double> dt) override;
 
 	void setPlayable(std::shared_ptr<SKELETON::IAnimationPlayable> playable);
+	void claimPlayback(ComponentBase& owner);
+	void releasePlayback(ComponentBase& owner);
 	SKELETON::IAnimationPlayable* getPlayable() const {
 		return mPlayable.get();
+	}
+	std::shared_ptr<SKELETON::IAnimationPlayable> getPlayableShared() const {
+		return mPlayable;
 	}
 
 	std::shared_ptr<UTILS::Environment> getEnvironment() const {
@@ -53,6 +58,7 @@ public:
 	virtual void onSerialize(nlohmann::json& j) override;
 
 private:
+	UTILS::WeakPtr<ComponentBase> mPlaybackOwner;
 	std::string mGraphPath;
 	std::shared_ptr<SKELETON::IAnimationPlayable> mPlayable;
 	// TODO: move it somewhare
@@ -60,7 +66,7 @@ private:
 
 public:
 	static auto GetMembers() {
-		return std::tuple { };
+		return std::tuple {};
 	}
 };
 

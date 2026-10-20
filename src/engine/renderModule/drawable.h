@@ -9,8 +9,6 @@
 // #include "backends/interface/meshInterface.h"
 // #include "backends/interface/materialInterface.h"
 #include <coreModule/ecs/components/cameraComponent.h>
-#include <coreModule/ecs/components/skeletal.h>
-
 
 namespace IKIGAI {
 namespace SKELETON {
@@ -31,12 +29,11 @@ namespace RENDER {
 		MATH::Matrix4f world;
 		std::shared_ptr<MeshInterface> mesh;
 		std::shared_ptr<MaterialInterface> material;
-		UTILS::WeakPtr<ECS::Skeletal> animator;
 		std::shared_ptr<SKELETON::Skeleton> skeleton;
-		SKELETON::IAnimationPlayable* animationPlayable;
-		SKELETON::AnimOffset* mAnimOffset;
-		SKELETON::AnimLocalTransform* mAnimLocalTransform;
-		SKELETON::AnimGlobalTransform* mAnimGlobalTransform;
+		SKELETON::IAnimationPlayable* animationPlayable = nullptr;
+		SKELETON::AnimOffset* mAnimOffset = nullptr;
+		SKELETON::AnimLocalTransform* mAnimLocalTransform = nullptr;
+		SKELETON::AnimGlobalTransform* mAnimGlobalTransform = nullptr;
 	};
 
 	using OpaqueDrawables = std::multimap<float, Drawable, std::less<float>>;

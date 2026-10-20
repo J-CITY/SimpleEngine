@@ -1,0 +1,733 @@
+#include "stateGraphRuntime.h"
+#include "characterAnimation.h"
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <set>
+#include <stdexcept>
+
+namespace IKIGAI::SKELETON {
+namespace {
+	using Json = nlohmann::json;
+	void require(bool valid, const std::string& message) {
+		if (!valid) {
+			throw std::runtime_error("State graph: " + message);
+		}
+	}
+	const std::map<std::string, std::pair<int, int>> operators
+		= { { "+", { 2, 2 } }, { "-", { 2, 2 } }, { "*", { 2, 2 } }, { "/", { 2, 2 } }, { "abs", { 1, 1 } }, { "min", { 2, 2 } }, { "max", { 2, 2 } },
+			  { "clamp", { 3, 3 } }, { ">", { 2, 2 } }, { "<", { 2, 2 } }, { ">=", { 2, 2 } }, { "<=", { 2, 2 } }, { "==", { 2, 2 } },
+			  { "!=", { 2, 2 } }, { "and", { 2, 32 } }, { "or", { 2, 32 } }, { "not", { 1, 1 } }, { "if", { 3, 3 } } };
+	UTILS::VarValue parameterValue(const Json& p) {
+		const auto type = p.at("Type").get<std::string>();
+		if (p.contains("Default")) {
+			const auto& d = p.at("Default");
+			require(type == "float" ? d.is_number() : type == "int" ? d.is_number_integer() : d.is_boolean(), "parameter default has wrong type");
+		}
+		if (type == "float") {
+			return p.value("Default", 0.f);
+		}
+		if (type == "int") {
+			return p.value("Default", 0);
+		}
+		if (type == "bool" || type == "trigger") {
+			return p.value("Default", false);
+		}
+		throw std::runtime_error("State graph: unknown parameter type " + type);
+	}
+	void declareParameters(const Json& doc, UTILS::Environment& env) {
+		for (const auto& [name, p] : doc.at("Parameters").items()) {
+			env.declare(name, parameterValue(p), p.at("Type") == "trigger");
+		}
+	}
+}
+
+std::shared_ptr<const StateGraphDefinition> StateGraphDefinition::compile(
+	const Json& doc, std::shared_ptr<Skeleton> skeleton, const std::function<std::shared_ptr<Animation>(const std::string&)>& load) {
+	require(doc.value("Version", 0) == 2, "unsupported Version (expected 2)");
+	require(bool(skeleton), "missing skeleton");
+	require(skeleton->getNumJolts() <= MAXBONES, "skeleton exceeds pose capacity");
+	require(skeleton->getNumJolts() == skeleton->joints().size(), "inconsistent skeleton joint count");
+	for (size_t i = 0; i < skeleton->joints().size(); ++i) {
+		require(skeleton->joints()[i].parentIndex < int(i), "skeleton must be ordered by parent");
+	}
+	auto result = std::make_shared<StateGraphDefinition>();
+	result->document = doc;
+	result->skeleton = std::make_shared<Skeleton>(*skeleton);
+	result->dependencies = doc.value("Dependencies", std::vector<std::string> {});
+	UTILS::Environment env;
+	declareParameters(doc, env);
+	for (const auto* name : { "StateTime", "NormalizedTime", "Duration", "Finished" }) {
+		require(!doc.at("Parameters").contains(name) && (!doc.contains("Bindings") || !doc.at("Bindings").contains(name)),
+			"reserved parameter name " + std::string(name));
+	}
+	const auto bindings = doc.value("Bindings", Json::object());
+	std::set<std::string> visiting;
+	std::function<void(const Json&, int)> expression;
+	expression = [&](const Json& e, int depth) {
+		require(depth < 64, "expression cycle or nesting exceeds 64");
+		if (e.is_boolean() || e.is_number()) {
+			require(!e.is_number() || std::isfinite(e.get<double>()), "non-finite constant");
+			return;
+		}
+		if (e.is_string()) {
+			const auto name = e.get<std::string>();
+			if (name == "StateTime" || name == "NormalizedTime" || name == "Finished" || name == "Duration") {
+				return;
+			}
+			if (bindings.contains(name)) {
+				require(visiting.insert(name).second, "binding cycle at " + name);
+				const auto& binding = bindings.at(name);
+				expression(binding.is_object() ? binding.at("Expression") : binding, depth + 1);
+				visiting.erase(name);
+			}
+			else {
+				require(env.hasVariable(name), "undeclared parameter " + name);
+			}
+			return;
+		}
+		require(e.is_array() && !e.empty() && e[0].is_string(), "invalid expression " + e.dump());
+		const auto op = e[0].get<std::string>();
+		const auto it = operators.find(op);
+		require(it != operators.end(), "unknown operator " + op);
+		require(e.size() >= size_t(it->second.first + 1) && e.size() <= size_t(it->second.second + 1), "wrong arity for " + op);
+		for (size_t i = 1; i < e.size(); ++i) {
+			expression(e[i], depth + 1);
+		}
+	};
+	for (const auto& [name, e] : bindings.items()) {
+		require(!env.hasVariable(name), "binding shadows parameter " + name);
+		if (e.is_object()) {
+			const float response = e.value("Smoothing", 0.f);
+			require(std::isfinite(response) && response >= 0, "invalid binding Smoothing");
+			expression(e.at("Expression"), 0);
+		}
+		else {
+			expression(e, 0);
+		}
+	}
+	const auto& clips = doc.at("Clips");
+	require(clips.is_object() && !clips.empty(), "Clips must be a nonempty object");
+	const auto rig = doc.value("Rig", Json::object());
+	const int root = skeleton->findJointIndex(rig.value("Root", std::string("Hips")));
+	const float scale = rig.value("UnitsToMeters", .01f);
+	require(scale > 0 && std::isfinite(scale), "invalid rig scale");
+	if (doc.contains("Rig")) {
+		require(root >= 0, "missing rig root joint");
+		for (const auto key : { "Feet", "Hands" }) {
+			if (rig.contains(key)) {
+				for (const auto& joint : rig.at(key)) {
+					require(skeleton->findJointIndex(joint.get<std::string>()) >= 0, "missing rig joint " + joint.get<std::string>());
+				}
+			}
+		}
+	}
+	for (const auto& [name, c] : clips.items()) {
+		auto source = load(c.at("Path").get<std::string>());
+		require(bool(source), "cannot load clip " + name);
+		require(source->ticksPerSecond > 0 && source->durationInTicks > 0, "invalid clip duration: " + name);
+		auto prepared = std::make_shared<Animation>(*source);
+		require(prepared->channels.size() <= skeleton->getNumJolts(), "clip has incompatible joint count: " + name);
+		require(std::any_of(prepared->channels.begin(), prepared->channels.end(),
+					[](const auto& c) { return !c.translationKeyframes.empty() || !c.rotationKeyframes.empty() || !c.scaleKeyframes.empty(); }),
+			"clip contains no matching animated joints: " + name);
+		for (size_t i = 0; i < prepared->channels.size(); ++i) {
+			if (!prepared->channels[i].jointName.empty()) {
+				require(trimmedName(prepared->channels[i].jointName) == trimmedName(skeleton->joints()[i].name), "clip joint mismatch: " + name);
+			}
+		}
+		const auto mode = c.value("RootMode", std::string("in-place"));
+		require(mode == "in-place" || mode == "stairs" || mode == "flat" || mode == "traversal" || mode == "authored", "unknown RootMode: " + mode);
+		if (root >= 0 && root < int(prepared->channels.size())) {
+			auto& channel = prepared->channels[root];
+			auto& keys = channel.translationKeyframes;
+			if (!keys.empty() && mode != "traversal" && mode != "authored") {
+				const auto first = keys.front(), last = keys.back();
+				for (auto& k : keys) {
+					k.translation.x = 0;
+					k.translation.z = 0;
+					if (mode == "stairs") {
+						k.translation.y
+							-= (last.translation.y - first.translation.y) * float((k.time - first.time) / std::max(.0001, last.time - first.time));
+					}
+					if (mode == "flat") {
+						k.translation.y = rig.value("RootHeight", 90.f);
+					}
+				}
+			}
+			if (c.value("RemoveYaw", false)) {
+				for (auto& key : channel.rotationKeyframes) {
+					const auto forward = key.rotation * MATH::Vector3f { 0, 0, 1 };
+					key.rotation = MATH::QuaternionF(MATH::Vector3f { 0, -std::atan2(forward.x, forward.z) * 57.2957795f, 0 }) * key.rotation;
+				}
+			}
+		}
+		result->clips.emplace(name, std::move(prepared));
+		result->dependencies.push_back(c.at("Path"));
+		require(std::isfinite(c.value("PhaseOffset", 0.f)), "invalid PhaseOffset");
+	}
+	std::function<void(const Json&, int)> node;
+	node = [&](const Json& n, int depth) {
+		require(depth < 32, "node nesting exceeds 32");
+		if (n.is_string()) {
+			require(clips.contains(n.get<std::string>()), "unknown clip " + n.get<std::string>());
+			return;
+		}
+		if (n.contains("Blend")) {
+			require(n.at("Blend").is_array() && n.at("Blend").size() == 2, "Blend needs two nodes");
+			node(n["Blend"][0], depth + 1);
+			node(n["Blend"][1], depth + 1);
+			expression(n.at("Weight"), 0);
+		}
+		else if (n.contains("Select")) {
+			expression(n.at("Select"), 0);
+			node(n.at("True"), depth + 1);
+			node(n.at("False"), depth + 1);
+		}
+		else if (n.contains("Blendspace1D")) {
+			const auto& points = n.at("Blendspace1D");
+			require(points.is_array() && !points.empty(), "empty blendspace");
+			float last = -INFINITY;
+			for (const auto& p : points) {
+				const float v = p.at("Value");
+				require(std::isfinite(v) && v > last, "blendspace points must increase strictly");
+				last = v;
+				node(p.at("Node"), depth + 1);
+			}
+			expression(n.at("Parameter"), 0);
+		}
+		else {
+			require(false, "unknown blend node " + n.dump());
+		}
+	};
+	const auto& states = doc.at("States");
+	require(states.is_object() && !states.empty(), "empty States");
+	require(states.contains(doc.at("InitialState").get<std::string>()), "missing InitialState");
+	auto transition = [&](const Json& t) {
+		require(states.contains(t.at("Target").get<std::string>()), "unknown transition target");
+		expression(t.value("When", Json(true)), 0);
+		const float fade = t.value("BlendTime", .15f);
+		require(std::isfinite(fade) && fade >= 0, "invalid BlendTime");
+		if (t.contains("Consume")) {
+			for (const auto& name : t.at("Consume")) {
+				require(doc.at("Parameters").contains(name.get<std::string>()) && doc["Parameters"][name.get<std::string>()]["Type"] == "trigger",
+					"Consume requires declared triggers");
+			}
+		}
+	};
+	for (const auto& t : doc.value("AnyState", Json::array())) {
+		transition(t);
+	}
+	for (const auto& [name, s] : states.items()) {
+		node(s.at("Node"), 0);
+		require(clips.contains(s.at("Clock").get<std::string>()), "missing clock clip in " + name);
+		expression(s.value("Rate", Json(1)), 0);
+		expression(s.value("EntryTime", Json(0)), 0);
+		if (s.contains("When")) {
+			expression(s.at("When"), 0);
+		}
+		if (s.contains("ExternalTime")) {
+			expression(s.at("ExternalTime"), 0);
+		}
+		for (const auto& t : s.value("Transitions", Json::array())) {
+			transition(t);
+		}
+		if (s.contains("Action")) {
+			const auto& a = s.at("Action");
+			require(clips.contains(a.at("Clip").get<std::string>()), "unknown action clip");
+			require(s.at("Clock") == a.at("Clip"), "action Clock must match Action.Clip");
+			if (a.value("Contact", false)) {
+				require(s.at("Node").is_string() && s.at("Node") == a.at("Clip"), "contact action must sample its Action.Clip");
+			}
+			require(!clips.at(a.at("Clip").get<std::string>()).value("Loop", true), "action clip must be one-shot");
+			const float plant = a.value("Plant", 0.f), release = a.value("Release", 1.f);
+			require(plant >= 0 && plant < release && release <= 1, "invalid action contact interval");
+			require(a.value("MinDuration", .4f) > 0, "invalid action duration");
+		}
+	}
+	// Optional automatic foot-phase matching, configured per clip. The result
+	// belongs to the compiled resource and never modifies imported Animation.
+	std::set<std::string> phased, phaseStack;
+	std::function<void(const std::string&)> matchPhase;
+	matchPhase = [&](const std::string& name) {
+		if (phased.contains(name)) {
+			return;
+		}
+		require(phaseStack.insert(name).second, "phase-reference cycle at " + name);
+		const auto& clip = clips.at(name);
+		if (clip.contains("PhaseReference")) {
+			const auto reference = clip.at("PhaseReference").get<std::string>();
+			require(clips.contains(reference), "unknown phase reference " + reference);
+			matchPhase(reference);
+			const auto joints = rig.value("PhaseJoints", std::vector<std::string> { "LeftFoot", "RightFoot" });
+			require(joints.size() == 2, "PhaseJoints needs two support joints");
+			const int left = skeleton->findJointIndex(joints[0]), right = skeleton->findJointIndex(joints[1]);
+			require(left >= 0 && right >= 0, "missing phase support joints");
+			auto stride = [&](const std::string& id) {
+				AnimSample sample(result->skeleton, result->clips.at(id));
+				std::array<float, 32> values {};
+				for (int i = 0; i < 32; ++i) {
+					sample.seek(sample.duration() * float(i) / 32);
+					const auto p = CHARACTER::positions(*result->skeleton, *sample.getPose());
+					values[i] = p[left].y - p[right].y;
+				}
+				return values;
+			};
+			result->document["Clips"][name]["PhaseOffset"] = CHARACTER::strideOffset(stride(reference), stride(name))
+				+ result->document["Clips"][reference].value("PhaseOffset", 0.f) + clip.value("PhaseOffset", 0.f);
+		}
+		phaseStack.erase(name);
+		phased.insert(name);
+	};
+	for (const auto& [name, c] : clips.items()) {
+		matchPhase(name);
+	}
+	// Compile conditions and numeric bindings once. The execution document carries
+	// handles into typed programs; no recursive JSON/string interpreter runs per tick.
+	for (const auto& [name, p] : doc.at("Parameters").items()) {
+		auto value = parameterValue(p);
+		const auto type = std::visit([](auto v) { return DATA::typeOf(DATA::Value(v)); }, value);
+		result->symbols.emplace(name, DATA::Symbol { result->symbols.size(), type });
+		result->parameters.push_back(name);
+	}
+	result->parameterCount = result->symbols.size();
+	result->builtinStart = result->symbols.size();
+	for (const auto* name : { "StateTime", "NormalizedTime", "Duration", "Finished" }) {
+		result->symbols.emplace(
+			name, DATA::Symbol { result->symbols.size(), std::string_view(name) == "Finished" ? DATA::ValueType::Bool : DATA::ValueType::Float });
+	}
+	std::set<std::string> building;
+	std::function<void(const std::string&)> compileBinding;
+	compileBinding = [&](const std::string& name) {
+		if (result->symbols.contains(name)) {
+			return;
+		}
+		require(building.insert(name).second, "binding cycle: " + name);
+		const auto& b = bindings.at(name);
+		const auto& e = b.is_object() ? b.at("Expression") : b;
+		std::function<void(const Json&)> deps = [&](const Json& x) {
+			if (x.is_string() && bindings.contains(x.get<std::string>())) {
+				compileBinding(x.get<std::string>());
+			}
+			else if (x.is_array()) {
+				for (size_t i = 1; i < x.size(); ++i) {
+					deps(x[i]);
+				}
+			}
+		};
+		deps(e);
+		auto program = DATA::Expression::compile(e, result->symbols);
+		const auto slot = result->symbols.size();
+		const float response = b.is_object() ? b.value("Smoothing", 0.f) : 0.f;
+		require(response == 0 || program.type() == DATA::ValueType::Float, "Smoothing needs Float");
+		result->symbols.emplace(name, DATA::Symbol { slot, program.type() });
+		result->bindings.push_back({ slot, std::move(program), response });
+		building.erase(name);
+	};
+	for (const auto& [name, b] : bindings.items()) {
+		compileBinding(name);
+	}
+	result->executable = result->document;
+	std::function<void(Json&)> lower = [&](Json& value) {
+		if (value.is_array()) {
+			for (auto& child : value) {
+				lower(child);
+			}
+			return;
+		}
+		if (!value.is_object()) {
+			return;
+		}
+		for (auto& [key, child] : value.items()) {
+			if (key == "When" || key == "Select" || key == "Rate" || key == "EntryTime" || key == "ExternalTime" || key == "Weight"
+				|| key == "Parameter") {
+				auto program = DATA::Expression::compile(child, result->symbols);
+				require((key == "When" || key == "Select") ? program.type() == DATA::ValueType::Bool
+														   : program.type() == DATA::ValueType::Float || program.type() == DATA::ValueType::Int,
+					"wrong expression result type for " + key);
+				const auto id = result->expressions.size();
+				result->expressions.push_back(std::move(program));
+				child = Json { { "Program", id } };
+			}
+			else {
+				lower(child);
+			}
+		}
+	};
+	lower(result->executable.at("States"));
+	if (result->executable.contains("AnyState")) {
+		lower(result->executable.at("AnyState"));
+	}
+	auto edge = [&](const Json& t) {
+		return DATA::StateTransition { t.at("Target").get<std::string>(), DATA::Expression::compile(t.value("When", Json(true)), result->symbols),
+			t.value("Priority", 0), t.value("Interrupt", false), t.value("Force", false), t.value("BlendTime", .15f), t };
+	};
+	for (const auto& [name, state] : doc.at("States").items()) {
+		for (const auto& t : state.value("Transitions", Json::array())) {
+			result->machine.transitions[name].push_back(edge(t));
+		}
+	}
+	for (const auto& t : doc.value("AnyState", Json::array())) {
+		result->machine.anyState.push_back(edge(t));
+	}
+	return result;
+}
+
+StateGraphRuntime::StateGraphRuntime(std::shared_ptr<const StateGraphDefinition> def, std::shared_ptr<UTILS::Environment> env)
+	: mDefinition(std::move(def))
+	, mEnvironment(std::move(env))
+	, mBlend(mDefinition->skeleton) {
+	declareParameters(definition(), *mEnvironment);
+	for (const auto& name : mDefinition->parameters) {
+		mParameterSlots.push_back(mEnvironment->slot(name));
+	}
+	mExpressionValues.resize(mDefinition->symbols.size(), 0.f);
+	for (const auto& [name, anim] : mDefinition->clips) {
+		auto sample = std::make_shared<AnimSample>(mDefinition->skeleton, anim);
+		sample->setLooping(definition()["Clips"][name].value("Loop", true));
+		sample->seek(0);
+		mSamples[name] = sample;
+	}
+	enter(definition().at("InitialState"), 0);
+	updateBindings(0);
+	mOutput = sampleNode(stateResource(mState).at("Node"), mPlaybackTime, 0);
+}
+StateGraphRuntime::StateGraphRuntime(const StateGraphRuntime& other)
+	: DATA::StateMachineInstance(other)
+	, mDefinition(other.mDefinition)
+	, mEnvironment(std::make_shared<UTILS::Environment>(other.mEnvironment->snapshot()))
+	, mPhases(other.mPhases)
+	, mSmoothedBindings(other.mSmoothedBindings)
+	, mExpressionValues(other.mExpressionValues)
+	, mParameterSlots(other.mParameterSlots)
+	, mSavedTimes(other.mSavedTimes)
+	, mSnapshotBlend(other.mSnapshotBlend)
+	, mPlaybackTime(other.mPlaybackTime)
+	, mPreviousPlaybackTime(other.mPreviousPlaybackTime)
+	, mOutput(other.mOutput)
+	, mPreviousPose(other.mPreviousPose)
+	, mLastTransition(other.mLastTransition)
+	, mPoseOffset(other.mPoseOffset)
+	, mBlend(other.mDefinition->skeleton) {
+	for (const auto& [name, s] : other.mSamples) {
+		mSamples[name] = std::shared_ptr<AnimSample>(static_cast<AnimSample*>(s->clone().release()));
+	}
+}
+const StateGraphRuntime::Json& StateGraphRuntime::stateResource(const std::string& state) const {
+	return definition().at("States").at(state);
+}
+const StateGraphRuntime::Json& StateGraphRuntime::metadata() const {
+	return stateResource(mState);
+}
+void StateGraphRuntime::reset() {
+	for (const auto& [name, p] : definition().at("Parameters").items()) {
+		mEnvironment->setValue(name, parameterValue(p));
+	}
+	mPhases.clear();
+	mSmoothedBindings.clear();
+	mSavedTimes.clear();
+	mState.clear();
+	mPreviousState.clear();
+	mOutput = {};
+	mPoseOffset = {};
+	mLastTransition = {};
+	enter(definition().at("InitialState"), 0);
+	update(0);
+}
+DATA::Value StateGraphRuntime::readExpressionSlot(size_t slot) const {
+	if (slot < mDefinition->parameterCount) {
+		return std::visit([](auto v) -> DATA::Value { return v; }, mEnvironment->get(mParameterSlots.at(slot)));
+	}
+	const auto built = slot - mDefinition->builtinStart;
+	if (built < 4) {
+		const auto& s = stateResource(mState);
+		const float duration = mSamples.at(s.at("Clock"))->duration();
+		switch (built) {
+		case 0:
+			return mTime;
+		case 1:
+			return mPlaybackTime / duration;
+		case 2:
+			return duration;
+		case 3:
+			return !definition()["Clips"][s.at("Clock").get<std::string>()].value("Loop", true) && mPlaybackTime >= duration;
+		}
+	}
+	return mExpressionValues.at(slot);
+}
+float StateGraphRuntime::evaluate(const Json& e) const {
+	DATA::Value result;
+	if (e.is_object()) {
+		result = mDefinition->expressions.at(e.at("Program").get<size_t>()).evaluate([&](size_t slot) { return readExpressionSlot(slot); });
+	}
+	else if (e.is_string()) {
+		result = readExpressionSlot(mDefinition->symbols.at(e.get<std::string>()).slot); // diagnostic API only
+	}
+	else if (e.is_boolean()) {
+		return e.get<bool>() ? 1.f : 0.f;
+	}
+	else {
+		return e.get<float>(); // literal defaults at call sites
+	}
+	return std::holds_alternative<bool>(result) ? (std::get<bool>(result) ? 1.f : 0.f) : DATA::number(result);
+}
+void StateGraphRuntime::enter(const std::string& state, float blend) {
+	if (state == mState) {
+		return;
+	}
+	if (!mState.empty()) {
+		mSavedTimes[mState] = { mTime, mPlaybackTime };
+	}
+	mSnapshotBlend = blendWeight() < 1 || mPoseOffset.x != 0 || mPoseOffset.y != 0 || mPoseOffset.z != 0;
+	mPreviousPose = mOutput;
+	mPreviousState = mState;
+	mPreviousTime = mTime;
+	mPreviousPlaybackTime = mPlaybackTime;
+	mState = state;
+	mTime = 0;
+	mPlaybackTime = 0;
+	mBlendTime = 0;
+	mBlendDuration = mPreviousState.empty() ? 0 : blend;
+	const auto& resource = stateResource(mState);
+	if (resource.value("PreserveTime", false) && mSavedTimes.contains(mState)) {
+		mTime = mSavedTimes[mState].first;
+		mPlaybackTime = mSavedTimes[mState].second;
+	}
+	else {
+		mPlaybackTime = std::max(0.f, evaluate(resource.value("EntryTime", Json(0))));
+	}
+}
+float StateGraphRuntime::sampleTime(const std::string& clip, float time) const {
+	const auto& s = stateResource(mState);
+	const auto& c = definition()["Clips"][clip];
+	const float duration = mSamples.at(clip)->duration();
+	if (s.contains("ExternalTime")) {
+		return evaluate(s["ExternalTime"]);
+	}
+	const auto group = s.value("SyncGroup", std::string {});
+	if (c.value("Loop", true) && !group.empty()) {
+		const float p = (mPhases.contains(group) ? mPhases.at(group) : 0) + c.value("PhaseOffset", 0.f);
+		return (p - std::floor(p)) * duration;
+	}
+	return time;
+}
+Pose StateGraphRuntime::sampleNode(const Json& n, float time, float dt) {
+	if (n.is_string()) {
+		const auto name = n.get<std::string>();
+		auto& sample = mSamples.at(name);
+		sample->seek(sampleTime(name, time));
+		return *sample->getPose();
+	}
+	if (n.contains("Select")) {
+		return sampleNode(n.at(evaluate(n["Select"]) != 0 ? "True" : "False"), time, dt);
+	}
+	if (n.contains("Blend")) {
+		auto low = sampleNode(n["Blend"][0], time, dt), high = sampleNode(n["Blend"][1], time, dt);
+		return *mBlend.blend(&low, &high, std::clamp(evaluate(n.at("Weight")), 0.f, 1.f));
+	}
+	const auto& points = n.at("Blendspace1D");
+	const float v = evaluate(n.at("Parameter"));
+	if (v <= points[0].at("Value").get<float>()) {
+		return sampleNode(points[0].at("Node"), time, dt);
+	}
+	for (size_t i = 1; i < points.size(); ++i) {
+		if (v < points[i].at("Value").get<float>()) {
+			auto low = sampleNode(points[i - 1].at("Node"), time, dt), high = sampleNode(points[i].at("Node"), time, dt);
+			const float x = points[i - 1].at("Value"), y = points[i].at("Value");
+			return *mBlend.blend(&low, &high, (v - x) / (y - x));
+		}
+	}
+	return sampleNode(points.back().at("Node"), time, dt);
+}
+void StateGraphRuntime::update(float dt) {
+	require(std::isfinite(dt) && dt >= 0, "invalid delta time");
+	updateBindings(dt);
+	// The generic state machine selects one typed transition per tick.
+	const auto* selected
+		= select(mDefinition->machine, stateResource(mState).value("LockTransitions", false), [&](size_t slot) { return readExpressionSlot(slot); });
+	if (selected) {
+		mLastTransition = selected->metadata;
+		enter(selected->target, selected->blend);
+		for (const auto& name : selected->metadata.value("Consume", Json::array())) {
+			mEnvironment->setValue(name.get<std::string>(), false);
+		}
+	}
+	mTime += dt;
+	mPreviousTime += dt;
+	mBlendTime += dt;
+	const auto& active = stateResource(mState);
+	const auto group = active.value("SyncGroup", std::string {});
+	const float rate = std::max(0.f, evaluate(active.value("Rate", Json(1))));
+	require(std::isfinite(rate), "non-finite playback rate");
+	mPlaybackTime += dt * rate;
+	if (!group.empty()) {
+		const float duration = mSamples.at(active.at("Clock"))->duration();
+		auto& phase = mPhases[group];
+		phase += dt * rate / duration;
+		phase -= std::floor(phase);
+	}
+	auto pose = sampleNode(active.at("Node"), mPlaybackTime, dt);
+	// The correction belongs to the incoming state. The outgoing/snapshot
+	// pose already has its own root position and must not receive it again.
+	const auto rig = definition().value("Rig", Json::object());
+	const int root = mDefinition->skeleton->findJointIndex(rig.value("Root", std::string("Hips")));
+	if (active.value("ApplyPoseOffset", true) && root >= 0 && root < int(pose.numKeyframes)) {
+		pose.keyframes[root].translation += mPoseOffset / rig.value("UnitsToMeters", .01f);
+	}
+	if (blendWeight() < 1 && !mPreviousState.empty()) {
+		Pose previous = mPreviousPose;
+		if (!mSnapshotBlend) {
+			const auto saved = mState;
+			const float time = mTime, playback = mPlaybackTime;
+			mState = mPreviousState;
+			mTime = mPreviousTime;
+			mPlaybackTime = mPreviousPlaybackTime;
+			const auto& previousState = stateResource(mState);
+			const float previousRate = std::max(0.f, evaluate(previousState.value("Rate", Json(1))));
+			mPreviousPlaybackTime += dt * previousRate;
+			const auto previousGroup = previousState.value("SyncGroup", std::string {});
+			if (!previousGroup.empty() && previousGroup != group) {
+				auto& phase = mPhases[previousGroup];
+				phase += dt * previousRate / mSamples.at(previousState.at("Clock"))->duration();
+				phase -= std::floor(phase);
+			}
+			previous = sampleNode(stateResource(mState).at("Node"), mPreviousPlaybackTime, dt);
+			mState = saved;
+			mTime = time;
+			mPlaybackTime = playback;
+		}
+		pose = *mBlend.blend(&previous, &pose, blendWeight());
+	}
+	mOutput = pose;
+	mEnvironment->clearTriggers();
+}
+void StateGraphRuntime::updateBindings(float dt) {
+	for (const auto& binding : mDefinition->bindings) {
+		auto value = binding.expression.evaluate([&](size_t slot) { return readExpressionSlot(slot); });
+		if (binding.response > 0) {
+			const float target = DATA::number(value);
+			auto [it, added] = mSmoothedBindings.try_emplace(std::to_string(binding.slot), target);
+			if (!added && dt > 0) {
+				it->second += (target - it->second) * (1 - std::exp(-binding.response * dt));
+			}
+			value = it->second;
+		}
+		mExpressionValues.at(binding.slot) = value;
+	}
+}
+StateGraphRuntime::Action StateGraphRuntime::requestAction(const std::string& channel) {
+	auto action = resolveAction(channel);
+	if (action) {
+		acceptAction(action);
+	}
+	return action;
+}
+StateGraphRuntime::Action StateGraphRuntime::resolveAction(const std::string& channel) {
+	const Json* selected = nullptr;
+	std::string name;
+	int priority = std::numeric_limits<int>::min();
+	for (const auto& [key, s] : definition().at("States").items()) {
+		if (s.contains("Action") && s["Action"].value("Channel", std::string {}) == channel && s.value("Priority", 0) > priority
+			&& evaluate(s.value("When", Json(true)))) {
+			selected = &s;
+			name = key;
+			priority = s.value("Priority", 0);
+		}
+	}
+	if (!selected) {
+		return {};
+	}
+	const auto info = selected->at("Action");
+	const auto clip = info.at("Clip").get<std::string>();
+	auto sample = std::make_shared<AnimSample>(mDefinition->skeleton, mDefinition->clips.at(clip));
+	sample->setLooping(false);
+	sample->seek(0);
+	// Duration expressions use the proposed state's clock, without activating it.
+	struct ContextGuard {
+		std::string& state;
+		float& time;
+		float& playback;
+		std::string saved;
+		float savedTime, savedPlayback;
+		~ContextGuard() {
+			state = saved;
+			time = savedTime;
+			playback = savedPlayback;
+		}
+	} guard { mState, mTime, mPlaybackTime, mState, mTime, mPlaybackTime };
+	mState = name;
+	mTime = mPlaybackTime = 0;
+	const float rate = std::max(.01f, evaluate(selected->value("Rate", Json(1))));
+	require(std::isfinite(rate), "invalid action playback rate");
+	const float duration = std::max(info.value("MinDuration", .4f), sample->duration() / rate);
+	return { name, sample, info, duration, mDefinition };
+}
+bool StateGraphRuntime::acceptAction(const Action& action) {
+	if (!action || action.owner != mDefinition || !definition().at("States").contains(action.state)) {
+		return false;
+	}
+	mLastTransition
+		= { { "Target", action.state }, { "Action", action.metadata }, { "When", stateResource(action.state).value("When", Json(true)) } };
+	enter(action.state, stateResource(action.state).value("BlendTime", .15f));
+	return true;
+}
+bool StateGraphRuntime::replace(std::shared_ptr<const StateGraphDefinition> def, std::string& error) {
+	try {
+		require(def->skeleton->getNumJolts() == mDefinition->skeleton->getNumJolts(),
+			"reload changed skeleton joint count; reload scene to replace the rig");
+		for (size_t i = 0; i < def->skeleton->joints().size(); ++i) {
+			require(def->skeleton->joints()[i].name == mDefinition->skeleton->joints()[i].name
+					&& def->skeleton->joints()[i].parentIndex == mDefinition->skeleton->joints()[i].parentIndex,
+				"reload changed skeleton joint layout; reload scene to replace the rig");
+		}
+		// Reload belongs to the same character: preserve live subscriptions.
+		// clone() deliberately snapshots them to isolate another character.
+		auto parameters = std::make_shared<UTILS::Environment>(*mEnvironment);
+		StateGraphRuntime candidate(def, parameters);
+		if (def->document.at("States").contains(mState)) {
+			candidate.mState = mState;
+			candidate.mTime = mTime;
+			candidate.mPlaybackTime = mPlaybackTime;
+			candidate.mPhases = mPhases;
+			candidate.mPoseOffset = mPoseOffset;
+		}
+		candidate.mSmoothedBindings.clear();
+		for (const auto& [name, symbol] : def->symbols) {
+			const auto old = mDefinition->symbols.find(name);
+			if (old != mDefinition->symbols.end()) {
+				if (auto value = mSmoothedBindings.find(std::to_string(old->second.slot)); value != mSmoothedBindings.end()) {
+					candidate.mSmoothedBindings[std::to_string(symbol.slot)] = value->second;
+				}
+			}
+		}
+		candidate.mSavedTimes = mSavedTimes;
+		candidate.updateBindings(0);
+		candidate.mOutput = candidate.sampleNode(candidate.stateResource(candidate.mState).at("Node"), candidate.mPlaybackTime, 0);
+		const auto rig = def->document.value("Rig", Json::object());
+		const int root = def->skeleton->findJointIndex(rig.value("Root", std::string("Hips")));
+		if (candidate.metadata().value("ApplyPoseOffset", true) && root >= 0) {
+			candidate.mOutput.keyframes[root].translation += candidate.mPoseOffset / rig.value("UnitsToMeters", .01f);
+		}
+		// Commit only after the candidate is fully usable. Keep the published Environment pointer.
+		*mEnvironment = *parameters;
+		mDefinition = def;
+		mSamples = std::move(candidate.mSamples);
+		mState = candidate.mState;
+		mTime = candidate.mTime;
+		mParameterSlots = std::move(candidate.mParameterSlots);
+		mExpressionValues = std::move(candidate.mExpressionValues);
+		mPlaybackTime = candidate.mPlaybackTime;
+		mPhases = std::move(candidate.mPhases);
+		mSmoothedBindings = std::move(candidate.mSmoothedBindings);
+		mSavedTimes = std::move(candidate.mSavedTimes);
+		mOutput = candidate.mOutput;
+		mPreviousState.clear();
+		mBlendDuration = 0;
+		error.clear();
+		return true;
+	} catch (const std::exception& e) {
+		error = e.what();
+		return false;
+	}
+}
+}

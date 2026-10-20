@@ -6,7 +6,6 @@
 #include <mutex>
 #include <unordered_set>
 
-
 #include "fileSystem/fileSystem.h"
 #include "fileWatcher.h"
 #include "serviceManager.h"
@@ -15,7 +14,6 @@
 #include "utilsModule/idGenerator.h"
 #include "utilsModule/jsonLoader.h"
 #include "utilsModule/stringUtils.h"
-
 
 namespace IKIGAI {
 namespace RESOURCES {
@@ -47,8 +45,9 @@ namespace RESOURCES {
 		static std::string NormalizePath(std::string path) {
 			path = UTILS::ReplaceSubstrings(path, "\\", "/");
 			for (const auto prefix : { "assets/engine/", "assets/game/" }) {
-				if (const auto pos = path.find(prefix); pos != std::string::npos)
+				if (const auto pos = path.find(prefix); pos != std::string::npos) {
 					path = path.substr(pos + std::char_traits<char>::length(prefix));
+				}
 			}
 			return "/" + std::filesystem::path(path).relative_path().lexically_normal().generic_string();
 		}
@@ -88,8 +87,9 @@ namespace RESOURCES {
 
 			static thread_local std::unordered_set<std::string> creating;
 			const auto creationKey = std::to_string(static_cast<int>(type)) + ":" + _path;
-			if (!creating.insert(creationKey).second)
+			if (!creating.insert(creationKey).second) {
 				throw std::runtime_error("Resource dependency cycle: " + _path);
+			}
 			struct CreationGuard {
 				std::unordered_set<std::string>& set;
 				std::string key;
@@ -214,13 +214,17 @@ namespace RESOURCES {
 			return;
 #endif
 			auto fwCb = [this, mainPath, watchPaths, weakRes, lifetime = std::weak_ptr<int>(mLifetime)](RESOURCES::FileWatcher::FileStatus status) {
-				if (lifetime.expired())
+				if (lifetime.expired()) {
 					return;
+				}
 				if (status == RESOURCES::FileWatcher::FileStatus::MODIFIED) {
 					if (weakRes.lock()) {
-						unsubscribeFileWatch(mainPath);
-						reloadResource(weakRes, mainPath);
-						addFileWatchSubscribe(mainPath, watchPaths, weakRes);
+						// A rejected edit keeps the existing subscriptions and their observed
+						// timestamps. Re-registering here could swallow the next valid save.
+						if (reloadResource(weakRes, mainPath)) {
+							unsubscribeFileWatch(mainPath);
+							addFileWatchSubscribe(mainPath, watchPaths, weakRes);
+						}
 					}
 				}
 			};
@@ -252,8 +256,9 @@ namespace RESOURCES {
 					// registered under the same key. Keep the live replacement.
 					std::lock_guard<std::recursive_mutex> lock(mMutex);
 					auto it = resources.find(NormalizePath(path));
-					if (it != resources.end() && it->second.expired())
+					if (it != resources.end() && it->second.expired()) {
 						resources.erase(it);
+					}
 				}
 			};
 		}

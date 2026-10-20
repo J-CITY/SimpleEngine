@@ -24,6 +24,6 @@ private:
 	SCENE_SYSTEM::Scene& mScene;
 	std::shared_ptr<PHYSICS2D::World> mSimulation;
 };
-void RunPhysics2DSmoke();
+
 }
 #endif

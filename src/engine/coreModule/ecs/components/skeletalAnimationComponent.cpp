@@ -2,9 +2,11 @@
 #include "coreModule/ecs/object.h"
 #include "resourceModule/serviceManager.h"
 #include "resourceModule/skeletonAnimationManager.h"
+#include "resourceModule/skeletonBlendspaceManager.h"
 #include "resourceModule/skeletonStateGraphManager.h"
 #include "skeletalComponent.h"
 #include "skeletalModule/animationInstance.h"
+#include "skeletalModule/blendspace.h"
 #include "skeletalModule/skeletalStateGraph.h"
 
 #ifdef __EMSCRIPTEN__
@@ -35,17 +37,43 @@ void SkeletalAnimationComponent::onUpdate(std::chrono::duration<double> dt) {
 			setAnimation(mGraphPath);
 		}
 	}
-	if (mPlayable) {
+	if (mPlayable && !mPlaybackOwner) {
 		mPlayable->update(static_cast<float>(dt.count()));
 	}
 }
 
+void SkeletalAnimationComponent::claimPlayback(ComponentBase& owner) {
+	if (mPlaybackOwner && mPlaybackOwner.get() != &owner) {
+		throw std::runtime_error("Animator already has a playback owner");
+	}
+	mPlaybackOwner = UTILS::WeakPtr<ComponentBase>(owner);
+}
+void SkeletalAnimationComponent::releasePlayback(ComponentBase& owner) {
+	if (mPlaybackOwner && mPlaybackOwner.get() == &owner) {
+		mPlaybackOwner = nullptr;
+		mPlayable.reset();
+	}
+}
 void SkeletalAnimationComponent::setPlayable(std::shared_ptr<SKELETON::IAnimationPlayable> playable) {
 	mPlayable = playable;
 }
 
 void SkeletalAnimationComponent::setAnimation(const std::string& path) {
+	if (path.ends_with(".stategraph")) {
+		setStateGraph(path);
+		return;
+	}
 	mGraphPath = path;
+	if (path.ends_with(".blendspace1d") || path.ends_with(".blendspace2d")) {
+		auto resource = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonBlendspaceLoader>().loadResource(path);
+		if (auto bs = std::dynamic_pointer_cast<SKELETON::Blendspace1D>(resource)) {
+			mPlayable = std::make_shared<SKELETON::Blendspace1DInstance>(bs);
+		}
+		else if (auto bs = std::dynamic_pointer_cast<SKELETON::Blendspace2D>(resource)) {
+			mPlayable = std::make_shared<SKELETON::Blendspace2DInstance>(bs);
+		}
+		return;
+	}
 	if (!path.empty()) {
 		// TODO: res calculate file or resource
 		auto res = RESOURCES::ServiceManager::Get<RESOURCES::SkeletonAnimationLoader>().loadResource(path);
@@ -86,7 +114,9 @@ void SkeletalAnimationComponent::setStateGraph(const std::string& path) {
 				skeleton = skelComp->getSkeleton();
 			}
 
-			mPlayable = std::make_shared<SKELETON::SkeletalStateGraphInstance>(skeleton, graphRes, mEnvironment);
+			if (skeleton) {
+				mPlayable = std::make_shared<SKELETON::SkeletalStateGraphInstance>(skeleton, graphRes, mEnvironment);
+			}
 		}
 	}
 	else {
@@ -103,7 +133,7 @@ SkeletalAnimationComponent::Descriptor SkeletalAnimationComponent::getDescriptor
 
 void SkeletalAnimationComponent::onDeserialize(nlohmann::json& j) {
 	if (j.contains("GraphPath")) {
-		setStateGraph(j["GraphPath"].get<std::string>());
+		setAnimation(j["GraphPath"].get<std::string>());
 	}
 }
 

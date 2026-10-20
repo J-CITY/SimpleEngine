@@ -7,13 +7,15 @@
 #include "resourceModule/serviceManager.h"
 #include "resourceModule/shaderManager.h"
 #include "resourceModule/skeletonAnimationManager.h"
+#include "resourceModule/skeletonBlendspaceManager.h"
 #include "resourceModule/skeletonManager.h"
+#include "resourceModule/skeletonStateGraphManager.h"
 #include "resourceModule/textureManager.h"
 #include "sceneLoadingContext.h"
 #include "utilsModule/log/loggerDefine.h"
+#include "utilsModule/time/loadTimer.h"
 #include <unordered_map>
 #include <unordered_set>
-
 
 using namespace IKIGAI;
 using namespace IKIGAI::SCENE_SYSTEM;
@@ -31,7 +33,7 @@ Task<> HoldResource(ResourceRequest<T> request, std::shared_ptr<SceneLoadState> 
 	struct Reset {
 		SceneLoadState& state;
 		~Reset() {
-			state.cancelResource = { };
+			state.cancelResource = {};
 		}
 	} reset { *state };
 	resources.push_back(co_await request.wait());
@@ -51,62 +53,65 @@ template <class D> Task<> PrepareComponent(D descriptor, std::shared_ptr<SceneLo
 		co_await HoldResource(ServiceManager::Get<ParticleLoader>().requestResource(descriptor.EffectPath), state, resources);
 	}
 	else if constexpr (std::is_same_v<D, ECS::ModelRenderer::Descriptor>) {
-		if (!descriptor.Path.empty())
+		if (!descriptor.Path.empty()) {
 			co_await HoldResource(ServiceManager::Get<ModelLoader>().requestResource(
 									  descriptor.Path, descriptor.Path.ends_with(".model") ? ELoadingType::RESOURCE : ELoadingType::FILE),
 				state, resources);
+		}
 	}
 	else if constexpr (std::is_same_v<D, ECS::ModelLODRenderer::Descriptor>) {
-		for (const auto& model : descriptor.Paths)
-			if (!model.Path.empty())
+		for (const auto& model : descriptor.Paths) {
+			if (!model.Path.empty()) {
 				co_await HoldResource(ServiceManager::Get<ModelLoader>().requestResource(
 										  model.Path, model.Path.ends_with(".model") ? ELoadingType::RESOURCE : ELoadingType::FILE),
 					state, resources);
+			}
+		}
 	}
 	else if constexpr (std::is_same_v<D, ECS::MaterialRenderer::Descriptor>) {
-		for (const auto& path : descriptor.Materials)
-			if (!path.empty())
+		for (const auto& path : descriptor.Materials) {
+			if (!path.empty()) {
 				co_await HoldResource(ServiceManager::Get<MaterialLoader>().requestResource(path), state, resources);
+			}
+		}
 	}
 	else if constexpr (std::is_same_v<D, ECS::SpriteComponent::Descriptor>) {
-		if (!descriptor.TexturePath.empty())
+		if (!descriptor.TexturePath.empty()) {
 			co_await HoldResource(ServiceManager::Get<TextureLoader>().requestSprite(descriptor.TexturePath), state, resources);
-		if (!descriptor.TextureAtlasPath.empty())
+		}
+		if (!descriptor.TextureAtlasPath.empty()) {
 			co_await HoldResource(ServiceManager::Get<TextureLoader>().requestAtlas(descriptor.TextureAtlasPath), state, resources);
+		}
 	}
 	else if constexpr (std::is_same_v<D, ECS::SkeletalComponent::Descriptor>) {
-		if (!descriptor.SkeletalPath.empty())
+		if (!descriptor.SkeletalPath.empty()) {
 			co_await HoldResource(
 				ServiceManager::Get<SkeletonLoader>().requestResource(descriptor.SkeletalPath, ELoadingType::FILE), state, resources);
+		}
 	}
 	else if constexpr (std::is_same_v<D, ECS::SkeletalAnimationComponent::Descriptor>) {
-		if (!descriptor.SkeletalPlayablePath.empty())
-			co_await HoldResource(ServiceManager::Get<SkeletonAnimationLoader>().requestResource(descriptor.SkeletalPlayablePath), state, resources);
+		const auto& path = descriptor.SkeletalPlayablePath;
+		if (path.ends_with(".stategraph")) {
+			co_await HoldResource(ServiceManager::Get<SkeletonStateGraphLoader>().requestResource(path), state, resources);
+		}
+		else if (path.ends_with(".blendspace1d") || path.ends_with(".blendspace2d")) {
+			co_await HoldResource(ServiceManager::Get<SkeletonBlendspaceLoader>().requestResource(path), state, resources);
+		}
+		else if (!path.empty()) {
+			co_await HoldResource(ServiceManager::Get<SkeletonAnimationLoader>().requestResource(path), state, resources);
+		}
 	}
-#if USE_PHYSICS_3D
-	else if constexpr (std::is_same_v<D, ECS::ThirdPersonController::Descriptor>) {
-		auto file=ServiceManager::Get<FileSystem>().getFile(descriptor.Animations);
-		if(!file || !file->isValid()) throw std::runtime_error("Missing character animations: "+descriptor.Animations);
-		const auto bytes=co_await file->readAllTask(state->control);
-		const auto manifest=nlohmann::json::parse(bytes.begin(),bytes.end());
-		// Keep the shared rig alive while preparing clips, before the visual
-		// object is constructed. Otherwise each clip re-imports the entire FBX.
-		if(const auto rig=manifest.value("Skeleton",std::string{});!rig.empty())
-			co_await HoldResource(ServiceManager::Get<SkeletonLoader>().requestResource(rig,
-				rig.ends_with(".skeleton")?ELoadingType::RESOURCE:ELoadingType::FILE),state,resources);
-		for(const auto& clip : manifest.at("Clips"))
-			co_await HoldResource(ServiceManager::Get<SkeletonAnimationLoader>().requestResource(clip.at("Path").get<std::string>()),state,resources);
-	}
-#endif
 	else if constexpr (std::is_same_v<D, ECS::AudioComponent::Descriptor>) {
-		if (!descriptor.AudioPath.empty())
+		if (!descriptor.AudioPath.empty()) {
 			co_await HoldResource(ServiceManager::Get<AudioSourceLoader>().requestResource(
 									  descriptor.AudioPath, descriptor.AudioPath.ends_with(".sound") ? ELoadingType::RESOURCE : ELoadingType::FILE),
 				state, resources);
+		}
 	}
 	else if constexpr (std::is_same_v<D, ECS::SdfTextComponent::Descriptor>) {
-		if (!descriptor.Font.empty())
+		if (!descriptor.Font.empty()) {
 			co_await HoldResource(ServiceManager::Get<FontLoader>().requestResource(descriptor.Font), state, resources);
+		}
 	}
 	co_return;
 }
@@ -115,10 +120,12 @@ template <class D> Task<> PrepareComponent(D descriptor, std::shared_ptr<SceneLo
 SceneLoadHandle SceneManager::loadFromFileAsync(std::string path) {
 	auto state = std::make_shared<SceneLoadState>();
 	state->path = std::move(path);
-	if (mPrefabLoad && !mPrefabLoad->done())
+	if (mPrefabLoad && !mPrefabLoad->done()) {
 		mPrefabLoad->cancel();
-	if (mActiveLoad && !mActiveLoad->done())
+	}
+	if (mActiveLoad && !mActiveLoad->done()) {
 		mActiveLoad->cancel();
+	}
 	if (mQueuedLoad) {
 		mQueuedLoad->cancel();
 		mQueuedLoad->status = SceneLoadStatus::Cancelled;
@@ -129,9 +136,10 @@ SceneLoadHandle SceneManager::loadFromFileAsync(std::string path) {
 }
 
 void SceneManager::startQueuedLoad() {
-	if (!mQueuedLoad || isPrefabLoading() || (mTransitionTask && !mTransitionTask.done()))
+	if (!mQueuedLoad || isPrefabLoading() || (mTransitionTask && !mTransitionTask.done())) {
 		return;
-	mActiveLoad = std::exchange(mQueuedLoad, { });
+	}
+	mActiveLoad = std::exchange(mQueuedLoad, {});
 	if (mActiveLoad->control->cancelled) {
 		mActiveLoad->status = SceneLoadStatus::Cancelled;
 		return;
@@ -142,8 +150,9 @@ void SceneManager::startQueuedLoad() {
 }
 
 Scene* SceneManager::getPresentedScene() const {
-	if (isTransitioning())
+	if (isTransitioning()) {
 		return mLoadingCache ? mLoadingCache->scene.get() : nullptr;
+	}
 	return m_currentScene.get();
 }
 void SceneManager::updateLoadingScene(std::chrono::duration<double> dt) {
@@ -169,14 +178,16 @@ Task<> SceneManager::clearScene(Scene& scene) {
 }
 
 Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadState> state, bool lightweight) {
+	UTILS::LoadTimer timing("scene-build", state->path);
 	state->phase = "Reading";
 	auto file = ServiceManager::Get<FileSystem>().getFile(state->path, FileMode::READ);
-	if (!file || !file->isValid())
+	if (!file || !file->isValid()) {
 		throw std::runtime_error("Scene file not found: " + state->path);
+	}
 	auto bytes = co_await file->readAllTask(state->control);
 	state->control->check();
 	auto json = nlohmann::json::parse(bytes);
-	const auto pipeline = json.value("RenderPipeline", std::string { });
+	const auto pipeline = json.value("RenderPipeline", std::string {});
 	state->phase = "Expanding prefabs";
 	DOCUMENT::Resolver resolver(json.at("Objects"));
 	DOCUMENT::Expanded expanded;
@@ -188,8 +199,9 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
 			const auto path = DOCUMENT::Path(entry.at("Prefab").get<std::string>());
 			if (!prefabCache.contains(path)) {
 				auto prefabFile = ServiceManager::Get<FileSystem>().getFile(path);
-				if (!prefabFile || !prefabFile->isValid())
+				if (!prefabFile || !prefabFile->isValid()) {
 					throw std::runtime_error("Prefab not found: " + path);
+				}
 				auto bytes = co_await prefabFile->readAllTask(state->control);
 				prefabCache[path] = nlohmann::json::parse(bytes);
 			}
@@ -200,8 +212,9 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
 			expanded.objects.push_back(std::move(object));
 			co_await YieldIfBudgetExceeded();
 		}
-		for (auto& instance : part.instances)
+		for (auto& instance : part.instances) {
 			expanded.instances.push_back(std::move(instance));
+		}
 	}
 	DOCUMENT::Validate(expanded.objects);
 	state->phase = "Preparing descriptors";
@@ -209,23 +222,28 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
 	for (auto& value : expanded.objects) {
 		state->control->check();
 		auto parsed = UTILS::FromJson<ECS::Object::Descriptor>(value);
-		if (parsed.isErr())
+		if (parsed.isErr()) {
 			throw std::runtime_error(parsed.unwrapErr().text);
+		}
 		auto descriptor = parsed.unwrap();
-		if (descriptor.Id <= 0 || !ids.emplace(descriptor.Id, context.descriptors.size()).second)
+		if (descriptor.Id <= 0 || !ids.emplace(descriptor.Id, context.descriptors.size()).second) {
 			throw std::runtime_error("Invalid or duplicate entity ID in scene");
+		}
 		bool transform = false;
-		for (const auto& component : descriptor.Components)
+		for (const auto& component : descriptor.Components) {
 			std::visit(
 				[&](const auto& data) {
 					using D = std::decay_t<decltype(data)>;
 					transform |= std::is_same_v<D, ECS::TransformComponent::Descriptor>;
-					if (lightweight && !IsLightweight(data))
+					if (lightweight && !IsLightweight(data)) {
 						throw std::runtime_error("Loading scene supports only camera and lightweight GUI components");
+					}
 				},
 				component);
-		if (!transform)
+		}
+		if (!transform) {
 			throw std::runtime_error("Scene object has no TransformComponent");
+		}
 		context.descriptors.push_back(std::move(descriptor));
 		co_await YieldIfBudgetExceeded();
 	}
@@ -235,21 +253,25 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
 		std::vector<std::size_t> chain;
 		auto index = start;
 		while (colors[index] != 2) {
-			if (colors[index] == 1)
+			if (colors[index] == 1) {
 				throw std::runtime_error("Scene parent cycle");
+			}
 			colors[index] = 1;
 			chain.push_back(index);
 			const auto parent = context.descriptors[index].ParentId;
-			if (parent <= 0)
+			if (parent <= 0) {
 				break;
+			}
 			const auto it = ids.find(parent);
-			if (it == ids.end())
+			if (it == ids.end()) {
 				throw std::runtime_error("Scene references a missing parent");
+			}
 			index = it->second;
 			co_await YieldIfBudgetExceeded();
 		}
-		for (auto item : chain)
+		for (auto item : chain) {
 			colors[item] = 2;
+		}
 		state->control->check();
 		co_await YieldIfBudgetExceeded();
 	}
@@ -295,8 +317,9 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
 	state->phase = "Resolving references";
 	for (std::size_t i = 0; i < objects.size(); ++i) {
 		state->control->check();
-		if (auto parent = context.descriptors[i].ParentId; parent > 0)
+		if (auto parent = context.descriptors[i].ParentId; parent > 0) {
 			objects[i]->setParent(objects[ids.at(parent)]);
+		}
 		co_await YieldIfBudgetExceeded();
 	}
 	state->phase = "Finalizing";
@@ -306,14 +329,16 @@ Task<> SceneManager::buildScene(LoadContext& context, std::shared_ptr<SceneLoadS
 		co_await YieldIfBudgetExceeded();
 	}
 	context.scene->prefabInstances = std::move(expanded.instances);
-	for (std::size_t i = 0; i < objects.size(); ++i)
+	for (std::size_t i = 0; i < objects.size(); ++i) {
 		objects[i]->setPendingActive(context.descriptors[i].IsActive);
+	}
 	context.scene->capturePrefabBaselines();
 	context.scene->isSceneReady = true;
 	state->progress = .9;
 }
 
 Task<> SceneManager::transition(std::shared_ptr<SceneLoadState> state) {
+	UTILS::LoadTimer timing("scene-transition", state->path);
 	state->status = SceneLoadStatus::Running;
 	bool cancelled = false;
 	bool committed = false;
@@ -352,8 +377,9 @@ Task<> SceneManager::transition(std::shared_ptr<SceneLoadState> state) {
 		state->control->check();
 		m_currentSceneSourcePath = state->path;
 		mTransitionState = SceneTransitionState::HidingLoadingScene;
-		if (mLoadingCache)
+		if (mLoadingCache) {
 			mLoadingCache->scene->cancelTasks();
+		}
 		co_await NextFrame();
 		state->control->check();
 	} catch (const ResourceLoadCancelled&) {
@@ -366,8 +392,9 @@ Task<> SceneManager::transition(std::shared_ptr<SceneLoadState> state) {
 	if (cancelled || !state->error.empty()) {
 		mTransitionState = SceneTransitionState::CleaningUp;
 		state->phase = "Cleaning up";
-		if (mBuild && mBuild->scene)
+		if (mBuild && mBuild->scene) {
 			co_await clearScene(*mBuild->scene);
+		}
 		if (committed && m_currentScene) {
 			co_await clearScene(*m_currentScene);
 			m_currentScene.reset();
@@ -386,10 +413,12 @@ Task<> SceneManager::transition(std::shared_ptr<SceneLoadState> state) {
 		mBuild.reset();
 		state->status = cancelled ? SceneLoadStatus::Cancelled : SceneLoadStatus::Failed;
 		mTransitionState = m_currentScene ? SceneTransitionState::Idle : SceneTransitionState::Failed;
-		if (m_currentScene && mLoadingCache)
+		if (m_currentScene && mLoadingCache) {
 			mLoadingCache->scene->cancelTasks();
-		if (!state->error.empty())
+		}
+		if (!state->error.empty()) {
 			LOG_ERROR << "Scene loading failed: " << state->path << ": " << state->error;
+		}
 	}
 	else {
 		mBuild.reset();
@@ -403,8 +432,9 @@ Task<> SceneManager::transition(std::shared_ptr<SceneLoadState> state) {
 }
 
 SceneLoadHandle SceneManager::prepareLoadingScene(std::string path) {
-	if (mCacheTask && !mCacheTask.done())
+	if (mCacheTask && !mCacheTask.done()) {
 		throw std::logic_error("Loading scene preparation is already running");
+	}
 	auto state = std::make_shared<SceneLoadState>();
 	state->path = std::move(path);
 	mCacheLoad = state;
@@ -424,13 +454,15 @@ Task<> SceneManager::cacheLoadingScene(std::shared_ptr<SceneLoadState> state) {
 	try {
 		mCacheBuild = std::make_unique<LoadContext>();
 		mCacheBuild->world = std::make_unique<ECS2::World>();
-		RegisterComponents(*mCacheBuild->world, ECS::ComponentsTypeProviderType { });
-		for (const auto material : { "gui.mat", "text.mat", "vector.mat", "sdfText.mat" })
+		RegisterComponents(*mCacheBuild->world, ECS::ComponentsTypeProviderType {});
+		for (const auto material : { "gui.mat", "text.mat", "vector.mat", "sdfText.mat" }) {
 			co_await HoldResource(ServiceManager::Get<MaterialLoader>().requestResource(std::string("/materials/render/portable/") + material), state,
 				mCacheBuild->resources);
+		}
 		co_await buildScene(*mCacheBuild, state, true);
-		for (std::size_t i = 0; i < mCacheBuild->descriptors.size(); ++i)
+		for (std::size_t i = 0; i < mCacheBuild->descriptors.size(); ++i) {
 			mCacheBuild->scene->getObjects()[i]->setPendingActive(mCacheBuild->descriptors[i].IsActive);
+		}
 		for (std::size_t i = 0; i < mCacheBuild->descriptors.size(); ++i) {
 			state->control->check();
 			mCacheBuild->scene->getObjects()[i]->activateLoaded();
@@ -444,8 +476,9 @@ Task<> SceneManager::cacheLoadingScene(std::shared_ptr<SceneLoadState> state) {
 		state->error = "Unknown loading scene preparation error";
 	}
 	if (cancelled || !state->error.empty()) {
-		if (mCacheBuild && mCacheBuild->scene)
+		if (mCacheBuild && mCacheBuild->scene) {
 			co_await clearScene(*mCacheBuild->scene);
+		}
 		mCacheBuild.reset();
 		state->status = cancelled ? SceneLoadStatus::Cancelled : SceneLoadStatus::Failed;
 	}
@@ -490,8 +523,9 @@ void SceneManager::shutdownLoading() {
 }
 
 SceneLoadHandle SceneManager::instantiatePrefabAsync(std::string path, int parentId) {
-	if (isEditingLocked() || !m_currentScene)
+	if (isEditingLocked() || !m_currentScene) {
 		throw std::logic_error("Another scene operation is running");
+	}
 	auto state = std::make_shared<SceneLoadState>();
 	state->path = DOCUMENT::Path(std::move(path));
 	mPrefabLoad = state;
@@ -508,15 +542,18 @@ Task<> SceneManager::instantiatePrefab(std::shared_ptr<SceneLoadState> state, in
 	bool cancelled = false;
 	try {
 		if (parentId > 0) {
-			if (!target->findObjectByID(ECS2::Entity(ECS2::Entity::ID(parentId))))
+			if (!target->findObjectByID(ECS2::Entity(ECS2::Entity::ID(parentId)))) {
 				throw std::runtime_error("Instance parent not found");
-			if (target->prefabFor(parentId))
+			}
+			if (target->prefabFor(parentId)) {
 				throw std::runtime_error("Unpack prefab before adding a child");
+			}
 		}
 		state->phase = "Reading prefab";
 		auto file = ServiceManager::Get<FileSystem>().getFile(state->path);
-		if (!file || !file->isValid())
+		if (!file || !file->isValid()) {
 			throw std::runtime_error("Prefab not found: " + state->path);
+		}
 		auto bytes = co_await file->readAllTask(state->control);
 		auto asset = nlohmann::json::parse(bytes);
 		auto entries = serializeScene().at("Objects");
@@ -529,31 +566,36 @@ Task<> SceneManager::instantiatePrefab(std::shared_ptr<SceneLoadState> state, in
 		DOCUMENT::Resolver resolver(entries);
 		auto expanded = resolver.Expand(entry, asset);
 		auto combined = target->serializeObjects();
-		for (auto object : expanded.objects)
+		for (auto object : expanded.objects) {
 			combined.push_back(std::move(object));
+		}
 		DOCUMENT::Validate(combined);
 		state->phase = "Loading prefab resources";
 		std::vector<ECS::Object::Descriptor> descriptors;
 		for (auto value : expanded.objects) {
 			state->control->check();
 			auto parsed = UTILS::FromJson<ECS::Object::Descriptor>(value);
-			if (parsed.isErr())
+			if (parsed.isErr()) {
 				throw std::runtime_error(parsed.unwrapErr().text);
+			}
 			auto descriptor = parsed.unwrap();
-			for (const auto& component : descriptor.Components)
+			for (const auto& component : descriptor.Components) {
 				co_await std::visit([&](const auto& data) { return PrepareComponent(data, state, resources); }, component);
+			}
 			descriptors.push_back(std::move(descriptor));
 			co_await YieldIfBudgetExceeded();
 		}
 		state->control->check();
-		if (m_currentScene.get() != target)
+		if (m_currentScene.get() != target) {
 			throw std::runtime_error("Scene changed during prefab preparation");
+		}
 		state->phase = "Creating prefab objects";
 		// Only the new inactive shells are visible to the world during the
 		// budgeted commit; simulation and editor mutations are paused.
 		auto latest = target->serializeObjects();
-		for (auto value : expanded.objects)
+		for (auto value : expanded.objects) {
 			latest.push_back(std::move(value));
+		}
 		DOCUMENT::Validate(latest);
 		firstObject = target->getObjects().size();
 		firstInstance = target->prefabInstances.size();
@@ -574,23 +616,28 @@ Task<> SceneManager::instantiatePrefab(std::shared_ptr<SceneLoadState> state, in
 		for (std::size_t i = 0; i < descriptors.size(); ++i) {
 			state->control->check();
 			auto object = target->getObjects()[firstObject + i];
-			if (descriptors[i].ParentId > 0)
+			if (descriptors[i].ParentId > 0) {
 				object->setParent(target->findObjectByID(ECS2::Entity(ECS2::Entity::ID(descriptors[i].ParentId))));
+			}
 			target->postLoadObject(*object);
 			co_await YieldIfBudgetExceeded();
 		}
 		state->control->check();
-		for (std::size_t i = 0; i < descriptors.size(); ++i)
+		for (std::size_t i = 0; i < descriptors.size(); ++i) {
 			target->getObjects()[firstObject + i]->setPendingActive(descriptors[i].IsActive);
+		}
 		auto instance = std::move(expanded.instances.front());
 		auto canonical = target->serializeObjects();
 		const auto ids = DOCUMENT::ReadMap(instance.entry);
 		std::set<int> owned;
-		for (auto [local, id] : ids)
+		for (auto [local, id] : ids) {
 			owned.insert(id);
-		for (const auto& object : canonical)
-			if (owned.contains(DOCUMENT::Id(object.at("Id"))))
+		}
+		for (const auto& object : canonical) {
+			if (owned.contains(DOCUMENT::Id(object.at("Id")))) {
 				instance.baseline.push_back(object);
+			}
+		}
 		target->prefabInstances.push_back(std::move(instance));
 		for (std::size_t i = 0; i < descriptors.size(); ++i) {
 			state->control->check();
@@ -622,6 +669,7 @@ Task<> SceneManager::instantiatePrefab(std::shared_ptr<SceneLoadState> state, in
 	}
 	state->status = cancelled ? SceneLoadStatus::Cancelled : !state->error.empty() ? SceneLoadStatus::Failed : SceneLoadStatus::Completed;
 	state->phase = cancelled ? "Cancelled" : !state->error.empty() ? "Failed" : "Completed";
-	if (state->status == SceneLoadStatus::Completed)
+	if (state->status == SceneLoadStatus::Completed) {
 		state->progress = 1.0;
+	}
 }

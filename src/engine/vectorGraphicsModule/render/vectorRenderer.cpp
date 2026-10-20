@@ -45,7 +45,7 @@ void VectorRenderer::beginFrame(bool world) {
 	++mFrame;
 	mWorld = world;
 	mBatches.clear();
-	mStatistics = { };
+	mStatistics = {};
 }
 
 std::shared_ptr<RENDER::TextureInterface> VectorRenderer::pageTexture(
@@ -109,7 +109,7 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 			auto b = bounds(cached.mesh);
 			object.getTransform()->getTransform().setLocalSize({ std::max(b.max.x, 0.f), std::max(b.max.y, 0.f) });
 		}
-		result.push_back({ &cached.mesh, mWhite, false, { } });
+		result.push_back({ &cached.mesh, mWhite, false, {} });
 	};
 	// Invalid editor input should report once and keep the last valid geometry.
 	if (auto c = object.getComponent<ECS::VectorShapeComponent>()) {
@@ -149,8 +149,9 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 				result.push_back({ &cache.mesh, mWhite });
 			}
 		} catch (const std::exception& e) {
-			if (cache.key != signature)
+			if (cache.key != signature) {
 				std::cerr << "Vector shape: " << e.what() << '\n';
+			}
 			cache.key = signature;
 			cache.seen = mFrame;
 			result.push_back({ &cache.mesh, mWhite });
@@ -223,8 +224,9 @@ std::vector<PreparedDraw> VectorRenderer::prepare(ECS::Object& object, float pix
 				float outline = std::clamp(c->OutlineWidth / scale, 0.f, float(o.spread) - 2);
 				auto shadow = vector(c->ShadowOffset) * (1.f / scale);
 				float maxOffset = std::max(std::abs(shadow.x), std::abs(shadow.y));
-				if (maxOffset > float(o.spread) - 2)
+				if (maxOffset > float(o.spread) - 2) {
 					shadow = shadow * ((o.spread - 2) / maxOffset);
+				}
 				SdfEffects effects { { float(o.spread), outline, shadow.x / o.pageSize, shadow.y / o.pageSize }, c->OutlineColor, c->ShadowColor };
 				for (auto& run : cache.text.runs) {
 					result.push_back({ &run.mesh, pageTexture(cache.font, run.page, renderer), true, effects });
@@ -251,8 +253,9 @@ void VectorRenderer::enqueue(std::vector<::IKIGAI::Vertex> vertices, const std::
 		auto& b = mBatches.back();
 		if (b.texture == texture && b.shader == shader && b.projection == projection && sameBlend(b.blend, blend) && b.depth.mFunc == depth.mFunc
 			&& b.depth.mWriteMask == depth.mWriteMask && b.clipped == clipped
-			&& (!clipped || (b.clip.mPosition == clip.mPosition && b.clip.mSize == clip.mSize)) && b.sdf == sdf && b.effects == effects)
+			&& (!clipped || (b.clip.mPosition == clip.mPosition && b.clip.mSize == clip.mSize)) && b.sdf == sdf && b.effects == effects) {
 			batch = &b;
+		}
 	}
 	if (!batch) {
 		mBatches.emplace_back();
@@ -294,8 +297,9 @@ void VectorRenderer::flush(RENDER::Renderer& renderer) {
 		if (!c.mesh || c.hash != h) {
 			c.mesh = RENDER::CreateMesh(b.vertices, b.indices);
 			c.projection = renderer.createUniformBuffer<MATH::Matrix4f>(b.projection);
-			if (b.sdf)
+			if (b.sdf) {
 				c.effects = renderer.createUniformBuffer<SdfEffects>(b.effects);
+			}
 			c.hash = h;
 			++mStatistics.meshUploads;
 		}
@@ -325,9 +329,5 @@ void VectorRenderer::flush(RENDER::Renderer& renderer) {
 	std::erase_if(mComponents, [&](auto& entry) { return entry.second.seen + 2 < mFrame; });
 	std::erase_if(mFonts, [&](auto& entry) { return entry.second.seen + 2 < mFrame; });
 	mStatistics.batches = mBatches.size();
-	if (mFrame <= 8 || mFrame % 60 == 0)
-		std::cout << "VECTOR_STATS pass=" << (mWorld ? "world" : "screen") << " frame=" << mFrame << " geometry=" << mStatistics.geometryBuilds
-				  << " layout=" << mStatistics.textLayouts << " atlas=" << mStatistics.atlasUploads << " mesh=" << mStatistics.meshUploads
-				  << " batches=" << mStatistics.batches << '\n';
 }
 }

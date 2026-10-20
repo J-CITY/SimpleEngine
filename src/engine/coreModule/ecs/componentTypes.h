@@ -14,13 +14,13 @@
 #include "components/pointLight.h"
 #include "components/renderTargetComponent.h"
 #include "components/scriptComponent.h"
-#include "components/skeletal.h"
 #include "components/skeletalAnimationComponent.h"
 #include "components/skeletalComponent.h"
+#include "components/skeletalStateGraphComponent.h"
 #include "components/transform.h"
+#include "components/variableContextComponent.h"
 #include <serdepp/adaptor/nlohmann_json.hpp>
 #include <unordered_map>
-
 
 #if USE_LUA
 #define IKIGAI_LUA_COMPONENT ScriptComponent,
@@ -38,14 +38,22 @@
 #endif
 #include "components/spotLight.h"
 #if USE_PHYSICS_3D
+#include "components/capsuleColliderComponent.h"
+#include "components/characterMotorComponent.h"
 #include "components/physics3dComponent.h"
-#include "components/thirdPersonController.h"
 #include "components/physicsComponent.h"
+#include "components/thirdPersonCameraComponent.h"
+#include "components/thirdPersonController.h"
+#include "components/traversalComponent.h"
+#include "systems/characterSystem.h"
 
-#define IKIGAI_PHYSICS3D_COMPONENTS Physics3DComponent, SoftBody3DComponent, Cloth3DComponent, Fluid3DComponent, ForceField3DComponent, ThirdPersonController,
+#define IKIGAI_PHYSICS3D_COMPONENTS                                                                                                                  \
+	Physics3DComponent, SoftBody3DComponent, Cloth3DComponent, Fluid3DComponent, ForceField3DComponent, ThirdPersonController,                       \
+		CapsuleColliderComponent, CharacterMotorComponent, ThirdPersonCameraComponent, TraversalComponent,
 #define IKIGAI_PHYSICS3D_DESCRIPTORS                                                                                                                 \
 	Physics3DComponent::Descriptor, SoftBody3DComponent::Descriptor, Cloth3DComponent::Descriptor, Fluid3DComponent::Descriptor,                     \
-		ForceField3DComponent::Descriptor, ThirdPersonController::Descriptor,
+		ForceField3DComponent::Descriptor, ThirdPersonController::Descriptor, CapsuleColliderComponent::Descriptor,                                  \
+		CharacterMotorComponent::Descriptor, ThirdPersonCameraComponent::Descriptor, TraversalComponent::Descriptor,
 #define IKIGAI_PHYSICS3D_LEGACY_COMPONENT PhysicsComponent,
 #define IKIGAI_PHYSICS3D_LEGACY_DESCRIPTOR PhysicsComponent::Descriptor,
 #else
@@ -72,30 +80,42 @@
 #include "../gui/components/vectorComponents.h"
 #include "components/batchComponent.h"
 
+#ifdef IKIGAI_TEST_MODULE
+#include "character/characterDiagnosticsComponent.h"
+#if USE_PHYSICS_3D
+#define IKIGAI_TEST_COMPONENTS CharacterDiagnosticsComponent,
+#define IKIGAI_TEST_DESCRIPTORS CharacterDiagnosticsComponent::Descriptor,
+#endif
+#endif
+#ifndef IKIGAI_TEST_COMPONENTS
+#define IKIGAI_TEST_COMPONENTS
+#define IKIGAI_TEST_DESCRIPTORS
+#endif
 
 namespace IKIGAI::ECS {
 
 #define COMPONENTS_DEF                                                                                                                               \
-	TransformComponent, IKIGAI_PHYSICS3D_COMPONENTS IKIGAI_PHYSICS2D_COMPONENTS AmbientLight, AmbientSphereLight, AudioComponent, CameraComponent,   \
-		DirectionalLight, InputComponent, LogicComponent, MaterialRenderer, ModelRenderer, ModelLODRenderer, RenderTargetComponent, PointLight,      \
-		IKIGAI_LUA_COMPONENT IKIGAI_SCRIPT_COMPONENT Skeletal, SkeletalComponent, SkeletalAnimationComponent, SpotLight,                             \
+	IKIGAI_TEST_COMPONENTS VariableContextComponent, SkeletalStateGraphComponent, TransformComponent,                                                \
+		IKIGAI_PHYSICS3D_COMPONENTS IKIGAI_PHYSICS2D_COMPONENTS AmbientLight, AmbientSphereLight, AudioComponent, CameraComponent, DirectionalLight, \
+		InputComponent, LogicComponent, MaterialRenderer, ModelRenderer, ModelLODRenderer, RenderTargetComponent, PointLight,                        \
+		IKIGAI_LUA_COMPONENT IKIGAI_SCRIPT_COMPONENT SkeletalComponent, SkeletalAnimationComponent, SpotLight,                                       \
 		IKIGAI_PHYSICS3D_LEGACY_COMPONENT AudioListenerComponent, VrCameraComponent, BatchComponent, RootGuiComponent, SpriteComponent,              \
 		SpriteAnimateComponent, SpriteParticleComponent, ParticleSystem2DComponent, ParticleSystem3DComponent, SpineComponent, LabelComponent,       \
 		InteractionComponent, ClipComponent, ScrollComponent, LayoutComponent, ChunkModelRenderer, SdfTextComponent, VectorShapeComponent,           \
 		VectorPathComponent, VectorCanvasComponent
 
 #define COMPONENTS_DESCRIPTOR_DEF                                                                                                                    \
-	TransformComponent::Descriptor, IKIGAI_PHYSICS3D_DESCRIPTORS IKIGAI_PHYSICS2D_DESCRIPTORS AmbientLight::Descriptor,                              \
-		AmbientSphereLight::Descriptor, AudioComponent::Descriptor, CameraComponent::Descriptor, DirectionalLight::Descriptor,                       \
-		InputComponent::Descriptor, LogicComponent::Descriptor, MaterialRenderer::Descriptor, ModelRenderer::Descriptor,                             \
-		ModelLODRenderer::Descriptor, RenderTargetComponent::Descriptor, PointLight::Descriptor,                                                     \
-		IKIGAI_LUA_DESCRIPTOR IKIGAI_SCRIPT_DESCRIPTOR Skeletal::Descriptor, SkeletalComponent::Descriptor, SkeletalAnimationComponent::Descriptor,  \
-		SpotLight::Descriptor, IKIGAI_PHYSICS3D_LEGACY_DESCRIPTOR AudioListenerComponent::Descriptor, VrCameraComponent::Descriptor,                 \
-		BatchComponent::Descriptor, RootGuiComponent::Descriptor, SpriteComponent::Descriptor, SpriteAnimateComponent::Descriptor,                   \
-		SpriteParticleComponent::Descriptor, ParticleSystem2DComponent::Descriptor, ParticleSystem3DComponent::Descriptor,                           \
-		SpineComponent::Descriptor, LabelComponent::Descriptor, InteractionComponent::Descriptor, ClipComponent::Descriptor,                         \
-		ScrollComponent::Descriptor, LayoutComponent::Descriptor, ChunkModelRenderer::Descriptor, SdfTextComponent::Descriptor,                      \
-		VectorShapeComponent::Descriptor, VectorPathComponent::Descriptor, VectorCanvasComponent::Descriptor
+	IKIGAI_TEST_DESCRIPTORS VariableContextComponent::Descriptor, SkeletalStateGraphComponent::Descriptor, TransformComponent::Descriptor,           \
+		IKIGAI_PHYSICS3D_DESCRIPTORS IKIGAI_PHYSICS2D_DESCRIPTORS AmbientLight::Descriptor, AmbientSphereLight::Descriptor,                          \
+		AudioComponent::Descriptor, CameraComponent::Descriptor, DirectionalLight::Descriptor, InputComponent::Descriptor,                           \
+		LogicComponent::Descriptor, MaterialRenderer::Descriptor, ModelRenderer::Descriptor, ModelLODRenderer::Descriptor,                           \
+		RenderTargetComponent::Descriptor, PointLight::Descriptor, IKIGAI_LUA_DESCRIPTOR IKIGAI_SCRIPT_DESCRIPTOR SkeletalComponent::Descriptor,     \
+		SkeletalAnimationComponent::Descriptor, SpotLight::Descriptor, IKIGAI_PHYSICS3D_LEGACY_DESCRIPTOR AudioListenerComponent::Descriptor,        \
+		VrCameraComponent::Descriptor, BatchComponent::Descriptor, RootGuiComponent::Descriptor, SpriteComponent::Descriptor,                        \
+		SpriteAnimateComponent::Descriptor, SpriteParticleComponent::Descriptor, ParticleSystem2DComponent::Descriptor,                              \
+		ParticleSystem3DComponent::Descriptor, SpineComponent::Descriptor, LabelComponent::Descriptor, InteractionComponent::Descriptor,             \
+		ClipComponent::Descriptor, ScrollComponent::Descriptor, LayoutComponent::Descriptor, ChunkModelRenderer::Descriptor,                         \
+		SdfTextComponent::Descriptor, VectorShapeComponent::Descriptor, VectorPathComponent::Descriptor, VectorCanvasComponent::Descriptor
 
 //ArCameraComponent,\
 
@@ -114,30 +134,31 @@ template <> struct serde_adaptor<nlohmann::json, IKIGAI::ECS::ComponentsDescript
 	using Variant = IKIGAI::ECS::ComponentsDescriptorType;
 	using Reader = void (*)(nlohmann::json&, Variant&);
 
-	template <class... Components>
-	static auto readers(IKIGAI::ECS::ComponentsTypeProvider<Components...>) {
-		return std::unordered_map<std::string, Reader> {
-			{ IKIGAI::ECS::GetComponentName<Components>() + "Type",
-				+[](nlohmann::json& json, Variant& value) { value = deserialize<typename Components::Descriptor>(json); } }...
-		};
+	template <class... Components> static auto readers(IKIGAI::ECS::ComponentsTypeProvider<Components...>) {
+		return std::unordered_map<std::string, Reader> { { IKIGAI::ECS::GetComponentName<Components>() + "Type",
+			+[](nlohmann::json& json, Variant& value) { value = deserialize<typename Components::Descriptor>(json); } }... };
 	}
 
 	static void from(nlohmann::json& json, std::string_view key, Variant& value) {
 		auto& component = key.empty() ? json : json.at(std::string(key));
-		if (!component.is_object())
+		if (!component.is_object()) {
 			throw std::runtime_error("Component descriptor must be an object");
-		static const auto registry = readers(IKIGAI::ECS::ComponentsTypeProviderType { });
+		}
+		static const auto registry = readers(IKIGAI::ECS::ComponentsTypeProviderType {});
 		Reader reader = nullptr;
 		for (const auto& item : component.items()) {
 			const auto found = registry.find(item.key());
-			if (found == registry.end())
+			if (found == registry.end()) {
 				continue;
-			if (reader)
+			}
+			if (reader) {
 				throw std::runtime_error("Component descriptor has multiple type keys");
+			}
 			reader = found->second;
 		}
-		if (!reader)
+		if (!reader) {
 			throw std::runtime_error("Component descriptor has no supported type key");
+		}
 		// A malformed selected descriptor is an error, not another variant to try.
 		reader(component, value);
 	}
