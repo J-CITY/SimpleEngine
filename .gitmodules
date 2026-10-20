@@ -192,3 +192,6 @@
 [submodule "3rd/boost/winapi"]
 	path = 3rd/boost/winapi
 	url = https://github.com/boostorg/winapi.git
+[submodule "3rd/ArgParse"]
+	path = 3rd/ArgParse
+	url = https://github.com/J-CITY/ArgParse.git
