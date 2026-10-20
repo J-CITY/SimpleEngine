@@ -16,8 +16,10 @@ CMakeCache.txt
 /windows/buildGl
 /windows/buildVk
 /windows/buildDx
+/windows/buildRT
 /windows/outVk
 /windows/outDx
+/windows/outRT
 /windows/outGl
 assets/
 assetses/
@@ -62,3 +64,14 @@ utils/assets
 utils/tests
 render_assets/
 
+# uncomment, docs
+docs/
+utils/tests/*
+utils/README.md
+utils/run_third_person_demo.cmd
+utils/tools/audit_code_usage.py
+utils/tools/graphify.ps1
+render_assets/*
+cmake/tests/*
+script_assets/*
+testModule/
