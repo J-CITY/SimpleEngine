@@ -61,5 +61,5 @@ function(ikigai_add_physics2d_library)
 endfunction()
 
 if(IKIGAI_PHYSICS_2D_TESTS)
-    include("${CMAKE_CURRENT_LIST_DIR}/tests/Physics2D.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/../utils/tests/cmake/Physics2D.cmake" OPTIONAL)
 endif()

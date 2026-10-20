@@ -13,5 +13,5 @@ function(ikigai_configure_json_views target)
 endfunction()
 
 if(IKIGAI_JSON_VIEW_TESTS)
-    include("${CMAKE_CURRENT_LIST_DIR}/tests/JsonViews.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/../utils/tests/cmake/JsonViews.cmake" OPTIONAL)
 endif()

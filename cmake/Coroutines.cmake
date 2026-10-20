@@ -23,5 +23,5 @@ endforeach()
 
 option(IKIGAI_COROUTINE_TESTS "Build independent main-thread coroutine tests" OFF)
 if(IKIGAI_COROUTINE_TESTS)
-    include("${CMAKE_CURRENT_LIST_DIR}/tests/Coroutines.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/../utils/tests/cmake/Coroutines.cmake" OPTIONAL)
 endif()

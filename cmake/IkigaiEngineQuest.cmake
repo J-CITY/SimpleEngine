@@ -240,7 +240,13 @@ target_link_libraries(main PRIVATE ikigai_vector)
 target_link_libraries(main PRIVATE ikigai_coroutines)
 
 ikigai_configure_scripting(main)
-ikigai_add_scripting_tests(main)
+if(COMMAND ikigai_add_scripting_tests)
+    ikigai_add_scripting_tests(main)
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/Networking.cmake")
 ikigai_configure_network(main)
+
+# Shared application startup and optional local diagnostics.
+include("${CMAKE_CURRENT_LIST_DIR}/Application.cmake")
+ikigai_configure_application(main)

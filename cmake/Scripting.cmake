@@ -79,4 +79,4 @@ function(ikigai_configure_scripting target)
     endif()
 endfunction()
 
-include("${CMAKE_CURRENT_LIST_DIR}/tests/Scripting.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../utils/tests/cmake/Scripting.cmake" OPTIONAL)
