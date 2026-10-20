@@ -1,4 +1,5 @@
 #include "core.h"
+#include "utilsModule/time/loadTimer.h"
 #if USE_PHYSICS_3D
 #include "coreModule/ecs/components/physics3dComponent.h"
 #endif
@@ -82,6 +83,7 @@ Core::Core(
 	: androidApp(app)
 #endif
 {
+	UTILS::LoadTimer coreTiming("core");
 	UTILS::InitContentRoot();
 	if (Config::ROOT.empty()) {
 		std::cerr << "Content root not found (expected assets/engine/ near cwd or executable). "
@@ -127,15 +129,17 @@ Core::Core(
 		: std::filesystem::u8path(Config::STORAGE_ROOT);
 	std::shared_ptr<RESOURCES::STORAGE::UserStorage> userStorage;
 #ifdef USE_SDL
-	if (Config::STORAGE_ROOT.empty())
+	if (Config::STORAGE_ROOT.empty()) {
 		userStorage = std::make_shared<RESOURCES::STORAGE::UserStorage>(Config::ORGANIZATION, Config::APPLICATION);
+	}
 	else
 #endif
 		userStorage = std::make_shared<RESOURCES::STORAGE::UserStorage>(storageRoot);
 	playerProfiles = std::make_unique<RESOURCES::PlayerProfileService>(*fileSystem, std::move(userStorage));
 	const auto profiles = playerProfiles->list();
-	if (std::find(profiles.begin(), profiles.end(), Config::PROFILE_ID) == profiles.end())
+	if (std::find(profiles.begin(), profiles.end(), Config::PROFILE_ID) == profiles.end()) {
 		playerProfiles->create(Config::PROFILE_ID);
+	}
 	playerProfiles->select(Config::PROFILE_ID);
 	RESOURCES::ServiceManager::Set<RESOURCES::PlayerProfileService>(playerProfiles.get());
 	network = std::make_shared<NETWORK::NetworkRuntime>();
@@ -157,8 +161,9 @@ Core::Core(
 		content->stageLocal(std::filesystem::u8path(Config::CONTENT_RELEASE));
 		content->activate(nlohmann::json::parse(RESOURCES::STORAGE::Read(std::filesystem::u8path(Config::CONTENT_RELEASE))));
 	}
-	else
+	else {
 		content->restore();
+	}
 	RESOURCES::ServiceManager::Set<RESOURCES::ContentService>(content.get());
 
 	RESOURCES::ModelLoader::SetAssetPaths(Config::USER_ASSETS_PATH, Config::ENGINE_ASSETS_PATH);
@@ -169,7 +174,7 @@ Core::Core(
 	auto renderSettings = IKIGAI::UTILS::FromJson<RENDER::RenderSettings>("/Configs/render.json");
 	if (renderSettings.isErr()) {
 		LOG_ERROR << renderSettings.unwrapErr().text;
-		RENDER::DriverInterface::settings = { };
+		RENDER::DriverInterface::settings = {};
 	}
 	else {
 		RENDER::DriverInterface::settings = renderSettings.unwrap();
@@ -185,6 +190,29 @@ Core::Core(
 	}
 
 	WINDOW::WindowSettings windowSettings;
+	if (fileSystem->isFileExist("/Configs/window.json")) {
+		auto configured = UTILS::FromJson<WINDOW::WindowSettings>("/Configs/window.json");
+		if (configured.isErr()) {
+			throw std::runtime_error("Window configuration: " + configured.unwrapErr().text);
+		}
+		windowSettings = configured.unwrap();
+	}
+	if (Config::WINDOW_WIDTH) {
+		windowSettings.size.x = static_cast<unsigned>(*Config::WINDOW_WIDTH);
+	}
+	if (Config::WINDOW_HEIGHT) {
+		windowSettings.size.y = static_cast<unsigned>(*Config::WINDOW_HEIGHT);
+	}
+	if (Config::WINDOW_FULLSCREEN) {
+		windowSettings.isFullscreen = *Config::WINDOW_FULLSCREEN;
+	}
+	if (Config::WINDOW_TITLE) {
+		windowSettings.title = *Config::WINDOW_TITLE;
+	}
+	if (!windowSettings.size.x || !windowSettings.size.y || windowSettings.size.x > 16384 || windowSettings.size.y > 16384
+		|| windowSettings.refreshRate <= 0) {
+		throw std::runtime_error("Invalid window dimensions or refresh rate");
+	}
 	windowSettings.renderBackend = RENDER::DriverInterface::settings.backend;
 
 	windowManager = std::make_unique<WINDOW::WindowManager>();
@@ -206,7 +234,10 @@ Core::Core(
 	inputActions->load(INPUT_SYSTEM::DefaultInputResourcePath);
 	RESOURCES::ServiceManager::Set<WINDOW::Window>(window.get());
 
-	driver = RENDER::CreateRenderDriver(RENDER::DriverInterface::settings.backend, *window);
+	{
+		UTILS::LoadTimer timing("driver");
+		driver = RENDER::CreateRenderDriver(RENDER::DriverInterface::settings.backend, *window);
+	}
 	if (!driver) {
 		throw std::runtime_error("Failed to create render driver");
 	}
@@ -265,12 +296,19 @@ Core::Core(
 #if USE_LUA
 		compMgr->registerComponent<ECS::ScriptComponent>(IKIGAI::ECS2::StorageType::Sparse);
 #endif
-		compMgr->registerComponent<ECS::Skeletal>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpotLight>(IKIGAI::ECS2::StorageType::Sparse);
 #if USE_PHYSICS_3D
 		compMgr->registerComponent<ECS::PhysicsComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::Physics3DComponent>(ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::ThirdPersonController>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::CapsuleColliderComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::CharacterMotorComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ThirdPersonCameraComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::TraversalComponent>(ECS2::StorageType::Sparse);
+#ifdef IKIGAI_TEST_MODULE
+		compMgr->registerComponent<ECS::CharacterDiagnosticsComponent>(ECS2::StorageType::Sparse);
+#endif
+		ECS::CharacterSystem::registerProperties();
 		compMgr->registerComponent<ECS::SoftBody3DComponent>(ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::Cloth3DComponent>(ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::Fluid3DComponent>(ECS2::StorageType::Sparse);
@@ -290,6 +328,9 @@ Core::Core(
 
 		compMgr->registerComponent<ECS::SkeletalComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SkeletalAnimationComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VariableContextComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SkeletalStateGraphComponent>(ECS2::StorageType::Sparse);
+		ECS::RegisterSceneComponentReflection();
 		// GUI
 		compMgr->registerComponent<ECS::RootGuiComponent>(IKIGAI::ECS2::StorageType::Sparse);
 		compMgr->registerComponent<ECS::SpriteComponent>(IKIGAI::ECS2::StorageType::Sparse);
@@ -346,7 +387,12 @@ Core::Core(
 	RESOURCES::ServiceManager::Set<RESOURCES::SkeletonBlendspaceLoader>(skeletonBlendspaceLoader.get());
 	RESOURCES::ServiceManager::Set<RESOURCES::SkeletonAnimationLoader>(skeletonAnimationLoader.get());
 
-	renderer = std::make_unique<RENDER::GameRenderer>(*this);
+	{
+		UTILS::LoadTimer timing("renderer");
+		auto gameRenderer = std::make_unique<RENDER::GameRenderer>(*this);
+		RESOURCES::ServiceManager::Set<RENDER::PrimitiveRender>(&gameRenderer->primitives());
+		renderer = std::move(gameRenderer);
+	}
 	if (!renderer) {
 		throw;
 	}
@@ -377,10 +423,12 @@ Core::~Core() {
 	network->stop();
 	RESOURCES::ServiceManager::Remove<RESOURCES::PlayerProfileService>();
 	// Coroutine locals may reference scenes, ECS, loaders and GPU resources.
-	if (sceneManager)
+	if (sceneManager) {
 		sceneManager->shutdownLoading();
-	if (coroutineScheduler)
+	}
+	if (coroutineScheduler) {
 		coroutineScheduler->shutdown();
+	}
 	RESOURCES::ServiceManager::Remove<COROUTINE::Scheduler>();
 	CAPTURE::ScreenshotService::Get().wait();
 	// FG owns presentation workers. Stop them while the window, UI and all
@@ -401,10 +449,18 @@ Core::~Core() {
 #ifdef USE_EDITOR
 	editorRender.reset();
 #endif
+#if USE_LUA
+	// Lua detaches component tables through the ECS. Do this while both the
+	// scene's components and the world still exist.
+	if (scriptInterpreter) {
+		scriptInterpreter->destroyLuaContext();
+	}
+#endif
 	if (sceneManager) {
 		sceneManager->unloadCurrentScene();
 	}
 	world.reset();
+	RESOURCES::ServiceManager::Remove<RENDER::PrimitiveRender>();
 	renderer.reset();
 	// Font subscriptions consult the VFS during removal; release the loader
 	// explicitly before fileSystem's member destructor runs.
