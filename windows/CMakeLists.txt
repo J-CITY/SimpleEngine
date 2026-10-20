@@ -376,7 +376,13 @@ if(IKIGAI_VECTOR_TESTS)
 endif()
 
 ikigai_configure_scripting(${APP_NAME})
-ikigai_add_scripting_tests(${APP_NAME})
+if(COMMAND ikigai_add_scripting_tests)
+    ikigai_add_scripting_tests(${APP_NAME})
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Networking.cmake")
 ikigai_configure_network(${APP_NAME})
+
+# Shared application startup and optional local diagnostics.
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/Application.cmake")
+ikigai_configure_application(${APP_NAME})
