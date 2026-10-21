@@ -43,7 +43,7 @@
 #include "windowModule/inputManager/inputActions.h"
 #include "windowModule/inputManager/inputManager.h"
 #include <audioModule/audioManager.h>
-#include <debugModule/debugRender.h>
+
 #include <renderModule/backends/interface/driverInterface.h>
 #include <renderModule/gameRendererInterface.h>
 #include <resourceModule/fileSystem/fileSystem.h>
@@ -264,91 +264,91 @@ Core::Core(
 	});
 	RESOURCES::ServiceManager::Set<COROUTINE::Scheduler>(coroutineScheduler.get());
 	eventBroadcaster = std::make_unique<EVENT::EventBroadcaster>();
-	world = std::make_unique<ECS2::World>();
+	world = std::make_unique<ECS::World>();
 
 #ifndef __EMSCRIPTEN__
 	taskManger->setup();
 #endif
 
-	RESOURCES::ServiceManager::Set<ECS2::World>(world.get());
+	RESOURCES::ServiceManager::Set<ECS::World>(world.get());
 
 	auto compMgr = world->getComponentManager();
 	auto sysMgr = world->getSystemManager();
 	{
-		compMgr->registerComponent<ECS::TransformComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::AmbientLight>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::AmbientSphereLight>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::AudioComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::AudioListenerComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::CameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::VrCameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		// compMgr->registerComponent<ECS::ArCameraComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::DirectionalLight>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::InputComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::LogicComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::TransformComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AmbientLight>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AmbientSphereLight>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AudioComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::AudioListenerComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::CameraComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VrCameraComponent>(IKIGAI::ECS::StorageType::Sparse);
+		// compMgr->registerComponent<ECS::ArCameraComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::DirectionalLight>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::InputComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::LogicComponent>(IKIGAI::ECS::StorageType::Sparse);
 #if USE_IKIGAI_SCRIPT
-		compMgr->registerComponent<ECS::IkigaiScriptComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::IkigaiScriptComponent>(IKIGAI::ECS::StorageType::Sparse);
 #endif
-		compMgr->registerComponent<ECS::MaterialRenderer>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ModelRenderer>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::PointLight>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::MaterialRenderer>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ModelRenderer>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::PointLight>(IKIGAI::ECS::StorageType::Sparse);
 
 #if USE_LUA
-		compMgr->registerComponent<ECS::ScriptComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ScriptComponent>(IKIGAI::ECS::StorageType::Sparse);
 #endif
-		compMgr->registerComponent<ECS::SpotLight>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpotLight>(IKIGAI::ECS::StorageType::Sparse);
 #if USE_PHYSICS_3D
-		compMgr->registerComponent<ECS::PhysicsComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::Physics3DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ThirdPersonController>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::CapsuleColliderComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::CharacterMotorComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ThirdPersonCameraComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::TraversalComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::PhysicsComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Physics3DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ThirdPersonController>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::CapsuleColliderComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::CharacterMotorComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ThirdPersonCameraComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::TraversalComponent>(ECS::StorageType::Sparse);
 #ifdef IKIGAI_TEST_MODULE
-		compMgr->registerComponent<ECS::CharacterDiagnosticsComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::CharacterDiagnosticsComponent>(ECS::StorageType::Sparse);
 #endif
 		ECS::CharacterSystem::registerProperties();
-		compMgr->registerComponent<ECS::SoftBody3DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::Cloth3DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::Fluid3DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ForceField3DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SoftBody3DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Cloth3DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Fluid3DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ForceField3DComponent>(ECS::StorageType::Sparse);
 #endif
 #if USE_PHYSICS_2D
-		compMgr->registerComponent<ECS::Physics2DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SoftBody2DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::Fluid2DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::Joint2DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ForceField2DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::Cloth2DComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Physics2DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SoftBody2DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Fluid2DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Joint2DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ForceField2DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::Cloth2DComponent>(ECS::StorageType::Sparse);
 #endif
-		compMgr->registerComponent<ECS::ModelLODRenderer>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::BatchComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::RenderTargetComponent>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ModelLODRenderer>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::BatchComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::RenderTargetComponent>(IKIGAI::ECS::StorageType::Sparse);
 
-		compMgr->registerComponent<ECS::SkeletalComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SkeletalAnimationComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::VariableContextComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SkeletalStateGraphComponent>(ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SkeletalComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SkeletalAnimationComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VariableContextComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SkeletalStateGraphComponent>(ECS::StorageType::Sparse);
 		ECS::RegisterSceneComponentReflection();
 		// GUI
-		compMgr->registerComponent<ECS::RootGuiComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SpriteComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SpriteAnimateComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SpriteParticleComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ParticleSystem2DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ParticleSystem3DComponent>(ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::LabelComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SdfTextComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::VectorShapeComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::VectorPathComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::VectorCanvasComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::InteractionComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ClipComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ScrollComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::LayoutComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::SpineComponent>(IKIGAI::ECS2::StorageType::Sparse);
-		compMgr->registerComponent<ECS::ChunkModelRenderer>(IKIGAI::ECS2::StorageType::Sparse);
+		compMgr->registerComponent<ECS::RootGuiComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpriteComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpriteAnimateComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpriteParticleComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ParticleSystem2DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ParticleSystem3DComponent>(ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::LabelComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SdfTextComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VectorShapeComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VectorPathComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::VectorCanvasComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::InteractionComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ClipComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ScrollComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::LayoutComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::SpineComponent>(IKIGAI::ECS::StorageType::Sparse);
+		compMgr->registerComponent<ECS::ChunkModelRenderer>(IKIGAI::ECS::StorageType::Sparse);
 
 #if USE_LUA
 

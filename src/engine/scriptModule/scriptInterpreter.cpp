@@ -5,7 +5,7 @@
 #include <string>
 
 #include "luaBinder.h"
-#include <coreModule/ecs/componentManager.h>
+
 #include <coreModule/ecs/components/scriptComponent.h>
 #include <coreModule/ecs/systems/scriptSystem.h>
 
@@ -38,11 +38,9 @@ void ScriptInterpreter::createLuaContextAndBindGlobals() {
 			if (!s) {
 				continue;
 			}
-			auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+			auto& world = RESOURCES::ServiceManager::Get<ECS::World>();
 			auto systemManager = world.getSystemManager();
 			if (!systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
-				// if (!ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState,
-				// scriptRootFolder)) {
 				checkOk = false;
 			}
 		}
@@ -59,10 +57,9 @@ void ScriptInterpreter::destroyLuaContext() {
 			if (!s) {
 				continue;
 			}
-			auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+			auto& world = RESOURCES::ServiceManager::Get<ECS::World>();
 			auto systemManager = world.getSystemManager();
 			systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->unregisterFromLuaContext(*s);
-			// ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*s);
 		}
 
 		luaState.reset();
@@ -77,11 +74,9 @@ void ScriptInterpreter::consider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> s)
 	if (luaState) {
 		scripts.push_back(s);
 
-		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+		auto& world = RESOURCES::ServiceManager::Get<ECS::World>();
 		auto systemManager = world.getSystemManager();
 		if (!systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->registerToLuaContext(*s, *luaState, scriptRootFolder)) {
-			// if (!ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->registerToLuaContext(*s, *luaState,
-			// scriptRootFolder)) {
 			checkOk = false;
 		}
 	}
@@ -89,8 +84,7 @@ void ScriptInterpreter::consider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> s)
 
 void ScriptInterpreter::unconsider(UTILS::WeakPtr<IKIGAI::ECS::ScriptComponent> p_toUnconsider) {
 	if (luaState) {
-		// ECS::ComponentManager::GetInstance().getSystemManager().getSystem<ECS::ScriptSystem>()->unregisterFromLuaContext(*p_toUnconsider);
-		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+		auto& world = RESOURCES::ServiceManager::Get<ECS::World>();
 		auto systemManager = world.getSystemManager();
 		systemManager->getSystem<ECS::ScriptSystem>("ScriptSystem")->unregisterFromLuaContext(*p_toUnconsider);
 	}

@@ -7,7 +7,7 @@ template <class T> UTILS::WeakPtr<T> Resolve(SCENE_SYSTEM::Scene& scene, const C
 	if (r.Component != GetComponentName<T>()) {
 		throw std::runtime_error("Reference expects " + GetComponentName<T>() + ", got " + r.Component);
 	}
-	auto object = scene.findObjectByID(ECS2::Entity(ECS2::Entity::ID(r.ObjectId)));
+	auto object = scene.findObjectByID(ECS::Entity(ECS::Entity::ID(r.ObjectId)));
 	return object ? object->getComponent<T>() : nullptr;
 }
 }

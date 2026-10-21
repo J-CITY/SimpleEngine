@@ -1,5 +1,6 @@
-﻿#pragma once
+#pragma once
 
+#include "resourceConfigCache.h"
 #include "resourceRequest.h"
 #include <any>
 #include <future>
@@ -33,7 +34,8 @@ namespace RESOURCES {
 		virtual void unloadResource(const std::string& path) = 0;
 	};
 
-	template <class ResourceT, class ConfigT> class ResourceManager : public IResourceManager {
+	template <class ResourceT, class ConfigT = void>
+	class ResourceManager : public IResourceManager, protected ResourceConfigCache<ResourceT, ConfigT> {
 	public:
 		using ResourceDeleter = std::function<void(ResourceT*)>;
 
@@ -156,7 +158,7 @@ namespace RESOURCES {
 			const auto generation = ServiceManager::Get<FileSystem>().generation();
 			if (mGeneration != generation) {
 				resources.clear();
-				sResourceCache.clear();
+				this->ClearConfigCache();
 				mGeneration = generation;
 			}
 			if (auto resource = resources.find(NormalizePath(path)); resource != resources.end()) {
@@ -169,40 +171,6 @@ namespace RESOURCES {
 			std::lock_guard<std::recursive_mutex> lock(mMutex);
 			resources[NormalizePath(path)] = res;
 			return res;
-		}
-
-		// config cache
-		static ConfigT LoadConfig(const std::string& path) {
-			auto file = ServiceManager::Get<FileSystem>().getFile(path, FileMode::READ);
-			if (!file || !file->isValid()) {
-				ASSERT("TextureLoader: cannot open .res file");
-			}
-			auto parseResult = UTILS::FromJsonStr<ConfigT>(file->readStr());
-			if (parseResult.isErr()) {
-				ASSERT("TextureLoader: failed to parse .res file");
-			}
-			auto res = parseResult.unwrap();
-			res.path = path;
-			return res;
-		}
-
-		static bool HasConfig(const std::string& path) {
-			return sResourceCache.contains(path);
-		}
-
-		static std::optional<ConfigT> GetConfig(const std::string& path) {
-			if (auto it = sResourceCache.find(path); it != sResourceCache.end()) {
-				return it->second;
-			}
-			return std::nullopt;
-		}
-
-		static void AddConfigToCache(const std::string& path, const ConfigT& config) {
-			sResourceCache[path] = config;
-		}
-
-		static void RemoveConfigFromCache(const std::string& path) {
-			sResourceCache.erase(path);
 		}
 
 		virtual void addFileWatchSubscribe(
@@ -265,8 +233,6 @@ namespace RESOURCES {
 
 		mutable std::recursive_mutex mMutex;
 
-		// Кэш разобранных дескрипторов
-		inline static std::unordered_map<std::string, ConfigT> sResourceCache;
 		// FW ids
 		inline static std::unordered_map<std::string, std::vector<std::pair<std::string, IdGenerator<EVENT::Event<>>::ID>>> sFWSubscribersIds;
 

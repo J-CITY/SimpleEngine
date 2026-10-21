@@ -9,8 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 
 class World;
 

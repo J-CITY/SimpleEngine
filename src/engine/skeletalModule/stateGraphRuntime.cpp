@@ -2,7 +2,6 @@
 #include "characterAnimation.h"
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <set>
 #include <stdexcept>
 
@@ -223,27 +222,13 @@ std::shared_ptr<const StateGraphDefinition> StateGraphDefinition::compile(
 		require(clips.contains(s.at("Clock").get<std::string>()), "missing clock clip in " + name);
 		expression(s.value("Rate", Json(1)), 0);
 		expression(s.value("EntryTime", Json(0)), 0);
-		if (s.contains("When")) {
-			expression(s.at("When"), 0);
-		}
 		if (s.contains("ExternalTime")) {
 			expression(s.at("ExternalTime"), 0);
 		}
 		for (const auto& t : s.value("Transitions", Json::array())) {
 			transition(t);
 		}
-		if (s.contains("Action")) {
-			const auto& a = s.at("Action");
-			require(clips.contains(a.at("Clip").get<std::string>()), "unknown action clip");
-			require(s.at("Clock") == a.at("Clip"), "action Clock must match Action.Clip");
-			if (a.value("Contact", false)) {
-				require(s.at("Node").is_string() && s.at("Node") == a.at("Clip"), "contact action must sample its Action.Clip");
-			}
-			require(!clips.at(a.at("Clip").get<std::string>()).value("Loop", true), "action clip must be one-shot");
-			const float plant = a.value("Plant", 0.f), release = a.value("Release", 1.f);
-			require(plant >= 0 && plant < release && release <= 1, "invalid action contact interval");
-			require(a.value("MinDuration", .4f) > 0, "invalid action duration");
-		}
+		require(!s.contains("Action"), "state Action metadata is unsupported; configure traversal actions separately");
 	}
 	// Optional automatic foot-phase matching, configured per clip. The result
 	// belongs to the compiled resource and never modifies imported Animation.
@@ -614,62 +599,6 @@ void StateGraphRuntime::updateBindings(float dt) {
 		}
 		mExpressionValues.at(binding.slot) = value;
 	}
-}
-StateGraphRuntime::Action StateGraphRuntime::requestAction(const std::string& channel) {
-	auto action = resolveAction(channel);
-	if (action) {
-		acceptAction(action);
-	}
-	return action;
-}
-StateGraphRuntime::Action StateGraphRuntime::resolveAction(const std::string& channel) {
-	const Json* selected = nullptr;
-	std::string name;
-	int priority = std::numeric_limits<int>::min();
-	for (const auto& [key, s] : definition().at("States").items()) {
-		if (s.contains("Action") && s["Action"].value("Channel", std::string {}) == channel && s.value("Priority", 0) > priority
-			&& evaluate(s.value("When", Json(true)))) {
-			selected = &s;
-			name = key;
-			priority = s.value("Priority", 0);
-		}
-	}
-	if (!selected) {
-		return {};
-	}
-	const auto info = selected->at("Action");
-	const auto clip = info.at("Clip").get<std::string>();
-	auto sample = std::make_shared<AnimSample>(mDefinition->skeleton, mDefinition->clips.at(clip));
-	sample->setLooping(false);
-	sample->seek(0);
-	// Duration expressions use the proposed state's clock, without activating it.
-	struct ContextGuard {
-		std::string& state;
-		float& time;
-		float& playback;
-		std::string saved;
-		float savedTime, savedPlayback;
-		~ContextGuard() {
-			state = saved;
-			time = savedTime;
-			playback = savedPlayback;
-		}
-	} guard { mState, mTime, mPlaybackTime, mState, mTime, mPlaybackTime };
-	mState = name;
-	mTime = mPlaybackTime = 0;
-	const float rate = std::max(.01f, evaluate(selected->value("Rate", Json(1))));
-	require(std::isfinite(rate), "invalid action playback rate");
-	const float duration = std::max(info.value("MinDuration", .4f), sample->duration() / rate);
-	return { name, sample, info, duration, mDefinition };
-}
-bool StateGraphRuntime::acceptAction(const Action& action) {
-	if (!action || action.owner != mDefinition || !definition().at("States").contains(action.state)) {
-		return false;
-	}
-	mLastTransition
-		= { { "Target", action.state }, { "Action", action.metadata }, { "When", stateResource(action.state).value("When", Json(true)) } };
-	enter(action.state, stateResource(action.state).value("BlendTime", .15f));
-	return true;
 }
 bool StateGraphRuntime::replace(std::shared_ptr<const StateGraphDefinition> def, std::string& error) {
 	try {

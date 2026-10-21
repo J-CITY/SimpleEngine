@@ -3,16 +3,16 @@
 #ifdef USE_EDITOR
 #include <string>
 
-#include "editorRender.h"
 #include "IconsFontAwesome5.h"
-#include "imgui.h"
-#include "imgui_internal.h"
 #include "coreModule/core/core.h"
 #include "coreModule/ecs/object.h"
+#include "editorRender.h"
+#include "imgui.h"
+#include "imgui_internal.h"
+#include "misc/cpp/imgui_stdlib.h"
 #include "sceneModule/scene.h"
 #include "sceneModule/sceneManager.h"
 #include "utilsModule/stringUtils.h"
-#include "misc/cpp/imgui_stdlib.h"
 
 using namespace IKIGAI::EDITOR;
 
@@ -26,13 +26,16 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 	std::span<std::shared_ptr<IKIGAI::ECS::Object>> nodeList;
 	if (parentEntity) {
 		nodeList = parentEntity->getChildren();
-	} else {
+	}
+	else {
 		nodeList = activeScene.getObjects();
 	}
 
 	unsigned i = 0u;
 	for (auto node : nodeList) {
-		if (!parentEntity && node->getParent()) continue;
+		if (!parentEntity && node->getParent()) {
+			continue;
+		}
 		ImGui::PushID(("node_" + std::to_string(i)).c_str());
 		ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_Selected | ImGuiTreeNodeFlags_OpenOnArrow;
 
@@ -40,11 +43,12 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 
 		if (!isParent) {
 			nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-		} else {
+		}
+		else {
 			nodeFlags |= ImGuiTreeNodeFlags_DefaultOpen;
 		}
 		const auto name = node->getName() + (activeScene.isPrefabRoot(node->getIDInt()) ? " [Prefab]" : "");
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0.0f, 0.0f});
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 0.0f });
 
 		ImGui::BeginDisabled(PREFABS::Locked(*node));
 		bool isActive = node->getIsSelfActive();
@@ -53,21 +57,21 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 		}
 		ImGui::SameLine();
 
-		//Visible button
+		// Visible button
 		if (ImGui::Button(node->getIsSelfVisible() ? ICON_FA_EYE : ICON_FA_EYE_SLASH)) {
 			node->setVisible(!node->getIsSelfVisible());
 		}
 		ImGui::SameLine();
 		ImGui::EndDisabled();
-		
+
 		bool inSearch = searchedObjectsIds.contains(node->getID().getUniqueId());
 		if (inSearch) {
 			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
 		}
-		
+
 		bool isEditing = !PREFABS::Locked(*node) && editNodeId && *editNodeId == node->getID().getUniqueId();
 		bool nodeIsOpen = false;
-		
+
 		if (isEditing) {
 			nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID().getUniqueId()), nodeFlags, "###hiddenNodeName");
 			ImGui::SameLine();
@@ -80,7 +84,8 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 			if (!ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) {
 				editNodeId.reset();
 			}
-		} else {
+		}
+		else {
 			nodeIsOpen = ImGui::TreeNodeBehavior(static_cast<int>(node->getID().getUniqueId()), nodeFlags, name.c_str());
 			if (!PREFABS::Locked(*node) && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
 				editNodeId = node->getID().getUniqueId();
@@ -94,50 +99,58 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 
 		ImGui::PopStyleVar();
 
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5.0f, 5.0f});
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2 { 5.0f, 5.0f });
 		if (ImGui::BeginPopupContextItem("__SCENE_TREE_CONTEXTMENU__")) {
 			ImGui::BeginDisabled(PREFABS::Member(*node));
-            if (ImGui::MenuItem("Create new child")) {
-                PREFABS::deferred = [node] {
-                    auto object = PREFABS::Manager().getCurrentScene().createObject("new_object");
-                    object->setParent(node);
-                };
-            }
-            ImGui::EndDisabled();
-            ImGui::BeginDisabled(PREFABS::Locked(*node));
-            if (ImGui::MenuItem("Create new before")) {
-                PREFABS::deferred = [node] {
-                    auto object = PREFABS::Manager().getCurrentScene().createObjectBefore(node->getID(), "new_object");
-                    if (node->getParent()) object->setParent(node->getParent());
-                };
-            }
-            if (ImGui::MenuItem("Create new after")) {
-                PREFABS::deferred = [node] {
-                    auto object = PREFABS::Manager().getCurrentScene().createObjectAfter(node->getID(), "new_object");
-                    if (node->getParent()) object->setParent(node->getParent());
-                };
-            }
-            if (ImGui::MenuItem("Delete")) {
-                const int id = node->getIDInt();
-                PREFABS::deferred = [id] { PREFABS::Delete(id); };
-            }
-            ImGui::EndDisabled();
-            ImGui::Separator();
-            if (!PREFABS::Member(*node) && ImGui::MenuItem("Create Prefab...")) PREFABS::Open(1, node->getIDInt());
-            if (!PREFABS::Member(*node) && ImGui::MenuItem("Instantiate Prefab...")) PREFABS::Open(2, node->getIDInt());
-            if (activeScene.isPrefabRoot(node->getIDInt()) && ImGui::MenuItem("Unpack Prefab")) {
-                const int id = node->getIDInt();
-                PREFABS::deferred = [id] { PREFABS::Unpack(id); };
-            }
+			if (ImGui::MenuItem("Create new child")) {
+				PREFABS::deferred = [node] {
+					auto object = PREFABS::Manager().getCurrentScene().createObject("new_object");
+					object->setParent(node);
+				};
+			}
+			ImGui::EndDisabled();
+			ImGui::BeginDisabled(PREFABS::Locked(*node));
+			if (ImGui::MenuItem("Create new before")) {
+				PREFABS::deferred = [node] {
+					auto object = PREFABS::Manager().getCurrentScene().createObjectBefore(node->getID(), "new_object");
+					if (node->getParent()) {
+						object->setParent(node->getParent());
+					}
+				};
+			}
+			if (ImGui::MenuItem("Create new after")) {
+				PREFABS::deferred = [node] {
+					auto object = PREFABS::Manager().getCurrentScene().createObjectAfter(node->getID(), "new_object");
+					if (node->getParent()) {
+						object->setParent(node->getParent());
+					}
+				};
+			}
+			if (ImGui::MenuItem("Delete")) {
+				const int id = node->getIDInt();
+				PREFABS::deferred = [id] { PREFABS::Delete(id); };
+			}
+			ImGui::EndDisabled();
+			ImGui::Separator();
+			if (!PREFABS::Member(*node) && ImGui::MenuItem("Create Prefab...")) {
+				PREFABS::Open(1, node->getIDInt());
+			}
+			if (!PREFABS::Member(*node) && ImGui::MenuItem("Instantiate Prefab...")) {
+				PREFABS::Open(2, node->getIDInt());
+			}
+			if (activeScene.isPrefabRoot(node->getIDInt()) && ImGui::MenuItem("Unpack Prefab")) {
+				const int id = node->getIDInt();
+				PREFABS::deferred = [id] { PREFABS::Unpack(id); };
+			}
 
 			ImGui::EndPopup();
 		}
 		ImGui::PopStyleVar();
 
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{10.0f, 10.0f});
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2 { 10.0f, 10.0f });
 		if (!PREFABS::Locked(*node) && ImGui::BeginDragDropSource()) {
 			const int id = node->getIDInt();
-            ImGui::SetDragDropPayload("__SCENE_NODE_DRAG_TREE_WIN__", &id, sizeof(id));
+			ImGui::SetDragDropPayload("__SCENE_NODE_DRAG_TREE_WIN__", &id, sizeof(id));
 			ImGui::TextUnformatted(name.c_str());
 			ImGui::EndDragDropSource();
 		}
@@ -145,39 +158,51 @@ std::shared_ptr<IKIGAI::ECS::Object> recursiveDraw(IKIGAI::SCENE_SYSTEM::Scene& 
 
 		if (ImGui::BeginDragDropTarget()) {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG_TREE_WIN__")) {
-				auto other = activeScene.findObjectByID(IKIGAI::ECS2::Entity(IKIGAI::ECS2::Entity::ID(*static_cast<const int*>(payload->Data))));
+				auto other = activeScene.findObjectByID(IKIGAI::ECS::Entity(IKIGAI::ECS::Entity::ID(*static_cast<const int*>(payload->Data))));
 				if (other && node != other && !PREFABS::Member(*node) && !PREFABS::Locked(*other)) {
-                    bool cycle = false;
-                    for (auto p = node; p; p = p->getParent()) if (p == other) cycle = true;
-                    if (!cycle) PREFABS::deferred = [other, node] { PREFABS::Move(other->getIDInt(), node->getIDInt()); };
-                }
+					bool cycle = false;
+					for (auto p = node; p; p = p->getParent()) {
+						if (p == other) {
+							cycle = true;
+						}
+					}
+					if (!cycle) {
+						PREFABS::deferred = [other, node] { PREFABS::Move(other->getIDInt(), node->getIDInt()); };
+					}
+				}
 			}
-            if (const auto* payload = ImGui::AcceptDragDropPayload("DND_PREFAB_PATH")) {
-                if (!PREFABS::Member(*node)) {
-                    const std::string path(static_cast<const char*>(payload->Data));
-                    const int parent = node->getIDInt();
-                    PREFABS::deferred = [path, parent] { PREFABS::Instantiate(path, parent); };
-                }
-            }
+			if (const auto* payload = ImGui::AcceptDragDropPayload("DND_PREFAB_PATH")) {
+				if (!PREFABS::Member(*node)) {
+					const std::string path(static_cast<const char*>(payload->Data));
+					const int parent = node->getIDInt();
+					PREFABS::deferred = [path, parent] { PREFABS::Instantiate(path, parent); };
+				}
+			}
 			ImGui::EndDragDropTarget();
 		}
 
 		if (ImGui::IsItemClicked()) {
 			selectedNode = node;
 		}
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0.0f, 0.0f});
-		ImGui::InvisibleButton("__NODE_ORDER_SE_TREE_WINT__", {-1, 5});
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 0.0f });
+		ImGui::InvisibleButton("__NODE_ORDER_SE_TREE_WINT__", { -1, 5 });
 		ImGui::PopStyleVar();
 
 		if (ImGui::BeginDragDropTarget()) {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("__SCENE_NODE_DRAG_TREE_WIN__")) {
-				auto other = activeScene.findObjectByID(IKIGAI::ECS2::Entity(IKIGAI::ECS2::Entity::ID(*static_cast<const int*>(payload->Data))));
+				auto other = activeScene.findObjectByID(IKIGAI::ECS::Entity(IKIGAI::ECS::Entity::ID(*static_cast<const int*>(payload->Data))));
 				if (other && node != other && node->getParent() && !PREFABS::Member(*node->getParent()) && !PREFABS::Locked(*other)) {
-                    auto parent = node->getParent();
-                    bool cycle = false;
-                    for (auto p = parent; p; p = p->getParent()) if (p == other) cycle = true;
-                    if (!cycle) PREFABS::deferred = [other, parent, i] { PREFABS::Move(other->getIDInt(), parent->getIDInt(), i + 1); };
-                }
+					auto parent = node->getParent();
+					bool cycle = false;
+					for (auto p = parent; p; p = p->getParent()) {
+						if (p == other) {
+							cycle = true;
+						}
+					}
+					if (!cycle) {
+						PREFABS::deferred = [other, parent, i] { PREFABS::Move(other->getIDInt(), parent->getIDInt(), i + 1); };
+					}
+				}
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -205,13 +230,13 @@ void TreeWindow::drawNodeTree() {
 	if (ImGui::Begin("Scene Hierarchy", &mIsOpen)) {
 		ImGui::Text("Search: ");
 		ImGui::SameLine();
-		
+
 		static int searchType = 0;
 		const char* searchTypes[] = { "Name", "ID", "Tag", "Component" };
 		ImGui::SetNextItemWidth(100.0f);
 		ImGui::Combo("##searchType", &searchType, searchTypes, IM_ARRAYSIZE(searchTypes));
 		ImGui::SameLine();
-		
+
 		static std::string searchInActors;
 		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 65.0f);
 		bool searchChanged = ImGui::InputText("##search_in_actors", &searchInActors);
@@ -236,11 +261,14 @@ void TreeWindow::drawNodeTree() {
 					bool found = false;
 					if (searchType == 0) {
 						found = IKIGAI::UTILS::ToLower(obj->getName()).find(lowerSearch) != std::string::npos;
-					} else if (searchType == 1) {
+					}
+					else if (searchType == 1) {
 						found = std::to_string(obj->getIDInt()).find(lowerSearch) != std::string::npos;
-					} else if (searchType == 2) {
+					}
+					else if (searchType == 2) {
 						found = IKIGAI::UTILS::ToLower(obj->getTag()).find(lowerSearch) != std::string::npos;
-					} else if (searchType == 3) {
+					}
+					else if (searchType == 3) {
 						for (const auto& [typeIndex, compWeak] : obj->getComponents()) {
 							if (auto comp = compWeak.get()) {
 								if (IKIGAI::UTILS::ToLower(comp->getName()).find(lowerSearch) != std::string::npos) {
@@ -267,49 +295,26 @@ void TreeWindow::drawNodeTree() {
 			}
 		}
 
-
-		//uniqueNodeId = 0;
-        if (ImGui::Button("Instantiate Prefab...")) PREFABS::Open(2);
+		// uniqueNodeId = 0;
+		if (ImGui::Button("Instantiate Prefab...")) {
+			PREFABS::Open(2);
+		}
 		auto _selectNode = recursiveDraw(scene, nullptr);
-        ImGui::InvisibleButton("##prefab_root_drop", ImVec2(ImGui::GetContentRegionAvail().x, 36));
-        if (ImGui::BeginDragDropTarget()) {
-            if (const auto* payload = ImGui::AcceptDragDropPayload("DND_PREFAB_PATH")) {
-                const std::string path(static_cast<const char*>(payload->Data));
-                PREFABS::deferred = [path] { PREFABS::Instantiate(path); };
-            }
-            ImGui::EndDragDropTarget();
-        }
-        PREFABS::Draw();
+		ImGui::InvisibleButton("##prefab_root_drop", ImVec2(ImGui::GetContentRegionAvail().x, 36));
+		if (ImGui::BeginDragDropTarget()) {
+			if (const auto* payload = ImGui::AcceptDragDropPayload("DND_PREFAB_PATH")) {
+				const std::string path(static_cast<const char*>(payload->Data));
+				PREFABS::deferred = [path] { PREFABS::Instantiate(path); };
+			}
+			ImGui::EndDragDropTarget();
+		}
+		PREFABS::Draw();
 		if (_selectNode && _selectNode->isAlive()) {
 			EditorRender::GlobalState.mSelectObject = _selectNode;
 		}
-			//	selectObj = _selectNode;
-		//	if (selectObj) {
-		//		auto components = IKIGAI::ECS::ComponentManager::GetInstance().getComponents(selectObj->getID());
-		//		for (auto& e : components) {
-		//			if (!convertComp.count(e->getName())) continue; //TODO:: write info to log
-		//			auto c = convertComp[e->getName()](*e.get());
-		//			rttr::type t = std::visit(
-		//				[](auto& arg) {
-		//					return rttr::type::get<std::remove_reference_t<decltype(*arg)>>();
-		//				},
-		//				c);
-		//			for (auto& prop : t.get_properties()) {
-		//				auto flags = prop.get_metadata(IKIGAI::UTILS::MetaInfo::FLAGS).get_value<MetaInfo::Flags>();
-		//				if (flags & (MetaInfo::USE_IN_EDITOR_ANIMATION)) {
-		//					SequencerItemTypeNames.push_back(AnimationLineInfo{
-		//						selectObj->getID(), selectObj->getName(),
-		//						e->getName(), std::string(prop.get_name()), 0.0f, c});
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
 	}
 	ImGui::End();
-	
 }
-
 
 void TreeWindow::draw() {
 	drawNodeTree();

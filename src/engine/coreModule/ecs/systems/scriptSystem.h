@@ -1,27 +1,26 @@
 #if USE_LUA
 #pragma once
 #include "../components/scriptComponent.h"
-#include "../systemManager.h"
+
 #include "ecsModule/systemManager.h"
 #include "utilsModule/log/loggerDefine.h"
-
 
 namespace IKIGAI::ECS {
 class Object;
 }
 
 namespace IKIGAI::ECS {
-class ScriptSystem : public IKIGAI::ECS2::System {
+class ScriptSystem : public IKIGAI::ECS::System {
 public:
 	ScriptSystem();
-	void onAwake(ECS2::World& world) override;
-	void onStart(ECS2::World& world) override;
-	void onEnable(ECS2::World& world) override;
-	void onDisable(ECS2::World& world) override;
-	void onDestroy(ECS2::World& world) override;
-	void onUpdate(ECS2::World& world, ECS2::CommandBuffer& cb, std::chrono::duration<double> dt) override;
-	void onFixedUpdate(ECS2::World& world, ECS2::CommandBuffer& cb, std::chrono::duration<double> dt) override;
-	void onLateUpdate(ECS2::World& world, ECS2::CommandBuffer& cb, std::chrono::duration<double> dt) override;
+	void onAwake(ECS::World& world) override;
+	void onStart(ECS::World& world) override;
+	void onEnable(ECS::World& world) override;
+	void onDisable(ECS::World& world) override;
+	void onDestroy(ECS::World& world) override;
+	void onUpdate(ECS::World& world, ECS::CommandBuffer& cb, std::chrono::duration<double> dt) override;
+	void onFixedUpdate(ECS::World& world, ECS::CommandBuffer& cb, std::chrono::duration<double> dt) override;
+	void onLateUpdate(ECS::World& world, ECS::CommandBuffer& cb, std::chrono::duration<double> dt) override;
 
 	bool registerToLuaContext(ScriptComponent& component, sol::state& luaState, const std::string& scriptFolder);
 	void unregisterFromLuaContext(ScriptComponent& component);

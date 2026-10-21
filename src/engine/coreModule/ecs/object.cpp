@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <execution>
 
-#include "componentManager.h"
-
 #include "../gui/components/spriteComponent.h"
 #include "components/ambientLight.h"
 #include "components/ambientSphereLight.h"
@@ -15,7 +13,6 @@
 #include "sceneModule/sceneManager.h"
 #include "utilsModule/log/loggerDefine.h"
 #include "utilsModule/visitorHelper.h"
-
 
 using namespace IKIGAI;
 using namespace IKIGAI::ECS;
@@ -42,7 +39,7 @@ void WriteComponentDescriptor(std::vector<ComponentsDescriptorType>& components,
 }
 
 void WriteComponentDescriptor(std::vector<ComponentsDescriptorType>& components, const ECS::Object* obj) {
-	WriteComponentDescriptor(components, obj, ECS::ComponentsTypeProviderType { });
+	WriteComponentDescriptor(components, obj, ECS::ComponentsTypeProviderType {});
 }
 
 Object::Descriptor Object::getDescriptor() const {
@@ -57,8 +54,8 @@ Object::Descriptor Object::getDescriptor() const {
 	return d;
 }
 
-Object::Object(ECS2::Entity actorID, const std::string& name, const std::string& tag, ECS2::World* world)
-	: mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>())
+Object::Object(ECS::Entity actorID, const std::string& name, const std::string& tag, ECS::World* world)
+	: mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS::World>())
 	, mEntity(actorID)
 	, mName(name)
 	, mTag(tag) {
@@ -78,14 +75,14 @@ void AddComponent(const Desc& data, ECS::Object* obj, Container<ComponentType...
 }
 
 template <class Desc> void AddComponent(const Desc& data, ECS::Object* obj) {
-	AddComponent(data, obj, ECS::ComponentsTypeProviderType { });
+	AddComponent(data, obj, ECS::ComponentsTypeProviderType {});
 }
 
 // TODO: set mParent? when call this
-Object::Object(const Descriptor& _descriptor, ECS2::World* world, bool deferred)
-	: mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS2::World>())
+Object::Object(const Descriptor& _descriptor, ECS::World* world, bool deferred)
+	: mWorld(world ? world : &RESOURCES::ServiceManager::Get<ECS::World>())
 	, mDeferred(deferred)
-	, mEntity(ECS2::Entity::ID(_descriptor.Id))
+	, mEntity(ECS::Entity::ID(_descriptor.Id))
 	, mName(_descriptor.Name)
 	, mTag(_descriptor.Tag) {
 	setActive(_descriptor.IsActive);
@@ -102,8 +99,9 @@ Object::~Object() {
 }
 
 void Object::dispose() {
-	if (mDisposed || mDisposing)
+	if (mDisposed || mDisposing) {
 		return;
+	}
 	mDisposing = true;
 	// Callbacks still need to read this object's components during disposal.
 	if (mIsActive) {
@@ -140,7 +138,6 @@ void Object::dispose() {
 	mIsDestroyed = true;
 	mIsActive = false;
 	mDisposing = false;
-	// ComponentManager::GetInstance().entityDestroyed(getID());
 }
 
 const std::string& Object::getName() const {
@@ -167,12 +164,15 @@ void Object::addSerializedComponent(const ComponentsDescriptorType& descriptor) 
 void Object::activateLoaded() {
 	mDeferred = false;
 #if USE_LUA
-	if (auto script = getComponent<ScriptComponent>())
+	if (auto script = getComponent<ScriptComponent>()) {
 		ScriptComponentEvents::createdEvent.run(script);
+	}
 #endif
-	for (auto& [key, component] : mComponents)
-		if (component)
+	for (auto& [key, component] : mComponents) {
+		if (component) {
 			component->onAwake();
+		}
+	}
 	if (getIsActive()) {
 		onEnable();
 		onStart();
@@ -208,11 +208,11 @@ bool Object::getIsVisible() const {
 	return mIsVisible && (p ? p->getIsVisible() : true);
 }
 
-void Object::setID(ECS2::Entity val) {
+void Object::setID(ECS::Entity val) {
 	mEntity = val;
 }
 
-ECS2::Entity Object::getID() const {
+ECS::Entity Object::getID() const {
 	return mEntity;
 }
 
@@ -247,8 +247,9 @@ void Object::detachFromParent() {
 		p->mChildren.erase(std::remove_if(p->mChildren.begin(), p->mChildren.end(), [this](std::shared_ptr<Object> e) { return e.get() == this; }));
 	}
 	mParent.reset();
-	if (auto transform = getComponent<TransformComponent>())
+	if (auto transform = getComponent<TransformComponent>()) {
 		transform->removeParent();
+	}
 }
 
 bool Object::hasParent() const {
@@ -259,11 +260,11 @@ std::shared_ptr<Object> Object::getParent() const {
 	return mParent.lock();
 }
 
-ECS2::Entity Object::getParentID() const {
+ECS::Entity Object::getParentID() const {
 	if (auto p = mParent.lock()) {
 		return p->getID();
 	}
-	return ECS2::Entity(ECS2::Entity::ID(0));
+	return ECS::Entity(ECS::Entity::ID(0));
 }
 
 std::span<std::shared_ptr<Object>> Object::getChildren() {
@@ -288,14 +289,9 @@ void Object::onStart() {
 			val.get()->onStart();
 		}
 	}
-	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	// std::for_each(components.begin(), components.end(), [](auto element) { element->onStart(); });
 }
 
 void Object::onEnable() {
-	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	// std::for_each(components.begin(), components.end(), [](auto element) { element->onEnable(); });
-	// ComponentManager::GetInstance().enable(mEntity);
 	for (auto& [key, val] : mComponents) {
 		if (val) {
 			val.get()->onEnable();
@@ -304,9 +300,6 @@ void Object::onEnable() {
 }
 
 void Object::onDisable() {
-	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	// std::for_each(components.begin(), components.end(), [](auto element) { element->onDisable(); });
-	// ComponentManager::GetInstance().disable(mEntity);
 	for (auto& [key, val] : mComponents) {
 		if (val) {
 			val.get()->onDisable();
@@ -315,8 +308,6 @@ void Object::onDisable() {
 }
 
 void Object::onDestroy() {
-	// auto components = ComponentManager::GetInstance().getComponents(mEntity);
-	// std::for_each(components.begin(), components.end(), [](auto element) { element->onDestroy(); });
 	for (auto& [key, val] : mComponents) {
 		if (val) {
 			val.get()->onDestroy();
@@ -326,8 +317,6 @@ void Object::onDestroy() {
 
 void Object::onUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		// auto components = ComponentManager::GetInstance().getComponents(mEntity);
-		// std::for_each(components.begin(), components.end(), [&](auto element) { element->onUpdate(dt); });
 		for (auto& [key, val] : mComponents) {
 			if (val) {
 				val.get()->onUpdate(dt);
@@ -338,8 +327,6 @@ void Object::onUpdate(std::chrono::duration<double> dt) {
 
 void Object::onFixedUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		// auto components = ComponentManager::GetInstance().getComponents(mEntity);
-		// std::for_each(components.begin(), components.end(), [&](auto element) { element->onFixedUpdate(dt); });
 		for (auto& [key, val] : mComponents) {
 			if (val) {
 				val.get()->onFixedUpdate(dt);
@@ -350,8 +337,6 @@ void Object::onFixedUpdate(std::chrono::duration<double> dt) {
 
 void Object::onLateUpdate(std::chrono::duration<double> dt) {
 	if (getIsActive()) {
-		// auto components = ComponentManager::GetInstance().getComponents(mEntity);
-		// std::for_each(components.begin(), components.end(), [&](auto element) { element->onLateUpdate(dt); });
 		for (auto& [key, val] : mComponents) {
 			if (val) {
 				val.get()->onLateUpdate(dt);
@@ -361,8 +346,9 @@ void Object::onLateUpdate(std::chrono::duration<double> dt) {
 }
 
 void Object::recursiveActiveUpdate() {
-	if (mDeferred)
+	if (mDeferred) {
 		return;
+	}
 	bool mIsActive = getIsActive();
 
 	if (mIsActive) {
@@ -390,7 +376,7 @@ int Object::getIDInt() const {
 }
 
 void Object::setIDInt(int id) {
-	mEntity = ECS2::Entity(ECS2::Entity::ID(id));
+	mEntity = ECS::Entity(ECS::Entity::ID(id));
 }
 
 int Object::getParentId() const {
@@ -406,7 +392,7 @@ void Object::setParentId(int _id) {
 		return;
 	}
 	auto& scene = RESOURCES::ServiceManager::Get<SCENE_SYSTEM::SceneManager>().getCurrentScene();
-	auto _p = scene.findObjectByID(ECS2::Entity::ID(_id));
+	auto _p = scene.findObjectByID(ECS::Entity::ID(_id));
 	if (_p) {
 		LOG_ERROR << ("Object::setParentId: can not find actor with id: " + std::to_string(_id));
 	}

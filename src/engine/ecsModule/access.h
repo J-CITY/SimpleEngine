@@ -1,7 +1,7 @@
 #pragma once
 #include <type_traits>
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 template <typename T> struct Read {
 	using Type = T;
 };

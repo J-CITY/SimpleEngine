@@ -3,7 +3,7 @@
 #include "presentationFocus.h"
 #endif
 #include "captureModule/screenshot.h"
-#include "coreModule/ecs/componentManager.h"
+#include "coreModule/ecs/componentTypes.h"
 #include "coroutineModule/scheduler.h"
 #include "ecsModule/world.h"
 #include "editorModule/editorRender.h"
@@ -183,7 +183,7 @@ void App::update(std::chrono::duration<double> dt) {
 
 			currentScene.fixedUpdate(fixedDt);
 
-			auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+			auto& world = RESOURCES::ServiceManager::Get<ECS::World>();
 			auto systemManager = world.getSystemManager();
 
 			systemManager->runFixedUpdate(fixedDt);
@@ -203,9 +203,9 @@ void App::update(std::chrono::duration<double> dt) {
 	}
 
 #if defined(USE_SDL) || defined(OCULUS)
-	if (simulate && RESOURCES::ServiceManager::Check<INPUT_SYSTEM::InputActions>() && RESOURCES::ServiceManager::Check<ECS2::World>()) {
+	if (simulate && RESOURCES::ServiceManager::Check<INPUT_SYSTEM::InputActions>() && RESOURCES::ServiceManager::Check<ECS::World>()) {
 		auto& actions = RESOURCES::ServiceManager::Get<INPUT_SYSTEM::InputActions>();
-		actions.prepareMaps(RESOURCES::ServiceManager::Get<ECS2::World>());
+		actions.prepareMaps(RESOURCES::ServiceManager::Get<ECS::World>());
 		actions.resolve(dt);
 	}
 #endif
@@ -215,7 +215,7 @@ void App::update(std::chrono::duration<double> dt) {
 
 		auto& currentScene = core.sceneManager->getCurrentScene();
 
-		auto& world = RESOURCES::ServiceManager::Get<ECS2::World>();
+		auto& world = RESOURCES::ServiceManager::Get<ECS::World>();
 		auto systemManager = world.getSystemManager();
 
 		systemManager->runUpdate(dt);

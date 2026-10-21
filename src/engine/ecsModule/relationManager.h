@@ -5,10 +5,9 @@
 #include <unordered_map>
 #include <vector>
 
-
 // Forward declaration if ComponentManager is invalid here, but we need ComponentType definition.
 // ComponentType is Id<ComponentManager>. We know this.
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class ComponentManager;
 using ComponentType = Id<ComponentManager>;
 
@@ -28,8 +27,9 @@ public:
 	}
 
 	void removeRelation(Entity entity, ComponentType relation, Entity target) {
-		if (!mRelations.contains(entity))
+		if (!mRelations.contains(entity)) {
 			return;
+		}
 
 		auto& rels = mRelations[entity];
 		rels.erase(
@@ -42,20 +42,23 @@ public:
 	}
 
 	[[nodiscard]] bool hasRelation(Entity entity, ComponentType relation, Entity target) const {
-		if (!mRelations.contains(entity))
+		if (!mRelations.contains(entity)) {
 			return false;
+		}
 		const auto& rels = mRelations.at(entity);
 		for (const auto& pair : rels) {
-			if (pair.first == relation && pair.second == target)
+			if (pair.first == relation && pair.second == target) {
 				return true;
+			}
 		}
 		return false;
 	}
 
 	[[nodiscard]] std::vector<Entity> getTargets(Entity entity, ComponentType relation) const {
 		std::vector<Entity> targets;
-		if (!mRelations.contains(entity))
+		if (!mRelations.contains(entity)) {
 			return targets;
+		}
 
 		const auto& rels = mRelations.at(entity);
 		for (const auto& pair : rels) {

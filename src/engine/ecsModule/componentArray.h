@@ -7,8 +7,7 @@
 #include "utilsModule/exeptions.h"
 #include "utilsModule/weakPtr.h"
 
-
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 template <class T, template <class, class> class CONT = std::vector, unsigned CHUNK_SIZE = 100>
 class ComponentArray : public ComponentArrayInterface {
 public:
@@ -71,10 +70,10 @@ public:
 		return componentArray[entityToIndexInArray[entity]].template getWeak<T>();
 	}
 
-	UTILS::WeakPtr<ECS2::Component> getComponentBasePtr(Entity entity) override {
+	UTILS::WeakPtr<ECS::Component> getComponentBasePtr(Entity entity) override {
 		// static_assert(std::is_base_of_v<ECS::Component, T>, "Must inherit from class Component");
 		ASSERT_IF(entityToIndexInArray.contains(entity), "Retrieving non-existent component");
-		return UTILS::WeakPtr<ECS2::Component>(componentArray[entityToIndexInArray[entity]]);
+		return UTILS::WeakPtr<ECS::Component>(componentArray[entityToIndexInArray[entity]]);
 	}
 
 	//??

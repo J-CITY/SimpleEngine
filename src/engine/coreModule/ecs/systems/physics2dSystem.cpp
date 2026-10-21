@@ -76,7 +76,7 @@ Physics2DSystem::Physics2DSystem(SCENE_SYSTEM::Scene& scene, std::shared_ptr<P::
 	}
 	mName = "Physics2DSystem";
 }
-void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chrono::duration<double> dt) {
+void Physics2DSystem::onFixedUpdate(ECS::World&, ECS::CommandBuffer&, std::chrono::duration<double> dt) {
 	auto objects = mScene.getObjects();
 	// Enumerate this scene's objects, not the global ECS arrays: a loading scene
 	// and an active scene may temporarily share ECS storage, but never physics.
@@ -286,7 +286,7 @@ void Physics2DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chr
 	for (auto& object : objects) {
 		if (auto joint = object->getComponent<Joint2DComponent>()) {
 			auto owner = object->getComponent<Physics2DComponent>();
-			auto target = mScene.findObjectByID(ECS2::Entity(ECS2::Entity::ID(joint->settings.PhysicsTargetId)));
+			auto target = mScene.findObjectByID(ECS::Entity(ECS::Entity::ID(joint->settings.PhysicsTargetId)));
 			auto other = target ? target->getComponent<Physics2DComponent>() : UTILS::WeakPtr<Physics2DComponent> {};
 			if (!object->getIsActive() || !owner || !owner->runtime || !other || !other->runtime || !target->getIsActive()) {
 				joint->runtime.reset();

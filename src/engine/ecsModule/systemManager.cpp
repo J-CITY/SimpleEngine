@@ -9,7 +9,7 @@
 #include <iostream>
 #endif
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 
 bool UseTaskSystem() {
 #ifdef __EMSCRIPTEN__
@@ -51,8 +51,9 @@ void SystemManager::rebuildBatches() {
 						break;
 					}
 				}
-				if (conflict)
+				if (conflict) {
 					break;
+				}
 
 				// Conflict if sys Reads something existingSys Writes
 				for (auto id : sys->mReads) {
@@ -61,8 +62,9 @@ void SystemManager::rebuildBatches() {
 						break;
 					}
 				}
-				if (conflict)
+				if (conflict) {
 					break;
+				}
 			}
 
 			if (!conflict) {
@@ -98,8 +100,9 @@ template <typename PhaseFunc> void runPhaseImpl(std::vector<SystemManager::Batch
 				}
 
 				for (auto& h : handles) {
-					if (h.mFuture)
+					if (h.mFuture) {
 						h.mFuture->wait();
+					}
 				}
 			}
 		}
@@ -119,8 +122,9 @@ ComponentManager* SystemManager::getComponentManager() const noexcept {
 }
 
 void SystemManager::runAwake() {
-	if (mIsDirty)
+	if (mIsDirty) {
 		rebuildBatches();
+	}
 
 	runPhaseImpl(mBatches, mWorld, [](System* sys, World& w) {
 		if (!sys->mIsAwake) {
@@ -131,8 +135,9 @@ void SystemManager::runAwake() {
 }
 
 void SystemManager::runStart() {
-	if (mIsDirty)
+	if (mIsDirty) {
 		rebuildBatches();
+	}
 
 	runPhaseImpl(mBatches, mWorld, [](System* sys, World& w) {
 		if (sys->mIsAwake && !sys->mIsStarted) {
@@ -167,8 +172,9 @@ void runUpdatePhaseImpl(std::vector<SystemManager::Batch>& batches, World& world
 				}
 
 				for (auto& h : handles) {
-					if (h.mFuture)
+					if (h.mFuture) {
 						h.mFuture->wait();
+					}
 				}
 
 				for (auto& cb : buffers) {
@@ -190,24 +196,27 @@ void runUpdatePhaseImpl(std::vector<SystemManager::Batch>& batches, World& world
 }
 
 void SystemManager::runUpdate(std::chrono::duration<double> dt) {
-	if (mIsDirty)
+	if (mIsDirty) {
 		rebuildBatches();
+	}
 
 	runUpdatePhaseImpl(
 		mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, std::chrono::duration<double> dt) { s->onUpdate(w, cb, dt); });
 }
 
 void SystemManager::runFixedUpdate(std::chrono::duration<double> dt) {
-	if (mIsDirty)
+	if (mIsDirty) {
 		rebuildBatches();
+	}
 
 	runUpdatePhaseImpl(
 		mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, std::chrono::duration<double> dt) { s->onFixedUpdate(w, cb, dt); });
 }
 
 void SystemManager::runLateUpdate(std::chrono::duration<double> dt) {
-	if (mIsDirty)
+	if (mIsDirty) {
 		rebuildBatches();
+	}
 
 	runUpdatePhaseImpl(
 		mBatches, mWorld, dt, [](System* s, World& w, CommandBuffer& cb, std::chrono::duration<double> dt) { s->onLateUpdate(w, cb, dt); });
@@ -251,8 +260,9 @@ void SystemManager::run() {
 				}
 
 				for (auto& h : handles) {
-					if (h.mFuture)
+					if (h.mFuture) {
 						h.mFuture->wait();
+					}
 				}
 
 				for (auto& cb : buffers) {

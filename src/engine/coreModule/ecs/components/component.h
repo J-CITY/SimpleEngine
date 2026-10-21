@@ -6,7 +6,6 @@
 #include <utilsModule/result.h>
 #include <utilsModule/weakPtr.h>
 
-
 #include "resourceModule/serializerInterface.h"
 #include "utilsModule/jsonLoader.h"
 #include "utilsModule/ref.h"
@@ -24,7 +23,7 @@ class Object;
 
 namespace IKIGAI::ECS {
 
-class ComponentBase : public RESOURCES::Serializable, public ECS2::Component {
+class ComponentBase : public RESOURCES::Serializable, public ECS::Component {
 	template <class T> friend UTILS::Result<T, UTILS::JsonError> FromJson(nlohmann::json& data);
 
 public:

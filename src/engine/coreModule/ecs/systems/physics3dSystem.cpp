@@ -157,7 +157,7 @@ Physics3DSystem::Physics3DSystem(SCENE_SYSTEM::Scene& scene, std::shared_ptr<P::
 	}
 	mName = "Physics3DSystem";
 }
-void Physics3DSystem::onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chrono::duration<double> dt) {
+void Physics3DSystem::onFixedUpdate(ECS::World&, ECS::CommandBuffer&, std::chrono::duration<double> dt) {
 	auto objects = mScene.getObjects();
 	for (auto& object : objects) {
 		auto& o = *object;

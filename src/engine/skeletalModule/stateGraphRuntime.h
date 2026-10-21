@@ -35,16 +35,6 @@ struct StateGraphDefinition {
 class StateGraphRuntime : public DATA::StateMachineInstance {
 public:
 	using Json = nlohmann::json;
-	struct Action {
-		std::string state;
-		std::shared_ptr<AnimSample> sample;
-		Json metadata;
-		float duration = 0;
-		std::shared_ptr<const StateGraphDefinition> owner;
-		explicit operator bool() const {
-			return bool(sample);
-		}
-	};
 	StateGraphRuntime(std::shared_ptr<const StateGraphDefinition>, std::shared_ptr<UTILS::Environment>);
 	StateGraphRuntime(const StateGraphRuntime&);
 	void update(float dt);
@@ -76,9 +66,6 @@ public:
 	std::shared_ptr<UTILS::Environment> environment() const {
 		return mEnvironment;
 	}
-	Action requestAction(const std::string& channel);
-	Action resolveAction(const std::string& channel);
-	bool acceptAction(const Action&);
 	void reset();
 	void setPoseOffset(MATH::Vector3f offset) {
 		mPoseOffset = offset;

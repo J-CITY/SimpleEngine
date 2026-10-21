@@ -416,8 +416,6 @@ void ComponentManagerWindow::draw() {
 		}
 	}
 
-	// Object components
-	// auto components = ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
 	auto components = selectObject->getComponents();
 	for (auto& [_, component] : components) {
 		auto title = iconComp[component->getName()] + std::string(" ") + component->getName();
@@ -716,7 +714,7 @@ void ComponentInspectorWindow::drawComponent(std::shared_ptr<ECS::Object> select
 					}
 					if (field.is_object() && field.contains("ObjectId") && field.contains("Component")) {
 						auto target
-							= PREFABS::Manager().getCurrentScene().findObjectByID(ECS2::Entity(ECS2::Entity::ID(field.at("ObjectId").get<int>())));
+							= PREFABS::Manager().getCurrentScene().findObjectByID(ECS::Entity(ECS::Entity::ID(field.at("ObjectId").get<int>())));
 						ImGui::Text("%s: %s / %s", name.c_str(), target ? target->getName().c_str() : "Missing object",
 							field.at("Component").get<std::string>().c_str());
 					}

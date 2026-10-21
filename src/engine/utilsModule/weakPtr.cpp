@@ -8,7 +8,7 @@ ControlBlockHandler::ControlBlockHandler() {
 	mCb->mPtr = this;
 }
 
-ControlBlockHandler::ControlBlockHandler(ECS2::Component* ptr) {
+ControlBlockHandler::ControlBlockHandler(ECS::Component* ptr) {
 	mCb = new UTILS::ControlBlock();
 	mCb->mRC += 1;
 	mCb->mPtr = (ControlBlockHandler*)ptr;
@@ -16,8 +16,9 @@ ControlBlockHandler::ControlBlockHandler(ECS2::Component* ptr) {
 
 ControlBlockHandler::ControlBlockHandler(const ControlBlockHandler& obj) {
 	mCb = obj.mCb;
-	if (mCb)
+	if (mCb) {
 		++mCb->mRC;
+	}
 }
 
 ControlBlockHandler& ControlBlockHandler::operator=(const ControlBlockHandler& obj) {
@@ -25,14 +26,17 @@ ControlBlockHandler& ControlBlockHandler::operator=(const ControlBlockHandler& o
 		return *this;
 	}
 	if (mCb) {
-		if (mCb->mPtr == this)
+		if (mCb->mPtr == this) {
 			mCb->mPtr = nullptr;
-		if (--mCb->mRC == 0)
+		}
+		if (--mCb->mRC == 0) {
 			delete mCb;
+		}
 	}
 	mCb = obj.mCb;
-	if (mCb)
+	if (mCb) {
 		++mCb->mRC;
+	}
 	return *this;
 }
 
@@ -46,10 +50,12 @@ ControlBlockHandler& ControlBlockHandler::operator=(ControlBlockHandler&& obj) n
 		return *this;
 	}
 	if (mCb) {
-		if (mCb->mPtr == this)
+		if (mCb->mPtr == this) {
 			mCb->mPtr = nullptr;
-		if (--mCb->mRC == 0)
+		}
+		if (--mCb->mRC == 0) {
 			delete mCb;
+		}
 	}
 	mCb = obj.mCb;
 	obj.mCb = nullptr;
@@ -57,10 +63,12 @@ ControlBlockHandler& ControlBlockHandler::operator=(ControlBlockHandler&& obj) n
 }
 
 ControlBlockHandler::~ControlBlockHandler() {
-	if (!mCb)
+	if (!mCb) {
 		return;
-	if (mCb->mPtr == this)
+	}
+	if (mCb->mPtr == this) {
 		mCb->mPtr = nullptr;
+	}
 	--(mCb->mRC);
 	if (mCb->mRC == 0) {
 		mCb->mPtr = nullptr;

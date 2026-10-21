@@ -1,19 +1,15 @@
 #pragma once
 
-#include "renderModule/backends/interface/driverInterface.h"
 #include "resourceManager.h"
 #include "skeletalModule/skeletalStateGraph.h"
-#include "utilsModule/event.h"
-#include "utilsModule/idGenerator.h"
+#include "utilsModule/memory/allocator.h"
 
 namespace IKIGAI::RESOURCES {
-class SkeletonStateGraphLoader : public ResourceManager<SKELETON::SkeletalStateGraph, RENDER::SkeletonStateGraphResource> {
+class SkeletonStateGraphLoader : public ResourceManager<SKELETON::SkeletalStateGraph> {
 public:
 	using ResourceDeleter = std::function<void(SKELETON::SkeletalStateGraph*)>;
 	static ResourcePtr<SKELETON::SkeletalStateGraph> CreateFromResource(
 		const std::string& path, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
-	static ResourcePtr<SKELETON::SkeletalStateGraph> CreateFromResource(
-		const RENDER::SkeletonStateGraphResource& config, UTILS::IAllocator* allocator = nullptr, ResourceDeleter deleter = nullptr);
 
 private:
 	void addFileWatchSubscribe(const std::string&, const std::unordered_set<std::string>&, std::weak_ptr<SKELETON::SkeletalStateGraph>) override;

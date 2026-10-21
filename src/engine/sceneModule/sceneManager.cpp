@@ -14,7 +14,6 @@
 #include <nlohmann/json.hpp>
 #include <utilsModule/pathGetter.h>
 
-
 using namespace IKIGAI;
 using namespace IKIGAI::SCENE_SYSTEM;
 
@@ -94,7 +93,7 @@ void addComponent(const std::string& typeNameStr, std::shared_ptr<ECS::Object> o
 }
 
 void addComponent(const std::string& typeNameStr, std::shared_ptr<ECS::Object> obj, nlohmann::json& data) {
-	addComponent(typeNameStr, obj, data, ECS::ComponentsTypeProviderType { });
+	addComponent(typeNameStr, obj, data, ECS::ComponentsTypeProviderType {});
 }
 
 //----------------------------
@@ -114,27 +113,30 @@ void saveComponent(
 }
 
 void saveComponent(UTILS::WeakPtr<ECS::ComponentBase> component, nlohmann::json& data) {
-	saveComponent(component->getTypeidName(), component, data, ECS::ComponentsTypeProviderType { });
+	saveComponent(component->getTypeidName(), component, data, ECS::ComponentsTypeProviderType {});
 }
 
 void SceneManager::loadFromFile(const std::string& sceneFilePath) {
-	if (isPrefabLoading() || (mTransitionTask && !mTransitionTask.done()))
+	if (isPrefabLoading() || (mTransitionTask && !mTransitionTask.done())) {
 		throw std::logic_error("A scene operation is already running");
+	}
 	auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
 	auto read = [&](const std::string& path) {
 		auto file = fs.getFile(path);
-		if (!file || !file->isValid())
+		if (!file || !file->isValid()) {
 			throw std::runtime_error("Scene or prefab file not found: " + path);
+		}
 		return nlohmann::json::parse(file->readStr());
 	};
 	const auto document = read(sceneFilePath);
-	const auto pipeline = document.value("RenderPipeline", std::string { });
+	const auto pipeline = document.value("RenderPipeline", std::string {});
 	auto expanded = DOCUMENT::Expand(document, read);
 	// Parse component descriptors before replacing the current scene as well.
 	for (auto value : expanded.objects) {
 		auto parsed = UTILS::FromJson<ECS::Object::Descriptor>(value);
-		if (parsed.isErr())
+		if (parsed.isErr()) {
 			throw std::runtime_error(parsed.unwrapErr().text);
+		}
 	}
 	mTransitionState = SceneTransitionState::Idle;
 	unloadCurrentScene();
@@ -151,47 +153,58 @@ void SceneManager::saveToFile() {
 }
 
 nlohmann::json SceneManager::serializeScene() const {
-	if (!m_currentScene)
+	if (!m_currentScene) {
 		throw std::runtime_error("No current scene");
+	}
 	auto document = DOCUMENT::Compact(m_currentScene->serializeObjects(), m_currentScene->prefabInstances);
-	if (!m_currentScene->renderPipelineAsset.empty())
+	if (!m_currentScene->renderPipelineAsset.empty()) {
 		document["RenderPipeline"] = m_currentScene->renderPipelineAsset;
+	}
 	return document;
 }
 
 void SceneManager::saveToFile(const std::string& sceneFilePath) {
-	if (isEditingLocked())
+	if (isEditingLocked()) {
 		throw std::logic_error("Cannot save during a scene operation");
+	}
 	RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>().writeTextAtomic(sceneFilePath, serializeScene().dump(2));
 }
 
 void SceneManager::createPrefab(int rootId, const std::string& path) {
-	if (isEditingLocked() || !m_currentScene)
+	if (isEditingLocked() || !m_currentScene) {
 		throw std::logic_error("Scene is not ready for prefab export");
+	}
 	auto& scene = *m_currentScene;
 	const auto normalized = DOCUMENT::Path(path);
 	auto& fs = RESOURCES::ServiceManager::Get<RESOURCES::FileSystem>();
-	if (fs.isFileExist(normalized))
+	if (fs.isFileExist(normalized)) {
 		throw std::runtime_error("Prefab already exists: " + normalized);
-	auto root = scene.findObjectByID(ECS2::Entity(ECS2::Entity::ID(rootId)));
-	if (!root)
+	}
+	auto root = scene.findObjectByID(ECS::Entity(ECS::Entity::ID(rootId)));
+	if (!root) {
 		throw std::runtime_error("Prefab root not found");
+	}
 	std::set<int> members;
 	std::vector<std::shared_ptr<ECS::Object>> stack { root };
 	while (!stack.empty()) {
 		auto object = stack.back();
 		stack.pop_back();
-		if (!members.insert(object->getIDInt()).second)
+		if (!members.insert(object->getIDInt()).second) {
 			throw std::runtime_error("Scene hierarchy cycle");
-		if (scene.prefabFor(object->getIDInt()))
+		}
+		if (scene.prefabFor(object->getIDInt())) {
 			throw std::runtime_error("Unpack existing prefab before exporting this subtree");
-		for (auto child : object->getChildren())
+		}
+		for (auto child : object->getChildren()) {
 			stack.push_back(child);
+		}
 	}
 	auto objects = nlohmann::json::array();
-	for (auto value : scene.serializeObjects())
-		if (members.contains(DOCUMENT::Id(value.at("Id"))))
+	for (auto value : scene.serializeObjects()) {
+		if (members.contains(DOCUMENT::Id(value.at("Id")))) {
 			objects.push_back(std::move(value));
+		}
+	}
 	DOCUMENT::IdMap ids;
 	auto asset = DOCUMENT::MakePrefab(objects, rootId, ids);
 	DOCUMENT::ValidatePrefab(asset);
@@ -206,8 +219,9 @@ void SceneManager::createPrefab(int rootId, const std::string& path) {
 }
 
 void SceneManager::unloadCurrentScene() {
-	if (isPrefabLoading() || (mTransitionTask && !mTransitionTask.done()))
+	if (isPrefabLoading() || (mTransitionTask && !mTransitionTask.done())) {
 		throw std::logic_error("Cancel the active scene operation before synchronous unload");
+	}
 	if (m_currentScene) {
 		m_currentScene.reset();
 		sceneUnloadEvent.run();

@@ -62,7 +62,7 @@ public:
 	};
 	class IdGenerator_ : public IdGenerator<ECS::Object> { };
 
-	explicit Scene(ECS2::World* world = nullptr, PhysicsFactories physics = {});
+	explicit Scene(ECS::World* world = nullptr, PhysicsFactories physics = {});
 	void setPhysicsFactories(PhysicsFactories physics);
 	Scene(const Descriptor& _descriptor);
 	virtual ~Scene();
@@ -92,16 +92,16 @@ public:
 
 	std::shared_ptr<ECS::Object> createObject();
 	std::shared_ptr<ECS::Object> createObject(const std::string& p_name, const std::string& p_tag = "");
-	std::shared_ptr<ECS::Object> createObjectAfter(ECS2::Entity parentId, const std::string& p_name, const std::string& p_tag = "");
-	std::shared_ptr<ECS::Object> createObjectBefore(ECS2::Entity parentId, const std::string& p_name, const std::string& p_tag = "");
+	std::shared_ptr<ECS::Object> createObjectAfter(ECS::Entity parentId, const std::string& p_name, const std::string& p_tag = "");
+	std::shared_ptr<ECS::Object> createObjectBefore(ECS::Entity parentId, const std::string& p_name, const std::string& p_tag = "");
 	// std::shared_ptr<ECS::Object> _createObject(const std::string& p_name, const std::string& p_tag = "");
-	std::shared_ptr<ECS::Object> createObject(ECS2::Entity actorID, const std::string& name, const std::string& tag = "");
+	std::shared_ptr<ECS::Object> createObject(ECS::Entity actorID, const std::string& name, const std::string& tag = "");
 	std::shared_ptr<ECS::Object> createObject(const ECS::Object::Descriptor& data);
 	bool destroyObject(std::shared_ptr<ECS::Object> p_target);
 
 	std::shared_ptr<ECS::Object> findObjectByName(const std::string& p_name);
 	std::shared_ptr<ECS::Object> findObjectByTag(const std::string& p_tag);
-	std::shared_ptr<ECS::Object> findObjectByID(ECS2::Entity p_id);
+	std::shared_ptr<ECS::Object> findObjectByID(ECS::Entity p_id);
 
 	std::vector<std::shared_ptr<ECS::Object>> findObjectsByName(const std::string& p_name);
 	std::vector<std::shared_ptr<ECS::Object>> findObjectsByTag(const std::string& p_tag);
@@ -157,7 +157,7 @@ public:
 	bool isSceneReady = false;
 	void postLoad();
 	void postLoadObject(ECS::Object& object);
-	ECS2::World& getWorld() const;
+	ECS::World& getWorld() const;
 	std::shared_ptr<ECS::Object> createDeferredObject(const ECS::Object::Descriptor& descriptor);
 	void removeLastObject();
 	COROUTINE::CoroutineScope& coroutines();
@@ -187,7 +187,7 @@ private:
 	struct SpatialIndex;
 	std::unique_ptr<SpatialIndex> mSpatial;
 	SpatialIndex& spatial();
-	ECS2::World* mWorld = nullptr;
+	ECS::World* mWorld = nullptr;
 	std::unique_ptr<COROUTINE::CoroutineScope> mCoroutineScope;
 	bool isExecute = false;
 	std::vector<std::shared_ptr<ECS::Object>> objects;

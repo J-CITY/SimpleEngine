@@ -30,7 +30,7 @@ UTILS::WeakPtr<ComponentBase> ResolveComponent(SCENE_SYSTEM::Scene& scene, const
 	if (it == types().end()) {
 		throw std::runtime_error("Unknown component reference type: " + r.Component);
 	}
-	auto object = scene.findObjectByID(ECS2::Entity(ECS2::Entity::ID(r.ObjectId)));
+	auto object = scene.findObjectByID(ECS::Entity(ECS::Entity::ID(r.ObjectId)));
 	return object ? it->second(*object) : nullptr;
 }
 DATA::Value PropertyBinding::read(SCENE_SYSTEM::Scene& scene) const {

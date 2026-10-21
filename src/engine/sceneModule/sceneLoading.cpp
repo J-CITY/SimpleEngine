@@ -23,8 +23,8 @@ using namespace IKIGAI::COROUTINE;
 using namespace IKIGAI::RESOURCES;
 
 namespace {
-template <class... T> void RegisterComponents(ECS2::World& world, ECS::ComponentsTypeProvider<T...>) {
-	(world.getComponentManager()->registerComponent<T>(ECS2::StorageType::Sparse), ...);
+template <class... T> void RegisterComponents(ECS::World& world, ECS::ComponentsTypeProvider<T...>) {
+	(world.getComponentManager()->registerComponent<T>(ECS::StorageType::Sparse), ...);
 }
 template <class T>
 Task<> HoldResource(ResourceRequest<T> request, std::shared_ptr<SceneLoadState> state, std::vector<std::shared_ptr<void>>& resources) {
@@ -453,7 +453,7 @@ Task<> SceneManager::cacheLoadingScene(std::shared_ptr<SceneLoadState> state) {
 	bool cancelled = false;
 	try {
 		mCacheBuild = std::make_unique<LoadContext>();
-		mCacheBuild->world = std::make_unique<ECS2::World>();
+		mCacheBuild->world = std::make_unique<ECS::World>();
 		RegisterComponents(*mCacheBuild->world, ECS::ComponentsTypeProviderType {});
 		for (const auto material : { "gui.mat", "text.mat", "vector.mat", "sdfText.mat" }) {
 			co_await HoldResource(ServiceManager::Get<MaterialLoader>().requestResource(std::string("/materials/render/portable/") + material), state,
@@ -542,7 +542,7 @@ Task<> SceneManager::instantiatePrefab(std::shared_ptr<SceneLoadState> state, in
 	bool cancelled = false;
 	try {
 		if (parentId > 0) {
-			if (!target->findObjectByID(ECS2::Entity(ECS2::Entity::ID(parentId)))) {
+			if (!target->findObjectByID(ECS::Entity(ECS::Entity::ID(parentId)))) {
 				throw std::runtime_error("Instance parent not found");
 			}
 			if (target->prefabFor(parentId)) {
@@ -559,8 +559,8 @@ Task<> SceneManager::instantiatePrefab(std::shared_ptr<SceneLoadState> state, in
 		auto entries = serializeScene().at("Objects");
 		int root = 0;
 		do {
-			root = static_cast<int>(ECS2::Entity().getUniqueId());
-		} while (root <= 0 || target->findObjectByID(ECS2::Entity(ECS2::Entity::ID(root))));
+			root = static_cast<int>(ECS::Entity().getUniqueId());
+		} while (root <= 0 || target->findObjectByID(ECS::Entity(ECS::Entity::ID(root))));
 		nlohmann::json entry { { "Prefab", state->path }, { "Id", root }, { "ParentId", parentId } };
 		entries.push_back(entry);
 		DOCUMENT::Resolver resolver(entries);
@@ -617,7 +617,7 @@ Task<> SceneManager::instantiatePrefab(std::shared_ptr<SceneLoadState> state, in
 			state->control->check();
 			auto object = target->getObjects()[firstObject + i];
 			if (descriptors[i].ParentId > 0) {
-				object->setParent(target->findObjectByID(ECS2::Entity(ECS2::Entity::ID(descriptors[i].ParentId))));
+				object->setParent(target->findObjectByID(ECS::Entity(ECS::Entity::ID(descriptors[i].ParentId))));
 			}
 			target->postLoadObject(*object);
 			co_await YieldIfBudgetExceeded();

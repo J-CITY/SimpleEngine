@@ -2,7 +2,7 @@
 #include <atomic>
 #include <functional>
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class Component;
 }
 
@@ -20,7 +20,7 @@ class ControlBlockHandler {
 
 public:
 	ControlBlockHandler();
-	ControlBlockHandler(ECS2::Component* ptr);
+	ControlBlockHandler(ECS::Component* ptr);
 	// TODO: delete copy constructor
 	ControlBlockHandler(const ControlBlockHandler& obj);
 	ControlBlockHandler& operator=(const ControlBlockHandler& obj);
@@ -82,7 +82,7 @@ struct is_convertible_smart_pointer : std::integral_constant<bool, std::is_conve
 template <typename Ptr, typename T> struct is_convertible_smart_pointer<Ptr, T, false> : std::false_type { };
 
 template <typename T>
-concept ComponentT = requires(T t) { std::is_base_of_v<ECS2::Component, decltype(t)>; };
+concept ComponentT = requires(T t) { std::is_base_of_v<ECS::Component, decltype(t)>; };
 
 template <ComponentT T> class WeakPtr {
 	ControlBlock* mCb = nullptr;
@@ -165,8 +165,9 @@ public:
 	}
 
 	WeakPtr& operator=(WeakPtr&& obj) noexcept {
-		if (this == &obj)
+		if (this == &obj) {
 			return *this;
+		}
 		cleanup();
 		mCb = obj.mCb;
 		obj.mCb = nullptr;

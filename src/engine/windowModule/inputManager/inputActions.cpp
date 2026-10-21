@@ -50,7 +50,7 @@ namespace {
 		auto path = ToLower(rawPath);
 		const auto slash = path.find_last_of('/');
 		const std::string device = slash == std::string::npos ? path : path.substr(0, slash);
-		const std::string control = slash == std::string::npos ? std::string { } : path.substr(slash + 1);
+		const std::string control = slash == std::string::npos ? std::string {} : path.substr(slash + 1);
 
 		auto setButton = [&](bool down, bool pressed, bool released) {
 			sample.down = down;
@@ -104,30 +104,42 @@ namespace {
 			auto setGpButton = [&](Btn btn) {
 				setButton(input.isButtonPressed(id, btn), input.wasButtonPressedThisFrame(id, btn), input.wasButtonReleasedThisFrame(id, btn));
 			};
-			if (control == "buttonsouth" || control == "a")
+			if (control == "buttonsouth" || control == "a") {
 				setGpButton(Btn::btn_a);
-			else if (control == "buttoneast" || control == "b")
+			}
+			else if (control == "buttoneast" || control == "b") {
 				setGpButton(Btn::btn_b);
-			else if (control == "buttonwest" || control == "x")
+			}
+			else if (control == "buttonwest" || control == "x") {
 				setGpButton(Btn::btn_x);
-			else if (control == "buttonnorth" || control == "y")
+			}
+			else if (control == "buttonnorth" || control == "y") {
 				setGpButton(Btn::btn_y);
-			else if (control == "leftshoulder")
+			}
+			else if (control == "leftshoulder") {
 				setGpButton(Btn::btn_lb);
-			else if (control == "rightshoulder")
+			}
+			else if (control == "rightshoulder") {
 				setGpButton(Btn::btn_rb);
-			else if (control == "dpadup")
+			}
+			else if (control == "dpadup") {
 				setGpButton(Btn::dpad_up);
-			else if (control == "dpaddown")
+			}
+			else if (control == "dpaddown") {
 				setGpButton(Btn::dpad_down);
-			else if (control == "dpadleft")
+			}
+			else if (control == "dpadleft") {
 				setGpButton(Btn::dpad_left);
-			else if (control == "dpadright")
+			}
+			else if (control == "dpadright") {
 				setGpButton(Btn::dpad_right);
-			else if (control == "start")
+			}
+			else if (control == "start") {
 				setGpButton(Btn::btn_start);
-			else if (control == "back")
+			}
+			else if (control == "back") {
 				setGpButton(Btn::btn_back);
+			}
 			else if (control == "leftstick") {
 				sample.value2 = { gp->getData().mLeftSticX, gp->getData().mLeftSticY };
 				sample.hasVec2 = true;
@@ -159,7 +171,7 @@ namespace {
 				if (sample.hasVec2) {
 					const float len = std::sqrt(sample.value2.x * sample.value2.x + sample.value2.y * sample.value2.y);
 					if (len < processor.min) {
-						sample.value2 = { };
+						sample.value2 = {};
 						sample.value = 0.0f;
 						sample.down = false;
 					}
@@ -254,7 +266,7 @@ void InputActions::enableMap(const std::string& name, bool enabled) {
 	}
 }
 
-void InputActions::prepareMaps(ECS2::World& world) {
+void InputActions::prepareMaps(ECS::World& world) {
 	for (auto& [name, map] : mMaps) {
 		map.activeThisFrame = map.assetEnabled;
 	}
@@ -278,7 +290,7 @@ void InputActions::resolve(std::chrono::duration<double> dt) {
 		action.wasReleasedThisFrame = false;
 		action.phases.clear();
 		action.value = 0.0f;
-		action.value2 = { };
+		action.value2 = {};
 
 		const auto mapIt = mMaps.find(action.mapName);
 		if (mapIt == mMaps.end() || !mapIt->second.activeThisFrame) {
@@ -416,12 +428,12 @@ float InputActions::readValue(const std::string& action) const {
 
 MATH::Vector2f InputActions::readValue2(const std::string& action) const {
 	const auto* state = findAction(action);
-	return state ? state->value2 : MATH::Vector2f { };
+	return state ? state->value2 : MATH::Vector2f {};
 }
 
 std::vector<InputPhase> InputActions::getPhasesThisFrame(const std::string& action) const {
 	const auto* state = findAction(action);
-	return state ? state->phases : std::vector<InputPhase> { };
+	return state ? state->phases : std::vector<InputPhase> {};
 }
 
 std::vector<std::string> InputActions::getActionNames(const std::string& mapName) const {

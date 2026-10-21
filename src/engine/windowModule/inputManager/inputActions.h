@@ -11,8 +11,7 @@
 #include <utilsModule/reflection/reflection.h>
 #include <vector>
 
-
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class World;
 }
 
@@ -35,7 +34,7 @@ struct InputProcessorDesc {
 	template <class Context> constexpr static auto serde(Context& context, InputProcessorDesc& value) {
 		using namespace serde::attribute;
 		serde::serde_struct(context, value)
-			.field(&InputProcessorDesc::type, "type", default_ { std::string { } })
+			.field(&InputProcessorDesc::type, "type", default_ { std::string {} })
 			.field(&InputProcessorDesc::min, "min", default_ { 0.0f })
 			.field(&InputProcessorDesc::max, "max", default_ { 1.0f })
 			.field(&InputProcessorDesc::scale, "scale", default_ { 1.0f })
@@ -72,18 +71,18 @@ struct InputBindingDesc {
 	template <class Context> constexpr static auto serde(Context& context, InputBindingDesc& value) {
 		using namespace serde::attribute;
 		serde::serde_struct(context, value)
-			.field(&InputBindingDesc::path, "path", default_ { std::string { } })
-			.field(&InputBindingDesc::composite, "composite", default_ { std::string { } })
-			.field(&InputBindingDesc::up, "up", default_ { std::string { } })
-			.field(&InputBindingDesc::down, "down", default_ { std::string { } })
-			.field(&InputBindingDesc::left, "left", default_ { std::string { } })
-			.field(&InputBindingDesc::right, "right", default_ { std::string { } })
-			.field(&InputBindingDesc::positive, "positive", default_ { std::string { } })
-			.field(&InputBindingDesc::negative, "negative", default_ { std::string { } })
+			.field(&InputBindingDesc::path, "path", default_ { std::string {} })
+			.field(&InputBindingDesc::composite, "composite", default_ { std::string {} })
+			.field(&InputBindingDesc::up, "up", default_ { std::string {} })
+			.field(&InputBindingDesc::down, "down", default_ { std::string {} })
+			.field(&InputBindingDesc::left, "left", default_ { std::string {} })
+			.field(&InputBindingDesc::right, "right", default_ { std::string {} })
+			.field(&InputBindingDesc::positive, "positive", default_ { std::string {} })
+			.field(&InputBindingDesc::negative, "negative", default_ { std::string {} })
 			.field(&InputBindingDesc::interaction, "interaction", default_ { std::string { "Press" } })
 			.field(&InputBindingDesc::duration, "duration", default_ { 0.4f })
 			.field(&InputBindingDesc::maxDuration, "maxDuration", default_ { 0.2f })
-			.field(&InputBindingDesc::processors, "processors", default_ { std::vector<InputProcessorDesc> { } });
+			.field(&InputBindingDesc::processors, "processors", default_ { std::vector<InputProcessorDesc> {} });
 	}
 
 	static auto GetMembers() {
@@ -113,10 +112,10 @@ struct InputActionDesc {
 	template <class Context> constexpr static auto serde(Context& context, InputActionDesc& value) {
 		using namespace serde::attribute;
 		serde::serde_struct(context, value)
-			.field(&InputActionDesc::name, "name", default_ { std::string { } })
+			.field(&InputActionDesc::name, "name", default_ { std::string {} })
 			.field(&InputActionDesc::type, "type", default_ { std::string { "Button" } })
-			.field(&InputActionDesc::valueType, "valueType", default_ { std::string { } })
-			.field(&InputActionDesc::bindings, "bindings", default_ { std::vector<InputBindingDesc> { } });
+			.field(&InputActionDesc::valueType, "valueType", default_ { std::string {} })
+			.field(&InputActionDesc::bindings, "bindings", default_ { std::vector<InputBindingDesc> {} });
 	}
 
 	static auto GetMembers() {
@@ -137,9 +136,9 @@ struct InputMapDesc {
 	template <class Context> constexpr static auto serde(Context& context, InputMapDesc& value) {
 		using namespace serde::attribute;
 		serde::serde_struct(context, value)
-			.field(&InputMapDesc::name, "name", default_ { std::string { } })
+			.field(&InputMapDesc::name, "name", default_ { std::string {} })
 			.field(&InputMapDesc::enabled, "enabled", default_ { true })
-			.field(&InputMapDesc::actions, "actions", default_ { std::vector<InputActionDesc> { } });
+			.field(&InputMapDesc::actions, "actions", default_ { std::vector<InputActionDesc> {} });
 	}
 
 	static auto GetMembers() {
@@ -156,7 +155,7 @@ struct InputConfig {
 
 	template <class Context> constexpr static auto serde(Context& context, InputConfig& value) {
 		using namespace serde::attribute;
-		serde::serde_struct(context, value).field(&InputConfig::maps, "maps", default_ { std::vector<InputMapDesc> { } });
+		serde::serde_struct(context, value).field(&InputConfig::maps, "maps", default_ { std::vector<InputMapDesc> {} });
 	}
 
 	static auto GetMembers() {
@@ -174,7 +173,7 @@ public:
 
 	bool load(const std::string& path = DefaultInputResourcePath);
 	void enableMap(const std::string& name, bool enabled);
-	void prepareMaps(ECS2::World& world);
+	void prepareMaps(ECS::World& world);
 	void resolve(std::chrono::duration<double> dt);
 	void subscribe(Callback callback);
 

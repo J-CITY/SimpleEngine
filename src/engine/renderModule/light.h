@@ -37,7 +37,7 @@ namespace RENDER {
 
 		// generateOGLStruct stores Type as (int)type - 1, so NONE is -1.
 		static LightOGL Inactive() {
-			LightOGL light { };
+			LightOGL light {};
 			light.type = -1;
 			return light;
 		}
@@ -47,7 +47,7 @@ namespace RENDER {
 	struct Light {
 		enum class Type { NONE, POINT, DIRECTIONAL, SPOT, AMBIENT_BOX, AMBIENT_SPHERE, INPUT };
 
-		Light(ECS2::Entity objId, Type p_type = Type::NONE);
+		Light(ECS::Entity objId, Type p_type = Type::NONE);
 		[[nodiscard]] LightOGL generateOGLStruct() const;
 		[[nodiscard]] float getEffectRange() const;
 		[[nodiscard]] const ECS::Transform& getTransform() const;
@@ -65,7 +65,7 @@ namespace RENDER {
 		float shadowFar = -1.0f;
 
 	protected:
-		ECS2::Entity objId;
+		ECS::Entity objId;
 	};
 
 }

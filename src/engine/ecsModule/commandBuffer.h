@@ -4,8 +4,7 @@
 #include <mutex>
 #include <vector>
 
-
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class CommandBuffer {
 public:
 	void addCommand(std::function<void()>&& cmd) {

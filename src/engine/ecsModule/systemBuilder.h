@@ -1,7 +1,8 @@
 #pragma once
 #include "systemManager.h"
+#include "world.h"
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 
 template <typename... Components> class MultiPhaseSystem : public System {
 public:

@@ -7,10 +7,10 @@ namespace IKIGAI::SCENE_SYSTEM {
 class Scene;
 }
 namespace IKIGAI::ECS {
-class Physics3DSystem final : public ECS2::System {
+class Physics3DSystem final : public ECS::System {
 public:
 	explicit Physics3DSystem(SCENE_SYSTEM::Scene& scene, std::shared_ptr<PHYSICS::World> simulation = std::make_shared<PHYSICS::World>());
-	void onFixedUpdate(ECS2::World&, ECS2::CommandBuffer&, std::chrono::duration<double>) override;
+	void onFixedUpdate(ECS::World&, ECS::CommandBuffer&, std::chrono::duration<double>) override;
 	PHYSICS::World& simulation() {
 		return *mSimulation;
 	}

@@ -3,27 +3,25 @@
 #include "utilsModule/animation.h"
 #include "utilsModule/tinyspline/tinysplinecxx.h"
 
-
 #ifdef USE_EDITOR
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 
-#include "utilsModule/imguiHelper/imgui_neo_sequencer.h"
-#include "editorRender.h"
 #include "IconsFontAwesome5.h"
+#include "editorRender.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "renderModule/backends/gl/materialGl.h"
 #include "resourceModule/materialManager.h"
+#include "utilsModule/imguiHelper/imgui_neo_sequencer.h"
 
-#include "sceneModule/sceneManager.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include "resourceModule/textureManager.h"
+#include "sceneModule/sceneManager.h"
 #include "utilsModule/imguiHelper/imguiWidgets.h"
 #include "utilsModule/time/time.h"
 
 #include "utilsModule/time/time.h"
-
 
 using namespace ImGui;
 static const float NODE_SLOT_RADIUS = 4.0f;
@@ -41,10 +39,8 @@ enum class CurveEditorFlags {
 };
 static constexpr float HANDLE_RADIUS = 4;
 
-
-int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& values, 
-	const ImVec2& editor_size, ImU32 flags, float maxTangentRadius, int* new_count, int* selected_point, int* hovered_point, 
-	const ImVec2& x_span = ImVec2(0, 0), const ImVec2& y_span = ImVec2(0, 0)) {
+int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& values, const ImVec2& editor_size, ImU32 flags, float maxTangentRadius,
+	int* new_count, int* selected_point, int* hovered_point, const ImVec2& x_span = ImVec2(0, 0), const ImVec2& y_span = ImVec2(0, 0)) {
 
 	enum class StorageValues : ImGuiID {
 		FROM_X = 100,
@@ -66,7 +62,9 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 	ImVec2 size = editor_size;
 	size.x = size.x < 0 ? CalcItemWidth() + (style.FramePadding.x * 2) : size.x;
 	size.y = size.y < 0 ? HEIGHT : size.y;
-	if (hovered_point) *hovered_point = -1;
+	if (hovered_point) {
+		*hovered_point = -1;
+	}
 
 	ImGuiWindow* parent_window = GetCurrentWindow();
 	ImGuiID id = parent_window->GetID(label);
@@ -94,8 +92,8 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 	ImVec2 points_max(-FLT_MAX, -FLT_MAX);
 	for (int point_idx = 0; point_idx < points_count; ++point_idx) {
 		ImVec2 point;
-		//if (flags & (int)CurveEditorFlags::NO_TANGENTS) {
-			point = ImVec2(values[point_idx].mLeft.x, values[point_idx].mLeft.y);
+		// if (flags & (int)CurveEditorFlags::NO_TANGENTS) {
+		point = ImVec2(values[point_idx].mLeft.x, values[point_idx].mLeft.y);
 		//} else {
 		//	point = ((ImVec2*)values)[1 + point_idx * 3];
 		//}
@@ -104,29 +102,31 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 	}
 	points_max.y = ImMax(points_max.y, points_min.y + 0.0001f);
 
-	if (x_span.x < x_span.y) {//need wrap to span by x
+	if (x_span.x < x_span.y) { // need wrap to span by x
 		points_min.x = std::max(points_min.x, x_span.x - EXTRA_OFFSET);
 		points_max.x = std::min(points_max.x, x_span.y + EXTRA_OFFSET);
 	}
-	if (y_span.x < y_span.y) {//need wrap to span by y
+	if (y_span.x < y_span.y) { // need wrap to span by y
 		points_min.y = std::max(points_min.y, y_span.x - EXTRA_OFFSET);
 		points_max.y = std::min(points_max.y, y_span.y + EXTRA_OFFSET);
 	}
 
-	if (flags & (int)CurveEditorFlags::RESET) window->StateStorage.Clear();
+	if (flags & (int)CurveEditorFlags::RESET) {
+		window->StateStorage.Clear();
+	}
 
 	float from_x = window->StateStorage.GetFloat((ImGuiID)StorageValues::FROM_X, points_min.x);
 	float from_y = window->StateStorage.GetFloat((ImGuiID)StorageValues::FROM_Y, points_min.y);
 	float width = window->StateStorage.GetFloat((ImGuiID)StorageValues::WIDTH, points_max.x - points_min.x);
 	float height = window->StateStorage.GetFloat((ImGuiID)StorageValues::HEIGHT, points_max.y - points_min.y);
 
-	if (x_span.x < x_span.y) {//need wrap to span by x
+	if (x_span.x < x_span.y) { // need wrap to span by x
 		from_x = std::max(from_x, x_span.x - EXTRA_OFFSET);
 		if (from_x + width > x_span.y + EXTRA_OFFSET) {
 			width = x_span.y + EXTRA_OFFSET - from_x;
 		}
 	}
-	if (y_span.x < y_span.y) {//need wrap to span by y
+	if (y_span.x < y_span.y) { // need wrap to span by y
 		from_y = std::max(from_y, y_span.x - EXTRA_OFFSET);
 		if (from_y + height > y_span.y + EXTRA_OFFSET) {
 			height = y_span.y + EXTRA_OFFSET - from_y;
@@ -149,23 +149,17 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 		float x = (pos.x - from_x) / width;
 		float y = (pos.y - from_y) / height;
 
-		return ImVec2(
-			inner_bb.Min.x * (1 - x) + inner_bb.Max.x * x,
-			inner_bb.Min.y * y + inner_bb.Max.y * (1 - y)
-		);
+		return ImVec2(inner_bb.Min.x * (1 - x) + inner_bb.Max.x * x, inner_bb.Min.y * y + inner_bb.Max.y * (1 - y));
 	};
 
 	auto invTransform = [&](const ImVec2& pos) -> ImVec2 {
 		float x = (pos.x - inner_bb.Min.x) / (inner_bb.Max.x - inner_bb.Min.x);
 		float y = (inner_bb.Max.y - pos.y) / (inner_bb.Max.y - inner_bb.Min.y);
 
-		return ImVec2(
-			from_x + width * x,
-			from_y + height * y
-		);
+		return ImVec2(from_x + width * x, from_y + height * y);
 	};
 
-	if (flags & (int)CurveEditorFlags::SHOW_GRID) {//draw grid
+	if (flags & (int)CurveEditorFlags::SHOW_GRID) { // draw grid
 		int exp;
 		frexp(width / 5, &exp);
 		float step_x = (float)ldexp(1.0, exp);
@@ -173,13 +167,14 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 
 		float x = step_x * int(from_x / step_x);
 		for (int i = -1; i < cell_cols + 2; ++i) {
-			ImVec2 a = transform({x + i * step_x, from_y});
-			ImVec2 b = transform({x + i * step_x, from_y + height});
+			ImVec2 a = transform({ x + i * step_x, from_y });
+			ImVec2 b = transform({ x + i * step_x, from_y + height });
 			window->DrawList->AddLine(a, b, 0x55000000);
 			char buf[64];
 			if (exp > 0) {
 				ImFormatString(buf, sizeof(buf), " %d", int(x + i * step_x));
-			} else {
+			}
+			else {
 				ImFormatString(buf, sizeof(buf), " %.2f", x + i * step_x);
 			}
 			window->DrawList->AddText(b, 0x55000000, buf);
@@ -191,13 +186,14 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 
 		float y = step_y * int(from_y / step_y);
 		for (int i = -1; i < cell_rows + 2; ++i) {
-			ImVec2 a = transform({from_x, y + i * step_y});
-			ImVec2 b = transform({from_x + width, y + i * step_y});
+			ImVec2 a = transform({ from_x, y + i * step_y });
+			ImVec2 b = transform({ from_x + width, y + i * step_y });
 			window->DrawList->AddLine(a, b, 0x55000000);
 			char buf[64];
 			if (exp > 0) {
 				ImFormatString(buf, sizeof(buf), " %d", int(y + i * step_y));
-			} else {
+			}
+			else {
 				ImFormatString(buf, sizeof(buf), " %.2f", y + i * step_y);
 			}
 			window->DrawList->AddText(a, 0x55000000, buf);
@@ -211,12 +207,12 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 		float scale = powf(SCALE_FACTOR, -GetIO().MouseWheel);
 		width *= scale;
 		height *= scale;
-		if (x_span.x < x_span.y) {//need wrap to span by x
+		if (x_span.x < x_span.y) { // need wrap to span by x
 			if (from_x + width > x_span.y + EXTRA_OFFSET) {
 				width = x_span.y + EXTRA_OFFSET - from_x;
 			}
 		}
-		if (y_span.x < y_span.y) {//need wrap to span by y
+		if (y_span.x < y_span.y) { // need wrap to span by y
 			if (from_y + height > y_span.y + EXTRA_OFFSET) {
 				height = y_span.y + EXTRA_OFFSET - from_y;
 			}
@@ -235,7 +231,7 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 		from_y = start_pan.y;
 		from_x -= drag_offset.x * width / (inner_bb.Max.x - inner_bb.Min.x);
 		from_y += drag_offset.y * height / (inner_bb.Max.y - inner_bb.Min.y);
-		if (x_span.x < x_span.y) {//need wrap to span by x
+		if (x_span.x < x_span.y) { // need wrap to span by x
 			if (from_x + width < x_span.y + EXTRA_OFFSET) {
 				from_x = std::max(from_x, x_span.x - EXTRA_OFFSET);
 			}
@@ -243,7 +239,7 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 				from_x = from_x_save;
 			}
 		}
-		if (y_span.x < y_span.y) {//need wrap to span by y
+		if (y_span.x < y_span.y) { // need wrap to span by y
 			if (from_y + height < y_span.y + EXTRA_OFFSET) {
 				from_y = std::max(from_y, y_span.x - EXTRA_OFFSET);
 			}
@@ -253,7 +249,8 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 		}
 		window->StateStorage.SetFloat((ImGuiID)StorageValues::FROM_X, from_x);
 		window->StateStorage.SetFloat((ImGuiID)StorageValues::FROM_Y, from_y);
-	} else if (IsMouseDragging(2) && IsItemHovered()) {
+	}
+	else if (IsMouseDragging(2) && IsItemHovered()) {
 		window->StateStorage.SetBool((ImGuiID)StorageValues::IS_PANNING, true);
 		start_pan.x = from_x;
 		start_pan.y = from_y;
@@ -269,7 +266,8 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 		ImVec2 tangent = ImVec2(point.mRightTangent.x, point.mRightTangent.y);
 		ImVec2 p = ImVec2(pointNext.mLeft.x, pointNext.mLeft.y);
 
-		auto handlePoint = [&](ImVec2& p, int idx, float drawOffset = 0.0f, ImU32 color = GetColorU32(ImGuiCol_PlotLines), ImU32 colorHover = GetColorU32(ImGuiCol_PlotLinesHovered)) -> bool {
+		auto handlePoint = [&](ImVec2& p, int idx, float drawOffset = 0.0f, ImU32 color = GetColorU32(ImGuiCol_PlotLines),
+							   ImU32 colorHover = GetColorU32(ImGuiCol_PlotLinesHovered)) -> bool {
 			static const float SIZE = 3;
 
 			ImVec2 cursor_pos = GetCursorScreenPos();
@@ -290,11 +288,15 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 			window->DrawList->AddLine(pos + ImVec2(SIZE, 0), pos + ImVec2(0, -SIZE), col, thickness);
 			window->DrawList->AddLine(pos + ImVec2(-SIZE, 0), pos + ImVec2(0, -SIZE), col, thickness);
 
-			if (IsItemHovered()) hovered_idx = point_idx + idx;
+			if (IsItemHovered()) {
+				hovered_idx = point_idx + idx;
+			}
 
 			bool changed = false;
 			if (IsItemActive() && IsMouseClicked(0)) {
-				if (selected_point) *selected_point = point_idx + idx;
+				if (selected_point) {
+					*selected_point = point_idx + idx;
+				}
 				window->StateStorage.SetFloat((ImGuiID)StorageValues::POINT_START_X, pos.x);
 				window->StateStorage.SetFloat((ImGuiID)StorageValues::POINT_START_Y, pos.y);
 			}
@@ -302,7 +304,7 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 			if (IsItemHovered() || (IsItemActive() && IsMouseDragging(0))) {
 				char tmp[64];
 				ImFormatString(tmp, sizeof(tmp), "%0.2f, %0.2f", p.x, p.y);
-				window->DrawList->AddText({pos.x, pos.y - GetTextLineHeight()}, 0xff000000, tmp);
+				window->DrawList->AddText({ pos.x, pos.y - GetTextLineHeight() }, 0xff000000, tmp);
 			}
 
 			if (IsItemActive() && IsMouseDragging(0)) {
@@ -313,7 +315,7 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 				ImVec2 v = invTransform(pos);
 
 				p = v;
-				if (x_span.x < x_span.y) {//need wrap to span by x
+				if (x_span.x < x_span.y) { // need wrap to span by x
 					if (p.x < x_span.x) {
 						p.x = x_span.x;
 					}
@@ -321,7 +323,7 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 						p.x = x_span.y;
 					}
 				}
-				if (y_span.x < y_span.y) {//need wrap to span by y
+				if (y_span.x < y_span.y) { // need wrap to span by y
 					if (p.y < y_span.x) {
 						p.y = y_span.x;
 					}
@@ -371,7 +373,7 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 			if (IsItemActive() && IsMouseDragging(0)) {
 				tang = GetIO().MousePos - pos;
 				tang = tang / LENGTH;
-				//tang = normalized(tang);
+				// tang = normalized(tang);
 				tang.y *= -1;
 
 				t = tang;
@@ -386,44 +388,34 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 		PushID(point_idx + 1);
 		if ((flags & (int)CurveEditorFlags::NO_TANGENTS) == 0) {
 			window->DrawList->AddBezierCubic(
-				transform(p_prev),
-				transform(p_prev + tangent_last),
-				transform(p + tangent),
-				transform(p),
-				GetColorU32(ImGuiCol_PlotLines),
-				1.0f,
-				20);
+				transform(p_prev), transform(p_prev + tangent_last), transform(p + tangent), transform(p), GetColorU32(ImGuiCol_PlotLines), 1.0f, 20);
 
 			if ((flags & (int)CurveEditorFlags::WITH_OFFSETS) == (int)CurveEditorFlags::WITH_OFFSETS) {
-				if (point.mLeftYOffset.y > 0 || pointNext.mLeftYOffset.y > 0)
-				window->DrawList->AddBezierCubic(
-					transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.y)),
-					transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.y) + tangent_last),
-					transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.y) + tangent),
-					transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.y)),
-					GetColorU32(ImGuiCol_PlotHistogram),
-					1.0f,
-					20);
-				if (point.mLeftYOffset.x < 0 || pointNext.mLeftYOffset.x < 0)
-				window->DrawList->AddBezierCubic(
-					transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.x)),
-					transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.x) + tangent_last),
-					transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.x) + tangent),
-					transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.x)),
-					GetColorU32(ImGuiCol_PlotHistogram),
-					1.0f,
-					20);
-				//TODO:: cntrl for move both points
+				if (point.mLeftYOffset.y > 0 || pointNext.mLeftYOffset.y > 0) {
+					window->DrawList->AddBezierCubic(transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.y)),
+						transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.y) + tangent_last),
+						transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.y) + tangent), transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.y)),
+						GetColorU32(ImGuiCol_PlotHistogram), 1.0f, 20);
+				}
+				if (point.mLeftYOffset.x < 0 || pointNext.mLeftYOffset.x < 0) {
+					window->DrawList->AddBezierCubic(transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.x)),
+						transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.x) + tangent_last),
+						transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.x) + tangent), transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.x)),
+						GetColorU32(ImGuiCol_PlotHistogram), 1.0f, 20);
+				}
+				// TODO:: cntrl for move both points
 				const float drawOffset = 20.0f;
 				ImVec2 pOffsetPlus = p;
 				pOffsetPlus.y += pointNext.mLeftYOffset.y;
-				if (handlePoint(pOffsetPlus, 1000, -drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
+				if (handlePoint(
+						pOffsetPlus, 1000, -drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
 					pointNext.mLeftYOffset.y = std::max(0.0f, pOffsetPlus.y - p.y);
 				}
 
 				ImVec2 pOffsetMinus = p;
 				pOffsetMinus.y += pointNext.mLeftYOffset.x;
-				if (handlePoint(pOffsetMinus, -1000, drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
+				if (handlePoint(
+						pOffsetMinus, -1000, drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
 					pointNext.mLeftYOffset.x = std::min(0.0f, pOffsetMinus.y - p.y);
 				}
 			}
@@ -442,7 +434,7 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 				if (p.x <= p_prev.x) {
 					p.x = p_prev.x + 0.001f;
 				}
-				if (point_idx < points_count - 2 && p.x >= pointNext.mRight.x) {// check order
+				if (point_idx < points_count - 2 && p.x >= pointNext.mRight.x) { // check order
 					p.x = pointNext.mRight.x - 0.001f;
 				}
 				if ((flags & (int)CurveEditorFlags::NO_MOVE_X) == (int)CurveEditorFlags::NO_MOVE_X) {
@@ -456,41 +448,51 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 				}
 				changed_idx = point_idx + 1;
 			}
-
-		} else {
+		}
+		else {
 			window->DrawList->AddLine(transform(p_prev), transform(p), GetColorU32(ImGuiCol_PlotLines), 1.0f);
 
 			if ((flags & (int)CurveEditorFlags::WITH_OFFSETS) == (int)CurveEditorFlags::WITH_OFFSETS) {
-				if (point.mLeftYOffset.y > 0 || pointNext.mLeftYOffset.y > 0)
-				window->DrawList->AddLine(transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.y)), transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.y)), GetColorU32(ImGuiCol_PlotHistogram), 1.0f);
-				if (point.mLeftYOffset.x < 0 || pointNext.mLeftYOffset.x < 0)
-				window->DrawList->AddLine(transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.x)), transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.x)), GetColorU32(ImGuiCol_PlotHistogram), 1.0f);
-				//TODO:: cntrl for move both points
+				if (point.mLeftYOffset.y > 0 || pointNext.mLeftYOffset.y > 0) {
+					window->DrawList->AddLine(transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.y)),
+						transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.y)), GetColorU32(ImGuiCol_PlotHistogram), 1.0f);
+				}
+				if (point.mLeftYOffset.x < 0 || pointNext.mLeftYOffset.x < 0) {
+					window->DrawList->AddLine(transform(p_prev + ImVec2(0.0f, point.mLeftYOffset.x)),
+						transform(p + ImVec2(0.0f, pointNext.mLeftYOffset.x)), GetColorU32(ImGuiCol_PlotHistogram), 1.0f);
+				}
+				// TODO:: cntrl for move both points
 				const float drawOffset = 20.0f;
 				ImVec2 pOffsetPlus = p;
 				pOffsetPlus.y += pointNext.mLeftYOffset.y;
-				if (handlePoint(pOffsetPlus, 1000, -drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
+				if (handlePoint(
+						pOffsetPlus, 1000, -drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
 					pointNext.mLeftYOffset.y = std::max(0.0f, pOffsetPlus.y - p.y);
 				}
 
 				ImVec2 pOffsetMinus = p;
 				pOffsetMinus.y += pointNext.mLeftYOffset.x;
-				if (handlePoint(pOffsetMinus, -1000, drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
+				if (handlePoint(
+						pOffsetMinus, -1000, drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
 					pointNext.mLeftYOffset.x = std::min(0.0f, pOffsetMinus.y - p.y);
 				}
 			}
 
 			if (handlePoint(p, 1)) {
-				if (p.x <= p_prev.x) p.x = p_prev.x + 0.001f;
+				if (p.x <= p_prev.x) {
+					p.x = p_prev.x + 0.001f;
+				}
 				if (point_idx < points_count - 2 && p.x >= point.mLeft.x) {
 					p.x = point.mLeft.x - 0.001f;
 				}
 
 				if ((flags & (int)CurveEditorFlags::NO_MOVE_X) == (int)CurveEditorFlags::NO_MOVE_X) {
 					pointNext.mLeft.y = p.y;
-				} else if ((flags & (int)CurveEditorFlags::NO_MOVE_Y) == (int)CurveEditorFlags::NO_MOVE_Y) {
+				}
+				else if ((flags & (int)CurveEditorFlags::NO_MOVE_Y) == (int)CurveEditorFlags::NO_MOVE_Y) {
 					pointNext.mLeft.x = p.x;
-				} else {
+				}
+				else {
 					pointNext.mLeft = IKIGAI::MATH::Vector2f(p.x, p.y);
 				}
 				changed_idx = point_idx + 1;
@@ -498,17 +500,19 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 		}
 		if (point_idx == 0) {
 			if ((flags & (int)CurveEditorFlags::WITH_OFFSETS) == (int)CurveEditorFlags::WITH_OFFSETS) {
-				//TODO:: cntrl for move both points
+				// TODO:: cntrl for move both points
 				const float drawOffset = 20.0f;
 				ImVec2 pOffsetPlus = p_prev;
 				pOffsetPlus.y += point.mLeftYOffset.y;
-				if (handlePoint(pOffsetPlus, 999, -drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
+				if (handlePoint(
+						pOffsetPlus, 999, -drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
 					point.mLeftYOffset.y = std::max(0.0f, pOffsetPlus.y - p_prev.y);
 				}
 
 				ImVec2 pOffsetMinus = p_prev;
 				pOffsetMinus.y += point.mLeftYOffset.x;
-				if (handlePoint(pOffsetMinus, -999, drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
+				if (handlePoint(
+						pOffsetMinus, -999, drawOffset, GetColorU32(ImGuiCol_PlotHistogramHovered), GetColorU32(ImGuiCol_PlotHistogramHovered))) {
 					point.mLeftYOffset.x = std::min(0.0f, pOffsetMinus.y - p_prev.y);
 				}
 			}
@@ -516,12 +520,14 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 				if (p.x <= p_prev.x) {
 					p_prev.x = p.x - 0.001f;
 				}
-				
+
 				if ((flags & (int)CurveEditorFlags::NO_MOVE_X) == (int)CurveEditorFlags::NO_MOVE_X) {
 					point.mLeft.y = p_prev.y;
-				} else if ((flags & (int)CurveEditorFlags::NO_MOVE_Y) == (int)CurveEditorFlags::NO_MOVE_Y) {
+				}
+				else if ((flags & (int)CurveEditorFlags::NO_MOVE_Y) == (int)CurveEditorFlags::NO_MOVE_Y) {
 					point.mLeft.x = p_prev.x;
-				} else {
+				}
+				else {
 					point.mLeft = IKIGAI::MATH::Vector2f(p_prev.x, p_prev.y);
 				}
 				changed_idx = point_idx;
@@ -546,25 +552,25 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 				IKIGAI::MATH::Vector2f(0.2f, 0),
 			});
 
-			++* new_count;
+			++*new_count;
 
 			std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
 				float fa = a.mLeft.x;
 				float fb = b.mLeft.x;
 				return fa < fb;
 			});
-			for (int i = 0; i < values.size()-1; i++) {
+			for (int i = 0; i < values.size() - 1; i++) {
 				values[i].mRight = values[i + 1].mLeft;
 			}
-
-		} else {
+		}
+		else {
 			values.push_back({
 				IKIGAI::MATH::Vector2f(new_p.x, new_p.y),
 				IKIGAI::MATH::Vector2f(),
 				IKIGAI::MATH::Vector2f(),
 				IKIGAI::MATH::Vector2f(),
 			});
-			++* new_count;
+			++*new_count;
 			std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
 				float fa = a.mLeft.x;
 				float fb = b.mLeft.x;
@@ -577,22 +583,21 @@ int CurveEditorExt(const char* label, std::vector<IKIGAI::ANIMATION::Curve>& val
 	}
 
 	if (hovered_idx >= 0 && IsMouseDoubleClicked(0) && new_count && points_count > 2) {
-		--* new_count;
+		--*new_count;
 		values.erase(values.begin() + hovered_idx);
 	}
 
-	if (hovered_point) *hovered_point = hovered_idx;
+	if (hovered_point) {
+		*hovered_point = hovered_idx;
+	}
 
 	EndChild();
 	RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, inner_bb.Min.y), label);
 	return changed_idx;
 }
 
-
-
-
-int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<tinyspline::real>& data, float detailStep,
-	const ImVec2& editor_size, ImU32 flags, int* new_count, int* selected_point, int* hovered_point) {
+int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<tinyspline::real>& data, float detailStep, const ImVec2& editor_size,
+	ImU32 flags, int* new_count, int* selected_point, int* hovered_point) {
 
 	enum class StorageValues : ImGuiID {
 		FROM_X = 100,
@@ -653,8 +658,9 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 	}
 	points_max.y = ImMax(points_max.y, points_min.y + 0.0001f);
 
-
-	if (flags & (int)CurveEditorFlags::RESET) window->StateStorage.Clear();
+	if (flags & (int)CurveEditorFlags::RESET) {
+		window->StateStorage.Clear();
+	}
 
 	float from_x = window->StateStorage.GetFloat((ImGuiID)StorageValues::FROM_X, points_min.x);
 	float from_y = window->StateStorage.GetFloat((ImGuiID)StorageValues::FROM_Y, points_min.y);
@@ -677,23 +683,17 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 		float x = (pos.x - from_x) / width;
 		float y = (pos.y - from_y) / height;
 
-		return ImVec2(
-			inner_bb.Min.x * (1 - x) + inner_bb.Max.x * x,
-			inner_bb.Min.y * y + inner_bb.Max.y * (1 - y)
-		);
+		return ImVec2(inner_bb.Min.x * (1 - x) + inner_bb.Max.x * x, inner_bb.Min.y * y + inner_bb.Max.y * (1 - y));
 	};
 
 	auto invTransform = [&](const ImVec2& pos) -> ImVec2 {
 		float x = (pos.x - inner_bb.Min.x) / (inner_bb.Max.x - inner_bb.Min.x);
 		float y = (inner_bb.Max.y - pos.y) / (inner_bb.Max.y - inner_bb.Min.y);
 
-		return ImVec2(
-			from_x + width * x,
-			from_y + height * y
-		);
+		return ImVec2(from_x + width * x, from_y + height * y);
 	};
 
-	if (flags & (int)CurveEditorFlags::SHOW_GRID) {//draw grid
+	if (flags & (int)CurveEditorFlags::SHOW_GRID) { // draw grid
 		int exp;
 		frexp(width / 5, &exp);
 		float step_x = (float)ldexp(1.0, exp);
@@ -701,13 +701,14 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 
 		float x = step_x * int(from_x / step_x);
 		for (int i = -1; i < cell_cols + 2; ++i) {
-			ImVec2 a = transform({x + i * step_x, from_y});
-			ImVec2 b = transform({x + i * step_x, from_y + height});
+			ImVec2 a = transform({ x + i * step_x, from_y });
+			ImVec2 b = transform({ x + i * step_x, from_y + height });
 			window->DrawList->AddLine(a, b, 0x55000000);
 			char buf[64];
 			if (exp > 0) {
 				ImFormatString(buf, sizeof(buf), " %d", int(x + i * step_x));
-			} else {
+			}
+			else {
 				ImFormatString(buf, sizeof(buf), " %.2f", x + i * step_x);
 			}
 			window->DrawList->AddText(b, 0x55000000, buf);
@@ -719,13 +720,14 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 
 		float y = step_y * int(from_y / step_y);
 		for (int i = -1; i < cell_rows + 2; ++i) {
-			ImVec2 a = transform({from_x, y + i * step_y});
-			ImVec2 b = transform({from_x + width, y + i * step_y});
+			ImVec2 a = transform({ from_x, y + i * step_y });
+			ImVec2 b = transform({ from_x + width, y + i * step_y });
 			window->DrawList->AddLine(a, b, 0x55000000);
 			char buf[64];
 			if (exp > 0) {
 				ImFormatString(buf, sizeof(buf), " %d", int(y + i * step_y));
-			} else {
+			}
+			else {
 				ImFormatString(buf, sizeof(buf), " %.2f", y + i * step_y);
 			}
 			window->DrawList->AddText(a, 0x55000000, buf);
@@ -753,7 +755,8 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 		from_y += drag_offset.y * height / (inner_bb.Max.y - inner_bb.Min.y);
 		window->StateStorage.SetFloat((ImGuiID)StorageValues::FROM_X, from_x);
 		window->StateStorage.SetFloat((ImGuiID)StorageValues::FROM_Y, from_y);
-	} else if (IsMouseDragging(2) && IsItemHovered()) {
+	}
+	else if (IsMouseDragging(2) && IsItemHovered()) {
 		window->StateStorage.SetBool((ImGuiID)StorageValues::IS_PANNING, true);
 		start_pan.x = from_x;
 		start_pan.y = from_y;
@@ -767,7 +770,8 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 		auto _p = spline.controlPointVec2At(point_idx);
 		ImVec2 point = ImVec2(_p.x(), _p.y());
 
-		auto handlePoint = [&](ImVec2& p, int idx, float drawOffset = 0.0f, ImU32 color = GetColorU32(ImGuiCol_PlotLines), ImU32 colorHover = GetColorU32(ImGuiCol_PlotLinesHovered)) -> bool {
+		auto handlePoint = [&](ImVec2& p, int idx, float drawOffset = 0.0f, ImU32 color = GetColorU32(ImGuiCol_PlotLines),
+							   ImU32 colorHover = GetColorU32(ImGuiCol_PlotLinesHovered)) -> bool {
 			static const float SIZE = 3;
 
 			ImVec2 cursor_pos = GetCursorScreenPos();
@@ -788,11 +792,15 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 			window->DrawList->AddLine(pos + ImVec2(SIZE, 0), pos + ImVec2(0, -SIZE), col, thickness);
 			window->DrawList->AddLine(pos + ImVec2(-SIZE, 0), pos + ImVec2(0, -SIZE), col, thickness);
 
-			if (IsItemHovered()) hovered_idx = point_idx + idx;
+			if (IsItemHovered()) {
+				hovered_idx = point_idx + idx;
+			}
 
 			bool changed = false;
 			if (IsItemActive() && IsMouseClicked(0)) {
-				if (selected_point) *selected_point = point_idx + idx;
+				if (selected_point) {
+					*selected_point = point_idx + idx;
+				}
 				window->StateStorage.SetFloat((ImGuiID)StorageValues::POINT_START_X, pos.x);
 				window->StateStorage.SetFloat((ImGuiID)StorageValues::POINT_START_Y, pos.y);
 			}
@@ -800,7 +808,7 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 			if (IsItemHovered() || (IsItemActive() && IsMouseDragging(0))) {
 				char tmp[64];
 				ImFormatString(tmp, sizeof(tmp), "%0.2f, %0.2f", p.x, p.y);
-				window->DrawList->AddText({pos.x, pos.y - GetTextLineHeight()}, 0xff000000, tmp);
+				window->DrawList->AddText({ pos.x, pos.y - GetTextLineHeight() }, 0xff000000, tmp);
 			}
 
 			if (IsItemActive() && IsMouseDragging(0)) {
@@ -820,7 +828,6 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 		};
 
 		PushID(point_idx + 1);
-
 
 		if (handlePoint(point, point_idx)) {
 			data[point_idx * 2] = point.x;
@@ -842,8 +849,8 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 			std::vector<tinyspline::real> p0 = spline.eval(i).result();
 			std::vector<tinyspline::real> p1 = spline.eval(i + detailStep).result();
 
-			ImVec2 pos0 = transform({static_cast<float>(p0[0]), static_cast<float>(p0[1])});
-			ImVec2 pos1 = transform({static_cast<float>(p1[0]), static_cast<float>(p1[1])});
+			ImVec2 pos0 = transform({ static_cast<float>(p0[0]), static_cast<float>(p0[1]) });
+			ImVec2 pos1 = transform({ static_cast<float>(p1[0]), static_cast<float>(p1[1]) });
 
 			window->DrawList->AddLine(pos0, pos1, GetColorU32(ImGuiCol_PlotLinesHovered), 1.0f);
 		}
@@ -856,20 +863,20 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 	if (IsItemActive() && IsMouseDoubleClicked(0) && new_count) {
 		ImVec2 mp = GetMousePos();
 		ImVec2 new_p = invTransform(mp);
-		
+
 		data.push_back(new_p.x);
 		data.push_back(new_p.y);
 
-		if (data.size() / 2  > 3) {
+		if (data.size() / 2 > 3) {
 			spline = tinyspline::BSpline(data.size() / 2);
 			spline.setControlPoints(data);
 		}
 
-		++* new_count;
+		++*new_count;
 	}
 
 	if (hovered_idx >= 0 && IsMouseDoubleClicked(0) && new_count && points_count > 2) {
-		--* new_count;
+		--*new_count;
 		data.erase(data.begin() + hovered_idx);
 		data.erase(data.begin() + hovered_idx);
 
@@ -879,15 +886,14 @@ int SplineEditorExt(const char* label, tinyspline::BSpline& spline, std::vector<
 		}
 	}
 
-	if (hovered_point) *hovered_point = hovered_idx;
+	if (hovered_point) {
+		*hovered_point = hovered_idx;
+	}
 
 	EndChild();
 	RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, inner_bb.Min.y), label);
 	return changed_idx;
 }
-
-
-
 
 /*
 virtual void RemoveInterval(int eId, int iId) override {
@@ -947,24 +953,24 @@ IKIGAI::EDITOR::TimelineAnimationWindow::TimelineAnimationWindow() {
 	mAnimation = std::make_unique<IKIGAI::ANIMATION::Animation>(100, 60, false);
 }
 
-void IKIGAI::EDITOR::TimelineAnimationWindow::openResource(const std::string& path) {
-
-}
+void IKIGAI::EDITOR::TimelineAnimationWindow::openResource(const std::string& path) { }
 
 ////////
 ///
 
 struct Prop {
 	Prop() = default;
-	Prop(std::string objName,
-		IKIGAI::ECS::Object::Id objId,
-		std::string componentName,
-		std::string propertyName,
-		IKIGAI::ANIMATION::AnimationProperty animProp,
-		IKIGAI::ANIMATION::PropType defaultValue):objName(objName), objId(objId), componentName(componentName), propertyName(propertyName), animProp(animProp), defaultValue(defaultValue){}
+	Prop(std::string objName, IKIGAI::ECS::Object::Id objId, std::string componentName, std::string propertyName,
+		IKIGAI::ANIMATION::AnimationProperty animProp, IKIGAI::ANIMATION::PropType defaultValue)
+		: objName(objName)
+		, objId(objId)
+		, componentName(componentName)
+		, propertyName(propertyName)
+		, animProp(animProp)
+		, defaultValue(defaultValue) { }
 
 	std::string objName;
-	IKIGAI::ECS::Object::Id objId{IKIGAI::ECS2::Entity::ID(0)};
+	IKIGAI::ECS::Object::Id objId { IKIGAI::ECS::Entity::ID(0) };
 	std::string componentName;
 	std::string propertyName;
 	IKIGAI::ANIMATION::AnimationProperty animProp;
@@ -975,147 +981,140 @@ std::map<std::string, Prop> AllObjPropsInAnimation;
 
 std::map<std::string, Prop> ObjProps;
 
-template<typename T>
+template <typename T>
 void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
 	if (comp->getName() == IKIGAI::ECS::GetComponentName<T>()) {
-		auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+		auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS::World>().getComponentManager();
 		auto props = T::GetMembers();
-		std::apply([&comp, &name, &id, cm]<typename... Args> (Args&... tpl) {
-			auto drawElem = [&comp, &name, &id, cm](auto& prop) {
-				const auto propName = prop.getName();
-				const auto wType = std::get<IKIGAI::UTILS::WidgetType>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
-				const auto lineName = name + comp->getName() + propName;
-				switch (wType) {
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
-					if constexpr (std::is_same_v<decltype(prop.getPropType()), IKIGAI::MATH::Vector4f>) {
-						ObjProps[lineName] = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								prop.set(*component.get(), std::get<IKIGAI::MATH::Vector4f>(val));
-							},
-							[prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return prop.get(*component.get());
-							}),
-							prop.getPropType()};
+		std::apply(
+			[&comp, &name, &id, cm]<typename... Args>(Args&... tpl) {
+				auto drawElem = [&comp, &name, &id, cm](auto& prop) {
+					const auto propName = prop.getName();
+					const auto wType = std::get<IKIGAI::UTILS::WidgetType>(prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
+					const auto lineName = name + comp->getName() + propName;
+					switch (wType) {
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
+						if constexpr (std::is_same_v<decltype(prop.getPropType()), IKIGAI::MATH::Vector4f>) {
+							ObjProps[lineName] = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										prop.set(*component.get(), std::get<IKIGAI::MATH::Vector4f>(val));
+									},
+									[prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return prop.get(*component.get());
+									}),
+								prop.getPropType() };
+						}
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_4: {
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_3: {
-					if constexpr (std::is_same_v<decltype(prop.getPropType()), IKIGAI::MATH::Vector3f>) {
-						ObjProps[lineName] = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								prop.set(*component.get(), std::get<IKIGAI::MATH::Vector3f>(val));
-							},
-							[prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return prop.get(*component.get());
-							}),
-							prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_COLOR_4: {
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_3: {
-					//widgetColor3(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT: {
-					if constexpr (std::is_same_v<decltype(prop.getPropType()), float>) {
-						ObjProps[lineName] = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								prop.set(*component.get(), std::get<float>(val));
-							},
-							[prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return prop.get(*component.get());
-							}),
-							prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_3: {
+						if constexpr (std::is_same_v<decltype(prop.getPropType()), IKIGAI::MATH::Vector3f>) {
+							ObjProps[lineName] = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										prop.set(*component.get(), std::get<IKIGAI::MATH::Vector3f>(val));
+									},
+									[prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return prop.get(*component.get());
+									}),
+								prop.getPropType() };
+						}
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_INT: {
-					if constexpr (std::is_same_v<decltype(prop.getPropType()), int>) {
-						ObjProps[lineName] = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								prop.set(*component.get(), std::get<int>(val));
-							},
-							[prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return prop.get(*component.get());
-							}),
-							prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_COLOR_3: {
+						// widgetColor3(static_cast<T*>(comp.get()), prop);
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::BOOL: {
-					if constexpr (std::is_same_v<decltype(prop.getPropType()), bool>) {
-						ObjProps[lineName] = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								prop.set(*component.get(), std::get<bool>(val));
-							},
-							[prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return prop.get(*component.get());
-							}),
-							prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT: {
+						if constexpr (std::is_same_v<decltype(prop.getPropType()), float>) {
+							ObjProps[lineName] = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										prop.set(*component.get(), std::get<float>(val));
+									},
+									[prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return prop.get(*component.get());
+									}),
+								prop.getPropType() };
+						}
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::STRING: {
-					//widgetString(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::COMBO: {
-					//widgetCombo(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				}
-			};
-			(drawElem(tpl), ...);
-		}, props);
+					case IKIGAI::UTILS::WidgetType::DRAG_INT: {
+						if constexpr (std::is_same_v<decltype(prop.getPropType()), int>) {
+							ObjProps[lineName] = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										prop.set(*component.get(), std::get<int>(val));
+									},
+									[prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return prop.get(*component.get());
+									}),
+								prop.getPropType() };
+						}
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::BOOL: {
+						if constexpr (std::is_same_v<decltype(prop.getPropType()), bool>) {
+							ObjProps[lineName] = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										prop.set(*component.get(), std::get<bool>(val));
+									},
+									[prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return prop.get(*component.get());
+									}),
+								prop.getPropType() };
+						}
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::STRING: {
+						// widgetString(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::COMBO: {
+						// widgetCombo(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					}
+				};
+				(drawElem(tpl), ...);
+			},
+			props);
 	}
 }
 
-template<template<typename...> class Container, typename...ComponentType>
-void getProps(const std::string& name, const IKIGAI::ECS::Object::Id& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp, Container<ComponentType...> opt) {
+template <template <typename...> class Container, typename... ComponentType>
+void getProps(const std::string& name, const IKIGAI::ECS::Object::Id& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp,
+	Container<ComponentType...> opt) {
 	(getPropsImpl<ComponentType>(name, id, comp), ...);
 }
 
 void getProps(const std::string& name, const IKIGAI::ECS::Object::Id& id, IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::ComponentBase> comp) {
-	getProps(name, id, comp, IKIGAI::ECS::ComponentsTypeProviderType{});
+	getProps(name, id, comp, IKIGAI::ECS::ComponentsTypeProviderType {});
 }
 ////////////
 
-
-template<typename T>
-void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop) {
+template <typename T>
+void getPropsImpl(
+	const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop) {
 	if (componentName == IKIGAI::ECS::GetComponentName<T>()) {
 		auto props = T::GetMembers();
 
@@ -1123,156 +1122,146 @@ void getPropsImpl(const std::string& name, const IKIGAI::ECS::Object::Id& id, co
 		auto obj = scene.findObjectByID(id);
 
 		if (!obj) {
-			//problem
+			// problem
 			return;
 		}
 
 		auto comp = obj->getComponent<T>();
-		auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+		auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS::World>().getComponentManager();
 
-		std::apply([&comp, &name, &id, &propName, &prop, cm]<typename... Args> (Args&... tpl) {
-			auto drawElem = [&comp, &name, &id, &propName, &prop, cm](auto& _prop) {
+		std::apply(
+			[&comp, &name, &id, &propName, &prop, cm]<typename... Args>(Args&... tpl) {
+				auto drawElem = [&comp, &name, &id, &propName, &prop, cm](auto& _prop) {
+					const auto _propName = _prop.getName();
+					if (propName != _propName) {
+						return;
+					}
 
-				const auto _propName = _prop.getName();
-				if (propName != _propName) {
-					return;
-				}
-
-				const auto wType = std::get<IKIGAI::UTILS::WidgetType>(_prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
-				const auto lineName = name + comp->getName() + propName;
-				switch (wType) {
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
-					if constexpr (std::is_same_v<decltype(_prop.getPropType()), IKIGAI::MATH::Vector4f>) {
-						prop = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								_prop.set(*component.get(), std::get<IKIGAI::MATH::Vector4f>(val));
-							},
-							[_prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return _prop.get(*component.get());
-							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
-							_prop.getPropType()};
+					const auto wType = std::get<IKIGAI::UTILS::WidgetType>(_prop.getMetadata().at(IKIGAI::UTILS::MetaParam::EDIT_WIDGET));
+					const auto lineName = name + comp->getName() + propName;
+					switch (wType) {
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_4: {
+						if constexpr (std::is_same_v<decltype(_prop.getPropType()), IKIGAI::MATH::Vector4f>) {
+							prop = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										_prop.set(*component.get(), std::get<IKIGAI::MATH::Vector4f>(val));
+									},
+									[_prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return _prop.get(*component.get());
+									},
+									IKIGAI::ANIMATION::InterpolationType::CUSTOM),
+								_prop.getPropType() };
+						}
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_4: {
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_3: {
-					if constexpr (std::is_same_v<decltype(_prop.getPropType()), IKIGAI::MATH::Vector3f>) {
-						prop = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								_prop.set(*component.get(), std::get<IKIGAI::MATH::Vector3f>(val));
-							},
-							[_prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return _prop.get(*component.get());
-							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
-							_prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_COLOR_4: {
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_COLOR_3: {
-					//widgetColor3(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_FLOAT: {
-					if constexpr (std::is_same_v<decltype(_prop.getPropType()), float>) {
-						prop = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								_prop.set(*component.get(), std::get<float>(val));
-							},
-							[_prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return _prop.get(*component.get());
-							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
-							_prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT_3: {
+						if constexpr (std::is_same_v<decltype(_prop.getPropType()), IKIGAI::MATH::Vector3f>) {
+							prop = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										_prop.set(*component.get(), std::get<IKIGAI::MATH::Vector3f>(val));
+									},
+									[_prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return _prop.get(*component.get());
+									},
+									IKIGAI::ANIMATION::InterpolationType::CUSTOM),
+								_prop.getPropType() };
+						}
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::DRAG_INT: {
-					if constexpr (std::is_same_v<decltype(_prop.getPropType()), int>) {
-						prop = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								_prop.set(*component.get(), std::get<int>(val));
-							},
-							[_prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return _prop.get(*component.get());
-							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
-							_prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_COLOR_3: {
+						// widgetColor3(static_cast<T*>(comp.get()), prop);
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::BOOL: {
-					if constexpr (std::is_same_v<decltype(_prop.getPropType()), bool>) {
-						prop = Prop{
-							name, id, comp->getName(), propName,
-							IKIGAI::ANIMATION::AnimationProperty(lineName,
-							[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								_prop.set(*component.get(), std::get<bool>(val));
-							},
-							[_prop, id, cm]() {
-								auto component = cm->getComponent<T>(id);
-								//auto component = IKIGAI::ECS::ComponentManager::GetInstance().getComponent<T>(id);
-								return _prop.get(*component.get());
-							}, IKIGAI::ANIMATION::InterpolationType::CUSTOM),
-							_prop.getPropType()};
+					case IKIGAI::UTILS::WidgetType::DRAG_FLOAT: {
+						if constexpr (std::is_same_v<decltype(_prop.getPropType()), float>) {
+							prop = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										_prop.set(*component.get(), std::get<float>(val));
+									},
+									[_prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return _prop.get(*component.get());
+									},
+									IKIGAI::ANIMATION::InterpolationType::CUSTOM),
+								_prop.getPropType() };
+						}
+						break;
 					}
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::STRING: {
-					//widgetString(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				case IKIGAI::UTILS::WidgetType::COMBO: {
-					//widgetCombo(static_cast<T*>(comp.get()), prop);
-					break;
-				}
-				}
-			};
-			(drawElem(tpl), ...);
-		}, props);
+					case IKIGAI::UTILS::WidgetType::DRAG_INT: {
+						if constexpr (std::is_same_v<decltype(_prop.getPropType()), int>) {
+							prop = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										_prop.set(*component.get(), std::get<int>(val));
+									},
+									[_prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return _prop.get(*component.get());
+									},
+									IKIGAI::ANIMATION::InterpolationType::CUSTOM),
+								_prop.getPropType() };
+						}
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::BOOL: {
+						if constexpr (std::is_same_v<decltype(_prop.getPropType()), bool>) {
+							prop = Prop { name, id, comp->getName(), propName,
+								IKIGAI::ANIMATION::AnimationProperty(
+									lineName,
+									[_prop, id, cm](IKIGAI::ANIMATION::PropType val) {
+										auto component = cm->getComponent<T>(id);
+										_prop.set(*component.get(), std::get<bool>(val));
+									},
+									[_prop, id, cm]() {
+										auto component = cm->getComponent<T>(id);
+										return _prop.get(*component.get());
+									},
+									IKIGAI::ANIMATION::InterpolationType::CUSTOM),
+								_prop.getPropType() };
+						}
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::STRING: {
+						// widgetString(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					case IKIGAI::UTILS::WidgetType::COMBO: {
+						// widgetCombo(static_cast<T*>(comp.get()), prop);
+						break;
+					}
+					}
+				};
+				(drawElem(tpl), ...);
+			},
+			props);
 	}
 }
 
-template<template<typename...> class Container, typename...ComponentType>
-void getProp(const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop, Container<ComponentType...> opt) {
+template <template <typename...> class Container, typename... ComponentType>
+void getProp(const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop,
+	Container<ComponentType...> opt) {
 	(getPropsImpl<ComponentType>(name, id, componentName, propName, prop), ...);
 }
 
 void getProp(const std::string& name, const IKIGAI::ECS::Object::Id& id, const std::string& componentName, const std::string& propName, Prop& prop) {
-	getProp(name, id, componentName, propName, prop, IKIGAI::ECS::ComponentsTypeProviderType{});
+	getProp(name, id, componentName, propName, prop, IKIGAI::ECS::ComponentsTypeProviderType {});
 }
-
-
-
-
-
-
-
 
 std::shared_ptr<IKIGAI::ECS::Object> selectObject;
 void getObjectProps() {
@@ -1286,29 +1275,22 @@ void getObjectProps() {
 	selectObject = IKIGAI::EDITOR::EditorRender::GlobalState.mSelectObject;
 	ObjProps.clear();
 
-
 	const auto objId = selectObject->getID();
 	const auto objName = selectObject->getName();
 
-	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS2::World>().getComponentManager();
+	auto cm = IKIGAI::RESOURCES::ServiceManager::Get<IKIGAI::ECS::World>().getComponentManager();
 	auto components = cm->getComponents<IKIGAI::ECS::ComponentBase>(selectObject->getID());
-	//auto components = IKIGAI::ECS::ComponentManager::GetInstance().getComponents(selectObject->getID());
 	for (auto& component : components) {
 		getProps(objName, objId, component);
 	}
 
 	Prop eventProp("", IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(0)), "EVENT", "",
-		IKIGAI::ANIMATION::AnimationProperty(objName + "EVENT",
-		[](IKIGAI::ANIMATION::PropType val) {
-			std::cout << "SEND EVENT" << std::get<std::string>(val) << std::endl;
-		},
-		[]() {
-			return "";
-		}),
+		IKIGAI::ANIMATION::AnimationProperty(
+			objName + "EVENT", [](IKIGAI::ANIMATION::PropType val) { std::cout << "SEND EVENT" << std::get<std::string>(val) << std::endl; },
+			[]() { return ""; }),
 		std::string());
 
 	ObjProps[objName + "EVENT"] = eventProp;
-
 }
 
 IKIGAI::ANIMATION::TimelineAnimationDescriptor IKIGAI::EDITOR::TimelineAnimationWindow::toDescriptor() {
@@ -1319,7 +1301,7 @@ IKIGAI::ANIMATION::TimelineAnimationDescriptor IKIGAI::EDITOR::TimelineAnimation
 	desc.FPS = mAnimation->getFPS();
 
 	for (auto& track : AllObjPropsInAnimation) {
-		desc.tracks[track.first] = IKIGAI::ANIMATION::TimelineAnimationTrackDescriptor{
+		desc.tracks[track.first] = IKIGAI::ANIMATION::TimelineAnimationTrackDescriptor {
 			track.second.objName,
 			static_cast<int>(track.second.objId.getUniqueId()),
 			track.second.componentName,
@@ -1329,25 +1311,24 @@ IKIGAI::ANIMATION::TimelineAnimationDescriptor IKIGAI::EDITOR::TimelineAnimation
 
 	for (auto frames : mAnimation->fastAccess) {
 		for (auto frame : frames.second) {
-			desc.trackFrames[frames.first].push_back(ANIMATION::TimelineAnimationFrameDescriptor{
-				frame,
-				mAnimation->frames[frame][frames.first],
-				ANIMATION::InterpolationType::CUSTOM, //TODO add this to any frame and remove from track
-				mAnimation->curves[frames.first][frame]
-			});
+			desc.trackFrames[frames.first].push_back(ANIMATION::TimelineAnimationFrameDescriptor { frame, mAnimation->frames[frame][frames.first],
+				ANIMATION::InterpolationType::CUSTOM, // TODO add this to any frame and remove from track
+				mAnimation->curves[frames.first][frame] });
 		}
 	}
 
 	return desc;
 }
 
-
-std::unique_ptr<IKIGAI::ANIMATION::Animation> IKIGAI::EDITOR::TimelineAnimationWindow::fromDescriptor(IKIGAI::ANIMATION::TimelineAnimationDescriptor& desc) {
-	mAnimation = std::make_unique<ANIMATION::Animation>(static_cast<unsigned int>(desc.framesCount), static_cast<unsigned int>(desc.FPS), desc.isLooped);
+std::unique_ptr<IKIGAI::ANIMATION::Animation> IKIGAI::EDITOR::TimelineAnimationWindow::fromDescriptor(
+	IKIGAI::ANIMATION::TimelineAnimationDescriptor& desc) {
+	mAnimation
+		= std::make_unique<ANIMATION::Animation>(static_cast<unsigned int>(desc.framesCount), static_cast<unsigned int>(desc.FPS), desc.isLooped);
 
 	for (auto& track : desc.tracks) {
 		Prop prop;
-		getProp(track.second.objectName, IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(track.second.objectId)), track.second.componentName, track.second.propertyName, prop);
+		getProp(track.second.objectName, IKIGAI::ECS::Object::Id(IKIGAI::ECS::Object::Id::ID(track.second.objectId)), track.second.componentName,
+			track.second.propertyName, prop);
 
 		mAnimation->addProperty(ObjProps[track.first].animProp);
 		AllObjPropsInAnimation[track.first] = prop;
@@ -1368,18 +1349,18 @@ std::unique_ptr<IKIGAI::ANIMATION::Animation> IKIGAI::EDITOR::TimelineAnimationW
 	return std::move(mAnimation);
 }
 
-//TODO: save to file move to utils function
+// TODO: save to file move to utils function
 
 void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 	if (!mAnimation) {
 		return;
 	}
 
-	//if (CurveEditorExt("##curve2", values2_, {ImGui::GetContentRegionAvail().x, 150}, flags, 10.0f, &new_count, nullptr, &hovered_point,
+	// if (CurveEditorExt("##curve2", values2_, {ImGui::GetContentRegionAvail().x, 150}, flags, 10.0f, &new_count, nullptr, &hovered_point,
 	//	{0, 1}, {-2, 2}
-		//	)) {
-		//	coutn = new_count;
-		//}
+	//	)) {
+	//	coutn = new_count;
+	// }
 	ImGui::Begin("Timeline Animation");
 	ImGui::PushItemWidth(130);
 	int maxFrame = mAnimation->getFrameCount();
@@ -1400,11 +1381,8 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 	}
 	ImGui::SameLine();
 
-
 	static bool isCurve = false;
-	if (ImGui::Checkbox("Curve", &isCurve)) {
-		
-	}
+	if (ImGui::Checkbox("Curve", &isCurve)) { }
 	ImGui::SameLine();
 
 	if (ImGui::Button("Play")) {
@@ -1441,17 +1419,17 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 				auto res = UTILS::ToJsonStr(desc);
 
 				if (res.isErr()) {
-					//LOG_ERROR << "Can not save: " << sceneFilePath;
+					// LOG_ERROR << "Can not save: " << sceneFilePath;
 				}
 
 				auto jsonStr = res.unwrap();
-				//write
-				//auto path = UTILS::GetRealPath("animations/") + name + ".trackanim";
-				//std::ofstream f(path);
-				//if (f.is_open()) {
+				// write
+				// auto path = UTILS::GetRealPath("animations/") + name + ".trackanim";
+				// std::ofstream f(path);
+				// if (f.is_open()) {
 				//	f << jsonStr << std::endl;
-				//}
-				//f.close();
+				// }
+				// f.close();
 
 				ImGui::CloseCurrentPopup();
 			}
@@ -1463,7 +1441,6 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 		}
 		ImGui::EndPopup();
 	}
-
 
 	ImGui::PopItemWidth();
 	getObjectProps();
@@ -1497,7 +1474,6 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 		selectedPropName.clear();
 	}
 
-
 	static std::optional<std::string> lineSelected;
 
 	static std::optional<int> frameToEdit;
@@ -1505,19 +1481,18 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 	if (!isCurve) {
 		static int32_t currentFrame = 0;
 		static int32_t startFrame = 0;
-		if (ImGui::BeginNeoSequencer("#Sequencer", &currentFrame, &startFrame, &maxFrame, {0, 0},
-			ImGuiNeoSequencerFlags_EnableSelection |
-			ImGuiNeoSequencerFlags_Selection_EnableDragging |
-			ImGuiNeoSequencerFlags_Selection_EnableDeletion)) {
+		if (ImGui::BeginNeoSequencer("#Sequencer", &currentFrame, &startFrame, &maxFrame, { 0, 0 },
+				ImGuiNeoSequencerFlags_EnableSelection | ImGuiNeoSequencerFlags_Selection_EnableDragging
+					| ImGuiNeoSequencerFlags_Selection_EnableDeletion)) {
 
 			// Yet group not support
-			//if (ImGui::BeginNeoGroup("Transform", &transformOpen)) {
-			//ImGui::EndNeoGroup();
+			// if (ImGui::BeginNeoGroup("Transform", &transformOpen)) {
+			// ImGui::EndNeoGroup();
 			//}
 
 			std::optional<std::string> lineToDelete;
 			std::optional<int> frameToDelete;
-			
+
 			lineSelected = std::nullopt;
 			auto& lines = mAnimation->props;
 			for (auto& line : lines) {
@@ -1526,8 +1501,8 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 				if (ImGui::BeginNeoTimelineEx(line.first.c_str(), nullptr, ImGuiNeoTimelineFlags_None, &needDeleteLine, &isSelected)) {
 					for (auto&& v : mAnimation->frames) {
 						static std::map<std::string, int> frames;
-						frames[line.first+std::to_string(v.first)] = v.first;
-						//TODO: problem with moving frames
+						frames[line.first + std::to_string(v.first)] = v.first;
+						// TODO: problem with moving frames
 						if (v.second.contains(line.first)) { // Delete frame event
 							int frameAction = ImGui::NeoKeyframe(&frames[line.first + std::to_string(v.first)]);
 
@@ -1536,7 +1511,8 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 							}
 
 							if (frameAction == 1) {
-								std::cout << "Delete frame: " << frames[line.first + std::to_string(v.first)] << " in line: " << line.first << std::endl;
+								std::cout << "Delete frame: " << frames[line.first + std::to_string(v.first)] << " in line: " << line.first
+										  << std::endl;
 								frameToDelete = frames[line.first + std::to_string(v.first)];
 							}
 							if (frameAction == 2) {
@@ -1571,7 +1547,7 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 					if (isSelected) {
 						lineSelected = line.first;
 					}
-					
+
 					ImGui::EndNeoTimeLine();
 				}
 			}
@@ -1587,22 +1563,21 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 	}
 	else {
 		static tinyspline::BSpline spline;
-		static std::vector<tinyspline::real> data = {0.0, 0.0, 10.0, 10.0};
+		static std::vector<tinyspline::real> data = { 0.0, 0.0, 10.0, 10.0 };
 		static int hovered_point = -1;
 		static int new_count = 0;
 		int flags = (int)CurveEditorFlags::SHOW_GRID;
-		if (SplineEditorExt("SPLINE", spline, data, 0.05f, {ImGui::GetContentRegionAvail().x, 250}, flags, &new_count, nullptr, &hovered_point)) {
-		}
+		if (SplineEditorExt("SPLINE", spline, data, 0.05f, { ImGui::GetContentRegionAvail().x, 250 }, flags, &new_count, nullptr, &hovered_point)) { }
 
-		//if (!lineSelected) {
+		// if (!lineSelected) {
 		//	ImGui::Text("Track not selected");
-		//}
-		//else {
+		// }
+		// else {
 		//	if (!mAnimation->curves[lineSelected.value()].empty()) {
 		//		int hovered_point = -1;
 		//		int new_count = 0;
-		//		int flags = (int)CurveEditorFlags::SHOW_GRID | (int)CurveEditorFlags::NO_MOVE_X | (int)CurveEditorFlags::NO_DELETE | (int)CurveEditorFlags::NO_ADD;
-		//		float maxX = mAnimation->getFrameCount();
+		//		int flags = (int)CurveEditorFlags::SHOW_GRID | (int)CurveEditorFlags::NO_MOVE_X | (int)CurveEditorFlags::NO_DELETE |
+		//(int)CurveEditorFlags::NO_ADD; 		float maxX = mAnimation->getFrameCount();
 		//
 		//		static std::vector<ANIMATION::Curve> values2_ = {
 		//			ANIMATION::Curve({0, 0}, {1, 1}, {-1, 0}, {1, 0}),
@@ -1619,10 +1594,10 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 		//
 		//		}
 		//	}
-		//}
+		// }
 	}
 
-	//Edit frame
+	// Edit frame
 	if (frameToEdit && lineToEdit) {
 		if (mAnimation->frames.contains(frameToEdit.value())) {
 			auto frame = frameToEdit.value();
@@ -1631,61 +1606,54 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 
 				auto& prop = mAnimation->frames[frame][line];
 
-				std::visit([&line](auto&& arg) {
-					using T = std::decay_t<decltype(arg)>;
-					if constexpr (std::is_same_v<T, bool>) {
-						if (ImGui::Checkbox(line.c_str(), &arg)) {
-							
+				std::visit(
+					[&line](auto&& arg) {
+						using T = std::decay_t<decltype(arg)>;
+						if constexpr (std::is_same_v<T, bool>) {
+							if (ImGui::Checkbox(line.c_str(), &arg)) { }
 						}
-					}
-					else if constexpr (std::is_same_v<T, int>) {
-						if (ImGui::DragInt(line.c_str(), &arg)) {
-
+						else if constexpr (std::is_same_v<T, int>) {
+							if (ImGui::DragInt(line.c_str(), &arg)) { }
 						}
-					}
-					else if constexpr (std::is_same_v<T, float>) {
-						if (ImGui::DragFloat(line.c_str(), &arg)) {
-
+						else if constexpr (std::is_same_v<T, float>) {
+							if (ImGui::DragFloat(line.c_str(), &arg)) { }
 						}
-					}
-					else if constexpr (std::is_same_v<T, MATH::Vector2f>) {
-						std::array<float, 2> data = {arg.x, arg.y};
-						if (ImGui::DragFloat2(line.c_str(), data.data())) {
-							arg.x = data[0];
-							arg.y = data[1];
+						else if constexpr (std::is_same_v<T, MATH::Vector2f>) {
+							std::array<float, 2> data = { arg.x, arg.y };
+							if (ImGui::DragFloat2(line.c_str(), data.data())) {
+								arg.x = data[0];
+								arg.y = data[1];
+							}
 						}
-					}
-					else if constexpr (std::is_same_v<T, MATH::Vector3f>) {
-						std::array<float, 3> data = {arg.x, arg.y, arg.z};
-						if (ImGui::DragFloat3(line.c_str(), data.data())) {
-							arg.x = data[0];
-							arg.y = data[1];
-							arg.z = data[2];
+						else if constexpr (std::is_same_v<T, MATH::Vector3f>) {
+							std::array<float, 3> data = { arg.x, arg.y, arg.z };
+							if (ImGui::DragFloat3(line.c_str(), data.data())) {
+								arg.x = data[0];
+								arg.y = data[1];
+								arg.z = data[2];
+							}
 						}
-					}
-					else if constexpr (std::is_same_v<T, MATH::Vector4f>) {
-						std::array<float, 4> data = {arg.x, arg.y, arg.z, arg.w};
-						if (ImGui::DragFloat4(line.c_str(), data.data())) {
-							arg.x = data[0];
-							arg.y = data[1];
-							arg.z = data[2];
-							arg.w = data[3];
+						else if constexpr (std::is_same_v<T, MATH::Vector4f>) {
+							std::array<float, 4> data = { arg.x, arg.y, arg.z, arg.w };
+							if (ImGui::DragFloat4(line.c_str(), data.data())) {
+								arg.x = data[0];
+								arg.y = data[1];
+								arg.z = data[2];
+								arg.w = data[3];
+							}
 						}
-					}
-					else if constexpr (std::is_same_v<T, std::string>) {
-						if (ImGui::InputText(line.c_str(), &arg)) {
-
+						else if constexpr (std::is_same_v<T, std::string>) {
+							if (ImGui::InputText(line.c_str(), &arg)) { }
 						}
-					}
-					}, prop);
-
+					},
+					prop);
 
 				auto& curve = mAnimation->curves[line][frame];
 
-				float v[5] = {curve.mLeftTangent.x, curve.mLeftTangent.y, curve.mRightTangent.x, curve.mRightTangent.y};
+				float v[5] = { curve.mLeftTangent.x, curve.mLeftTangent.y, curve.mRightTangent.x, curve.mRightTangent.y };
 				if (Bezier("Curve", v)) {
-					curve.mLeftTangent = {v[0], v[1]};
-					curve.mRightTangent = {v[2], v[3]};
+					curve.mLeftTangent = { v[0], v[1] };
+					curve.mRightTangent = { v[2], v[3] };
 				}
 			}
 		}
@@ -1696,6 +1664,5 @@ void IKIGAI::EDITOR::TimelineAnimationWindow::draw() {
 	}
 
 	ImGui::End();
-
 }
 #endif

@@ -20,7 +20,7 @@
 
 #include <algorithm>
 
-#include <coreModule/ecs/componentManager.h>
+#include "coreModule/ecs/componentTypes.h"
 #include <renderModule/backends/interface/renderEnums.h>
 #include <resourceModule/parser/assimpParser.h>
 
@@ -65,7 +65,7 @@ struct Scene::SpatialIndex {
 	RENDER::FrustumBvh<std::shared_ptr<BVHData>> meshesTree;
 	std::unordered_map<ECS::Object::Id, std::list<std::shared_ptr<BVHData>>> objectToBVHElements;
 };
-Scene::Scene(ECS2::World* world, PhysicsFactories physics)
+Scene::Scene(ECS::World* world, PhysicsFactories physics)
 	: mPhysicsFactories(std::move(physics))
 	, mWorld(world) { }
 void Scene::setPhysicsFactories(PhysicsFactories physics) {
@@ -91,7 +91,7 @@ PHYSICS::PhysicWorld& Scene::physics3d() {
 }
 void Scene::stepPhysics3D(std::chrono::duration<double> dt) {
 	physics3d();
-	ECS2::CommandBuffer commands;
+	ECS::CommandBuffer commands;
 	mPhysics3D->onFixedUpdate(getWorld(), commands, dt);
 	commands.execute();
 }
@@ -113,7 +113,7 @@ PHYSICS2D::World& Scene::physics2d() {
 }
 void Scene::stepPhysics2D(std::chrono::duration<double> dt) {
 	physics2d();
-	ECS2::CommandBuffer commands;
+	ECS::CommandBuffer commands;
 	mPhysics2D->onFixedUpdate(getWorld(), commands, dt);
 	commands.execute();
 }
@@ -131,8 +131,8 @@ Scene::SpatialIndex& Scene::spatial() {
 	}
 	return *mSpatial;
 }
-ECS2::World& Scene::getWorld() const {
-	return mWorld ? *mWorld : RESOURCES::ServiceManager::Get<ECS2::World>();
+ECS::World& Scene::getWorld() const {
+	return mWorld ? *mWorld : RESOURCES::ServiceManager::Get<ECS::World>();
 }
 
 void Scene::init() { }
@@ -242,7 +242,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject() {
 	return createObject("New Actor");
 }
 
-std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ECS2::Entity actorID, const std::string& name, const std::string& tag) {
+std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(ECS::Entity actorID, const std::string& name, const std::string& tag) {
 	objects.push_back(MEMORY::MakeShared<ECS::Object, MEMORY::Category::Node>(actorID, name, tag, &getWorld()));
 	auto& instance = objects.back();
 	if (isExecute) {
@@ -272,7 +272,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::createObject(const ECS::Object::Desc
 		}
 	}
 	if (data.ParentId > 0) {
-		auto p = findObjectByID(ECS2::Entity(ECS2::Entity::ID(data.ParentId)));
+		auto p = findObjectByID(ECS::Entity(ECS::Entity::ID(data.ParentId)));
 		if (!p) {
 			LOG_ERROR << "Object::setParentId: can not find actor with id: " + std::to_string(data.ParentId);
 		}
@@ -498,7 +498,7 @@ std::shared_ptr<ECS::Object> Scene::appendDocument(const DOCUMENT::Expanded& doc
 		}
 		for (std::size_t i = 0; i < descriptors.size(); ++i) {
 			if (descriptors[i].ParentId > 0) {
-				objects[first + i]->setParent(findObjectByID(ECS2::Entity(ECS2::Entity::ID(descriptors[i].ParentId))));
+				objects[first + i]->setParent(findObjectByID(ECS::Entity(ECS::Entity::ID(descriptors[i].ParentId))));
 			}
 			objects[first + i]->setPendingActive(descriptors[i].IsActive);
 		}
@@ -521,7 +521,7 @@ std::shared_ptr<ECS::Object> Scene::appendDocument(const DOCUMENT::Expanded& doc
 			objects[i]->activateLoaded();
 		}
 		if (!document.instances.empty()) {
-			return findObjectByID(ECS2::Entity(ECS2::Entity::ID(DOCUMENT::Id(document.instances.front().entry.at("Id")))));
+			return findObjectByID(ECS::Entity(ECS::Entity::ID(DOCUMENT::Id(document.instances.front().entry.at("Id")))));
 		}
 		return first < objects.size() ? objects[first] : nullptr;
 	} catch (...) {
@@ -533,7 +533,7 @@ std::shared_ptr<ECS::Object> Scene::appendDocument(const DOCUMENT::Expanded& doc
 	}
 }
 void Scene::destroySubtree(int rootId) {
-	auto root = findObjectByID(ECS2::Entity(ECS2::Entity::ID(rootId)));
+	auto root = findObjectByID(ECS::Entity(ECS::Entity::ID(rootId)));
 	if (!root) {
 		return;
 	}
@@ -566,7 +566,7 @@ void Scene::destroySubtree(int rootId) {
 	std::erase_if(prefabInstances, [&](const auto& instance) { return ids.contains(DOCUMENT::Id(instance.entry.at("Id"))); });
 }
 void Scene::restoreObjectPosition(int rootId, std::size_t objectIndex, int siblingIndex) {
-	auto root = findObjectByID(ECS2::Entity(ECS2::Entity::ID(rootId)));
+	auto root = findObjectByID(ECS::Entity(ECS::Entity::ID(rootId)));
 	if (!root) {
 		return;
 	}
@@ -627,7 +627,7 @@ std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByTag(const std::string& p
 	}
 }
 
-std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByID(ECS2::Entity p_id) {
+std::shared_ptr<IKIGAI::ECS::Object> Scene::findObjectByID(ECS::Entity p_id) {
 	auto result
 		= std::ranges::find_if(objects.begin(), objects.end(), [p_id](std::shared_ptr<ECS::Object>& element) { return element->getID() == p_id; });
 
@@ -668,7 +668,6 @@ std::span<std::shared_ptr<IKIGAI::ECS::Object>> Scene::getObjects() {
 IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
 	auto cm = getWorld().getComponentManager();
 	for (auto& camera : cm->getComponentsArray<ECS::CameraComponent>()) {
-		// for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::CameraComponent>()) {
 		if (camera.obj->getIsActive()) {
 			if (camera.obj->getName().rfind("__", 0) == 0) { // TODO: refactor VR component and remove it
 				continue;
@@ -678,7 +677,6 @@ IKIGAI::UTILS::WeakPtr<IKIGAI::ECS::CameraComponent> Scene::findMainCamera() {
 		}
 	}
 	for (auto& camera : cm->getComponentsArray<ECS::VrCameraComponent>()) {
-		// for (auto& camera : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::VrCameraComponent>()) {
 		if (camera.obj->getIsActive()) {
 			return camera.getWeak<ECS::CameraComponent>();
 		}
@@ -693,7 +691,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData(std::vector<int>* obj
 	}
 	auto cm = getWorld().getComponentManager();
 	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
@@ -703,7 +700,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData(std::vector<int>* obj
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::DirectionalLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
@@ -713,7 +709,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData(std::vector<int>* obj
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::PointLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PointLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
@@ -723,7 +718,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData(std::vector<int>* obj
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::AmbientLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
@@ -733,7 +727,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightData(std::vector<int>* obj
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::AmbientSphereLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientSphereLight>()) {
 		if (light.obj->getIsActive()) {
 			auto ldata = light.getData().generateOGLStruct();
 			result.push_back(ldata);
@@ -753,7 +746,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 
 	auto cm = getWorld().getComponentManager();
 	for (auto& light : cm->getComponentsArray<ECS::SpotLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::SpotLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -769,7 +761,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::DirectionalLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::DirectionalLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -785,7 +776,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::PointLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::PointLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -801,7 +791,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::AmbientLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -817,7 +806,6 @@ std::vector<IKIGAI::RENDER::LightOGL> Scene::findLightDataInFrustum(const RENDER
 		}
 	}
 	for (auto& light : cm->getComponentsArray<ECS::AmbientSphereLight>()) {
-		// for (auto& light : ECS::ComponentManager::GetInstance().getComponentArrayRef<ECS::AmbientSphereLight>()) {
 		if (light.obj->getIsActive()) {
 			const auto& lightData = light.getData();
 			const auto& position = lightData.getTransform().getWorldPosition();
@@ -858,8 +846,8 @@ std::vector<std::shared_ptr<RENDER::MeshInterface>> Scene::getMeshesInFrustum(co
 }
 
 namespace {
-void MapChildrenToChunk(IKIGAI::ECS::Object* obj, size_t chunkIdx, std::unordered_map<IKIGAI::ECS2::Entity, size_t>& map,
-	const std::unordered_map<IKIGAI::ECS2::Entity, size_t>& rtMap) {
+void MapChildrenToChunk(IKIGAI::ECS::Object* obj, size_t chunkIdx, std::unordered_map<IKIGAI::ECS::Entity, size_t>& map,
+	const std::unordered_map<IKIGAI::ECS::Entity, size_t>& rtMap) {
 	for (auto child : obj->getChildren()) {
 		if (rtMap.contains(child->getID())) {
 			continue; // child has its own RenderTargetComponent, skip it and its children
@@ -871,13 +859,13 @@ void MapChildrenToChunk(IKIGAI::ECS::Object* obj, size_t chunkIdx, std::unordere
 
 struct ChunkContext {
 	std::vector<IKIGAI::RENDER::RenderChunk> chunks;
-	std::unordered_map<IKIGAI::ECS2::Entity, size_t> objToChunk;
+	std::unordered_map<IKIGAI::ECS::Entity, size_t> objToChunk;
 
-	void init(ECS2::World& world) {
+	void init(ECS::World& world) {
 		chunks.push_back({ nullptr, nullptr }); // Main chunk (index 0)
 
 		auto cm = world.getComponentManager();
-		std::unordered_map<IKIGAI::ECS2::Entity, size_t> rtMap;
+		std::unordered_map<IKIGAI::ECS::Entity, size_t> rtMap;
 
 		for (auto& rt : cm->getComponentsArray<IKIGAI::ECS::RenderTargetComponent>()) {
 			if (!rt.obj->getIsActive()) {
@@ -901,7 +889,7 @@ struct ChunkContext {
 		}
 	}
 
-	size_t getChunkIdxForObj(IKIGAI::ECS2::Entity id) const {
+	size_t getChunkIdxForObj(IKIGAI::ECS::Entity id) const {
 		auto it = objToChunk.find(id);
 		if (it != objToChunk.end()) {
 			return it->second;

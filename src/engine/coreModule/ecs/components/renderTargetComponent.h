@@ -6,7 +6,6 @@
 #include "utilsModule/enum.h"
 #include "utilsModule/reflection/reflection_macros.h"
 
-
 namespace IKIGAI::ECS {
 class Object;
 }
@@ -45,13 +44,13 @@ public:
 
 public:
 	static auto GetMembers() {
-		return std::tuple { };
+		return std::tuple {};
 	}
 
 private:
 	std::string mFrameBufferName;
 	RenderFlowType mFlowType = RenderFlowType::NODE;
-	ECS2::Entity mCameraObjectId = ECS2::Entity(ECS2::Entity::ID(0));
+	ECS::Entity mCameraObjectId = ECS::Entity(ECS::Entity::ID(0));
 
 	std::shared_ptr<RENDER::FrameBufferInterface> mFrameBuffer;
 	UTILS::WeakPtr<CameraComponent> mCamera;

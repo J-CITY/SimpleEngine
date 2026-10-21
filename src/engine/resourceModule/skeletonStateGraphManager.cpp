@@ -3,8 +3,7 @@
 #include "serviceManager.h"
 #include "skeletonAnimationManager.h"
 #include "skeletonManager.h"
-#include "utilsModule/jsonLoader.h"
-#include "utilsModule/log/loggerDefine.h"
+#include "utilsModule/memory/resourceAllocator.h"
 #include <iostream>
 
 namespace IKIGAI::RESOURCES {
@@ -95,36 +94,23 @@ namespace {
 ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::CreateFromResource(
 	const std::string& path, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
 	auto doc = readDocument(path);
-	if ((doc.contains("Version") && doc.at("Version") != 2) || (!doc.contains("Version") && doc.contains("States") && doc.at("States").is_object())) {
-		throw std::runtime_error("Unsupported or missing animation graph Version");
+	if (doc.value("Version", 0) != 2) {
+		throw std::runtime_error("Unsupported or missing animation graph Version (expected 2): " + path);
 	}
-	if (doc.value("Version", 0) == 2) {
-		expandBlendspaces(doc);
-		auto graph = MEMORY::MakeSharedWithDeleter<SKELETON::SkeletalStateGraph, MEMORY::Category::Skeleton>(allocator, deleter);
-		auto skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(doc.at("SkeletonPath").get<std::string>());
-		graph->definition = SKELETON::StateGraphDefinition::compile(doc, skeleton, [skeleton](const std::string& clip) {
-			return clip.ends_with(".animation") ? SkeletonAnimationLoader::CreateFromResource(clip, skeleton)
-												: SkeletonAnimationLoader::CreateFromFile(clip, skeleton);
-		});
-		return graph;
-	}
-	auto config = LoadConfig(path);
-	return CreateFromResource(config, allocator, deleter);
-}
-
-ResourcePtr<SKELETON::SkeletalStateGraph> SkeletonStateGraphLoader::CreateFromResource(
-	const RENDER::SkeletonStateGraphResource& config, UTILS::IAllocator* allocator, ResourceDeleter deleter) {
-	return MEMORY::MakeSharedWithDeleter<SKELETON::SkeletalStateGraph, MEMORY::Category::Skeleton>(allocator, deleter, config);
+	expandBlendspaces(doc);
+	auto graph = MEMORY::MakeSharedWithDeleter<SKELETON::SkeletalStateGraph, MEMORY::Category::Skeleton>(allocator, deleter);
+	auto skeleton = ServiceManager::Get<SkeletonLoader>().loadResource(doc.at("SkeletonPath").get<std::string>());
+	graph->definition = SKELETON::StateGraphDefinition::compile(doc, skeleton, [skeleton](const std::string& clip) {
+		return clip.ends_with(".animation") ? SkeletonAnimationLoader::CreateFromResource(clip, skeleton)
+											: SkeletonAnimationLoader::CreateFromFile(clip, skeleton);
+	});
+	return graph;
 }
 
 bool SkeletonStateGraphLoader::reloadResource(std::weak_ptr<SKELETON::SkeletalStateGraph> weakRes, const std::string& path) {
 	if (auto res = weakRes.lock()) {
 		try {
 			auto candidate = CreateFromResource(path);
-			if (bool(candidate->definition) != bool(res->definition)) {
-				throw std::runtime_error("Cannot change graph schema during playback");
-			}
-			res->resource = candidate->resource;
 			res->definition = candidate->definition;
 			++res->revision;
 			return true;

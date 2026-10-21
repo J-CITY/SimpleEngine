@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "componentManager.h"
+#include "componentTypes.h"
 #include "components/scriptComponent.h"
 #include "components/transform.h"
 #include "ecsModule/world.h"
@@ -45,12 +45,12 @@ public:
 	Descriptor getDescriptor() const;
 
 	// using Id_ = Id<Object>;
-	using Id = ECS2::Entity;
+	using Id = ECS::Entity;
 	using ObjPtr = std::shared_ptr<Object>;
 
-	Object(ECS2::Entity actorID, const std::string& name, const std::string& tag, ECS2::World* world = nullptr);
-	explicit Object(const Descriptor& actorID, ECS2::World* world = nullptr, bool deferred = false);
-	ECS2::World& getWorld() const {
+	Object(ECS::Entity actorID, const std::string& name, const std::string& tag, ECS::World* world = nullptr);
+	explicit Object(const Descriptor& actorID, ECS::World* world = nullptr, bool deferred = false);
+	ECS::World& getWorld() const {
 		return *mWorld;
 	}
 	void addSerializedComponent(const ComponentsDescriptorType& descriptor);
@@ -75,8 +75,8 @@ public:
 	[[nodiscard]] bool getIsSelfVisible() const;
 	[[nodiscard]] bool getIsVisible() const;
 
-	void setID(ECS2::Entity id);
-	[[nodiscard]] ECS2::Entity getID() const;
+	void setID(ECS::Entity id);
+	[[nodiscard]] ECS::Entity getID() const;
 
 	void setParent(ObjPtr p_parent);
 	void setParentInPos(std::shared_ptr<Object> _parent, int pos);
@@ -85,7 +85,7 @@ public:
 
 	[[nodiscard]] bool hasParent() const;
 	[[nodiscard]] ObjPtr getParent() const;
-	[[nodiscard]] ECS2::Entity getParentID() const;
+	[[nodiscard]] ECS::Entity getParentID() const;
 	std::span<ObjPtr> getChildren();
 
 	void markAsDestroy();
@@ -115,7 +115,6 @@ public:
 				instance.onEnable();
 				instance.onStart();
 			}
-			// ComponentManager::GetInstance().addComponent<T>(getID(), instance);
 			getWorld().getComponentManager()->addComponent<T>(getID(), std::move(instance));
 
 			auto component = getComponent<T>();
@@ -163,7 +162,6 @@ public:
 		}
 		result->onDestroy();
 		componentRemovedEvent.run(result);
-		// ComponentManager::GetInstance().removeComponent<T>(getID());
 		getWorld().getComponentManager()->removeComponents<T>(getID());
 		mComponents.erase(std::type_index(typeid(T)));
 		return true;
@@ -175,9 +173,6 @@ public:
 		}
 		static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 
-		// if (ComponentManager::GetInstance().checkComponent<T>(getID())) {
-		//	return ComponentManager::GetInstance().getComponent<T>(getID());
-		// }
 		if (getWorld().getComponentManager()->checkComponent<T>(getID())) {
 			return getWorld().getComponentManager()->getComponent<T>(getID());
 		}
@@ -190,9 +185,6 @@ public:
 		}
 		static_assert(std::is_base_of_v<ComponentBase, T>, "T should derive from Component");
 
-		// if (ComponentManager::GetInstance().checkComponent<T>(getID())) {
-		//	return ComponentManager::GetInstance().getComponentBase<T>(getID());
-		// }
 		if (getWorld().getComponentManager()->checkComponent<T>(getID())) {
 			return getWorld().getComponentManager()->getComponentBase<T>(getID());
 		}
@@ -201,8 +193,6 @@ public:
 	}
 
 	auto getComponents() const {
-		// return ComponentManager::GetInstance().getComponents(getID());
-		// return getWorld().getComponentManager()->getComponents(getID());
 		return mComponents;
 	}
 
@@ -233,12 +223,12 @@ public:
 	void setParentId(int _id);
 
 protected:
-	ECS2::World* mWorld = nullptr;
+	ECS::World* mWorld = nullptr;
 	bool mDeferred = false;
 	bool mDisposed = false;
 	bool mDisposing = false;
 	// Id_ id;
-	ECS2::Entity mEntity;
+	ECS::Entity mEntity;
 	std::string mName;
 	std::string mTag;
 

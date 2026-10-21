@@ -2,7 +2,7 @@
 
 #include "componentManager.h"
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 World::World() {
 	mComponentsManager = std::make_unique<ComponentManager>();
 	mSystemsManager = std::make_unique<SystemManager>(*this);

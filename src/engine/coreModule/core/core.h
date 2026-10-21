@@ -13,7 +13,7 @@ class NetworkRuntime;
 namespace IKIGAI::COROUTINE {
 class Scheduler;
 }
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class World;
 }
 
@@ -154,7 +154,7 @@ namespace CORE {
 		std::unique_ptr<TASK::TaskSystem> taskManger;
 		std::unique_ptr<COROUTINE::Scheduler> coroutineScheduler;
 		std::unique_ptr<EVENT::EventBroadcaster> eventBroadcaster;
-		std::unique_ptr<ECS2::World> world;
+		std::unique_ptr<ECS::World> world;
 #if USE_JSON_VIEWS && !defined(OCULUS)
 		std::unique_ptr<UI::ViewHost> viewHost;
 #endif

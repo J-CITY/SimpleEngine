@@ -1,8 +1,6 @@
 include_guard(GLOBAL)
 get_filename_component(IKIGAI_APPLICATION_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 if(NOT TARGET ArgParse::ArgParse)
-    include("${CMAKE_CURRENT_LIST_DIR}/ArgParse.cmake")
-    ikigai_prepare_argparse("${IKIGAI_APPLICATION_ROOT}/3rd/ArgParse")
     add_subdirectory("${IKIGAI_APPLICATION_ROOT}/3rd/ArgParse" "${CMAKE_CURRENT_BINARY_DIR}/3rd/ArgParse")
 endif()
 

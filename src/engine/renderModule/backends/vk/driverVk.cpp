@@ -34,7 +34,6 @@
 #include <set>
 #include <stdexcept>
 
-#include "debugMessanger.h"
 #include "frameBufferVk.h"
 #include "materialVk.h"
 #include "modelVk.h"

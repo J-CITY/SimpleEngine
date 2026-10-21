@@ -4,7 +4,7 @@
 using namespace IKIGAI::ECS;
 
 IKIGAI::ECS::ComponentBase::ComponentBase(UTILS::Ref<ECS::Object> obj)
-	: IKIGAI::ECS2::Component()
+	: IKIGAI::ECS::Component()
 	, obj(obj) { }
 
 IKIGAI::ECS::ComponentBase::~ComponentBase() {

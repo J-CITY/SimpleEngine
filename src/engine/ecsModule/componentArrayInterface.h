@@ -3,12 +3,11 @@
 #include "utilsModule/weakPtr.h"
 #include <memory>
 
-
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class Component;
 }
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class ComponentArrayInterface {
 public:
 	virtual ~ComponentArrayInterface() = default;
@@ -17,6 +16,6 @@ public:
 	[[nodiscard]] virtual int getSize() const = 0;
 	virtual Entity getEntity(size_t index) = 0;
 	[[nodiscard]] virtual bool contains(Entity entity) const = 0;
-	virtual UTILS::WeakPtr<ECS2::Component> getComponentBasePtr(Entity entity) = 0;
+	virtual UTILS::WeakPtr<ECS::Component> getComponentBasePtr(Entity entity) = 0;
 };
 }

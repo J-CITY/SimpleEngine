@@ -6,8 +6,7 @@
 #include <string>
 #include <vector>
 
-
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 
 class Signature {
 public:
@@ -111,8 +110,9 @@ public:
 			// If other has more words, check if those extra words are non-zero.
 			// If they are, then this cannot contain other.
 			for (size_t i = mBits.size(); i < other.mBits.size(); ++i) {
-				if (other.mBits[i] != 0)
+				if (other.mBits[i] != 0) {
 					return false;
+				}
 			}
 		}
 
@@ -134,7 +134,7 @@ public:
 		for (auto word : mBits) {
 			// Combine hash using a common pattern (e.g. from boost::hash_combine)
 			// seed ^= hash(word) + 0x9e3779b9 + (seed<<6) + (seed>>2)
-			seed ^= std::hash<Word> { }(word) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			seed ^= std::hash<Word> {}(word) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 		}
 		return seed;
 	}
@@ -151,8 +151,8 @@ private:
 }
 
 namespace std {
-template <> struct hash<IKIGAI::ECS2::Signature> {
-	size_t operator()(const IKIGAI::ECS2::Signature& s) const {
+template <> struct hash<IKIGAI::ECS::Signature> {
+	size_t operator()(const IKIGAI::ECS::Signature& s) const {
 		return s.hash();
 	}
 };

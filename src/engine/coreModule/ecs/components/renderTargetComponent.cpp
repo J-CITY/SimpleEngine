@@ -16,7 +16,7 @@ RenderTargetComponent::RenderTargetComponent(UTILS::Ref<ECS::Object> _obj, const
 	: RenderTargetComponent(_obj) {
 	mFlowType = descriptor.flowType;
 	mFrameBufferName = descriptor.frameBufferName;
-	mCameraObjectId = ECS2::Entity(ECS2::Entity::ID(descriptor.cameraObjectId));
+	mCameraObjectId = ECS::Entity(ECS::Entity::ID(descriptor.cameraObjectId));
 }
 
 void RenderTargetComponent::setName(const std::string& name) {

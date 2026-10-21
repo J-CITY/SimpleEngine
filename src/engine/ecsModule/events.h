@@ -3,8 +3,7 @@
 #include <typeindex>
 #include <utilsModule/event.h>
 
-
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 
 template <typename T> struct OnAdd {
 	Entity entity;

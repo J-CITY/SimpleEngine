@@ -5,7 +5,7 @@
 #include "utilsModule/idGenerator.h"
 #include <string>
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 class SystemManager;
 class ComponentManager;
 template <typename... Components> class SystemBuilder;
@@ -33,7 +33,7 @@ private:
 #include "systemBuilder.h"
 #include "systemManager.h"
 
-namespace IKIGAI::ECS2 {
+namespace IKIGAI::ECS {
 template <typename... T> SystemBuilder<T...> World::system(std::string name) {
 	return SystemBuilder<T...>(*getSystemManager(), name);
 }
